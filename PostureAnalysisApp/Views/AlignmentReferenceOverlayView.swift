@@ -70,6 +70,22 @@ public struct AlignmentReferenceOverlayView: View {
 
                     context.fill(torsoPath, with: .color(fillColor))
                     context.stroke(torsoPath, with: .color(strokeColor.opacity(0.6)), lineWidth: 2)
+                } else {
+                    // A side-view pose commonly contains only the visible shoulder and hip.
+                    for (shoulder, hip) in [(LandmarkType.leftShoulder, LandmarkType.leftHip), (.rightShoulder, .rightHip)] {
+                        if let shoulderPoint = joints[shoulder], let hipPoint = joints[hip] {
+                            var torsoPath = Path()
+                            torsoPath.move(to: convertPixelPoint(shoulderPoint))
+                            torsoPath.addLine(to: convertPixelPoint(hipPoint))
+                            context.stroke(
+                                torsoPath,
+                                with: .color(fillColor),
+                                style: StrokeStyle(lineWidth: fitRect.width * 0.10, lineCap: .round)
+                            )
+                            context.stroke(torsoPath, with: .color(strokeColor.opacity(0.4)), lineWidth: 1.5)
+                            break
+                        }
+                    }
                 }
 
                 // Head ellipse

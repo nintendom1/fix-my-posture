@@ -1,19 +1,13 @@
 import Foundation
 import CoreGraphics
 
-/// Result structure returned by `ReferencePoseGenerator` containing the final static reference pose and precomputed motion sequence.
 public struct ReferenceGenerationResult {
     public let staticReference: ReferencePose
     public let motionSequence: [ReferencePose]
     public let isReplayAvailable: Bool
     public let unavailabilityReason: String?
 
-    public init(
-        staticReference: ReferencePose,
-        motionSequence: [ReferencePose] = [],
-        isReplayAvailable: Bool = true,
-        unavailabilityReason: String? = nil
-    ) {
+    public init(staticReference: ReferencePose, motionSequence: [ReferencePose] = [], isReplayAvailable: Bool = true, unavailabilityReason: String? = nil) {
         self.staticReference = staticReference
         self.motionSequence = motionSequence
         self.isReplayAvailable = isReplayAvailable
@@ -21,585 +15,482 @@ public struct ReferenceGenerationResult {
     }
 }
 
-/// Estimator-independent subsystem that generates alignment reference geometry and constrained motion sequences.
+/// Generates an illustrative pose in image-pixel space while preserving observed
+/// proportions and any available foot anchors.
 public final class ReferencePoseGenerator {
+    private let confidenceThreshold = 0.3
+    private let lengthTolerance: CGFloat = 0.001
 
     public init() {}
 
-    /// Generates reference geometry and intermediate motion steps from an observed body pose, posture view, and reference profile.
-    public func generateReference(
-        for observedPose: BodyPose,
-        view: PostureView,
-        profile: PostureReferenceProfile
-    ) -> ReferenceGenerationResult {
-        let width = observedPose.imageWidth
-        let height = observedPose.imageHeight
+    public func generateReference(for pose: BodyPose, view: PostureView, profile: PostureReferenceProfile) -> ReferenceGenerationResult {
+        guard view != .uncertain else { return unavailable("Choose a front or side view to display an alignment reference.") }
+        guard pose.imageWidth > 0, pose.imageHeight > 0 else { return unavailable("The image dimensions are unavailable for alignment reference.") }
 
-        guard width > 0 && height > 0 && !observedPose.landmarks.isEmpty else {
-            let emptyRef = ReferencePose(unavailabilityReason: "No body landmarks detected for alignment reference.")
-            return ReferenceGenerationResult(staticReference: emptyRef, isReplayAvailable: false, unavailabilityReason: emptyRef.unavailabilityReason)
+        let observed = validPoints(in: pose)
+        guard !observed.isEmpty else { return unavailable("No reliable body landmarks were detected for alignment reference.") }
+        let regions = supportedRegions(in: observed, view: view)
+        guard !regions.isEmpty else { return unavailable("Insufficient reliable landmarks to generate alignment reference.") }
+        let rules = Dictionary(profile.rules(for: view).map { ($0.measurementID, $0) }, uniquingKeysWith: { _, latest in latest })
+        guard !rules.isEmpty else { return unavailable("This profile has no alignment rules for the selected view.") }
+
+        func solve(_ fraction: CGFloat) -> [LandmarkType: CGPoint]? {
+            solvePose(observed: observed, regions: regions, view: view, rules: rules, imageWidth: pose.imageWidth, fraction: fraction)
         }
 
-        // 1. Extract valid points meeting confidence threshold (>=0.3 or manually corrected) in pixel coordinates
-        let points = extractValidPixelPoints(from: observedPose)
+        // Rules are soft objectives. Find the strongest correction that remains
+        // feasible rather than throwing away the whole reference.
+        var feasibleFraction: CGFloat = 1
+        var finalPoints = solve(1)
+        if finalPoints == nil || !validLengths(original: observed, solved: finalPoints!, view: view) {
+            var low: CGFloat = 0
+            var high: CGFloat = 1
+            for _ in 0..<24 {
+                let candidate = (low + high) / 2
+                if let points = solve(candidate), validLengths(original: observed, solved: points, view: view) {
+                    low = candidate
+                } else {
+                    high = candidate
+                }
+            }
+            feasibleFraction = low
+            finalPoints = solve(low)
+        }
+        guard let finalPoints else { return unavailable("The available landmarks could not produce stable reference geometry.") }
 
-        // 2. Evaluate supported body regions
-        let supportedRegions = evaluateSupportedRegions(points: points, view: view)
-
-        if supportedRegions.isEmpty {
-            let emptyRef = ReferencePose(unavailabilityReason: "Insufficient key landmarks to generate alignment reference.")
-            return ReferenceGenerationResult(staticReference: emptyRef, isReplayAvailable: false, unavailabilityReason: emptyRef.unavailabilityReason)
+        let partialReason = partialReason(regions: regions)
+        let captions = achievedChanges(original: observed, solved: finalPoints, view: view, rules: rules, regions: regions)
+        let staticReference = makeReference(points: finalPoints, regions: regions, view: view, captions: captions, reason: partialReason)
+        guard feasibleFraction > 0.001, moved(from: observed, to: finalPoints) else {
+            let reason = partialReason ?? "The measured pose is already within this profile's reference targets."
+            return ReferenceGenerationResult(staticReference: staticReference, isReplayAvailable: false, unavailabilityReason: reason)
         }
 
-        // 3. Generate static reference pose (t = 1.0)
-        guard let finalTarget = solveConstrainedPose(
-            observedPoints: points,
-            supportedRegions: supportedRegions,
-            view: view,
-            fraction: 1.0
-        ) else {
-            let emptyRef = ReferencePose(unavailabilityReason: "Constraint solver could not produce a valid reference geometry.")
-            return ReferenceGenerationResult(staticReference: emptyRef, isReplayAvailable: false, unavailabilityReason: emptyRef.unavailabilityReason)
-        }
-
-        // Validate final target segment lengths against original
-        guard validateSegmentLengths(original: points, solved: finalTarget, view: view) else {
-            let emptyRef = ReferencePose(unavailabilityReason: "Reference geometry violated segment length constraints.")
-            return ReferenceGenerationResult(staticReference: emptyRef, isReplayAvailable: false, unavailabilityReason: emptyRef.unavailabilityReason)
-        }
-
-        // 4. Precompute intermediate motion sequence for 2-second animation (10 steps)
+        // Start with the measured pose so replay never jumps to a partly-corrected frame.
         var sequence: [ReferencePose] = []
-        var replayFailed = false
-
-        let steps = 10
-        for i in 1...steps {
-            let fraction = Double(i) / Double(steps)
-            if let solvedStep = solveConstrainedPose(observedPoints: points, supportedRegions: supportedRegions, view: view, fraction: fraction),
-               validateSegmentLengths(original: points, solved: solvedStep, view: view) {
-                let refStep = buildReferencePose(
-                    jointLocations: solvedStep,
-                    supportedRegions: supportedRegions,
-                    view: view,
-                    achievedChanges: buildAchievedChanges(original: points, solved: solvedStep, view: view, supportedRegions: supportedRegions)
-                )
-                sequence.append(refStep)
-            } else {
-                replayFailed = true
-                break
+        let frameCount = 31
+        for index in 0..<frameCount {
+            let fraction = feasibleFraction * CGFloat(index) / CGFloat(frameCount - 1)
+            guard let frame = solve(fraction), validLengths(original: observed, solved: frame, view: view) else {
+                return ReferenceGenerationResult(staticReference: staticReference, isReplayAvailable: false, unavailabilityReason: "Replay is unavailable because an intermediate pose was unstable.")
             }
+            sequence.append(makeReference(points: frame, regions: regions, view: view, captions: [], reason: partialReason))
         }
+        return ReferenceGenerationResult(staticReference: staticReference, motionSequence: sequence, isReplayAvailable: true, unavailabilityReason: partialReason)
+    }
 
-        let captions = buildAchievedChanges(
-            original: points,
-            solved: finalTarget,
-            view: view,
-            supportedRegions: supportedRegions
-        )
+    private func unavailable(_ reason: String) -> ReferenceGenerationResult {
+        let reference = ReferencePose(unavailabilityReason: reason)
+        return ReferenceGenerationResult(staticReference: reference, isReplayAvailable: false, unavailabilityReason: reason)
+    }
 
-        let staticRef = buildReferencePose(
-            jointLocations: finalTarget,
-            supportedRegions: supportedRegions,
-            view: view,
-            achievedChanges: captions
-        )
-
-        if replayFailed {
-            return ReferenceGenerationResult(
-                staticReference: staticRef,
-                motionSequence: [],
-                isReplayAvailable: false,
-                unavailabilityReason: "Replay animation unavailable due to motion constraint bounds."
-            )
-        } else {
-            return ReferenceGenerationResult(
-                staticReference: staticRef,
-                motionSequence: sequence,
-                isReplayAvailable: true,
-                unavailabilityReason: nil
-            )
+    private func validPoints(in pose: BodyPose) -> [LandmarkType: CGPoint] {
+        pose.landmarks.reduce(into: [:]) { output, item in
+            if item.value.confidence >= confidenceThreshold || item.value.isManuallyCorrected { output[item.key] = item.value.imageLocation }
         }
     }
 
-    // MARK: - Private Helpers
-
-    private func extractValidPixelPoints(from pose: BodyPose) -> [LandmarkType: CGPoint] {
-        var points: [LandmarkType: CGPoint] = [:]
-        for (type, lm) in pose.landmarks {
-            if lm.confidence >= 0.3 || lm.isManuallyCorrected {
-                points[type] = lm.imageLocation
-            }
-        }
-        return points
-    }
-
-    private func evaluateSupportedRegions(points: [LandmarkType: CGPoint], view: PostureView) -> Set<BodyRegion> {
+    private func supportedRegions(in points: [LandmarkType: CGPoint], view: PostureView) -> Set<BodyRegion> {
         var regions: Set<BodyRegion> = []
-
         switch view {
         case .front:
-            if points[.leftAnkle] != nil && points[.rightAnkle] != nil && points[.leftHip] != nil && points[.rightHip] != nil {
-                regions.insert(.legs)
-            }
-            if points[.leftShoulder] != nil && points[.rightShoulder] != nil && points[.leftHip] != nil && points[.rightHip] != nil {
-                regions.insert(.torso)
-            }
-            if points[.neck] != nil && (points[.nose] != nil || points[.leftEye] != nil || points[.rightEye] != nil || points[.leftEar] != nil || points[.rightEar] != nil) {
-                regions.insert(.head)
-            }
-            if points[.leftShoulder] != nil && points[.rightShoulder] != nil {
-                regions.insert(.arms)
-            }
-
-        case .leftSide:
-            if points[.leftAnkle] != nil && points[.leftKnee] != nil && points[.leftHip] != nil {
-                regions.insert(.legs)
-            }
-            if points[.leftHip] != nil && points[.leftShoulder] != nil {
-                regions.insert(.torso)
-            }
-            if (points[.leftEar] != nil || points[.nose] != nil) && (points[.leftShoulder] != nil || points[.neck] != nil) {
-                regions.insert(.head)
-            }
-            if points[.leftShoulder] != nil {
-                regions.insert(.arms)
-            }
-
-        case .rightSide:
-            if points[.rightAnkle] != nil && points[.rightKnee] != nil && points[.rightHip] != nil {
-                regions.insert(.legs)
-            }
-            if points[.rightHip] != nil && points[.rightShoulder] != nil {
-                regions.insert(.torso)
-            }
-            if (points[.rightEar] != nil || points[.nose] != nil) && (points[.rightShoulder] != nil || points[.neck] != nil) {
-                regions.insert(.head)
-            }
-            if points[.rightShoulder] != nil {
-                regions.insert(.arms)
-            }
+            if has(points, .leftHip, .rightHip), (has(points, .leftKnee, .leftAnkle) || has(points, .rightKnee, .rightAnkle)) { regions.insert(.legs) }
+            if has(points, .leftShoulder, .rightShoulder, .leftHip, .rightHip) { regions.insert(.torso) }
+            if points[.neck] != nil, [.nose, .leftEye, .rightEye, .leftEar, .rightEar].contains(where: { points[$0] != nil }) { regions.insert(.head) }
+            if points[.leftShoulder] != nil || points[.rightShoulder] != nil { regions.insert(.arms) }
+        case .leftSide, .rightSide:
+            let keys = sideKeys(view)
+            if has(points, keys.hip, keys.knee, keys.ankle) { regions.insert(.legs) }
+            if has(points, keys.hip, keys.shoulder) { regions.insert(.torso) }
+            if (points[keys.ear] != nil || points[.nose] != nil), (points[keys.shoulder] != nil || points[.neck] != nil) { regions.insert(.head) }
+            if points[keys.shoulder] != nil { regions.insert(.arms) }
+        case .uncertain:
+            break
         }
-
         return regions
     }
 
-    // MARK: - Constrained Geometry Solver
+    private func has(_ points: [LandmarkType: CGPoint], _ types: LandmarkType...) -> Bool { types.allSatisfy { points[$0] != nil } }
 
-    private func solveConstrainedPose(
-        observedPoints: [LandmarkType: CGPoint],
-        supportedRegions: Set<BodyRegion>,
-        view: PostureView,
-        fraction: Double
-    ) -> [LandmarkType: CGPoint]? {
-        var solved = observedPoints
+    private struct SideKeys {
+        let ankle: LandmarkType, knee: LandmarkType, hip: LandmarkType, shoulder: LandmarkType
+        let ear: LandmarkType, elbow: LandmarkType, wrist: LandmarkType
+    }
 
+    private func sideKeys(_ view: PostureView) -> SideKeys {
+        view == .rightSide
+            ? SideKeys(ankle: .rightAnkle, knee: .rightKnee, hip: .rightHip, shoulder: .rightShoulder, ear: .rightEar, elbow: .rightElbow, wrist: .rightWrist)
+            : SideKeys(ankle: .leftAnkle, knee: .leftKnee, hip: .leftHip, shoulder: .leftShoulder, ear: .leftEar, elbow: .leftElbow, wrist: .leftWrist)
+    }
+
+    private func solvePose(observed: [LandmarkType: CGPoint], regions: Set<BodyRegion>, view: PostureView, rules: [MeasurementID: TargetAlignmentRule], imageWidth: CGFloat, fraction: CGFloat) -> [LandmarkType: CGPoint]? {
+        var solved = observed
+        let succeeded: Bool
         switch view {
         case .front:
-            solveFrontView(solved: &solved, observed: observedPoints, supportedRegions: supportedRegions, fraction: fraction)
-        case .leftSide:
-            solveSideView(solved: &solved, observed: observedPoints, side: .left, supportedRegions: supportedRegions, fraction: fraction)
-        case .rightSide:
-            solveSideView(solved: &solved, observed: observedPoints, side: .right, supportedRegions: supportedRegions, fraction: fraction)
+            succeeded = solveFront(&solved, observed: observed, regions: regions, rules: rules, imageWidth: imageWidth, fraction: fraction)
+        case .leftSide, .rightSide:
+            succeeded = solveSide(&solved, observed: observed, regions: regions, rules: rules, view: view, imageWidth: imageWidth, fraction: fraction)
+        case .uncertain:
+            return nil
         }
-
-        return solved
+        return succeeded && solved.values.allSatisfy({ $0.x.isFinite && $0.y.isFinite }) ? solved : nil
     }
 
-    private enum Side { case left, right }
+    private func solveFront(_ solved: inout [LandmarkType: CGPoint], observed: [LandmarkType: CGPoint], regions: Set<BodyRegion>, rules: [MeasurementID: TargetAlignmentRule], imageWidth: CGFloat, fraction: CGFloat) -> Bool {
+        let ankles = midpoint(observed[.leftAnkle], observed[.rightAnkle])
+        let oldHips = midpoint(observed[.leftHip], observed[.rightHip])
+        let oldShoulders = midpoint(observed[.leftShoulder], observed[.rightShoulder])
 
-    private func solveFrontView(
-        solved: inout [LandmarkType: CGPoint],
-        observed: [LandmarkType: CGPoint],
-        supportedRegions: Set<BodyRegion>,
-        fraction: Double
-    ) {
-        guard let lAnkle = observed[.leftAnkle], let rAnkle = observed[.rightAnkle] else { return }
-        let ankleMidX = (lAnkle.x + rAnkle.x) / 2.0
-
-        if supportedRegions.contains(.torso),
-           let lHipObs = observed[.leftHip], let rHipObs = observed[.rightHip],
-           let lShObs = observed[.leftShoulder], let rShObs = observed[.rightShoulder] {
-
-            let hipWidth = hypot(rHipObs.x - lHipObs.x, rHipObs.y - lHipObs.y)
-            let shWidth = hypot(rShObs.x - lShObs.x, rShObs.y - lShObs.y)
-
-            let targetHipY = (lHipObs.y + rHipObs.y) / 2.0
-            let targetHipCenterX = ankleMidX
-
-            let currentHipCenterX = (lHipObs.x + rHipObs.x) / 2.0
-            let currentHipCenterY = (lHipObs.y + rHipObs.y) / 2.0
-
-            let newHipCenterX = currentHipCenterX + (targetHipCenterX - currentHipCenterX) * fraction
-            let newHipCenterY = currentHipCenterY + (targetHipY - currentHipCenterY) * fraction
-
-            let newLHip = CGPoint(x: newHipCenterX - hipWidth / 2.0, y: newHipCenterY)
-            let newRHip = CGPoint(x: newHipCenterX + hipWidth / 2.0, y: newHipCenterY)
-
-            solved[.leftHip] = newLHip
-            solved[.rightHip] = newRHip
-
-            let targetShY = (lShObs.y + rShObs.y) / 2.0
-            let targetShCenterX = ankleMidX
-
-            let currentShCenterX = (lShObs.x + rShObs.x) / 2.0
-            let currentShCenterY = (lShObs.y + rShObs.y) / 2.0
-
-            let newShCenterX = currentShCenterX + (targetShCenterX - currentShCenterX) * fraction
-            let newShCenterY = currentShCenterY + (targetShY - currentShCenterY) * fraction
-
-            let newLSh = CGPoint(x: newShCenterX - shWidth / 2.0, y: newShCenterY)
-            let newRSh = CGPoint(x: newShCenterX + shWidth / 2.0, y: newShCenterY)
-
-            solved[.leftShoulder] = newLSh
-            solved[.rightShoulder] = newRSh
-
-            if let neckObs = observed[.neck] {
-                let neckOffset = subtractPoints(neckObs, CGPoint(x: currentShCenterX, y: currentShCenterY))
-                solved[.neck] = addPoints(CGPoint(x: newShCenterX, y: newShCenterY), neckOffset)
+        if regions.contains(.torso), let lh = observed[.leftHip], let rh = observed[.rightHip], let ls = observed[.leftShoulder], let rs = observed[.rightShoulder], let hipCenterObserved = oldHips, let shoulderCenterObserved = oldShoulders {
+            var hipCenter = hipCenterObserved
+            var shoulderCenter = shoulderCenterObserved
+            if let ankles, let rule = rules[.bodyCenterlineDeviation] {
+                hipCenter.x = lerp(hipCenter.x, ankles.x + CGFloat(rule.targetValue) * imageWidth / 100, fraction)
             }
-            if let rootObs = observed[.root] {
-                let rootOffset = subtractPoints(rootObs, CGPoint(x: currentHipCenterX, y: currentHipCenterY))
-                solved[.root] = addPoints(CGPoint(x: newHipCenterX, y: newHipCenterY), rootOffset)
+            let hipAngle = targetLineDegrees(rule: rules[.hipLineAngle], first: lh, second: rh)
+            solved[.leftHip] = rotatePair(lh, other: rh, newCenter: hipCenter, targetDegrees: hipAngle, fraction: fraction)
+            solved[.rightHip] = rotatePair(rh, other: lh, newCenter: hipCenter, targetDegrees: hipAngle, fraction: fraction)
+
+            if let rule = rules[.torsoLateralDeviation], let newHips = midpoint(solved[.leftHip], solved[.rightHip]) {
+                let vertical = abs(shoulderCenter.y - newHips.y)
+                let targetX = newHips.x + tan(CGFloat(rule.targetValue) * .pi / 180) * vertical
+                shoulderCenter.x = lerp(shoulderCenter.x, targetX, fraction)
+            } else if let ankles, let rule = rules[.bodyCenterlineDeviation] {
+                shoulderCenter.x = lerp(shoulderCenter.x, ankles.x + CGFloat(rule.targetValue) * imageWidth / 100, fraction)
             }
+            let shoulderAngle = targetLineDegrees(rule: rules[.shoulderLineAngle], first: ls, second: rs)
+            let desiredLeft = rotatePair(ls, other: rs, newCenter: shoulderCenter, targetDegrees: shoulderAngle, fraction: fraction)
+            let desiredRight = rotatePair(rs, other: ls, newCenter: shoulderCenter, targetDegrees: shoulderAngle, fraction: fraction)
+            guard let newLeftHip = solved[.leftHip], let newRightHip = solved[.rightHip],
+                  let shoulders = constrainedShoulders(
+                    leftHip: newLeftHip,
+                    rightHip: newRightHip,
+                    leftTorsoLength: distance(lh, ls),
+                    rightTorsoLength: distance(rh, rs),
+                    shoulderWidth: distance(ls, rs),
+                    desiredLeft: desiredLeft,
+                    desiredRight: desiredRight,
+                    observedLeft: ls,
+                    observedRight: rs,
+                    fraction: fraction
+                  ) else { return false }
+            solved[.leftShoulder] = shoulders.0
+            solved[.rightShoulder] = shoulders.1
+            shoulderCenter = (shoulders.0 + shoulders.1) / 2
+            shift(.neck, solved: &solved, observed: observed, offset: shoulderCenter - shoulderCenterObserved)
+            shift(.root, solved: &solved, observed: observed, offset: hipCenter - hipCenterObserved)
         }
 
-        if supportedRegions.contains(.legs),
-           let newLHip = solved[.leftHip], let newRHip = solved[.rightHip] {
-
-            if let lKneeObs = observed[.leftKnee], let lHipObs = observed[.leftHip] {
-                let lenHipKnee = hypot(lKneeObs.x - lHipObs.x, lKneeObs.y - lHipObs.y)
-                let lenKneeAnkle = hypot(lAnkle.x - lKneeObs.x, lAnkle.y - lKneeObs.y)
-                let solvedLKnee = solveKneePosition(hip: newLHip, ankle: lAnkle, lenHipKnee: lenHipKnee, lenKneeAnkle: lenKneeAnkle, observedKnee: lKneeObs, fraction: fraction)
-                solved[.leftKnee] = solvedLKnee
-            }
-
-            if let rKneeObs = observed[.rightKnee], let rHipObs = observed[.rightHip] {
-                let lenHipKnee = hypot(rKneeObs.x - rHipObs.x, rKneeObs.y - rHipObs.y)
-                let lenKneeAnkle = hypot(rAnkle.x - rKneeObs.x, rAnkle.y - rKneeObs.y)
-                let solvedRKnee = solveKneePosition(hip: newRHip, ankle: rAnkle, lenHipKnee: lenHipKnee, lenKneeAnkle: lenKneeAnkle, observedKnee: rKneeObs, fraction: fraction)
-                solved[.rightKnee] = solvedRKnee
-            }
-        }
-
-        if supportedRegions.contains(.head), let neckSolved = solved[.neck] ?? solved[.leftShoulder] {
-            let headPoints: [LandmarkType] = [.nose, .leftEye, .rightEye, .leftEar, .rightEar]
-            let referenceHeadOrigin = observed[.neck] ?? observed[.leftShoulder] ?? .zero
-
-            let headShift = subtractPoints(neckSolved, referenceHeadOrigin)
-
-            var eyeAngleCorrection: CGFloat = 0.0
-            if let lEye = observed[.leftEye], let rEye = observed[.rightEye] {
-                let currentAngle = atan2(rEye.y - lEye.y, rEye.x - lEye.x)
-                eyeAngleCorrection = -currentAngle * CGFloat(fraction)
-            }
-
-            let headCenterObs: CGPoint
-            if let nose = observed[.nose] { headCenterObs = nose }
-            else if let lEye = observed[.leftEye], let rEye = observed[.rightEye] { headCenterObs = CGPoint(x: (lEye.x + rEye.x)/2, y: (lEye.y + rEye.y)/2) }
-            else { headCenterObs = referenceHeadOrigin }
-
-            for hPt in headPoints {
-                if let obsPt = observed[hPt] {
-                    var pt = addPoints(obsPt, headShift)
-                    if eyeAngleCorrection != 0 {
-                        pt = rotatePoint(pt, around: addPoints(headCenterObs, headShift), by: eyeAngleCorrection)
-                    }
-                    let dxToCenter = (ankleMidX - (headCenterObs.x + headShift.x)) * CGFloat(fraction)
-                    pt.x += dxToCenter
-                    solved[hPt] = pt
+        if regions.contains(.legs) {
+            let ankleCenter = midpoint(observed[.leftAnkle], observed[.rightAnkle])
+            let ankleWidth = observed[.leftAnkle].flatMap { left in observed[.rightAnkle].map { distance(left, $0) } }
+            for (hipKey, kneeKey, ankleKey) in [(LandmarkType.leftHip, LandmarkType.leftKnee, LandmarkType.leftAnkle), (.rightHip, .rightKnee, .rightAnkle)] {
+                guard let hip = solved[hipKey], let oldHip = observed[hipKey], let oldKnee = observed[kneeKey], let ankle = observed[ankleKey] else { continue }
+                let thigh = distance(oldHip, oldKnee), shin = distance(oldKnee, ankle)
+                var target = hip + (ankle - hip) * (thigh / max(thigh + shin, 0.001))
+                if let rule = rules[.kneeAnkleStanceRatio], let ankleCenter, let ankleWidth {
+                    let sideSign: CGFloat = ankle.x < ankleCenter.x ? -1 : 1
+                    target.x = ankleCenter.x + sideSign * ankleWidth * CGFloat(rule.targetValue) / 2
                 }
+                let desired = rules[.kneeAnkleStanceRatio] != nil ? lerp(oldKnee, target, fraction) : oldKnee
+                guard let knee = circlePoint(center1: hip, radius1: thigh, center2: ankle, radius2: shin, desired: desired) else { return false }
+                solved[kneeKey] = knee
             }
         }
 
-        if supportedRegions.contains(.arms) {
-            if let lShObs = observed[.leftShoulder], let lShNew = solved[.leftShoulder] {
-                let shift = subtractPoints(lShNew, lShObs)
-                if let lElbowObs = observed[.leftElbow] { solved[.leftElbow] = addPoints(lElbowObs, shift) }
-                if let lWristObs = observed[.leftWrist] { solved[.leftWrist] = addPoints(lWristObs, shift) }
+        if regions.contains(.head), let oldOrigin = observed[.neck], let newOrigin = solved[.neck] {
+            let headTypes: [LandmarkType] = [.nose, .leftEye, .rightEye, .leftEar, .rightEar]
+            let center = headCenter(observed) ?? oldOrigin
+            var angle: CGFloat = 0
+            if let rule = rules[.headTiltAngle], let pair = firstPair(observed, [(.leftEye, .rightEye), (.leftEar, .rightEar)]) {
+                let delta = shortestRotation(from: lineRadians(pair.0, pair.1), to: CGFloat(rule.targetValue) * .pi / 180)
+                if abs(delta * 180 / .pi) > CGFloat(rule.tolerance) { angle = delta * fraction }
             }
-            if let rShObs = observed[.rightShoulder], let rShNew = solved[.rightShoulder] {
-                let shift = subtractPoints(rShNew, rShObs)
-                if let rElbowObs = observed[.rightElbow] { solved[.rightElbow] = addPoints(rElbowObs, shift) }
-                if let rWristObs = observed[.rightWrist] { solved[.rightWrist] = addPoints(rWristObs, shift) }
+            var translation = newOrigin - oldOrigin
+            if let ankles, let rule = rules[.bodyCenterlineDeviation] {
+                let targetX = ankles.x + CGFloat(rule.targetValue) * imageWidth / 100
+                translation.x += (targetX - (center.x + translation.x)) * fraction
             }
+            for type in headTypes { if let point = observed[type] { solved[type] = rotate(point, center: center, angle: angle) + translation } }
         }
-    }
-
-    private func solveSideView(
-        solved: inout [LandmarkType: CGPoint],
-        observed: [LandmarkType: CGPoint],
-        side: Side,
-        supportedRegions: Set<BodyRegion>,
-        fraction: Double
-    ) {
-        let ankleKey: LandmarkType = (side == .left) ? .leftAnkle : .rightAnkle
-        let kneeKey: LandmarkType = (side == .left) ? .leftKnee : .rightKnee
-        let hipKey: LandmarkType = (side == .left) ? .leftHip : .rightHip
-        let shoulderKey: LandmarkType = (side == .left) ? .leftShoulder : .rightShoulder
-        let earKey: LandmarkType = (side == .left) ? .leftEar : .rightEar
-
-        guard let anklePt = observed[ankleKey] else { return }
-
-        solved[ankleKey] = anklePt
-        let targetX = anklePt.x
-
-        if let hipObs = observed[hipKey] {
-            let lenHipAnkle = hypot(hipObs.x - anklePt.x, hipObs.y - anklePt.y)
-
-            let currentHipX = hipObs.x
-            let newHipX = currentHipX + (targetX - currentHipX) * CGFloat(fraction)
-
-            let dx = abs(newHipX - anklePt.x)
-            let dy = sqrt(max(0, lenHipAnkle * lenHipAnkle - dx * dx))
-            let newHipY = anklePt.y - dy
-
-            let newHip = CGPoint(x: newHipX, y: newHipY)
-            solved[hipKey] = newHip
-
-            if supportedRegions.contains(.legs), let kneeObs = observed[kneeKey] {
-                let lenHipKnee = hypot(kneeObs.x - hipObs.x, kneeObs.y - hipObs.y)
-                let lenKneeAnkle = hypot(anklePt.x - kneeObs.x, anklePt.y - kneeObs.y)
-
-                let solvedKnee = solveKneePosition(hip: newHip, ankle: anklePt, lenHipKnee: lenHipKnee, lenKneeAnkle: lenKneeAnkle, observedKnee: kneeObs, fraction: fraction)
-                solved[kneeKey] = solvedKnee
-            }
-        }
-
-        if supportedRegions.contains(.torso), let hipNew = solved[hipKey], let shObs = observed[shoulderKey], let hipObs = observed[hipKey] {
-            let lenTorso = hypot(shObs.x - hipObs.x, shObs.y - hipObs.y)
-
-            let currentShX = shObs.x
-            let newShX = currentShX + (targetX - currentShX) * CGFloat(fraction)
-
-            let dx = abs(newShX - hipNew.x)
-            let dy = sqrt(max(0, lenTorso * lenTorso - dx * dx))
-            let newShY = hipNew.y - dy
-
-            let newSh = CGPoint(x: newShX, y: newShY)
-            solved[shoulderKey] = newSh
-
-            if let neckObs = observed[.neck] {
-                let neckShift = subtractPoints(newSh, shObs)
-                solved[.neck] = addPoints(neckObs, neckShift)
-            }
-        }
-
-        if supportedRegions.contains(.head), let shNew = solved[shoulderKey] ?? solved[hipKey], let shObs = observed[shoulderKey] ?? observed[hipKey] {
-            if let earObs = observed[earKey] {
-                let lenEarSh = hypot(earObs.x - shObs.x, earObs.y - shObs.y)
-                let newEarX = earObs.x + (targetX - earObs.x) * CGFloat(fraction)
-                let dx = abs(newEarX - shNew.x)
-                let dy = sqrt(max(0, lenEarSh * lenEarSh - dx * dx))
-                let newEarY = shNew.y - dy
-                solved[earKey] = CGPoint(x: newEarX, y: newEarY)
-            }
-
-            if let noseObs = observed[.nose] {
-                let shift = subtractPoints(shNew, shObs)
-                solved[.nose] = addPoints(noseObs, shift)
-            }
-        }
-
-        if supportedRegions.contains(.arms), let shObs = observed[shoulderKey], let shNew = solved[shoulderKey] {
-            let shift = subtractPoints(shNew, shObs)
-            let elbowKey: LandmarkType = (side == .left) ? .leftElbow : .rightElbow
-            let wristKey: LandmarkType = (side == .left) ? .leftWrist : .rightWrist
-
-            if let elbowObs = observed[elbowKey] { solved[elbowKey] = addPoints(elbowObs, shift) }
-            if let wristObs = observed[wristKey] { solved[wristKey] = addPoints(wristObs, shift) }
-        }
-    }
-
-    private func solveKneePosition(
-        hip: CGPoint,
-        ankle: CGPoint,
-        lenHipKnee: CGFloat,
-        lenKneeAnkle: CGFloat,
-        observedKnee: CGPoint,
-        fraction: Double
-    ) -> CGPoint {
-        let d = hypot(ankle.x - hip.x, ankle.y - hip.y)
-        guard d > 0 else { return observedKnee }
-
-        let targetRatio = lenHipKnee / (lenHipKnee + lenKneeAnkle)
-        let straightKneeX = hip.x + (ankle.x - hip.x) * targetRatio
-        let straightKneeY = hip.y + (ankle.y - hip.y) * targetRatio
-
-        let targetKnee = CGPoint(x: straightKneeX, y: straightKneeY)
-
-        let curKneeX = observedKnee.x + (targetKnee.x - observedKnee.x) * CGFloat(fraction)
-        let curKneeY = observedKnee.y + (targetKnee.y - observedKnee.y) * CGFloat(fraction)
-
-        let vecH = CGPoint(x: curKneeX - hip.x, y: curKneeY - hip.y)
-        let distH = hypot(vecH.x, vecH.y)
-        if distH > 0 {
-            return CGPoint(
-                x: hip.x + (vecH.x / distH) * lenHipKnee,
-                y: hip.y + (vecH.y / distH) * lenHipKnee
-            )
-        }
-
-        return targetKnee
-    }
-
-    private func validateSegmentLengths(
-        original: [LandmarkType: CGPoint],
-        solved: [LandmarkType: CGPoint],
-        view: PostureView
-    ) -> Bool {
-        let maxToleranceRatio: CGFloat = 0.05
-
-        let pairsToValidate: [(LandmarkType, LandmarkType)]
-        switch view {
-        case .front:
-            pairsToValidate = [
-                (.leftShoulder, .rightShoulder),
-                (.leftHip, .rightHip),
-                (.leftHip, .leftKnee),
-                (.leftKnee, .leftAnkle),
-                (.rightHip, .rightKnee),
-                (.rightKnee, .rightAnkle),
-                (.leftShoulder, .leftHip),
-                (.rightShoulder, .rightHip)
-            ]
-        case .leftSide:
-            pairsToValidate = [
-                (.leftHip, .leftKnee),
-                (.leftKnee, .leftAnkle),
-                (.leftShoulder, .leftHip),
-                (.leftEar, .leftShoulder)
-            ]
-        case .rightSide:
-            pairsToValidate = [
-                (.rightHip, .rightKnee),
-                (.rightKnee, .rightAnkle),
-                (.rightShoulder, .rightHip),
-                (.rightEar, .rightShoulder)
-            ]
-        }
-
-        for (jA, jB) in pairsToValidate {
-            if let origA = original[jA], let origB = original[jB],
-               let solvA = solved[jA], let solvB = solved[jB] {
-                let origLen = hypot(origB.x - origA.x, origB.y - origA.y)
-                let solvLen = hypot(solvB.x - solvA.x, solvB.y - solvA.y)
-
-                if origLen > 5.0 {
-                    let diffRatio = abs(solvLen - origLen) / origLen
-                    if diffRatio > maxToleranceRatio {
-                        return false
-                    }
-                }
-            }
-        }
-
+        translateArms(solved: &solved, observed: observed)
         return true
     }
 
-    private func buildAchievedChanges(
-        original: [LandmarkType: CGPoint],
-        solved: [LandmarkType: CGPoint],
-        view: PostureView,
-        supportedRegions: Set<BodyRegion>
-    ) -> [String] {
-        var changes: [String] = []
+    private func solveSide(_ solved: inout [LandmarkType: CGPoint], observed: [LandmarkType: CGPoint], regions: Set<BodyRegion>, rules: [MeasurementID: TargetAlignmentRule], view: PostureView, imageWidth: CGFloat, fraction: CGFloat) -> Bool {
+        let keys = sideKeys(view)
+        let ankle = observed[keys.ankle]
+        let anchorX = ankle?.x ?? observed[keys.hip]?.x ?? observed[keys.shoulder]?.x
 
+        if regions.contains(.legs), let ankle, let oldHip = observed[keys.hip], let oldKnee = observed[keys.knee] {
+            let thigh = distance(oldHip, oldKnee), shin = distance(oldKnee, ankle)
+            let oldDirect = distance(oldHip, ankle)
+            var direct = oldDirect
+            if let rule = rules[.kneeJointAngle] {
+                let currentAngle = vertexDegrees(first: oldHip, vertex: oldKnee, third: ankle)
+                if abs(currentAngle - CGFloat(rule.targetValue)) > CGFloat(rule.tolerance) {
+                    let angle = lerp(currentAngle, CGFloat(rule.targetValue), fraction) * .pi / 180
+                    direct = sqrt(max(0, thigh * thigh + shin * shin - 2 * thigh * shin * cos(angle)))
+                }
+            }
+            var hip = oldHip
+            if rules[.hipKneeAlignmentAngle] != nil || rules[.kneeJointAngle] != nil || rules[.overallSagittalBodyLean] != nil {
+                let targetAngle = CGFloat(rules[.overallSagittalBodyLean]?.targetValue ?? 0) * .pi / 180
+                hip.x = lerp(hip.x, ankle.x + sin(targetAngle) * direct, fraction)
+                let dx = hip.x - ankle.x
+                guard abs(dx) <= direct else { return false }
+                hip.y = ankle.y - sqrt(max(0, direct * direct - dx * dx))
+            }
+            solved[keys.hip] = hip
+            var targetKnee = hip + (ankle - hip) * (thigh / max(thigh + shin, 0.001))
+            if let rule = rules[.hipKneeAlignmentAngle] {
+                let angle = CGFloat(rule.targetValue) * .pi / 180
+                targetKnee = CGPoint(x: hip.x + sin(angle) * thigh, y: hip.y + cos(angle) * thigh)
+            }
+            let wantsKneeChange = rules[.hipKneeAlignmentAngle] != nil || rules[.kneeJointAngle] != nil
+            guard let knee = circlePoint(center1: hip, radius1: thigh, center2: ankle, radius2: shin, desired: wantsKneeChange ? lerp(oldKnee, targetKnee, fraction) : oldKnee) else { return false }
+            solved[keys.knee] = knee
+        }
+
+        if regions.contains(.torso), let hip = solved[keys.hip], let oldHip = observed[keys.hip], let oldShoulder = observed[keys.shoulder] {
+            let length = distance(oldHip, oldShoulder)
+            var targetX = oldShoulder.x
+            if let rule = rules[.torsoInclinationAngle] {
+                let currentAngle = atan2(oldShoulder.x - oldHip.x, oldHip.y - oldShoulder.y) * 180 / .pi
+                if abs(currentAngle - CGFloat(rule.targetValue)) > CGFloat(rule.tolerance) {
+                    targetX = hip.x + sin(CGFloat(rule.targetValue) * .pi / 180) * length
+                }
+            }
+            else if let rule = rules[.overallSagittalBodyLean], let anchorX {
+                let topToAnchor = observed[keys.ankle].map { distance(oldShoulder, $0) } ?? length
+                targetX = anchorX + sin(CGFloat(rule.targetValue) * .pi / 180) * topToAnchor
+            }
+            let x = lerp(oldShoulder.x, targetX, fraction), dx = x - hip.x
+            guard abs(dx) <= length else { return false }
+            let shoulder = CGPoint(x: x, y: hip.y - sqrt(max(0, length * length - dx * dx)))
+            solved[keys.shoulder] = shoulder
+            shift(.neck, solved: &solved, observed: observed, offset: shoulder - oldShoulder)
+        }
+
+        if regions.contains(.head), let oldBase = observed[keys.shoulder] ?? observed[.neck], let newBase = solved[keys.shoulder] ?? solved[.neck] {
+            var translation = newBase - oldBase
+            if let anchor = observed[keys.ear] ?? observed[.nose], let rule = rules[.earShoulderHorizontalOffset] {
+                let currentOffset = (anchor.x - oldBase.x) / imageWidth * 100
+                if abs(currentOffset - CGFloat(rule.targetValue)) > CGFloat(rule.tolerance) {
+                    let targetX = newBase.x + CGFloat(rule.targetValue) * imageWidth / 100
+                    translation.x += (targetX - (anchor.x + translation.x)) * fraction
+                }
+            }
+            for type in [LandmarkType.nose, .leftEye, .rightEye, .leftEar, .rightEar] { if let point = observed[type] { solved[type] = point + translation } }
+        }
+        translateArms(solved: &solved, observed: observed, side: keys)
+        return true
+    }
+
+    private func rotatePair(_ point: CGPoint, other: CGPoint, newCenter: CGPoint, targetDegrees: CGFloat, fraction: CGFloat) -> CGPoint {
+        let center = (point + other) / 2
+        let rotation = shortestRotation(from: lineRadians(point, other), to: targetDegrees * .pi / 180) * fraction
+        return rotate(point, center: center, angle: rotation) + (newCenter - center)
+    }
+
+    private func shortestRotation(from: CGFloat, to: CGFloat) -> CGFloat {
+        var delta = to - from
+        while delta > .pi / 2 { delta -= .pi }
+        while delta < -.pi / 2 { delta += .pi }
+        return delta
+    }
+
+    private func targetLineDegrees(rule: TargetAlignmentRule?, first: CGPoint, second: CGPoint) -> CGFloat {
+        let current = lineRadians(first, second)
+        guard let rule else { return current * 180 / .pi }
+        let target = CGFloat(rule.targetValue) * .pi / 180
+        let error = shortestRotation(from: current, to: target)
+        return abs(error * 180 / .pi) <= CGFloat(rule.tolerance) ? current * 180 / .pi : CGFloat(rule.targetValue)
+    }
+
+    private func circlePoint(center1: CGPoint, radius1: CGFloat, center2: CGPoint, radius2: CGFloat, desired: CGPoint) -> CGPoint? {
+        let delta = center2 - center1, d = hypot(delta.x, delta.y)
+        guard d > 0.001, d <= radius1 + radius2 + 0.001, d >= abs(radius1 - radius2) - 0.001 else { return nil }
+        let a = (radius1 * radius1 - radius2 * radius2 + d * d) / (2 * d)
+        let h = sqrt(max(0, radius1 * radius1 - a * a)), unit = delta / d
+        let base = center1 + unit * a, perpendicular = CGPoint(x: -unit.y, y: unit.x) * h
+        let first = base + perpendicular, second = base - perpendicular
+        return distance(first, desired) <= distance(second, desired) ? first : second
+    }
+
+    /// Solves the four-bar torso linkage and selects the feasible arrangement
+    /// closest to the profile's desired shoulder line.
+    private func constrainedShoulders(
+        leftHip: CGPoint,
+        rightHip: CGPoint,
+        leftTorsoLength: CGFloat,
+        rightTorsoLength: CGFloat,
+        shoulderWidth: CGFloat,
+        desiredLeft: CGPoint,
+        desiredRight: CGPoint,
+        observedLeft: CGPoint,
+        observedRight: CGPoint,
+        fraction: CGFloat
+    ) -> (CGPoint, CGPoint)? {
+        if fraction == 0 { return (observedLeft, observedRight) }
+        var best: (CGPoint, CGPoint)?
+        var bestScore = CGFloat.greatestFiniteMagnitude
+        if abs(distance(leftHip, observedLeft) - leftTorsoLength) < 0.001,
+           abs(distance(rightHip, observedRight) - rightTorsoLength) < 0.001 {
+            best = (observedLeft, observedRight)
+            bestScore = squaredDistance(observedLeft, desiredLeft) + squaredDistance(observedRight, desiredRight)
+        }
+        let samples = 1440
+        for index in 0..<samples {
+            let angle = CGFloat(index) * 2 * .pi / CGFloat(samples)
+            let left = CGPoint(
+                x: leftHip.x + cos(angle) * leftTorsoLength,
+                y: leftHip.y + sin(angle) * leftTorsoLength
+            )
+            for right in circlePoints(center1: left, radius1: shoulderWidth, center2: rightHip, radius2: rightTorsoLength) {
+                let score = squaredDistance(left, desiredLeft) + squaredDistance(right, desiredRight)
+                if score < bestScore {
+                    bestScore = score
+                    best = (left, right)
+                }
+            }
+        }
+        return best
+    }
+
+    private func circlePoints(center1: CGPoint, radius1: CGFloat, center2: CGPoint, radius2: CGFloat) -> [CGPoint] {
+        let delta = center2 - center1, d = hypot(delta.x, delta.y)
+        guard d > 0.001, d <= radius1 + radius2 + 0.001, d >= abs(radius1 - radius2) - 0.001 else { return [] }
+        let a = (radius1 * radius1 - radius2 * radius2 + d * d) / (2 * d)
+        let h = sqrt(max(0, radius1 * radius1 - a * a)), unit = delta / d
+        let base = center1 + unit * a, perpendicular = CGPoint(x: -unit.y, y: unit.x) * h
+        return h < 0.001 ? [base] : [base + perpendicular, base - perpendicular]
+    }
+
+    private func squaredDistance(_ first: CGPoint, _ second: CGPoint) -> CGFloat {
+        let delta = second - first
+        return delta.x * delta.x + delta.y * delta.y
+    }
+
+    private func validLengths(original: [LandmarkType: CGPoint], solved: [LandmarkType: CGPoint], view: PostureView) -> Bool {
+        let pairs: [(LandmarkType, LandmarkType)]
         switch view {
         case .front:
-            if supportedRegions.contains(.torso) {
-                if let origLSh = original[.leftShoulder], let origRSh = original[.rightShoulder] {
-                    let origDiff = abs(origLSh.y - origRSh.y)
-                    if origDiff > 2.0 {
-                        changes.append("Shoulder reference: closer to level.")
-                    }
-                }
-                if let origLHip = original[.leftHip], let origRHip = original[.rightHip] {
-                    let origDiff = abs(origLHip.y - origRHip.y)
-                    if origDiff > 2.0 {
-                        changes.append("Hip reference: closer to level.")
-                    }
-                }
-                changes.append("Torso & head reference: centered over ankle midpoint.")
-            }
-            if supportedRegions.contains(.legs) {
-                changes.append("Knee alignment reference: guided toward hip-ankle line.")
-            }
-
+            pairs = [(.leftShoulder, .rightShoulder), (.leftHip, .rightHip), (.leftShoulder, .leftHip), (.rightShoulder, .rightHip), (.leftHip, .leftKnee), (.leftKnee, .leftAnkle), (.rightHip, .rightKnee), (.rightKnee, .rightAnkle), (.leftShoulder, .leftElbow), (.leftElbow, .leftWrist), (.rightShoulder, .rightElbow), (.rightElbow, .rightWrist)]
         case .leftSide, .rightSide:
-            if supportedRegions.contains(.torso) || supportedRegions.contains(.head) {
-                changes.append("Upper body reference: guided toward vertical ear-shoulder-hip stack over ankle.")
-            }
-            if supportedRegions.contains(.legs) {
-                changes.append("Leg alignment reference: straighter hip-knee-ankle chain over visible ankle.")
-            }
+            let keys = sideKeys(view)
+            pairs = [(keys.shoulder, keys.hip), (keys.hip, keys.knee), (keys.knee, keys.ankle), (keys.shoulder, keys.elbow), (keys.elbow, keys.wrist)]
+        case .uncertain:
+            return false
         }
-
-        return changes
+        return pairs.allSatisfy { pair in
+            guard let oldA = original[pair.0], let oldB = original[pair.1], let newA = solved[pair.0], let newB = solved[pair.1] else { return true }
+            let oldLength = distance(oldA, oldB)
+            return oldLength < 0.001 || abs(distance(newA, newB) - oldLength) / oldLength <= lengthTolerance
+        }
     }
 
-    private func buildReferencePose(
-        jointLocations: [LandmarkType: CGPoint],
-        supportedRegions: Set<BodyRegion>,
-        view: PostureView,
-        achievedChanges: [String]
-    ) -> ReferencePose {
-        var connections: [ConnectionPair] = []
-
-        let candidateConnections: [(LandmarkType, LandmarkType)]
+    private func achievedChanges(original: [LandmarkType: CGPoint], solved: [LandmarkType: CGPoint], view: PostureView, rules: [MeasurementID: TargetAlignmentRule], regions: Set<BodyRegion>) -> [String] {
+        var output: [String] = []
         switch view {
         case .front:
-            candidateConnections = BodyPose.connections
-        case .leftSide:
-            candidateConnections = [
-                (.leftEar, .leftShoulder),
-                (.leftShoulder, .leftHip),
-                (.leftHip, .leftKnee),
-                (.leftKnee, .leftAnkle),
-                (.leftShoulder, .leftElbow),
-                (.leftElbow, .leftWrist)
-            ]
-        case .rightSide:
-            candidateConnections = [
-                (.rightEar, .rightShoulder),
-                (.rightShoulder, .rightHip),
-                (.rightHip, .rightKnee),
-                (.rightKnee, .rightAnkle),
-                (.rightShoulder, .rightElbow),
-                (.rightElbow, .rightWrist)
-            ]
+            if let rule = rules[.shoulderLineAngle], reducedLineError(.leftShoulder, .rightShoulder, original, solved, rule.targetValue) { output.append("Shoulder reference: moved toward the profile angle.") }
+            if let rule = rules[.hipLineAngle], reducedLineError(.leftHip, .rightHip, original, solved, rule.targetValue) { output.append("Hip reference: moved toward the profile angle.") }
+            if regions.contains(.head), moved([.nose, .leftEye, .rightEye, .leftEar, .rightEar], from: original, to: solved) { output.append("Head reference: moved toward the configured alignment.") }
+            if regions.contains(.torso), moved([.leftShoulder, .rightShoulder, .leftHip, .rightHip], from: original, to: solved) { output.append("Torso reference: moved toward the configured alignment.") }
+            if regions.contains(.legs), moved([.leftKnee, .rightKnee], from: original, to: solved) { output.append("Knee reference: moved toward the hip-to-ankle lines.") }
+        case .leftSide, .rightSide:
+            let keys = sideKeys(view)
+            if regions.contains(.head), moved([.nose, .leftEye, .rightEye, .leftEar, .rightEar], from: original, to: solved) { output.append("Head reference: moved toward the configured ear-to-shoulder offset.") }
+            if regions.contains(.torso), moved([keys.shoulder, keys.hip], from: original, to: solved) { output.append("Torso reference: moved toward the configured side alignment.") }
+            if regions.contains(.legs), moved([keys.hip, keys.knee], from: original, to: solved) { output.append("Leg reference: moved toward the configured side alignment.") }
+        case .uncertain:
+            break
         }
+        return output
+    }
 
-        for (jA, jB) in candidateConnections {
-            if jointLocations[jA] != nil && jointLocations[jB] != nil {
-                connections.append(ConnectionPair(jA, jB))
-            }
+    private func reducedLineError(_ first: LandmarkType, _ second: LandmarkType, _ original: [LandmarkType: CGPoint], _ solved: [LandmarkType: CGPoint], _ target: Double) -> Bool {
+        guard let oldA = original[first], let oldB = original[second], let newA = solved[first], let newB = solved[second] else { return false }
+        let desired = CGFloat(target) * .pi / 180
+        return abs(shortestRotation(from: lineRadians(oldA, oldB), to: desired)) - abs(shortestRotation(from: lineRadians(newA, newB), to: desired)) > 0.0001
+    }
+
+    private func makeReference(points: [LandmarkType: CGPoint], regions: Set<BodyRegion>, view: PostureView, captions: [String], reason: String?) -> ReferencePose {
+        let types = includedTypes(regions, view)
+        let filtered = points.filter { types.contains($0.key) }
+        let candidates: [(LandmarkType, LandmarkType)]
+        switch view {
+        case .front: candidates = BodyPose.connections
+        case .leftSide, .rightSide:
+            let keys = sideKeys(view)
+            candidates = [(keys.ear, keys.shoulder), (keys.shoulder, keys.hip), (keys.hip, keys.knee), (keys.knee, keys.ankle), (keys.shoulder, keys.elbow), (keys.elbow, keys.wrist)]
+        case .uncertain: candidates = []
         }
-
-        return ReferencePose(
-            jointLocations: jointLocations,
-            connections: connections,
-            supportedRegions: supportedRegions,
-            achievedChanges: achievedChanges,
-            unavailabilityReason: nil
-        )
+        let connections = candidates.compactMap { filtered[$0.0] != nil && filtered[$0.1] != nil ? ConnectionPair($0.0, $0.1) : nil }
+        return ReferencePose(jointLocations: filtered, connections: connections, supportedRegions: regions, achievedChanges: captions, unavailabilityReason: reason)
     }
 
-    private func rotatePoint(_ point: CGPoint, around center: CGPoint, by angle: CGFloat) -> CGPoint {
-        let dx = point.x - center.x
-        let dy = point.y - center.y
-        let cosA = cos(angle)
-        let sinA = sin(angle)
-        return CGPoint(
-            x: center.x + dx * cosA - dy * sinA,
-            y: center.y + dx * sinA + dy * cosA
-        )
+    private func includedTypes(_ regions: Set<BodyRegion>, _ view: PostureView) -> Set<LandmarkType> {
+        var types: Set<LandmarkType> = []
+        let keys = sideKeys(view)
+        if regions.contains(.head) { types.formUnion([.nose, .neck, .leftEye, .rightEye, .leftEar, .rightEar]) }
+        if regions.contains(.torso) { types.formUnion(view == .front ? [.leftShoulder, .rightShoulder, .leftHip, .rightHip, .neck, .root] : [keys.shoulder, keys.hip, .neck]) }
+        if regions.contains(.legs) { types.formUnion(view == .front ? [.leftHip, .rightHip, .leftKnee, .rightKnee, .leftAnkle, .rightAnkle] : [keys.hip, keys.knee, keys.ankle]) }
+        if regions.contains(.arms) { types.formUnion(view == .front ? [.leftShoulder, .rightShoulder, .leftElbow, .rightElbow, .leftWrist, .rightWrist] : [keys.shoulder, keys.elbow, keys.wrist]) }
+        return types
     }
 
-    private func addPoints(_ left: CGPoint, _ right: CGPoint) -> CGPoint {
-        CGPoint(x: left.x + right.x, y: left.y + right.y)
+    private func partialReason(regions: Set<BodyRegion>) -> String? {
+        let missing = Set([BodyRegion.head, .torso, .legs]).subtracting(regions)
+        return missing.isEmpty ? nil : "Partial guidance: reliable anchors were unavailable for \(missing.map(\.rawValue).sorted().joined(separator: ", "))."
     }
 
-    private func subtractPoints(_ left: CGPoint, _ right: CGPoint) -> CGPoint {
-        CGPoint(x: left.x - right.x, y: left.y - right.y)
+    private func translateArms(solved: inout [LandmarkType: CGPoint], observed: [LandmarkType: CGPoint], side: SideKeys? = nil) {
+        let arms: [(LandmarkType, LandmarkType, LandmarkType)] = side.map { [($0.shoulder, $0.elbow, $0.wrist)] } ?? [(.leftShoulder, .leftElbow, .leftWrist), (.rightShoulder, .rightElbow, .rightWrist)]
+        for (shoulder, elbow, wrist) in arms where observed[shoulder] != nil && solved[shoulder] != nil {
+            let offset = solved[shoulder]! - observed[shoulder]!
+            shift(elbow, solved: &solved, observed: observed, offset: offset)
+            shift(wrist, solved: &solved, observed: observed, offset: offset)
+        }
     }
+
+    private func shift(_ type: LandmarkType, solved: inout [LandmarkType: CGPoint], observed: [LandmarkType: CGPoint], offset: CGPoint?) {
+        if let point = observed[type], let offset { solved[type] = point + offset }
+    }
+
+    private func firstPair(_ points: [LandmarkType: CGPoint], _ candidates: [(LandmarkType, LandmarkType)]) -> (CGPoint, CGPoint)? {
+        for pair in candidates { if let first = points[pair.0], let second = points[pair.1] { return (first, second) } }
+        return nil
+    }
+
+    private func headCenter(_ points: [LandmarkType: CGPoint]) -> CGPoint? { points[.nose] ?? midpoint(points[.leftEye], points[.rightEye]) ?? midpoint(points[.leftEar], points[.rightEar]) }
+    private func midpoint(_ first: CGPoint?, _ second: CGPoint?) -> CGPoint? { first.flatMap { a in second.map { (a + $0) / 2 } } }
+    private func lineRadians(_ first: CGPoint, _ second: CGPoint) -> CGFloat { atan2(second.y - first.y, second.x - first.x) }
+    private func lineDegrees(_ first: CGPoint, _ second: CGPoint) -> Double { Double(lineRadians(first, second) * 180 / .pi) }
+    private func vertexDegrees(first: CGPoint, vertex: CGPoint, third: CGPoint) -> CGFloat {
+        let firstVector = first - vertex, secondVector = third - vertex
+        let denominator = max(distance(first, vertex) * distance(third, vertex), 0.001)
+        let cosine = max(-1, min(1, (firstVector.x * secondVector.x + firstVector.y * secondVector.y) / denominator))
+        return acos(cosine) * 180 / .pi
+    }
+    private func rotate(_ point: CGPoint, center: CGPoint, angle: CGFloat) -> CGPoint {
+        let p = point - center, c = cos(angle), s = sin(angle)
+        return CGPoint(x: center.x + p.x * c - p.y * s, y: center.y + p.x * s + p.y * c)
+    }
+    private func lerp(_ start: CGFloat, _ end: CGFloat, _ fraction: CGFloat) -> CGFloat { start + (end - start) * fraction }
+    private func lerp(_ start: CGPoint, _ end: CGPoint, _ fraction: CGFloat) -> CGPoint { start + (end - start) * fraction }
+    private func distance(_ first: CGPoint, _ second: CGPoint) -> CGFloat { hypot(second.x - first.x, second.y - first.y) }
+    private func moved(from original: [LandmarkType: CGPoint], to solved: [LandmarkType: CGPoint]) -> Bool { moved(Array(original.keys), from: original, to: solved) }
+    private func moved(_ types: [LandmarkType], from original: [LandmarkType: CGPoint], to solved: [LandmarkType: CGPoint]) -> Bool {
+        types.contains { type in original[type].flatMap { old in solved[type].map { distance(old, $0) > 0.5 } } ?? false }
+    }
+}
+
+private extension CGPoint {
+    static func + (lhs: CGPoint, rhs: CGPoint) -> CGPoint { CGPoint(x: lhs.x + rhs.x, y: lhs.y + rhs.y) }
+    static func - (lhs: CGPoint, rhs: CGPoint) -> CGPoint { CGPoint(x: lhs.x - rhs.x, y: lhs.y - rhs.y) }
+    static func * (lhs: CGPoint, rhs: CGFloat) -> CGPoint { CGPoint(x: lhs.x * rhs, y: lhs.y * rhs) }
+    static func / (lhs: CGPoint, rhs: CGFloat) -> CGPoint { CGPoint(x: lhs.x / rhs, y: lhs.y / rhs) }
 }

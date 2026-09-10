@@ -17,7 +17,7 @@ public struct PostureReportView: View {
     @State private var displayedReferencePose: ReferencePose? = nil
 
     @State private var isPlayingAnimation = false
-    @State private var replayTrigger = 0
+    @State private var replayRequest: UUID? = nil
 
     public init(
         image: UIImage?,
@@ -179,25 +179,32 @@ public struct PostureReportView: View {
         .onChange(of: pose) { _, _ in
             computeReference()
         }
-        .task(id: replayTrigger) {
-            guard replayTrigger > 0, let result = referenceResult, result.isReplayAvailable, !result.motionSequence.isEmpty else { return }
+        .onChange(of: reduceMotion) { _, shouldReduceMotion in
+            if shouldReduceMotion { computeReference() }
+        }
+        .task(id: replayRequest) {
+            guard replayRequest != nil, let result = referenceResult, result.isReplayAvailable, !result.motionSequence.isEmpty else { return }
 
             isPlayingAnimation = true
             let sequence = result.motionSequence
-            let frameDuration = 2.0 / Double(sequence.count) // Total 2 seconds
+            let frameDuration = 2.0 / Double(max(sequence.count - 1, 1))
 
-            for stepPose in sequence {
-                if Task.isCancelled { break }
+            for (index, stepPose) in sequence.enumerated() {
+                guard !Task.isCancelled else { return }
                 displayedReferencePose = stepPose
-                try? await Task.sleep(nanoseconds: UInt64(frameDuration * 1_000_000_000))
+                if index < sequence.count - 1 {
+                    try? await Task.sleep(nanoseconds: UInt64(frameDuration * 1_000_000_000))
+                }
             }
 
+            guard !Task.isCancelled else { return }
             displayedReferencePose = result.staticReference
             isPlayingAnimation = false
         }
     }
 
     private func computeReference() {
+        replayRequest = nil
         isPlayingAnimation = false
 
         let generator = ReferencePoseGenerator()
@@ -210,6 +217,6 @@ public struct PostureReportView: View {
 
     private func startReplayAnimation() {
         guard let result = referenceResult, result.isReplayAvailable, !result.motionSequence.isEmpty else { return }
-        replayTrigger += 1
+        replayRequest = UUID()
     }
 }

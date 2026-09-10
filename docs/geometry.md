@@ -30,7 +30,7 @@ The Alignment Reference subsystem generates a whole-body reference overlay illus
 ### Key Constraints & Invariants
 
 1. **Planted Ankles**: Ankle coordinates remain strictly fixed at their observed pixel locations.
-2. **Preserved Segment Lengths**: Observed limb and torso bone segment lengths (e.g., hip-to-knee, knee-to-ankle, shoulder-to-hip, shoulder-to-shoulder, hip-to-hip) are strictly preserved from the input pose.
+2. **Preserved Segment Lengths**: Observed limb and torso segment lengths (e.g., hip-to-knee, knee-to-ankle, shoulder-to-hip, shoulder-to-shoulder, hip-to-hip) are preserved from the input pose within a small floating-point tolerance.
 3. **Rigid Group Transformations**: Head points and facial landmarks translate and rotate as a group relative to the neck rather than repositioning facial points independently. Arms maintain their relative orientation to their respective shoulders.
 4. **Independent Region Evaluation**:
    - Evaluates Head, Torso/Pelvis, and Legs regions independently based on anchor availability and confidence threshold (confidence $\ge 0.3$ or manually corrected).
@@ -38,10 +38,12 @@ The Alignment Reference subsystem generates a whole-body reference overlay illus
    - Unsupported regions remain unaltered and receive no correction caption.
 5. **Deterministic Constrained Optimization**:
    - Operates in image pixel space.
-   - Alignment rules (e.g. level shoulders/hips, vertical ear-shoulder-hip alignment) serve as soft objectives.
-   - Residual segment length checks enforce that no segment deviates by more than 5% from its original observed length. If constraints are violated, invalid results or motion steps are rejected.
+   - Profile targets and tolerances define the desired alignment; targets already within tolerance leave that measurement unchanged.
+   - Rule values use the units of their stable `MeasurementID`. Directional angle and offset targets may be signed even though report cards display absolute magnitudes.
+   - Alignment rules serve as soft objectives. The generator selects the strongest feasible correction while segment lengths and planted feet take priority.
+   - Residual checks reject any geometry that changes a measured segment beyond the solver's floating-point tolerance.
 6. **2-Second Motion Precomputation**:
-   - Interpolates intermediate constrained poses along valid geometric paths ($t \in [0.1, 1.0]$).
+   - Starts at the measured pose and interpolates constrained poses along valid geometric paths ($t \in [0, 1.0]$).
    - Validates segment lengths and anchor constraints at every step to prevent artificial limb stretching or distortion during Replay.
 
 ### Non-Diagnostic Illustration Notice

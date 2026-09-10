@@ -14,7 +14,9 @@ public struct ImageNormalizer {
         let size = image.size
         guard size.width > 0 && size.height > 0 else { return image }
 
-        let renderer = UIGraphicsImageRenderer(size: size)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = image.scale
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
         let normalizedImage = renderer.image { _ in
             image.draw(in: CGRect(origin: .zero, size: size))
         }
@@ -32,26 +34,33 @@ public struct ImageNormalizer {
         var y = point.y
 
         switch orientation {
-        case .up, .upMirrored:
+        case .up:
             break
-        case .down, .downMirrored:
+        case .upMirrored:
+            x = 1.0 - x
+        case .down:
             x = 1.0 - x
             y = 1.0 - y
-        case .left, .leftMirrored:
-            let temp = x
-            x = y
-            y = 1.0 - temp
-        case .right, .rightMirrored:
+        case .downMirrored:
+            y = 1.0 - y
+        case .left:
             let temp = x
             x = 1.0 - y
             y = temp
+        case .leftMirrored:
+            let temp = x
+            x = 1.0 - y
+            y = 1.0 - temp
+        case .right:
+            let temp = x
+            x = y
+            y = 1.0 - temp
+        case .rightMirrored:
+            let temp = x
+            x = y
+            y = temp
         @unknown default:
             break
-        }
-
-        if orientation == .upMirrored || orientation == .downMirrored ||
-           orientation == .leftMirrored || orientation == .rightMirrored {
-            x = 1.0 - x
         }
 
         return CGPoint(
