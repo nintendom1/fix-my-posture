@@ -17,7 +17,7 @@ public struct PostureReportView: View {
     @State private var displayedReferencePose: ReferencePose? = nil
 
     @State private var isPlayingAnimation = false
-    @State private var animationTask: Task<Void, Never>? = nil
+    @State private var replayTrigger = 0
 
     public init(
         image: UIImage?,
@@ -173,19 +173,31 @@ public struct PostureReportView: View {
         .onAppear {
             computeReference()
         }
-        .onChange(of: view) {
+        .onChange(of: view) { _, _ in
             computeReference()
         }
-        .onChange(of: pose) {
+        .onChange(of: pose) { _, _ in
             computeReference()
         }
-        .onDisappear {
-            animationTask?.cancel()
+        .task(id: replayTrigger) {
+            guard replayTrigger > 0, let result = referenceResult, result.isReplayAvailable, !result.motionSequence.isEmpty else { return }
+
+            isPlayingAnimation = true
+            let sequence = result.motionSequence
+            let frameDuration = 2.0 / Double(sequence.count) // Total 2 seconds
+
+            for stepPose in sequence {
+                if Task.isCancelled { break }
+                displayedReferencePose = stepPose
+                try? await Task.sleep(nanoseconds: UInt64(frameDuration * 1_000_000_000))
+            }
+
+            displayedReferencePose = result.staticReference
+            isPlayingAnimation = false
         }
     }
 
     private func computeReference() {
-        animationTask?.cancel()
         isPlayingAnimation = false
 
         let generator = ReferencePoseGenerator()
@@ -198,23 +210,6 @@ public struct PostureReportView: View {
 
     private func startReplayAnimation() {
         guard let result = referenceResult, result.isReplayAvailable, !result.motionSequence.isEmpty else { return }
-
-        animationTask?.cancel()
-        isPlayingAnimation = true
-
-        animationTask = Task { @MainActor in
-            let sequence = result.motionSequence
-            let frameDuration = 2.0 / Double(sequence.count) // Total 2 seconds
-
-            for stepPose in sequence {
-                if Task.isCancelled { break }
-                self.displayedReferencePose = stepPose
-                try? await Task.sleep(nanoseconds: UInt64(frameDuration * 1_000_000_000))
-            }
-
-            // Ensure ended at final static reference
-            self.displayedReferencePose = result.staticReference
-            self.isPlayingAnimation = false
-        }
+        replayTrigger += 1
     }
 }
