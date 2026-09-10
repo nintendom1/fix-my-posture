@@ -18,12 +18,20 @@ public struct PostureReferenceProfile: Codable, Identifiable, Hashable {
     public let id: String
     public let name: String
     public let version: String
-    public let perViewRules: [PostureView: [TargetAlignmentRule]]
+    public let perViewRules: [String: [TargetAlignmentRule]]
 
     public init(id: String, name: String, version: String, perViewRules: [PostureView: [TargetAlignmentRule]]) {
         self.id = id
         self.name = name
         self.version = version
-        self.perViewRules = perViewRules
+        var stringRules: [String: [TargetAlignmentRule]] = [:]
+        for (v, r) in perViewRules {
+            stringRules[v.rawValue] = r
+        }
+        self.perViewRules = stringRules
+    }
+
+    public func rules(for view: PostureView) -> [TargetAlignmentRule] {
+        return perViewRules[view.rawValue] ?? []
     }
 }
