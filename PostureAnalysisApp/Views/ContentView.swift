@@ -308,7 +308,6 @@ public struct ContentView: View {
         inputImage = nil
         selectedPhotoItem = nil
         processingTime = 0
-        showOverlay = true
         errorMessage = nil
     }
 
