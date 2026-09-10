@@ -21,6 +21,17 @@ public struct Landmark: Codable, Hashable, Identifiable {
     /// Indicates whether this landmark was manually moved/corrected by the user.
     public var isManuallyCorrected: Bool
 
+    // Hash coordinate components explicitly for SDKs where CGPoint is not Hashable.
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(type)
+        hasher.combine(normalizedLocation.x)
+        hasher.combine(normalizedLocation.y)
+        hasher.combine(imageLocation.x)
+        hasher.combine(imageLocation.y)
+        hasher.combine(confidence)
+        hasher.combine(isManuallyCorrected)
+    }
+
     public init(
         type: LandmarkType,
         normalizedLocation: CGPoint,
