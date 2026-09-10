@@ -5,19 +5,22 @@ import PhotosUI
 public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
 
+    public var referenceProvider: PostureReferenceProviding = DefaultPostureReferenceProvider()
+
     @State private var selectedPhotoItem: PhotosPickerItem? = nil
     @State private var inputImage: UIImage? = nil
     @State private var isProcessing = false
     @State private var currentAssessment: PostureAssessment? = nil
     @State private var processingTime: TimeInterval = 0.0
-    @State private var showOverlay: Bool = true
     @State private var errorMessage: String? = nil
 
     @State private var showCamera = false
     @State private var showEditLandmarks = false
     @State private var showDebugView = false
 
-    public init() {}
+    public init(referenceProvider: PostureReferenceProviding = DefaultPostureReferenceProvider()) {
+        self.referenceProvider = referenceProvider
+    }
 
     public var body: some View {
         NavigationStack {
@@ -35,26 +38,13 @@ public struct ContentView: View {
                     // Assessment Result View
                     ScrollView {
                         VStack(spacing: 16) {
-                            GeometryReader { geo in
-                                ZStack {
-                                    Image(uiImage: image)
-                                        .resizable()
-                                        .scaledToFit()
-                                        .cornerRadius(12)
-
-                                    if showOverlay {
-                                        LandmarkOverlayView(
-                                            pose: assessment.pose,
-                                            containerSize: geo.size
-                                        )
-                                    }
-                                }
-                            }
-                            .frame(height: 350)
-
-                            Toggle("Show Overlay Points", isOn: $showOverlay)
-                                .padding(.horizontal)
-                                .accessibilityIdentifier("toggleOverlaySwitch")
+                            // Shared Report View (includes landmark overlay and reference visualization)
+                            PostureReportView(
+                                image: image,
+                                pose: assessment.pose,
+                                view: assessment.view,
+                                referenceProvider: referenceProvider
+                            )
 
                             HStack {
                                 Text("View:")
@@ -269,8 +259,9 @@ public struct ContentView: View {
     }
 
     private func processImage(_ image: UIImage) {
-        guard let cgImg = image.cgImage else { return }
-        inputImage = image
+        let normalizedImage = ImageNormalizer.normalizeToUpright(image)
+        guard let cgImg = normalizedImage.cgImage else { return }
+        inputImage = normalizedImage
         isProcessing = true
         errorMessage = nil
         let startTime = CFAbsoluteTimeGetCurrent()
