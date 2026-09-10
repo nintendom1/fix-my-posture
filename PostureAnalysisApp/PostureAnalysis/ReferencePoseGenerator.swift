@@ -138,25 +138,20 @@ public final class ReferencePoseGenerator {
 
         switch view {
         case .front:
-            // Front Legs: requires both ankles and both hips
             if points[.leftAnkle] != nil && points[.rightAnkle] != nil && points[.leftHip] != nil && points[.rightHip] != nil {
                 regions.insert(.legs)
             }
-            // Front Torso: requires both shoulders and both hips
             if points[.leftShoulder] != nil && points[.rightShoulder] != nil && points[.leftHip] != nil && points[.rightHip] != nil {
                 regions.insert(.torso)
             }
-            // Front Head: requires neck and at least one head/facial point
             if points[.neck] != nil && (points[.nose] != nil || points[.leftEye] != nil || points[.rightEye] != nil || points[.leftEar] != nil || points[.rightEar] != nil) {
                 regions.insert(.head)
             }
-            // Arms: evaluated if shoulders exist
             if points[.leftShoulder] != nil && points[.rightShoulder] != nil {
                 regions.insert(.arms)
             }
 
         case .leftSide:
-            // Left Side coherent chain
             if points[.leftAnkle] != nil && points[.leftKnee] != nil && points[.leftHip] != nil {
                 regions.insert(.legs)
             }
@@ -171,7 +166,6 @@ public final class ReferencePoseGenerator {
             }
 
         case .rightSide:
-            // Right Side coherent chain
             if points[.rightAnkle] != nil && points[.rightKnee] != nil && points[.rightHip] != nil {
                 regions.insert(.legs)
             }
@@ -219,11 +213,9 @@ public final class ReferencePoseGenerator {
         supportedRegions: Set<BodyRegion>,
         fraction: Double
     ) {
-        // 1. Planted Ankles remain fixed
         guard let lAnkle = observed[.leftAnkle], let rAnkle = observed[.rightAnkle] else { return }
         let ankleMidX = (lAnkle.x + rAnkle.x) / 2.0
 
-        // 2. Hips & Torso
         if supportedRegions.contains(.torso),
            let lHipObs = observed[.leftHip], let rHipObs = observed[.rightHip],
            let lShObs = observed[.leftShoulder], let rShObs = observed[.rightShoulder] {
@@ -231,11 +223,9 @@ public final class ReferencePoseGenerator {
             let hipWidth = hypot(rHipObs.x - lHipObs.x, rHipObs.y - lHipObs.y)
             let shWidth = hypot(rShObs.x - lShObs.x, rShObs.y - lShObs.y)
 
-            // Target hip level y
             let targetHipY = (lHipObs.y + rHipObs.y) / 2.0
             let targetHipCenterX = ankleMidX
 
-            // Move hip center toward target hip center X and level Y
             let currentHipCenterX = (lHipObs.x + rHipObs.x) / 2.0
             let currentHipCenterY = (lHipObs.y + rHipObs.y) / 2.0
 
@@ -248,7 +238,6 @@ public final class ReferencePoseGenerator {
             solved[.leftHip] = newLHip
             solved[.rightHip] = newRHip
 
-            // Target shoulder level y
             let targetShY = (lShObs.y + rShObs.y) / 2.0
             let targetShCenterX = ankleMidX
 
@@ -264,22 +253,19 @@ public final class ReferencePoseGenerator {
             solved[.leftShoulder] = newLSh
             solved[.rightShoulder] = newRSh
 
-            // Neck / Root
             if let neckObs = observed[.neck] {
-                let neckOffset = neckObs - CGPoint(x: currentShCenterX, y: currentShCenterY)
-                solved[.neck] = CGPoint(x: newShCenterX, y: newShCenterY) + neckOffset
+                let neckOffset = subtractPoints(neckObs, CGPoint(x: currentShCenterX, y: currentShCenterY))
+                solved[.neck] = addPoints(CGPoint(x: newShCenterX, y: newShCenterY), neckOffset)
             }
             if let rootObs = observed[.root] {
-                let rootOffset = rootObs - CGPoint(x: currentHipCenterX, y: currentHipCenterY)
-                solved[.root] = CGPoint(x: newHipCenterX, y: newHipCenterY) + rootOffset
+                let rootOffset = subtractPoints(rootObs, CGPoint(x: currentHipCenterX, y: currentHipCenterY))
+                solved[.root] = addPoints(CGPoint(x: newHipCenterX, y: newHipCenterY), rootOffset)
             }
         }
 
-        // 3. Legs
         if supportedRegions.contains(.legs),
            let newLHip = solved[.leftHip], let newRHip = solved[.rightHip] {
 
-            // Adjust knees to lie on hip-ankle line while preserving hip-knee and knee-ankle segment lengths
             if let lKneeObs = observed[.leftKnee], let lHipObs = observed[.leftHip] {
                 let lenHipKnee = hypot(lKneeObs.x - lHipObs.x, lKneeObs.y - lHipObs.y)
                 let lenKneeAnkle = hypot(lAnkle.x - lKneeObs.x, lAnkle.y - lKneeObs.y)
@@ -295,14 +281,12 @@ public final class ReferencePoseGenerator {
             }
         }
 
-        // 4. Head
         if supportedRegions.contains(.head), let neckSolved = solved[.neck] ?? solved[.leftShoulder] {
             let headPoints: [LandmarkType] = [.nose, .leftEye, .rightEye, .leftEar, .rightEar]
             let referenceHeadOrigin = observed[.neck] ?? observed[.leftShoulder] ?? .zero
 
-            let headShift = neckSolved - referenceHeadOrigin
+            let headShift = subtractPoints(neckSolved, referenceHeadOrigin)
 
-            // Level eyes and ears if both pair members exist
             var eyeAngleCorrection: CGFloat = 0.0
             if let lEye = observed[.leftEye], let rEye = observed[.rightEye] {
                 let currentAngle = atan2(rEye.y - lEye.y, rEye.x - lEye.x)
@@ -316,11 +300,10 @@ public final class ReferencePoseGenerator {
 
             for hPt in headPoints {
                 if let obsPt = observed[hPt] {
-                    var pt = obsPt + headShift
+                    var pt = addPoints(obsPt, headShift)
                     if eyeAngleCorrection != 0 {
-                        pt = rotatePoint(pt, around: headCenterObs + headShift, by: eyeAngleCorrection)
+                        pt = rotatePoint(pt, around: addPoints(headCenterObs, headShift), by: eyeAngleCorrection)
                     }
-                    // Align horizontal center over ankleMidX
                     let dxToCenter = (ankleMidX - (headCenterObs.x + headShift.x)) * CGFloat(fraction)
                     pt.x += dxToCenter
                     solved[hPt] = pt
@@ -328,17 +311,16 @@ public final class ReferencePoseGenerator {
             }
         }
 
-        // 5. Arms
         if supportedRegions.contains(.arms) {
             if let lShObs = observed[.leftShoulder], let lShNew = solved[.leftShoulder] {
-                let shift = lShNew - lShObs
-                if let lElbowObs = observed[.leftElbow] { solved[.leftElbow] = lElbowObs + shift }
-                if let lWristObs = observed[.leftWrist] { solved[.leftWrist] = lWristObs + shift }
+                let shift = subtractPoints(lShNew, lShObs)
+                if let lElbowObs = observed[.leftElbow] { solved[.leftElbow] = addPoints(lElbowObs, shift) }
+                if let lWristObs = observed[.leftWrist] { solved[.leftWrist] = addPoints(lWristObs, shift) }
             }
             if let rShObs = observed[.rightShoulder], let rShNew = solved[.rightShoulder] {
-                let shift = rShNew - rShObs
-                if let rElbowObs = observed[.rightElbow] { solved[.rightElbow] = rElbowObs + shift }
-                if let rWristObs = observed[.rightWrist] { solved[.rightWrist] = rWristObs + shift }
+                let shift = subtractPoints(rShNew, rShObs)
+                if let rElbowObs = observed[.rightElbow] { solved[.rightElbow] = addPoints(rElbowObs, shift) }
+                if let rWristObs = observed[.rightWrist] { solved[.rightWrist] = addPoints(rWristObs, shift) }
             }
         }
     }
@@ -358,28 +340,22 @@ public final class ReferencePoseGenerator {
 
         guard let anklePt = observed[ankleKey] else { return }
 
-        // Visible ankle remains planted
         solved[ankleKey] = anklePt
-
-        // Target x vertical stack = anklePt.x
         let targetX = anklePt.x
 
-        // 1. Hip
         if let hipObs = observed[hipKey] {
             let lenHipAnkle = hypot(hipObs.x - anklePt.x, hipObs.y - anklePt.y)
 
             let currentHipX = hipObs.x
             let newHipX = currentHipX + (targetX - currentHipX) * CGFloat(fraction)
 
-            // Calculate dy to preserve lenHipAnkle
             let dx = abs(newHipX - anklePt.x)
             let dy = sqrt(max(0, lenHipAnkle * lenHipAnkle - dx * dx))
-            let newHipY = anklePt.y - dy // Y goes down in top-left pixel space
+            let newHipY = anklePt.y - dy
 
             let newHip = CGPoint(x: newHipX, y: newHipY)
             solved[hipKey] = newHip
 
-            // 2. Knee
             if supportedRegions.contains(.legs), let kneeObs = observed[kneeKey] {
                 let lenHipKnee = hypot(kneeObs.x - hipObs.x, kneeObs.y - hipObs.y)
                 let lenKneeAnkle = hypot(anklePt.x - kneeObs.x, anklePt.y - kneeObs.y)
@@ -389,7 +365,6 @@ public final class ReferencePoseGenerator {
             }
         }
 
-        // 3. Shoulder
         if supportedRegions.contains(.torso), let hipNew = solved[hipKey], let shObs = observed[shoulderKey], let hipObs = observed[hipKey] {
             let lenTorso = hypot(shObs.x - hipObs.x, shObs.y - hipObs.y)
 
@@ -404,12 +379,11 @@ public final class ReferencePoseGenerator {
             solved[shoulderKey] = newSh
 
             if let neckObs = observed[.neck] {
-                let neckShift = newSh - shObs
-                solved[.neck] = neckObs + neckShift
+                let neckShift = subtractPoints(newSh, shObs)
+                solved[.neck] = addPoints(neckObs, neckShift)
             }
         }
 
-        // 4. Ear / Head
         if supportedRegions.contains(.head), let shNew = solved[shoulderKey] ?? solved[hipKey], let shObs = observed[shoulderKey] ?? observed[hipKey] {
             if let earObs = observed[earKey] {
                 let lenEarSh = hypot(earObs.x - shObs.x, earObs.y - shObs.y)
@@ -421,19 +395,18 @@ public final class ReferencePoseGenerator {
             }
 
             if let noseObs = observed[.nose] {
-                let shift = shNew - shObs
-                solved[.nose] = noseObs + shift
+                let shift = subtractPoints(shNew, shObs)
+                solved[.nose] = addPoints(noseObs, shift)
             }
         }
 
-        // 5. Arm
         if supportedRegions.contains(.arms), let shObs = observed[shoulderKey], let shNew = solved[shoulderKey] {
-            let shift = shNew - shObs
+            let shift = subtractPoints(shNew, shObs)
             let elbowKey: LandmarkType = (side == .left) ? .leftElbow : .rightElbow
             let wristKey: LandmarkType = (side == .left) ? .leftWrist : .rightWrist
 
-            if let elbowObs = observed[elbowKey] { solved[elbowKey] = elbowObs + shift }
-            if let wristObs = observed[wristKey] { solved[wristKey] = wristObs + shift }
+            if let elbowObs = observed[elbowKey] { solved[elbowKey] = addPoints(elbowObs, shift) }
+            if let wristObs = observed[wristKey] { solved[wristKey] = addPoints(wristObs, shift) }
         }
     }
 
@@ -445,22 +418,18 @@ public final class ReferencePoseGenerator {
         observedKnee: CGPoint,
         fraction: Double
     ) -> CGPoint {
-        // Distance between hip and ankle
         let d = hypot(ankle.x - hip.x, ankle.y - hip.y)
         guard d > 0 else { return observedKnee }
 
-        // Straight target alignment: knee lies on line segment hip -> ankle
         let targetRatio = lenHipKnee / (lenHipKnee + lenKneeAnkle)
         let straightKneeX = hip.x + (ankle.x - hip.x) * targetRatio
         let straightKneeY = hip.y + (ankle.y - hip.y) * targetRatio
 
         let targetKnee = CGPoint(x: straightKneeX, y: straightKneeY)
 
-        // Interpolate knee towards target
         let curKneeX = observedKnee.x + (targetKnee.x - observedKnee.x) * CGFloat(fraction)
         let curKneeY = observedKnee.y + (targetKnee.y - observedKnee.y) * CGFloat(fraction)
 
-        // Rescale distance to preserve segment lengths relative to hip and ankle
         let vecH = CGPoint(x: curKneeX - hip.x, y: curKneeY - hip.y)
         let distH = hypot(vecH.x, vecH.y)
         if distH > 0 {
@@ -478,7 +447,7 @@ public final class ReferencePoseGenerator {
         solved: [LandmarkType: CGPoint],
         view: PostureView
     ) -> Bool {
-        let maxToleranceRatio: CGFloat = 0.05 // Max 5% segment length deviation permitted
+        let maxToleranceRatio: CGFloat = 0.05
 
         let pairsToValidate: [(LandmarkType, LandmarkType)]
         switch view {
@@ -625,14 +594,12 @@ public final class ReferencePoseGenerator {
             y: center.y + dx * sinA + dy * cosA
         )
     }
-}
 
-// Point arithmetic extension helpers
-private extension CGPoint {
-    static func + (left: CGPoint, right: CGPoint) -> CGPoint {
+    private func addPoints(_ left: CGPoint, _ right: CGPoint) -> CGPoint {
         CGPoint(x: left.x + right.x, y: left.y + right.y)
     }
-    static func - (left: CGPoint, right: CGPoint) -> CGPoint {
+
+    private func subtractPoints(_ left: CGPoint, _ right: CGPoint) -> CGPoint {
         CGPoint(x: left.x - right.x, y: left.y - right.y)
     }
 }

@@ -2,6 +2,13 @@ import XCTest
 import CoreGraphics
 @testable import PostureAnalysisApp
 
+private final class CustomTestProvider: PostureReferenceProviding {
+    let profile: PostureReferenceProfile
+    init(profile: PostureReferenceProfile) { self.profile = profile }
+    var currentProfile: PostureReferenceProfile { profile }
+    func profile(for view: PostureView) -> PostureReferenceProfile { profile }
+}
+
 final class ReferenceGeometryTests: XCTestCase {
 
     private var generator: ReferencePoseGenerator!
@@ -196,14 +203,7 @@ final class ReferenceGeometryTests: XCTestCase {
             ]
         )
 
-        final class CustomProvider: PostureReferenceProviding {
-            let profile: PostureReferenceProfile
-            init(profile: PostureReferenceProfile) { self.profile = profile }
-            var currentProfile: PostureReferenceProfile { profile }
-            func profile(for view: PostureView) -> PostureReferenceProfile { profile }
-        }
-
-        let provider = CustomProvider(profile: secondProfile)
+        let provider = CustomTestProvider(profile: secondProfile)
         let pose = createFrontPose(width: 1000, height: 2000)
 
         // Generator accepts custom profile without renderer changes

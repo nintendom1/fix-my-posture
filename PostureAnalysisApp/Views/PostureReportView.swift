@@ -173,10 +173,10 @@ public struct PostureReportView: View {
         .onAppear {
             computeReference()
         }
-        .onChange(of: view) { _, _ in
+        .onChange(of: view) {
             computeReference()
         }
-        .onChange(of: pose) { _, _ in
+        .onChange(of: pose) {
             computeReference()
         }
         .onDisappear {
