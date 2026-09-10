@@ -224,6 +224,15 @@ public struct ContentView: View {
                 }
             }
             .navigationTitle("Posture Analyzer")
+            .toolbar {
+                if !isProcessing, currentAssessment != nil, inputImage != nil {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Close", action: closeCurrentAssessment)
+                            .accessibilityIdentifier("closeAssessmentButton")
+                            .accessibilityHint("Returns to the home screen without saving the assessment")
+                    }
+                }
+            }
             .sheet(isPresented: $showCamera) {
                 CameraPickerView { capturedImage in
                     processImage(capturedImage)
@@ -301,6 +310,17 @@ public struct ContentView: View {
         self.currentAssessment = updated
     }
 
+    private func closeCurrentAssessment() {
+        showEditLandmarks = false
+        showDebugView = false
+        currentAssessment = nil
+        inputImage = nil
+        selectedPhotoItem = nil
+        processingTime = 0
+        showOverlay = true
+        errorMessage = nil
+    }
+
     private func saveCurrentAssessment() {
         guard let assessment = currentAssessment, let image = inputImage else { return }
         do {
@@ -346,8 +366,7 @@ public struct ContentView: View {
             modelContext.insert(entity)
             try modelContext.save()
 
-            self.currentAssessment = nil
-            self.inputImage = nil
+            closeCurrentAssessment()
         } catch {
             self.errorMessage = "Failed to save assessment: \(error.localizedDescription)"
         }
