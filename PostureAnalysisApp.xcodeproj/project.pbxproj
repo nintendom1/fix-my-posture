@@ -1,0 +1,532 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000012B00000000000001 /* PostureAnalysisApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000001 /* PostureAnalysisApp.swift */; };
+		A10000012B00000000000002 /* LandmarkType.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000002 /* LandmarkType.swift */; };
+		A10000012B00000000000003 /* Landmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000003 /* Landmark.swift */; };
+		A10000012B00000000000004 /* BodyPose.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000004 /* BodyPose.swift */; };
+		A10000012B00000000000005 /* PostureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000005 /* PostureView.swift */; };
+		A10000012B00000000000006 /* PostureMeasurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000006 /* PostureMeasurement.swift */; };
+		A10000012B00000000000007 /* ImageMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000007 /* ImageMetadata.swift */; };
+		A10000012B00000000000008 /* PostureAssessment.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000008 /* PostureAssessment.swift */; };
+		A10000012B00000000000009 /* MeasurementID.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000009 /* MeasurementID.swift */; };
+		A10000012B00000000000010 /* PoseEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000010 /* PoseEstimator.swift */; };
+		A10000012B00000000000011 /* AppleVisionPoseEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000011 /* AppleVisionPoseEstimator.swift */; };
+		A10000012B00000000000012 /* PostureAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000012 /* PostureAnalyzer.swift */; };
+		A10000012B00000000000013 /* PhotoValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000013 /* PhotoValidator.swift */; };
+		A10000012B00000000000014 /* ViewClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000014 /* ViewClassifier.swift */; };
+		A10000012B00000000000015 /* AssessmentEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000015 /* AssessmentEntity.swift */; };
+		A10000012B00000000000016 /* ImageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000016 /* ImageStore.swift */; };
+		A10000012B00000000000017 /* BaselineComparisonEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000017 /* BaselineComparisonEngine.swift */; };
+		A10000012B00000000000018 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000018 /* ContentView.swift */; };
+		A10000012B00000000000019 /* LandmarkOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000019 /* LandmarkOverlayView.swift */; };
+		A10000012B00000000000020 /* DeveloperDebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000020 /* DeveloperDebugView.swift */; };
+		A10000012B00000000000021 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000021 /* HistoryView.swift */; };
+		A10000012B00000000000022 /* LandmarkEditingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000022 /* LandmarkEditingView.swift */; };
+		A10000012B00000000000023 /* GeometryTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000023 /* GeometryTests.swift */; };
+		A10000012B00000000000024 /* CoordinateConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000024 /* CoordinateConverter.swift */; };
+		A10000012B00000000000025 /* AssessmentDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000025 /* AssessmentDetailView.swift */; };
+		A10000012B00000000000026 /* CameraPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000026 /* CameraPickerView.swift */; };
+		A10000012B00000000000027 /* Previews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000027 /* Previews.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C10000012B00000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D10000012B00000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E10000012B00000000000001 /* PostureAnalysisApp */;
+			remoteInfo = PostureAnalysisApp;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		F10000012B00000000000001 /* PostureAnalysisApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PostureAnalysisApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F10000012B00000000000002 /* PostureAnalysisAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PostureAnalysisAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000012B00000000000001 /* PostureAnalysisApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureAnalysisApp.swift; sourceTree = "<group>"; };
+		B10000012B00000000000002 /* LandmarkType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LandmarkType.swift; sourceTree = "<group>"; };
+		B10000012B00000000000003 /* Landmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Landmark.swift; sourceTree = "<group>"; };
+		B10000012B00000000000004 /* BodyPose.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyPose.swift; sourceTree = "<group>"; };
+		B10000012B00000000000005 /* PostureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000006 /* PostureMeasurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureMeasurement.swift; sourceTree = "<group>"; };
+		B10000012B00000000000007 /* ImageMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageMetadata.swift; sourceTree = "<group>"; };
+		B10000012B00000000000008 /* PostureAssessment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureAssessment.swift; sourceTree = "<group>"; };
+		B10000012B00000000000009 /* MeasurementID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementID.swift; sourceTree = "<group>"; };
+		B10000012B00000000000010 /* PoseEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoseEstimator.swift; sourceTree = "<group>"; };
+		B10000012B00000000000011 /* AppleVisionPoseEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleVisionPoseEstimator.swift; sourceTree = "<group>"; };
+		B10000012B00000000000012 /* PostureAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureAnalyzer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000013 /* PhotoValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoValidator.swift; sourceTree = "<group>"; };
+		B10000012B00000000000014 /* ViewClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewClassifier.swift; sourceTree = "<group>"; };
+		B10000012B00000000000015 /* AssessmentEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssessmentEntity.swift; sourceTree = "<group>"; };
+		B10000012B00000000000016 /* ImageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageStore.swift; sourceTree = "<group>"; };
+		B10000012B00000000000017 /* BaselineComparisonEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaselineComparisonEngine.swift; sourceTree = "<group>"; };
+		B10000012B00000000000018 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000019 /* LandmarkOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LandmarkOverlayView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000020 /* DeveloperDebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperDebugView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000021 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000022 /* LandmarkEditingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LandmarkEditingView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000023 /* GeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeometryTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000024 /* CoordinateConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoordinateConverter.swift; sourceTree = "<group>"; };
+		B10000012B00000000000025 /* AssessmentDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssessmentDetailView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000026 /* CameraPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPickerView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000027 /* Previews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Previews.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		G10000012B00000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		G10000012B00000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		H10000012B00000000000001 /* MainGroup */ = {
+			isa = PBXGroup;
+			children = (
+				H10000012B00000000000002 /* PostureAnalysisApp */,
+				H10000012B00000000000012 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000002 /* PostureAnalysisApp */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000001 /* PostureAnalysisApp.swift */,
+				H10000012B00000000000003 /* Models */,
+				H10000012B00000000000004 /* PoseEstimation */,
+				H10000012B00000000000005 /* PostureAnalysis */,
+				H10000012B00000000000006 /* ImageImport */,
+				H10000012B00000000000007 /* Persistence */,
+				H10000012B00000000000008 /* Views */,
+				H10000012B00000000000009 /* LandmarkEditing */,
+				H10000012B00000000000011 /* Utilities */,
+				H10000012B00000000000010 /* Tests */,
+			);
+			path = PostureAnalysisApp;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000003 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000002 /* LandmarkType.swift */,
+				B10000012B00000000000003 /* Landmark.swift */,
+				B10000012B00000000000004 /* BodyPose.swift */,
+				B10000012B00000000000005 /* PostureView.swift */,
+				B10000012B00000000000006 /* PostureMeasurement.swift */,
+				B10000012B00000000000007 /* ImageMetadata.swift */,
+				B10000012B00000000000008 /* PostureAssessment.swift */,
+				B10000012B00000000000009 /* MeasurementID.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000004 /* PoseEstimation */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000010 /* PoseEstimator.swift */,
+				B10000012B00000000000011 /* AppleVisionPoseEstimator.swift */,
+			);
+			path = PoseEstimation;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000005 /* PostureAnalysis */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000012 /* PostureAnalyzer.swift */,
+			);
+			path = PostureAnalysis;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000006 /* ImageImport */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000013 /* PhotoValidator.swift */,
+				B10000012B00000000000014 /* ViewClassifier.swift */,
+			);
+			path = ImageImport;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000007 /* Persistence */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000015 /* AssessmentEntity.swift */,
+				B10000012B00000000000016 /* ImageStore.swift */,
+				B10000012B00000000000017 /* BaselineComparisonEngine.swift */,
+			);
+			path = Persistence;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000008 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000018 /* ContentView.swift */,
+				B10000012B00000000000019 /* LandmarkOverlayView.swift */,
+				B10000012B00000000000020 /* DeveloperDebugView.swift */,
+				B10000012B00000000000021 /* HistoryView.swift */,
+				B10000012B00000000000025 /* AssessmentDetailView.swift */,
+				B10000012B00000000000026 /* CameraPickerView.swift */,
+				B10000012B00000000000027 /* Previews.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000009 /* LandmarkEditing */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000022 /* LandmarkEditingView.swift */,
+			);
+			path = LandmarkEditing;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000011 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000024 /* CoordinateConverter.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000010 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000023 /* GeometryTests.swift */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000012 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F10000012B00000000000001 /* PostureAnalysisApp.app */,
+				F10000012B00000000000002 /* PostureAnalysisAppTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		E10000012B00000000000001 /* PostureAnalysisApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = I10000012B00000000000001 /* Build configuration list for PBXNativeTarget "PostureAnalysisApp" */;
+			buildPhases = (
+				J10000012B00000000000001 /* Sources */,
+				G10000012B00000000000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PostureAnalysisApp;
+			productName = PostureAnalysisApp;
+			productReference = F10000012B00000000000001 /* PostureAnalysisApp.app */;
+			productType = "com.apple.product-type.application";
+		};
+		E10000012B00000000000002 /* PostureAnalysisAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = I10000012B00000000000002 /* Build configuration list for PBXNativeTarget "PostureAnalysisAppTests" */;
+			buildPhases = (
+				J10000012B00000000000002 /* Sources */,
+				G10000012B00000000000002 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				K10000012B00000000000001 /* PBXTargetDependency */,
+			);
+			name = PostureAnalysisAppTests;
+			productName = PostureAnalysisAppTests;
+			productReference = F10000012B00000000000002 /* PostureAnalysisAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D10000012B00000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					E10000012B00000000000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+					E10000012B00000000000002 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = E10000012B00000000000001;
+					};
+				};
+			};
+			buildConfigurationList = L10000012B00000000000001 /* Build configuration list for PBXProject "PostureAnalysisApp" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = H10000012B00000000000001 /* MainGroup */;
+			productRefGroup = H10000012B00000000000012 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				E10000012B00000000000001 /* PostureAnalysisApp */,
+				E10000012B00000000000002 /* PostureAnalysisAppTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		J10000012B00000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000012B00000000000001 /* PostureAnalysisApp.swift in Sources */,
+				A10000012B00000000000002 /* LandmarkType.swift in Sources */,
+				A10000012B00000000000003 /* Landmark.swift in Sources */,
+				A10000012B00000000000004 /* BodyPose.swift in Sources */,
+				A10000012B00000000000005 /* PostureView.swift in Sources */,
+				A10000012B00000000000006 /* PostureMeasurement.swift in Sources */,
+				A10000012B00000000000007 /* ImageMetadata.swift in Sources */,
+				A10000012B00000000000008 /* PostureAssessment.swift in Sources */,
+				A10000012B00000000000009 /* MeasurementID.swift in Sources */,
+				A10000012B00000000000010 /* PoseEstimator.swift in Sources */,
+				A10000012B00000000000011 /* AppleVisionPoseEstimator.swift in Sources */,
+				A10000012B00000000000012 /* PostureAnalyzer.swift in Sources */,
+				A10000012B00000000000013 /* PhotoValidator.swift in Sources */,
+				A10000012B00000000000014 /* ViewClassifier.swift in Sources */,
+				A10000012B00000000000015 /* AssessmentEntity.swift in Sources */,
+				A10000012B00000000000016 /* ImageStore.swift in Sources */,
+				A10000012B00000000000017 /* BaselineComparisonEngine.swift in Sources */,
+				A10000012B00000000000018 /* ContentView.swift in Sources */,
+				A10000012B00000000000019 /* LandmarkOverlayView.swift in Sources */,
+				A10000012B00000000000020 /* DeveloperDebugView.swift in Sources */,
+				A10000012B00000000000021 /* HistoryView.swift in Sources */,
+				A10000012B00000000000022 /* LandmarkEditingView.swift in Sources */,
+				A10000012B00000000000024 /* CoordinateConverter.swift in Sources */,
+				A10000012B00000000000025 /* AssessmentDetailView.swift in Sources */,
+				A10000012B00000000000026 /* CameraPickerView.swift in Sources */,
+				A10000012B00000000000027 /* Previews.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		J10000012B00000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000012B00000000000023 /* GeometryTests.swift in TestSources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		K10000012B00000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E10000012B00000000000001 /* PostureAnalysisApp */;
+			targetProxy = C10000012B00000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		M10000012B00000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_PROTOTYPES = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		M10000012B00000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_PROTOTYPES = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		M10000012B00000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Posture Analysis App uses the camera to take full-body standing photos for posture evaluation.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.postureanalysis.PostureAnalysisApp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1";
+			};
+			name = Debug;
+		};
+		M10000012B00000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Posture Analysis App uses the camera to take full-body standing photos for posture evaluation.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.postureanalysis.PostureAnalysisApp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1";
+			};
+			name = Release;
+		};
+		M10000012B00000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.postureanalysis.PostureAnalysisAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PostureAnalysisApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PostureAnalysisApp";
+			};
+			name = Debug;
+		};
+		M10000012B00000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.postureanalysis.PostureAnalysisAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PostureAnalysisApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PostureAnalysisApp";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		L10000012B00000000000001 /* Build configuration list for PBXProject "PostureAnalysisApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				M10000012B00000000000001 /* Debug */,
+				M10000012B00000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		I10000012B00000000000001 /* Build configuration list for PBXNativeTarget "PostureAnalysisApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				M10000012B00000000000003 /* Debug */,
+				M10000012B00000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		I10000012B00000000000002 /* Build configuration list for PBXNativeTarget "PostureAnalysisAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				M10000012B00000000000005 /* Debug */,
+				M10000012B00000000000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = D10000012B00000000000001 /* Project object */;
+}
