@@ -106,16 +106,17 @@ options as CI:
 gitleaks git . --log-opts="--all" --redact --exit-code=1
 ```
 
-To check staged changes before committing:
+Every commit requires a staged scan. Stage the intended changes, run this
+command, and commit only when it exits successfully:
 
 ```bash
 gitleaks git . --pre-commit --staged --redact --exit-code=1
 ```
 
-The history scan checks committed content; stage the changes you want to check
-before running the staged scan. `--redact` hides secret values in output. A clean
-scan exits with code 0; detected secrets cause exit code 1. Execution errors also
-fail the command, so check the diagnostic output.
+The history scan checks committed content. The required pre-commit scan checks
+the exact staged snapshot. `--redact` hides secret values in output. A clean scan
+exits with code 0; detected secrets cause exit code 1. Execution errors also fail
+the command and must be resolved rather than bypassed.
 
 The [Gitleaks workflow](.github/workflows/gitleaks.yml) scans Git history on every
 push and pull request using Gitleaks 8.30.1. Once the workflow is on the default
