@@ -195,12 +195,15 @@ final class GeometryTests: XCTestCase {
         }
     }
 
-    // MARK: - Test 9: Realtime Model Stale Result Rejection
+    // MARK: - Test 9: Realtime Model Initial State & Stale Result Clearing
     @MainActor
     func testRealtimeCameraModelStaleResultClearing() {
         let model = RealtimeCameraModel()
+        XCTAssertNil(model.displayPose)
+        XCTAssertEqual(model.state, .initializing)
+
         model.setPostureView(.leftSide)
         XCTAssertNil(model.displayPose)
-        XCTAssertEqual(model.state, .searchingForBody)
+        XCTAssertEqual(model.state, .initializing)
     }
 }
