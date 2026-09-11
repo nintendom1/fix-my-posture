@@ -145,54 +145,18 @@ final class GeometryTests: XCTestCase {
         let comparison = BaselineComparisonEngine.compare(current: currAssessment, baseline: baseAssessment)
         XCTAssertTrue(comparison.isEmpty, "Incompatible views (Front vs Side) must yield zero comparison items.")
     }
-
-    // MARK: - Test 7: Realtime Selfie Front Camera Mirroring Transformation
-    func testRealtimeFrontCameraSelfieMirroring() {
-        let width: CGFloat = 1080
-        let height: CGFloat = 1920
-
-        // Original Vision sensor coordinate (e.g. left shoulder at norm x = 0.3)
-        let rawVisionX: CGFloat = 0.3
-        let rawVisionY: CGFloat = 0.75
-
-        // For front selfie camera preview mirroring, normX is flipped: 1.0 - normX
-        let mirroredNormX = 1.0 - rawVisionX
-        let mirroredNormY = rawVisionY
-
-        let mirroredNormPt = CGPoint(x: mirroredNormX, y: mirroredNormY)
-        let pixelPt = CoordinateConverter.normalizedToImagePixel(normalized: mirroredNormPt, imageWidth: width, imageHeight: height)
-
-        XCTAssertEqual(mirroredNormX, 0.7, accuracy: 0.001)
-        XCTAssertEqual(pixelPt.x, 0.7 * width, accuracy: 0.1)
-        XCTAssertEqual(pixelPt.y, (1.0 - 0.75) * height, accuracy: 0.1)
-    }
-
-    // MARK: - Test 8: Realtime Assessment Calculation On Selfie Feed
-    func testRealtimeSelfiePostureAssessment() {
-        let width: CGFloat = 1080
-        let height: CGFloat = 1920
-
-        // Create horizontal shoulder landmarks for selfie pose
-        var landmarks: [LandmarkType: Landmark] = [:]
-        let lsNorm = CGPoint(x: 0.3, y: 0.8)
-        let rsNorm = CGPoint(x: 0.7, y: 0.8)
-
-        let lsPixel = CoordinateConverter.normalizedToImagePixel(normalized: lsNorm, imageWidth: width, imageHeight: height)
-        let rsPixel = CoordinateConverter.normalizedToImagePixel(normalized: rsNorm, imageWidth: width, imageHeight: height)
-
-        landmarks[.leftShoulder] = Landmark(type: .leftShoulder, normalizedLocation: lsNorm, imageLocation: lsPixel, confidence: 0.95)
-        landmarks[.rightShoulder] = Landmark(type: .rightShoulder, normalizedLocation: rsNorm, imageLocation: rsPixel, confidence: 0.95)
-
-        let selfiePose = BodyPose(landmarks: landmarks, imageWidth: width, imageHeight: height)
-        let meta = ImageMetadata(width: width, height: height)
-
-        let assessment = analyzer.analyze(pose: selfiePose, imageMetadata: meta, view: .front)
-
-        XCTAssertFalse(assessment.measurements.isEmpty)
-        if let shoulderAngle = assessment.measurements.first(where: { $0.measurementID == .shoulderLineAngle }) {
-            XCTAssertEqual(shoulderAngle.value, 0.0, accuracy: 0.1)
-        } else {
-            XCTFail("Shoulder Line Angle should be calculated in realtime assessment.")
-        }
+    func testHorizontalAngleOrderAndMirroring() {
+        let p1 = CGPoint(x: 300, y: 300)
+        let p2 = CGPoint(x: 700, y: 400)
+        let angle = analyzer.angleWithHorizontalDegrees(p1: p1, p2: p2)
+        XCTAssertEqual(angle, -14.036, accuracy: 0.001)
+        XCTAssertEqual(analyzer.angleWithHorizontalDegrees(p1: p2, p2: p1), angle, accuracy: 0.001)
+        XCTAssertEqual(analyzer.angleWithHorizontalDegrees(
+            p1: CGPoint(x: 700, y: 300), p2: CGPoint(x: 300, y: 400)), -angle, accuracy: 0.001)
+        XCTAssertEqual(analyzer.angleWithHorizontalDegrees(
+            p1: CGPoint(x: 700, y: 300), p2: p1), 0, accuracy: 0.001)
+        XCTAssertEqual(analyzer.angleWithHorizontalDegrees(p1: p1, p2: p1), 0)
+        XCTAssertEqual(analyzer.angleWithHorizontalDegrees(
+            p1: p1, p2: CGPoint(x: 300, y: 400)), 90)
     }
 }

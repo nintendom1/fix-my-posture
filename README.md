@@ -1,10 +1,11 @@
 # Standing Posture Analysis iOS App
 
-An iPhone 15 Pro native Swift/SwiftUI application for analyzing standing body posture from still photos.
+An iPhone 15 Pro native Swift/SwiftUI application for analyzing standing body posture from still photos and a live camera preview.
 
 ## Key Features
 
 - **On-Device Pose Detection**: Uses Apple Vision 2D body pose estimation without sending photos off-device.
+- **Realtime Posture Correction**: Open the main-menu button for a mirrored selfie preview, body landmark overlay, and live geometric measurements. Includes camera switching and front/side views; frames are processed in memory and never recorded.
 - **Objective Geometry Metrics**: Measures head tilt, shoulder asymmetry, torso lateral deviation, forward-head angle, sagittal body lean, and knee alignment.
 - **Aspect-Correct Coordinate Engine**: Aspect-ratio preserving transformations prevent angle distortion on non-square camera photos.
 - **Manual Landmark Editing**: Interactive point dragging with touch feedback, reset point, and reset all options.
@@ -127,4 +128,4 @@ It requires no Gitleaks license secret. Secret scanning runs separately from
 ## Known Limitations & Design Boundary
 
 - **Non-Diagnostic**: The app produces objective geometric metrics and is not a medical device or diagnostic tool for spinal/musculoskeletal disorders.
-- **Still Images**: Designed for still standing photos rather than live video stream pose tracking.
+- **Live Tracking**: Requires a physical camera and sufficient lighting/body visibility. Low-confidence landmarks are excluded and uncertain measurements are labeled. Live measurements are not saved or compared with stored baselines. See [realtime validation and architecture](docs/realtime.md).
