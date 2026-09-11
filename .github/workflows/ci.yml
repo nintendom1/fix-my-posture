@@ -2,9 +2,10 @@ name: CI Validation
 
 on:
   push:
-    branches: [ main, master, 'feature/*' ]
+    # Feature branches are validated by pull_request to avoid duplicate runs.
+    branches: [ main ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
