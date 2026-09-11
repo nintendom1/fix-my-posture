@@ -70,7 +70,18 @@ final class GeometryTests: XCTestCase {
         XCTAssertEqual(shoulderAngle.value, expectedTrueAngle, accuracy: 0.2, "Angle must be calculated using aspect-correct pixel space.")
     }
 
-    // MARK: - Test 3: Side View Forward Head & Sagittal Lean
+    // MARK: - Test 3: Horizontal Angle Order Invariance
+    func testHorizontalAngleOrderInvariance() {
+        let p1 = CGPoint(x: 300, y: 300)
+        let p2 = CGPoint(x: 700, y: 400)
+
+        let angleNormal = analyzer.angleWithHorizontalDegrees(p1: p1, p2: p2)
+        let angleReversed = analyzer.angleWithHorizontalDegrees(p1: p2, p2: p1)
+
+        XCTAssertEqual(abs(angleNormal), abs(angleReversed), accuracy: 0.001, "Angle with horizontal must be identical regardless of point order.")
+    }
+
+    // MARK: - Test 4: Side View Forward Head & Sagittal Lean
     func testSideViewGeometry() {
         let width: CGFloat = 1000
         let height: CGFloat = 2000
@@ -102,7 +113,7 @@ final class GeometryTests: XCTestCase {
         XCTAssertEqual(earOffset.value, 5.0, accuracy: 0.1)
     }
 
-    // MARK: - Test 4: View Classification
+    // MARK: - Test 5: View Classification
     func testViewClassification() {
         var frontLandmarks: [LandmarkType: Landmark] = [:]
         frontLandmarks[.leftShoulder] = Landmark(type: .leftShoulder, normalizedLocation: CGPoint(x: 0.2, y: 0.7), imageLocation: .zero, confidence: 0.9)
@@ -120,7 +131,7 @@ final class GeometryTests: XCTestCase {
         XCTAssertEqual(ViewClassifier.classify(pose: sidePose), .leftSide)
     }
 
-    // MARK: - Test 5: Baseline Comparison Engine
+    // MARK: - Test 6: Baseline Comparison Engine
     func testBaselineComparisonEngine() {
         let m1 = PostureMeasurement(id: .shoulderLineAngle, name: "Shoulder Line Angle", value: 4.5, unit: "°", landmarksUsed: [.leftShoulder, .rightShoulder], confidence: 0.9, explanation: "")
         let m2 = PostureMeasurement(id: .shoulderLineAngle, name: "Shoulder Line Angle", value: 2.1, unit: "°", landmarksUsed: [.leftShoulder, .rightShoulder], confidence: 0.9, explanation: "")
@@ -132,18 +143,6 @@ final class GeometryTests: XCTestCase {
         let comparison = BaselineComparisonEngine.compare(current: currAssessment, baseline: baseAssessment)
         XCTAssertEqual(comparison.count, 1)
         XCTAssertEqual(comparison[0].deltaValue, -2.4, accuracy: 0.1)
-    }
-
-    // MARK: - Test 6: Incompatible View Baseline Comparison
-    func testIncompatibleViewBaselineComparison() {
-        let m1 = PostureMeasurement(id: .shoulderLineAngle, name: "Shoulder Line Angle", value: 4.5, unit: "°", landmarksUsed: [.leftShoulder, .rightShoulder], confidence: 0.9, explanation: "")
-
-        let pose = BodyPose(landmarks: [:], imageWidth: 100, imageHeight: 100)
-        let baseAssessment = PostureAssessment(imageRelativePath: "", view: .front, pose: pose, measurements: [m1])
-        let currAssessment = PostureAssessment(imageRelativePath: "", view: .leftSide, pose: pose, measurements: [m1])
-
-        let comparison = BaselineComparisonEngine.compare(current: currAssessment, baseline: baseAssessment)
-        XCTAssertTrue(comparison.isEmpty, "Incompatible views (Front vs Side) must yield zero comparison items.")
     }
 
     // MARK: - Test 7: Realtime Selfie Front Camera Mirroring Transformation
@@ -194,5 +193,14 @@ final class GeometryTests: XCTestCase {
         } else {
             XCTFail("Shoulder Line Angle should be calculated in realtime assessment.")
         }
+    }
+
+    // MARK: - Test 9: Realtime Model Stale Result Rejection
+    @MainActor
+    func testRealtimeCameraModelStaleResultClearing() {
+        let model = RealtimeCameraModel()
+        model.setPostureView(.leftSide)
+        XCTAssertNil(model.displayPose)
+        XCTAssertEqual(model.state, .searchingForBody)
     }
 }

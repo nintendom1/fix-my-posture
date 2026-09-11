@@ -10,7 +10,7 @@ The application deals with three distinct coordinate frames:
 
 2. **Image Pixel Space**:
    - Origin: Top-left `(0, 0)`. Bottom-right is `(width, height)`.
-   - Used by `PostureAnalyzer` for aspect-correct angular geometry calculations.
+   - Used by `PostureAnalyzer` for aspect-correct angular geometry calculations and by `ReferencePoseGenerator` for reference pose calculation.
    - Conversion: `x_pixel = x_norm * width`, `y_pixel = (1.0 - y_norm) * height`.
 
 3. **SwiftUI Container Display Space**:
@@ -22,3 +22,30 @@ The application deals with three distinct coordinate frames:
 Calculating angles directly on normalized `(x_norm, y_norm)` coordinates on non-square photos distorts angular values (e.g. a 1:2 aspect ratio image distorts vertical displacements relative to horizontal).
 
 `PostureAnalyzer` computes all horizontal, vertical, and joint angles using equal-scale pixel coordinates `(x_pixel, y_pixel)`.
+
+## Alignment Reference Geometry Engine (`ReferencePoseGenerator`)
+
+The Alignment Reference subsystem generates a whole-body reference overlay illustrating potential geometric alignment while strictly maintaining anatomical constraints.
+
+### Key Constraints & Invariants
+
+1. **Planted Ankles**: Ankle coordinates remain strictly fixed at their observed pixel locations.
+2. **Preserved Segment Lengths**: Observed limb and torso segment lengths (e.g., hip-to-knee, knee-to-ankle, shoulder-to-hip, shoulder-to-shoulder, hip-to-hip) are preserved from the input pose within a small floating-point tolerance.
+3. **Rigid Group Transformations**: Head points and facial landmarks translate and rotate as a group relative to the neck rather than repositioning facial points independently. Arms maintain their relative orientation to their respective shoulders.
+4. **Independent Region Evaluation**:
+   - Evaluates Head, Torso/Pelvis, and Legs regions independently based on anchor availability and confidence threshold (confidence $\ge 0.3$ or manually corrected).
+   - Missing leg anchors permit upper-body reference geometry anchored to the observed pelvis/hips.
+   - Unsupported regions remain unaltered and receive no correction caption.
+5. **Deterministic Constrained Optimization**:
+   - Operates in image pixel space.
+   - Profile targets and tolerances define the desired alignment; targets already within tolerance leave that measurement unchanged.
+   - Rule values use the units of their stable `MeasurementID`. Directional angle and offset targets may be signed even though report cards display absolute magnitudes.
+   - Alignment rules serve as soft objectives. The generator selects the strongest feasible correction while segment lengths and planted feet take priority.
+   - Residual checks reject any geometry that changes a measured segment beyond the solver's floating-point tolerance.
+6. **2-Second Motion Precomputation**:
+   - Starts at the measured pose and interpolates constrained poses along valid geometric paths ($t \in [0, 1.0]$).
+   - Validates segment lengths and anchor constraints at every step to prevent artificial limb stretching or distortion during Replay.
+
+### Non-Diagnostic Illustration Notice
+
+Alignment Reference overlays and animated replays are non-diagnostic geometric illustrations depicting structural differences between poses. They do not constitute a medical diagnosis, prescription, or prescribed exercise sequence.

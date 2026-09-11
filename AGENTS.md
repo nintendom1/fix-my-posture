@@ -44,6 +44,13 @@ PostureAnalysisApp/
   ```bash
   ./scripts/validate.sh
   ```
+- **Required Before Every Commit** (run after staging changes):
+  ```bash
+  gitleaks git . --pre-commit --staged --redact --exit-code=1
+  ```
+  Do not create a commit unless this scan completes successfully. Installing
+  Gitleaks is a prerequisite for committing; do not skip the scan when the
+  executable is unavailable.
 
 ## Documentation Reference
 - Geometry & Coordinate Math: `docs/geometry.md`
