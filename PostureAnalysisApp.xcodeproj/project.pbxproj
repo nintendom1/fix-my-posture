@@ -34,6 +34,15 @@
 		A10000012B00000000000025 /* AssessmentDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000025 /* AssessmentDetailView.swift */; };
 		A10000012B00000000000026 /* CameraPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000026 /* CameraPickerView.swift */; };
 		A10000012B00000000000027 /* Previews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000027 /* Previews.swift */; };
+		A10000012B00000000000028 /* ImageNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000028 /* ImageNormalizer.swift */; };
+		A10000012B00000000000029 /* BodyRegion.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000029 /* BodyRegion.swift */; };
+		A10000012B00000000000030 /* PostureReferenceProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000030 /* PostureReferenceProfile.swift */; };
+		A10000012B00000000000031 /* ReferencePose.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000031 /* ReferencePose.swift */; };
+		A10000012B00000000000032 /* PostureReferenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000032 /* PostureReferenceProvider.swift */; };
+		A10000012B00000000000033 /* ReferencePoseGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000033 /* ReferencePoseGenerator.swift */; };
+		A10000012B00000000000034 /* AlignmentReferenceOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000034 /* AlignmentReferenceOverlayView.swift */; };
+		A10000012B00000000000035 /* PostureReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000035 /* PostureReportView.swift */; };
+		A10000012B00000000000036 /* ReferenceGeometryTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000036 /* ReferenceGeometryTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -76,6 +85,15 @@
 		B10000012B00000000000025 /* AssessmentDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssessmentDetailView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000026 /* CameraPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPickerView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000027 /* Previews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Previews.swift; sourceTree = "<group>"; };
+		B10000012B00000000000028 /* ImageNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageNormalizer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000029 /* BodyRegion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyRegion.swift; sourceTree = "<group>"; };
+		B10000012B00000000000030 /* PostureReferenceProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureReferenceProfile.swift; sourceTree = "<group>"; };
+		B10000012B00000000000031 /* ReferencePose.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferencePose.swift; sourceTree = "<group>"; };
+		B10000012B00000000000032 /* PostureReferenceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureReferenceProvider.swift; sourceTree = "<group>"; };
+		B10000012B00000000000033 /* ReferencePoseGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferencePoseGenerator.swift; sourceTree = "<group>"; };
+		B10000012B00000000000034 /* AlignmentReferenceOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlignmentReferenceOverlayView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000035 /* PostureReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureReportView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000036 /* ReferenceGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferenceGeometryTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -132,6 +150,9 @@
 				B10000012B00000000000007 /* ImageMetadata.swift */,
 				B10000012B00000000000008 /* PostureAssessment.swift */,
 				B10000012B00000000000009 /* MeasurementID.swift */,
+				B10000012B00000000000029 /* BodyRegion.swift */,
+				B10000012B00000000000030 /* PostureReferenceProfile.swift */,
+				B10000012B00000000000031 /* ReferencePose.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -149,6 +170,8 @@
 			isa = PBXGroup;
 			children = (
 				B10000012B00000000000012 /* PostureAnalyzer.swift */,
+				B10000012B00000000000032 /* PostureReferenceProvider.swift */,
+				B10000012B00000000000033 /* ReferencePoseGenerator.swift */,
 			);
 			path = PostureAnalysis;
 			sourceTree = "<group>";
@@ -182,6 +205,8 @@
 				B10000012B00000000000025 /* AssessmentDetailView.swift */,
 				B10000012B00000000000026 /* CameraPickerView.swift */,
 				B10000012B00000000000027 /* Previews.swift */,
+				B10000012B00000000000034 /* AlignmentReferenceOverlayView.swift */,
+				B10000012B00000000000035 /* PostureReportView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -198,6 +223,7 @@
 			isa = PBXGroup;
 			children = (
 				B10000012B00000000000024 /* CoordinateConverter.swift */,
+				B10000012B00000000000028 /* ImageNormalizer.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -206,6 +232,7 @@
 			isa = PBXGroup;
 			children = (
 				B10000012B00000000000023 /* GeometryTests.swift */,
+				B10000012B00000000000036 /* ReferenceGeometryTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -324,6 +351,14 @@
 				A10000012B00000000000025 /* AssessmentDetailView.swift in Sources */,
 				A10000012B00000000000026 /* CameraPickerView.swift in Sources */,
 				A10000012B00000000000027 /* Previews.swift in Sources */,
+				A10000012B00000000000028 /* ImageNormalizer.swift in Sources */,
+				A10000012B00000000000029 /* BodyRegion.swift in Sources */,
+				A10000012B00000000000030 /* PostureReferenceProfile.swift in Sources */,
+				A10000012B00000000000031 /* ReferencePose.swift in Sources */,
+				A10000012B00000000000032 /* PostureReferenceProvider.swift in Sources */,
+				A10000012B00000000000033 /* ReferencePoseGenerator.swift in Sources */,
+				A10000012B00000000000034 /* AlignmentReferenceOverlayView.swift in Sources */,
+				A10000012B00000000000035 /* PostureReportView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -332,6 +367,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000012B00000000000023 /* GeometryTests.swift in TestSources */,
+				A10000012B00000000000036 /* ReferenceGeometryTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

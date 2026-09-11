@@ -4,40 +4,36 @@ public struct AssessmentDetailView: View {
     public let assessment: PostureAssessment
     public let image: UIImage?
     public var baselineAssessment: PostureAssessment? = nil
+    public var referenceProvider: PostureReferenceProviding
 
-    @State private var showOverlay: Bool = true
-
-    public init(assessment: PostureAssessment, image: UIImage?, baselineAssessment: PostureAssessment? = nil) {
+    public init(
+        assessment: PostureAssessment,
+        image: UIImage?,
+        baselineAssessment: PostureAssessment? = nil,
+        referenceProvider: PostureReferenceProviding = DefaultPostureReferenceProvider()
+    ) {
         self.assessment = assessment
         self.image = image
         self.baselineAssessment = baselineAssessment
+        self.referenceProvider = referenceProvider
     }
 
     public var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                if let image = image {
-                    GeometryReader { geo in
-                        ZStack {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFit()
-                                .cornerRadius(12)
-
-                            if showOverlay {
-                                LandmarkOverlayView(
-                                    pose: assessment.pose,
-                                    containerSize: geo.size
-                                )
-                            }
-                        }
+                let displayPose: BodyPose = {
+                    if let uiImg = image {
+                        return ImageNormalizer.mapPoseToOrientation(assessment.pose, orientation: uiImg.imageOrientation)
                     }
-                    .frame(height: 350)
-                }
+                    return assessment.pose
+                }()
 
-                Toggle("Show Landmark Overlay", isOn: $showOverlay)
-                    .padding(.horizontal)
-                    .accessibilityIdentifier("toggleOverlaySwitch")
+                PostureReportView(
+                    image: image,
+                    pose: displayPose,
+                    view: assessment.view,
+                    referenceProvider: referenceProvider
+                )
 
                 if let base = baselineAssessment {
                     VStack(alignment: .leading, spacing: 10) {

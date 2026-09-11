@@ -2,6 +2,15 @@
 
 ## Commits
 
+Before every commit, stage the intended changes and run:
+
+```bash
+gitleaks git . --pre-commit --staged --redact --exit-code=1
+```
+
+The scan is mandatory. Commit only after it exits successfully. If Gitleaks is
+not installed, install it before committing rather than bypassing the check.
+
 * Prefix: `feat: `, `fix: `, `docs: `, `chore: `, `refactor: `, `dev: `.
 * Subject: Imperative Title Case.
 * Body Format:
