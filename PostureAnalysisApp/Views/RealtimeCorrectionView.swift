@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import CoreGraphics
+import CoreVideo
 
 /// Camera and tracking lifecycle states for realtime posture correction.
 public enum RealtimeCameraState: Equatable {
@@ -490,13 +491,13 @@ public final class RealtimeCameraModel: NSObject, ObservableObject, AVCaptureVid
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleInterruption),
-            name: AVCaptureSession.wasInterruptedNotification,
+            name: .AVCaptureSessionWasInterrupted,
             object: captureSession
         )
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleInterruptionEnded),
-            name: AVCaptureSession.interruptionEndedNotification,
+            name: .AVCaptureSessionInterruptionEnded,
             object: captureSession
         )
     }
@@ -535,14 +536,17 @@ public final class RealtimeCameraModel: NSObject, ObservableObject, AVCaptureVid
             let viewToAnalyze = self.postureView
             let isFrontCamera = (self.currentPosition == .front)
 
+            let estimator = self.poseEstimator
+            let analyzer = self.analyzer
+
             Task.detached(priority: .userInitiated) {
                 do {
-                    let pose = try await self.poseEstimator.estimatePose(in: pixelBuffer)
+                    let pose = try await estimator.estimatePose(in: pixelBuffer)
                     let width = CGFloat(CVPixelBufferGetWidth(pixelBuffer))
                     let height = CGFloat(CVPixelBufferGetHeight(pixelBuffer))
                     let meta = ImageMetadata(width: width, height: height)
 
-                    let assessment = self.analyzer.analyze(pose: pose, imageMetadata: meta, view: viewToAnalyze)
+                    let assessment = analyzer.analyze(pose: pose, imageMetadata: meta, view: viewToAnalyze)
 
                     await MainActor.run {
                         guard self.sessionToken == currentToken, self.isViewActive else {
