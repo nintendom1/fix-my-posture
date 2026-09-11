@@ -34,6 +34,7 @@
 		A10000012B00000000000025 /* AssessmentDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000025 /* AssessmentDetailView.swift */; };
 		A10000012B00000000000026 /* CameraPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000026 /* CameraPickerView.swift */; };
 		A10000012B00000000000027 /* Previews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000027 /* Previews.swift */; };
+		A10000012B00000000000028 /* RealtimeCorrectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000028 /* RealtimeCorrectionView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -76,6 +77,7 @@
 		B10000012B00000000000025 /* AssessmentDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssessmentDetailView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000026 /* CameraPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPickerView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000027 /* Previews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Previews.swift; sourceTree = "<group>"; };
+		B10000012B00000000000028 /* RealtimeCorrectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeCorrectionView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -182,6 +184,7 @@
 				B10000012B00000000000025 /* AssessmentDetailView.swift */,
 				B10000012B00000000000026 /* CameraPickerView.swift */,
 				B10000012B00000000000027 /* Previews.swift */,
+				B10000012B00000000000028 /* RealtimeCorrectionView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -324,6 +327,7 @@
 				A10000012B00000000000025 /* AssessmentDetailView.swift in Sources */,
 				A10000012B00000000000026 /* CameraPickerView.swift in Sources */,
 				A10000012B00000000000027 /* Previews.swift in Sources */,
+				A10000012B00000000000028 /* RealtimeCorrectionView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
