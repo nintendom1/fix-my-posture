@@ -49,3 +49,12 @@ The Alignment Reference subsystem generates a whole-body reference overlay illus
 ### Non-Diagnostic Illustration Notice
 
 Alignment Reference overlays and animated replays are non-diagnostic geometric illustrations depicting structural differences between poses. They do not constitute a medical diagnosis, prescription, or prescribed exercise sequence.
+
+
+## Directional presentation and personalized targets
+
+`MeasurementPresentation` supplies signed display strings without mutating `PostureMeasurement` or saved baseline values. Front level signs use right-minus-left pixel y (top-left origin). Lateral signs use upper-minus-base x projected onto the anatomically labeled left-to-right axis. Side signs project the measured upper-to-lower displacement onto reliable nose/eye-to-selected-ear x; an ambiguous face axis yields an unsigned reading. Rounded negative zero displays as `0.0`. Knee angles and stance ratios retain their original targets and precision; unsigned asymmetries remain unsigned.
+
+`ReferencePoseGenerator.generateStaticReference` shares the final solver with replay generation but skips the 31 intermediate solves. Targets remain in original pixel coordinates until display transformation. Photo targets always use the final reference, even during replay. Live mirroring applies identically to measured joints and target rings. Missing supported regions retain the generator's partial-reference explanations.
+
+Callout collision protection covers continuously sampled limb segments at intervals of at most 4 points with overlapping 20-point squares, plus joints and torso bounds. Every protected shape and visible target ring receives 8-point clearance. This conservative coverage may hide a callout; all readings remain available in Details.

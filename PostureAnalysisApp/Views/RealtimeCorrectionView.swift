@@ -20,10 +20,21 @@ public struct RealtimeCorrectionView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     @StateObject private var cameraModel = RealtimeCameraModel()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage("feedbackRefreshRate") private var feedbackRate = 5
+    @State private var showTargets = true
+    @State private var controlRects: [CGRect] = []
+    @State private var detailsTarget: ReferencePose?
     @State private var showOverlay: Bool = true
+    @State private var showCallouts: Bool = true
+    @State private var showDetails: Bool = false
+    @State private var detailsAssessment: PostureAssessment?
     @State private var selectedView: PostureView = .front
+    private let referenceProvider: PostureReferenceProviding
 
-    public init() {}
+    public init(referenceProvider: PostureReferenceProviding = DefaultPostureReferenceProvider()) {
+        self.referenceProvider = referenceProvider
+    }
 
     public var body: some View {
         ZStack {
@@ -39,6 +50,7 @@ public struct RealtimeCorrectionView: View {
             }
         }
         .onAppear {
+            cameraModel.setFeedback(rate: feedbackRate, reduceMotion: reduceMotion)
             cameraModel.onAppear(isApplicationActive: scenePhase == .active)
         }
         .onDisappear {
@@ -49,6 +61,13 @@ public struct RealtimeCorrectionView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             cameraModel.setApplicationActive(phase == .active)
+        }
+        .onChange(of: feedbackRate) { _, rate in cameraModel.setFeedback(rate: rate, reduceMotion: reduceMotion) }
+        .onChange(of: reduceMotion) { _, value in cameraModel.setFeedback(rate: feedbackRate, reduceMotion: value) }
+        .sheet(isPresented: $showDetails, onDismiss: {
+            cameraModel.setDetailsPresented(false)
+        }) {
+            detailsSheet
         }
     }
 
@@ -67,10 +86,35 @@ public struct RealtimeCorrectionView: View {
                 if showOverlay, let pose = cameraModel.displayPose {
                     LandmarkOverlayView(
                         pose: pose,
-                        containerSize: geo.size
+                        containerSize: geo.size,
+                        distanceEmphasis: true,
+                        feedback: jointFeedback
                     )
                     .frame(width: geo.size.width, height: geo.size.height)
                     .allowsHitTesting(false)
+                }
+
+                if showTargets, let target = cameraModel.target, let pose = cameraModel.displayPose {
+                    AlignmentTargetOverlayView(reference: target, imageSize: CGSize(width: pose.imageWidth, height: pose.imageHeight), mirrored: cameraModel.isFrontCamera)
+                }
+
+                if showCallouts,
+                   let pose = cameraModel.displayPose,
+                   case .tracking(_, let assessment) = cameraModel.state {
+                    PostureCalloutOverlayView(
+                        measurements: assessment.measurements,
+                        pose: pose,
+                        view: assessment.view,
+                        profile: referenceProvider.profile(for: assessment.view),
+                        sourcePose: assessment.pose,
+                        targetRects: showTargets ? AlignmentTargetOverlayView.rects(reference: cameraModel.target,
+                            imageSize: CGSize(width: pose.imageWidth, height: pose.imageHeight), containerSize: geo.size, mirrored: cameraModel.isFrontCamera) : [],
+                        reservedRects: controlRects.isEmpty ? [
+                            CGRect(x: 0, y: 0, width: geo.size.width, height: 78),
+                            CGRect(x: 0, y: max(0, geo.size.height - 112), width: geo.size.width, height: 112)
+                        ] : controlRects
+                    )
+                    .frame(width: geo.size.width, height: geo.size.height)
                 }
 
                 // HUD Controls & Metrics
@@ -111,18 +155,54 @@ public struct RealtimeCorrectionView: View {
                         .accessibilityLabel("Switch camera")
                     }
                     .padding()
+                    .background(GeometryReader { proxy in
+                        Color.clear.preference(key: RealtimeControlRects.self, value: [proxy.frame(in: .named("realtimeOverlay"))])
+                    })
 
                     Spacer()
 
-                    // Bottom Feedback Panel
-                    VStack(spacing: 12) {
+                    // Compact controls preserve the camera and floating feedback area.
+                    VStack(spacing: 8) {
                         HStack {
-                            Toggle("Show Overlay", isOn: $showOverlay)
+                            Label(realtimeStatusLabel, systemImage: realtimeStatusSymbol)
+                                .font(.subheadline.bold())
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+
+                            Spacer()
+
+                            if case .tracking(_, let assessment) = cameraModel.state {
+                                Button("Details") {
+                                    detailsAssessment = assessment
+                                    detailsTarget = cameraModel.target
+                                    cameraModel.setDetailsPresented(true)
+                                    showDetails = true
+                                }
+                                .buttonStyle(.bordered)
+                                .tint(.white)
+                                .accessibilityIdentifier("realtimeDetailsButton")
+                            }
+                        }
+
+                        HStack(spacing: 10) {
+                            Toggle("Skeleton", isOn: $showOverlay)
                                 .toggleStyle(SwitchToggleStyle(tint: .blue))
                                 .foregroundColor(.white)
                                 .accessibilityIdentifier("realtimeOverlayToggle")
 
-                            Spacer()
+                            Toggle("Callouts", isOn: $showCallouts)
+                                .toggleStyle(SwitchToggleStyle(tint: .green))
+                                .foregroundColor(.white)
+                                .accessibilityIdentifier("realtimeCalloutToggle")
+
+                            Menu {
+                                Toggle("Alignment targets", isOn: $showTargets)
+                                Picker("Feedback refresh", selection: $feedbackRate) {
+                                    ForEach([2, 5, 10], id: \.self) { rate in Text("\(rate) per second").tag(rate) }
+                                }
+                            } label: { Image(systemName: "gearshape.fill") }
+                            .accessibilityLabel("Feedback settings")
+                            .tint(.white)
 
                             Picker("View", selection: $selectedView) {
                                 ForEach([PostureView.front, .leftSide, .rightSide]) { v in
@@ -133,112 +213,79 @@ public struct RealtimeCorrectionView: View {
                             .tint(.white)
                             .accessibilityIdentifier("realtimeViewPicker")
                         }
-
-                        feedbackMetricsView
                     }
-                    .padding()
-                    .background(Color.black.opacity(0.75))
-                    .cornerRadius(16)
-                    .padding(.horizontal)
-                    .padding(.bottom, 20)
+                    .padding(8)
+                    .background(.black.opacity(0.72))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 8)
+                    .background(GeometryReader { proxy in
+                        Color.clear.preference(key: RealtimeControlRects.self, value: [proxy.frame(in: .named("realtimeOverlay"))])
+                    })
                 }
             }
+            .coordinateSpace(name: "realtimeOverlay")
+            .onPreferenceChange(RealtimeControlRects.self) { controlRects = $0 }
         }
     }
 
-    // MARK: - Live Feedback Panel Content
+    private var jointFeedback: [LandmarkType: MeasurementFeedback] {
+        guard case .tracking(let pose, let assessment) = cameraModel.state else { return [:] }
+        return MeasurementPresentation.jointFeedback(measurements: assessment.measurements, pose: pose,
+            view: assessment.view, profile: referenceProvider.profile(for: assessment.view))
+    }
 
-    @ViewBuilder
-    private var feedbackMetricsView: some View {
+    private var realtimeStatusLabel: String {
         switch cameraModel.state {
-        case .tracking(_, let assessment):
-            if !assessment.measurements.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Realtime Alignment Metrics")
-                        .font(.caption)
-                        .bold()
-                        .foregroundColor(.white.opacity(0.8))
+        case .tracking: return "Tracking"
+        case .searchingForBody: return "Show full body"
+        case .starting, .initializing: return "Starting camera"
+        case .interrupted: return "Camera paused"
+        case .notAuthorized: return "Camera unavailable"
+        case .failed: return "Camera error"
+        }
+    }
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(assessment.measurements) { m in
-                                let isLowConfidence = m.confidence < 0.5
+    private var realtimeStatusSymbol: String {
+        switch cameraModel.state {
+        case .tracking: return "figure.stand"
+        case .searchingForBody, .starting, .initializing: return "viewfinder"
+        case .interrupted: return "pause.fill"
+        case .notAuthorized, .failed: return "exclamationmark.triangle.fill"
+        }
+    }
 
-                                VStack(alignment: .leading, spacing: 2) {
-                                    HStack(spacing: 4) {
-                                        Text(m.name)
-                                            .font(.caption2)
-                                            .foregroundColor(.gray)
-                                        if isLowConfidence {
-                                            Image(systemName: "exclamationmark.triangle.fill")
-                                                .font(.caption2)
-                                                .foregroundColor(.orange)
-                                        }
-                                    }
-
-                                    Text("\(String(format: "%.1f", m.value))\(m.unit)")
-                                        .font(.headline)
-                                        .foregroundColor(isLowConfidence ? .orange : .white)
-                                    if isLowConfidence {
-                                        Text("Low confidence")
-                                            .font(.caption2)
-                                            .foregroundColor(.orange)
-                                    }
-                                }
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(Color.black.opacity(0.7))
-                                .cornerRadius(8)
-                            }
+    private var detailsSheet: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    Text(MeasurementPresentation.convention).font(.footnote)
+                    if let reason = detailsTarget?.unavailabilityReason { Text(reason).font(.footnote) }
+                    if let assessment = detailsAssessment {
+                        ForEach(assessment.measurements) { measurement in
+                            PostureMeasurementCard(
+                                measurement: measurement,
+                                feedback: MeasurementFeedbackEvaluator().feedback(
+                                    for: measurement,
+                                    view: assessment.view,
+                                    profile: referenceProvider.profile(for: assessment.view)
+                                ),
+                                explanation: MeasurementPresentation.explanation(measurement),
+                                reading: MeasurementPresentation.reading(measurement, pose: assessment.pose, view: assessment.view)
+                            )
                         }
                     }
-                    Text("Geometric observations, not a diagnosis. Keep your full body visible.")
-                        .font(.caption2)
-                        .foregroundColor(.white.opacity(0.8))
                 }
-            } else {
-                searchingBodyView
+                .padding()
             }
-
-        case .searchingForBody:
-            searchingBodyView
-
-        case .starting, .initializing:
-            HStack {
-                ProgressView()
-                    .tint(.white)
-                    .padding(.trailing, 6)
-                Text("Starting camera feed...")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.8))
+            .navigationTitle("Measurements")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showDetails = false }
+                }
             }
-            .padding(.vertical, 4)
-
-        case .interrupted:
-            HStack {
-                Image(systemName: "pause.fill")
-                    .foregroundColor(.yellow)
-                Text("Camera feed interrupted")
-                    .font(.caption)
-                    .foregroundColor(.white)
-            }
-            .padding(.vertical, 4)
-
-        default:
-            EmptyView()
         }
-    }
-
-    private var searchingBodyView: some View {
-        HStack {
-            ProgressView()
-                .tint(.white)
-                .padding(.trailing, 6)
-            Text("Position full body in frame for posture tracking...")
-                .font(.caption)
-                .foregroundColor(.white.opacity(0.8))
-        }
-        .padding(.vertical, 4)
     }
 
     // MARK: - Unauthorized & Failure Views
@@ -350,5 +397,12 @@ public class CameraPreviewUIView: UIView {
 
     public var previewLayer: AVCaptureVideoPreviewLayer {
         layer as! AVCaptureVideoPreviewLayer
+    }
+}
+
+private struct RealtimeControlRects: PreferenceKey {
+    static var defaultValue: [CGRect] = []
+    static func reduce(value: inout [CGRect], nextValue: () -> [CGRect]) {
+        value.append(contentsOf: nextValue())
     }
 }

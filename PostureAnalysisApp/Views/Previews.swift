@@ -33,3 +33,27 @@ import SwiftUI
         AssessmentDetailView(assessment: assessment, image: nil)
     }
 }
+
+#Preview("Measurement Feedback Cards") {
+    let profile = DefaultPostureReferenceProvider().currentProfile
+    let evaluator = MeasurementFeedbackEvaluator()
+    let measurements = [
+        PostureMeasurement(id: .shoulderLineAngle, name: "Shoulder Line Angle", value: 0.4, unit: "°", landmarksUsed: [], confidence: 0.95, explanation: "Within the geometric reference tolerance."),
+        PostureMeasurement(id: .shoulderLineAngle, name: "Shoulder Line Angle", value: 0.8, unit: "°", landmarksUsed: [], confidence: 0.95, explanation: "Outside the geometric reference tolerance."),
+        PostureMeasurement(id: .shoulderLineAngle, name: "Shoulder Line Angle", value: 3.2, unit: "°", landmarksUsed: [], confidence: 0.95, explanation: "Farther from the geometric reference."),
+        PostureMeasurement(id: .shoulderLineAngle, name: "Shoulder Line Angle", value: 0.4, unit: "°", landmarksUsed: [], confidence: 0.35, explanation: "Detection confidence is too low for color feedback.")
+    ]
+
+    return ScrollView {
+        VStack(spacing: 16) {
+            ForEach(Array(measurements.enumerated()), id: \.offset) { _, measurement in
+                PostureMeasurementCard(
+                    measurement: measurement,
+                    feedback: evaluator.feedback(for: measurement, view: .front, profile: profile),
+                    explanation: measurement.explanation
+                )
+            }
+        }
+        .padding()
+    }
+}

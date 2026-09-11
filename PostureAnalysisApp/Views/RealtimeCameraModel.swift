@@ -9,6 +9,17 @@ protocol RealtimeCaptureService: AnyObject {
     func start(position: AVCaptureDevice.Position, view: PostureView, generation: UUID,
                receive: @escaping RealtimeStateReceiver)
     func stop()
+    func configureFeedback(rate: Int, reduceMotion: Bool, receive: @escaping @MainActor (UUID, ReferencePose?) -> Void)
+}
+
+struct FeedbackRefreshGate {
+    private var lastTime = -Double.infinity
+    mutating func accepts(time: Double, rate: Int) -> Bool {
+        let rate = [2, 5, 10].contains(rate) ? rate : 5
+        guard time - lastTime + 0.000001 >= 1 / Double(rate) else { return false }
+        lastTime = time
+        return true
+    }
 }
 
 @MainActor
@@ -32,6 +43,10 @@ private struct SystemCameraPermission: RealtimeCameraPermission {
 public final class RealtimeCameraModel: ObservableObject {
     @Published public private(set) var state: RealtimeCameraState = .initializing
     @Published public private(set) var isFrontCamera = true
+    @Published public private(set) var target: ReferencePose?
+    private var detailsPresented = false
+    private var feedbackRate = 5
+    private var reduceMotion = false
 
     public var captureSession: AVCaptureSession { camera.session }
     public var displayPose: BodyPose? {
@@ -46,7 +61,7 @@ public final class RealtimeCameraModel: ObservableObject {
     private var isRequestingPermission = false
     private var postureView: PostureView = .front
     private var generation = UUID()
-    private var canCapture: Bool { isViewActive && isApplicationActive }
+    private var canCapture: Bool { isViewActive && isApplicationActive && !detailsPresented }
 
     public convenience init(poseEstimator: FramePoseEstimator = AppleVisionPoseEstimator()) {
         self.init(camera: RealtimeCameraController(estimator: poseEstimator), permission: SystemCameraPermission())
@@ -55,6 +70,17 @@ public final class RealtimeCameraModel: ObservableObject {
     init(camera: RealtimeCaptureService, permission: RealtimeCameraPermission) {
         self.camera = camera
         self.permission = permission
+    }
+
+    public func setDetailsPresented(_ presented: Bool) {
+        detailsPresented = presented
+        if presented { stopSession() } else if canCapture { checkPermissionAndSetup() }
+    }
+
+    public func setFeedback(rate: Int, reduceMotion: Bool) {
+        feedbackRate = [2, 5, 10].contains(rate) ? rate : 5
+        self.reduceMotion = reduceMotion
+        if canCapture, permission.status == .authorized { startSession() }
     }
 
     public func onAppear(isApplicationActive: Bool = true) {
@@ -115,10 +141,17 @@ public final class RealtimeCameraModel: ObservableObject {
     private func startSession() {
         generation = UUID()
         state = .starting
+        target = nil
+        camera.configureFeedback(rate: feedbackRate, reduceMotion: reduceMotion) { [weak self] token, target in
+            guard let self, self.canCapture, self.generation == token,
+                  case .tracking = self.state else { return }
+            self.target = target
+        }
         camera.start(position: isFrontCamera ? .front : .back, view: postureView, generation: generation) {
             [weak self] token, state in
             guard let self, self.canCapture, self.generation == token else { return }
             self.state = state
+            if case .tracking = state {} else { self.target = nil }
         }
     }
 
@@ -130,6 +163,7 @@ public final class RealtimeCameraModel: ObservableObject {
 
     public func stopSession() {
         generation = UUID()
+        target = nil
         state = .interrupted
         camera.stop()
     }
@@ -137,6 +171,17 @@ public final class RealtimeCameraModel: ObservableObject {
 
 /// Display transforms never alter the unmirrored pose used for measurement geometry.
 enum RealtimePoseProcessing {
+    static func smoothedTarget(_ target: ReferencePose, previous: ReferencePose?, imageWidth: CGFloat, reduceMotion: Bool) -> ReferencePose {
+        guard !reduceMotion, let previous else { return target }
+        var result = target
+        for (joint, point) in target.jointLocations {
+            if let old = previous.jointLocations[joint], hypot(point.x - old.x, point.y - old.y) < imageWidth * 0.025 {
+                result.jointLocations[joint] = CGPoint(x: old.x + (point.x - old.x) * 0.4, y: old.y + (point.y - old.y) * 0.4)
+            }
+        }
+        return result
+    }
+
     static func reliablePose(_ pose: BodyPose) -> BodyPose {
         var result = pose
         result.landmarks = pose.landmarks.filter { $0.value.confidence >= 0.3 }
@@ -174,7 +219,19 @@ private final class RealtimeCameraController: NSObject, RealtimeCaptureService, 
     private var generation: UUID?
     private var view: PostureView = .front
     private var receive: RealtimeStateReceiver?
-    private var lastFrameTime = -Double.infinity
+    private var gate = FeedbackRefreshGate()
+    private var feedbackRate = 5
+    private var reduceMotion = false
+    private var previousTarget: ReferencePose?
+    private var referenceReceiver: (@MainActor (UUID, ReferencePose?) -> Void)?
+
+    func configureFeedback(rate: Int, reduceMotion: Bool, receive: @escaping @MainActor (UUID, ReferencePose?) -> Void) {
+        queue.async {
+            self.feedbackRate = rate
+            self.reduceMotion = reduceMotion
+            self.referenceReceiver = receive
+        }
+    }
     private var interrupted = false
 
     init(estimator: FramePoseEstimator) {
@@ -233,7 +290,8 @@ private final class RealtimeCameraController: NSObject, RealtimeCaptureService, 
             self.generation = generation
             self.view = view
             self.receive = receive
-            self.lastFrameTime = -Double.infinity
+            self.gate = FeedbackRefreshGate()
+            self.previousTarget = nil
             self.interrupted = false
             if self.session.isRunning { self.session.stopRunning() }
             self.session.beginConfiguration()
@@ -286,20 +344,29 @@ private final class RealtimeCameraController: NSObject, RealtimeCaptureService, 
 
     private func publish(_ state: RealtimeCameraState) {
         guard let generation, isCurrent(generation), let receive else { return }
-        Task { @MainActor in receive(generation, state) }
+        if case .tracking = state {} else { previousTarget = nil }
+        let target = previousTarget
+        let referenceReceiver = referenceReceiver
+        Task { @MainActor in
+            receive(generation, state)
+            referenceReceiver?(generation, target)
+        }
     }
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         guard let generation, isCurrent(generation), !interrupted,
               let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         let now = ProcessInfo.processInfo.systemUptime
-        guard now - lastFrameTime >= 0.1 else { return }
-        lastFrameTime = now
+        guard gate.accepts(time: now, rate: feedbackRate) else { return }
         autoreleasepool {
             do {
                 let pose = RealtimePoseProcessing.reliablePose(try estimator.estimatePose(in: buffer))
                 let metadata = ImageMetadata(width: pose.imageWidth, height: pose.imageHeight)
                 let assessment = analyzer.analyze(pose: pose, imageMetadata: metadata, view: view)
+                let result = ReferencePoseGenerator().generateStaticReference(for: pose, view: view,
+                    profile: DefaultPostureReferenceProvider().profile(for: view))
+                previousTarget = RealtimePoseProcessing.smoothedTarget(result.staticReference, previous: previousTarget,
+                    imageWidth: pose.imageWidth, reduceMotion: reduceMotion)
                 publish(assessment.measurements.isEmpty ? .searchingForBody : .tracking(pose, assessment))
             } catch {
                 // Discard the last overlay and measurements immediately on tracking failure.

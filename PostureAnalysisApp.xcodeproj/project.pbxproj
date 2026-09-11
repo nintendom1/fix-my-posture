@@ -46,6 +46,15 @@
 		A10000012B00000000000037 /* RealtimeCorrectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000037 /* RealtimeCorrectionView.swift */; };
 		A10000012B00000000000038 /* RealtimeCameraModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000038 /* RealtimeCameraModel.swift */; };
 		A10000012B00000000000039 /* RealtimeCameraTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000039 /* RealtimeCameraTests.swift */; };
+		A10000012B00000000000040 /* MeasurementFeedbackEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000040 /* MeasurementFeedbackEvaluator.swift */; };
+		A10000012B00000000000046 /* MeasurementPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000046 /* MeasurementPresentation.swift */; };
+		A10000012B00000000000041 /* PostureMeasurementCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000041 /* PostureMeasurementCard.swift */; };
+		A10000012B00000000000042 /* MeasurementFeedbackTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000042 /* MeasurementFeedbackTests.swift */; };
+		A10000012B00000000000048 /* MeasurementPresentationTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000048 /* MeasurementPresentationTests.swift */; };
+		A10000012B00000000000043 /* PostureCalloutLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000043 /* PostureCalloutLayout.swift */; };
+		A10000012B00000000000044 /* PostureCalloutOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000044 /* PostureCalloutOverlayView.swift */; };
+		A10000012B00000000000047 /* AlignmentTargetOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000047 /* AlignmentTargetOverlayView.swift */; };
+		A10000012B00000000000045 /* PostureCalloutLayoutTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000045 /* PostureCalloutLayoutTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -100,6 +109,15 @@
 		B10000012B00000000000037 /* RealtimeCorrectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeCorrectionView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000038 /* RealtimeCameraModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeCameraModel.swift; sourceTree = "<group>"; };
 		B10000012B00000000000039 /* RealtimeCameraTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeCameraTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000040 /* MeasurementFeedbackEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementFeedbackEvaluator.swift; sourceTree = "<group>"; };
+		B10000012B00000000000046 /* MeasurementPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementPresentation.swift; sourceTree = "<group>"; };
+		B10000012B00000000000041 /* PostureMeasurementCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureMeasurementCard.swift; sourceTree = "<group>"; };
+		B10000012B00000000000042 /* MeasurementFeedbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementFeedbackTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000048 /* MeasurementPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementPresentationTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000043 /* PostureCalloutLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureCalloutLayout.swift; sourceTree = "<group>"; };
+		B10000012B00000000000044 /* PostureCalloutOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureCalloutOverlayView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000047 /* AlignmentTargetOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlignmentTargetOverlayView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000045 /* PostureCalloutLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureCalloutLayoutTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -178,6 +196,8 @@
 				B10000012B00000000000012 /* PostureAnalyzer.swift */,
 				B10000012B00000000000032 /* PostureReferenceProvider.swift */,
 				B10000012B00000000000033 /* ReferencePoseGenerator.swift */,
+				B10000012B00000000000040 /* MeasurementFeedbackEvaluator.swift */,
+				B10000012B00000000000046 /* MeasurementPresentation.swift */,
 			);
 			path = PostureAnalysis;
 			sourceTree = "<group>";
@@ -215,6 +235,9 @@
 				B10000012B00000000000035 /* PostureReportView.swift */,
 				B10000012B00000000000037 /* RealtimeCorrectionView.swift */,
 				B10000012B00000000000038 /* RealtimeCameraModel.swift */,
+				B10000012B00000000000041 /* PostureMeasurementCard.swift */,
+				B10000012B00000000000044 /* PostureCalloutOverlayView.swift */,
+				B10000012B00000000000047 /* AlignmentTargetOverlayView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -232,6 +255,7 @@
 			children = (
 				B10000012B00000000000024 /* CoordinateConverter.swift */,
 				B10000012B00000000000028 /* ImageNormalizer.swift */,
+				B10000012B00000000000043 /* PostureCalloutLayout.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -242,6 +266,9 @@
 				B10000012B00000000000023 /* GeometryTests.swift */,
 				B10000012B00000000000036 /* ReferenceGeometryTests.swift */,
 				B10000012B00000000000039 /* RealtimeCameraTests.swift */,
+				B10000012B00000000000042 /* MeasurementFeedbackTests.swift */,
+				B10000012B00000000000048 /* MeasurementPresentationTests.swift */,
+				B10000012B00000000000045 /* PostureCalloutLayoutTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -370,6 +397,12 @@
 				A10000012B00000000000035 /* PostureReportView.swift in Sources */,
 				A10000012B00000000000037 /* RealtimeCorrectionView.swift in Sources */,
 				A10000012B00000000000038 /* RealtimeCameraModel.swift in Sources */,
+				A10000012B00000000000040 /* MeasurementFeedbackEvaluator.swift in Sources */,
+				A10000012B00000000000046 /* MeasurementPresentation.swift in Sources */,
+				A10000012B00000000000041 /* PostureMeasurementCard.swift in Sources */,
+				A10000012B00000000000043 /* PostureCalloutLayout.swift in Sources */,
+				A10000012B00000000000044 /* PostureCalloutOverlayView.swift in Sources */,
+				A10000012B00000000000047 /* AlignmentTargetOverlayView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -380,6 +413,9 @@
 				A10000012B00000000000023 /* GeometryTests.swift in TestSources */,
 				A10000012B00000000000036 /* ReferenceGeometryTests.swift in TestSources */,
 				A10000012B00000000000039 /* RealtimeCameraTests.swift in TestSources */,
+				A10000012B00000000000042 /* MeasurementFeedbackTests.swift in TestSources */,
+				A10000012B00000000000048 /* MeasurementPresentationTests.swift in TestSources */,
+				A10000012B00000000000045 /* PostureCalloutLayoutTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
