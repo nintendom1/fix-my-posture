@@ -390,6 +390,30 @@ final class ReferenceGeometryTests: XCTestCase {
         XCTAssertEqual(normalized.cgImage!.height, base.cgImage!.width)
     }
 
+    func testReferencePoseHashIsIndependentOfJointInsertionOrder() {
+        let first = ReferencePose(
+            jointLocations: [
+                .leftShoulder: CGPoint(x: 100, y: 200),
+                .rightShoulder: CGPoint(x: 300, y: 200)
+            ],
+            connections: [ConnectionPair(.leftShoulder, .rightShoulder)],
+            supportedRegions: [.torso],
+            achievedChanges: ["Shoulders aligned"]
+        )
+        let second = ReferencePose(
+            jointLocations: [
+                .rightShoulder: CGPoint(x: 300, y: 200),
+                .leftShoulder: CGPoint(x: 100, y: 200)
+            ],
+            connections: [ConnectionPair(.leftShoulder, .rightShoulder)],
+            supportedRegions: [.torso],
+            achievedChanges: ["Shoulders aligned"]
+        )
+
+        XCTAssertEqual(first, second)
+        XCTAssertEqual(Swift.Set<ReferencePose>([first, second]).count, 1)
+    }
+
     private func makeLandmark(_ type: LandmarkType, _ point: CGPoint, width: CGFloat, height: CGFloat) -> Landmark {
         Landmark(
             type: type,

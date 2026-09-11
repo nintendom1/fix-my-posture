@@ -43,6 +43,40 @@ public struct ReferencePose: Codable, Hashable {
         self.unavailabilityReason = unavailabilityReason
     }
 
+    // Compare coordinate components explicitly for SDKs where CGPoint does not
+    // provide the protocol conformances needed for synthesized implementations.
+    public static func == (lhs: ReferencePose, rhs: ReferencePose) -> Bool {
+        guard lhs.jointLocations.count == rhs.jointLocations.count else {
+            return false
+        }
+
+        for (type, point) in lhs.jointLocations {
+            guard let otherPoint = rhs.jointLocations[type],
+                  point.x == otherPoint.x,
+                  point.y == otherPoint.y else {
+                return false
+            }
+        }
+
+        return lhs.connections == rhs.connections
+            && lhs.supportedRegions == rhs.supportedRegions
+            && lhs.achievedChanges == rhs.achievedChanges
+            && lhs.unavailabilityReason == rhs.unavailabilityReason
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(jointLocations.count)
+        for (type, point) in jointLocations.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
+            hasher.combine(type)
+            hasher.combine(point.x)
+            hasher.combine(point.y)
+        }
+        hasher.combine(connections)
+        hasher.combine(supportedRegions)
+        hasher.combine(achievedChanges)
+        hasher.combine(unavailabilityReason)
+    }
+
     private enum CodingKeys: String, CodingKey {
         case jointLocations
         case connections
