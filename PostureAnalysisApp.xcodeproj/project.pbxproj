@@ -43,6 +43,9 @@
 		A10000012B00000000000034 /* AlignmentReferenceOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000034 /* AlignmentReferenceOverlayView.swift */; };
 		A10000012B00000000000035 /* PostureReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000035 /* PostureReportView.swift */; };
 		A10000012B00000000000036 /* ReferenceGeometryTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000036 /* ReferenceGeometryTests.swift */; };
+		A10000012B00000000000037 /* RealtimeCorrectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000037 /* RealtimeCorrectionView.swift */; };
+		A10000012B00000000000038 /* RealtimeCameraModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000038 /* RealtimeCameraModel.swift */; };
+		A10000012B00000000000039 /* RealtimeCameraTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000039 /* RealtimeCameraTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -94,6 +97,9 @@
 		B10000012B00000000000034 /* AlignmentReferenceOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlignmentReferenceOverlayView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000035 /* PostureReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureReportView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000036 /* ReferenceGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferenceGeometryTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000037 /* RealtimeCorrectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeCorrectionView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000038 /* RealtimeCameraModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeCameraModel.swift; sourceTree = "<group>"; };
+		B10000012B00000000000039 /* RealtimeCameraTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeCameraTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -207,6 +213,8 @@
 				B10000012B00000000000027 /* Previews.swift */,
 				B10000012B00000000000034 /* AlignmentReferenceOverlayView.swift */,
 				B10000012B00000000000035 /* PostureReportView.swift */,
+				B10000012B00000000000037 /* RealtimeCorrectionView.swift */,
+				B10000012B00000000000038 /* RealtimeCameraModel.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -233,6 +241,7 @@
 			children = (
 				B10000012B00000000000023 /* GeometryTests.swift */,
 				B10000012B00000000000036 /* ReferenceGeometryTests.swift */,
+				B10000012B00000000000039 /* RealtimeCameraTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -359,6 +368,8 @@
 				A10000012B00000000000033 /* ReferencePoseGenerator.swift in Sources */,
 				A10000012B00000000000034 /* AlignmentReferenceOverlayView.swift in Sources */,
 				A10000012B00000000000035 /* PostureReportView.swift in Sources */,
+				A10000012B00000000000037 /* RealtimeCorrectionView.swift in Sources */,
+				A10000012B00000000000038 /* RealtimeCameraModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -368,6 +379,7 @@
 			files = (
 				A10000012B00000000000023 /* GeometryTests.swift in TestSources */,
 				A10000012B00000000000036 /* ReferenceGeometryTests.swift in TestSources */,
+				A10000012B00000000000039 /* RealtimeCameraTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -461,7 +473,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				MARKETING_VERSION = 1.0;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Posture Analysis App uses the camera to take full-body standing photos for posture evaluation.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Use the camera for standing photos and live posture alignment. All analysis stays on your device.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -486,7 +498,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				MARKETING_VERSION = 1.0;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Posture Analysis App uses the camera to take full-body standing photos for posture evaluation.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Use the camera for standing photos and live posture alignment. All analysis stays on your device.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

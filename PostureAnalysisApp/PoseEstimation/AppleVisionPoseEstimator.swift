@@ -1,9 +1,10 @@
 import Foundation
 import CoreGraphics
+import CoreVideo
 import Vision
 
 /// Apple Vision pose estimator conforming to `PoseEstimator`.
-public final class AppleVisionPoseEstimator: PoseEstimator {
+public final class AppleVisionPoseEstimator: PoseEstimator, FramePoseEstimator {
 
     public init() {}
 
@@ -21,9 +22,32 @@ public final class AppleVisionPoseEstimator: PoseEstimator {
             return BodyPose(landmarks: [:], imageWidth: width, imageHeight: height)
         }
 
+        return extractBodyPose(from: primaryObservation, width: width, height: height)
+    }
+
+    /// Estimates body pose landmarks in the provided live frame CVPixelBuffer using `VNDetectHumanBodyPoseRequest`.
+    public func estimatePose(in pixelBuffer: CVPixelBuffer) throws -> BodyPose {
+        let width = CGFloat(CVPixelBufferGetWidth(pixelBuffer))
+        let height = CGFloat(CVPixelBufferGetHeight(pixelBuffer))
+
+        let requestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
+        let request = VNDetectHumanBodyPoseRequest()
+
+        try requestHandler.perform([request])
+
+        guard let observations = request.results, let primaryObservation = observations.first else {
+            return BodyPose(landmarks: [:], imageWidth: width, imageHeight: height)
+        }
+
+        return extractBodyPose(from: primaryObservation, width: width, height: height)
+    }
+
+    // MARK: - Joint Mapping Helper
+
+    private func extractBodyPose(from observation: VNHumanBodyPoseObservation, width: CGFloat, height: CGFloat) -> BodyPose {
         var landmarks: [LandmarkType: Landmark] = [:]
 
-        // Map Vision joint names to our domain LandmarkType
+        // Map Vision joint names to domain LandmarkType
         let jointMapping: [(VNHumanBodyPoseObservation.JointName, LandmarkType)] = [
             (.nose, .nose),
             (.neck, .neck),
@@ -48,7 +72,7 @@ public final class AppleVisionPoseEstimator: PoseEstimator {
 
         for (visionJoint, landmarkType) in jointMapping {
             do {
-                let recognizedPoint = try primaryObservation.recognizedPoint(visionJoint)
+                let recognizedPoint = try observation.recognizedPoint(visionJoint)
                 if recognizedPoint.confidence > 0.01 {
                     // Vision normalized coordinates have origin (0,0) at bottom-left.
                     let normX = recognizedPoint.location.x
@@ -68,7 +92,6 @@ public final class AppleVisionPoseEstimator: PoseEstimator {
                     landmarks[landmarkType] = landmark
                 }
             } catch {
-                // Joint not recognized or unsupported
                 continue
             }
         }

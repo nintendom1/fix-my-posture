@@ -293,9 +293,13 @@ public struct PostureAnalyzer {
 
     /// Angle with horizontal axis in degrees (-90° to +90°) computed in top-left origin image pixel space.
     public func angleWithHorizontalDegrees(p1: CGPoint, p2: CGPoint) -> Double {
-        let dx = p2.x - p1.x
-        let dy = p2.y - p1.y // Top-left Y: downward dy is positive
-        let radians = atan2(-dy, dx) // invert dy so upward is positive
+        let leftPt = p1.x <= p2.x ? p1 : p2
+        let rightPt = p1.x <= p2.x ? p2 : p1
+        let dx = rightPt.x - leftPt.x
+        let dy = leftPt.y - rightPt.y // Invert dy so upward Y in image pixel space is positive dy
+        guard dx != 0 || dy != 0 else { return 0 }
+        guard dx != 0 else { return 90 }
+        let radians = atan2(dy, dx)
         let degrees = radians * (180.0 / .pi)
         return degrees
     }

@@ -145,4 +145,18 @@ final class GeometryTests: XCTestCase {
         let comparison = BaselineComparisonEngine.compare(current: currAssessment, baseline: baseAssessment)
         XCTAssertTrue(comparison.isEmpty, "Incompatible views (Front vs Side) must yield zero comparison items.")
     }
+    func testHorizontalAngleOrderAndMirroring() {
+        let p1 = CGPoint(x: 300, y: 300)
+        let p2 = CGPoint(x: 700, y: 400)
+        let angle = analyzer.angleWithHorizontalDegrees(p1: p1, p2: p2)
+        XCTAssertEqual(angle, -14.036, accuracy: 0.001)
+        XCTAssertEqual(analyzer.angleWithHorizontalDegrees(p1: p2, p2: p1), angle, accuracy: 0.001)
+        XCTAssertEqual(analyzer.angleWithHorizontalDegrees(
+            p1: CGPoint(x: 700, y: 300), p2: CGPoint(x: 300, y: 400)), -angle, accuracy: 0.001)
+        XCTAssertEqual(analyzer.angleWithHorizontalDegrees(
+            p1: CGPoint(x: 700, y: 300), p2: p1), 0, accuracy: 0.001)
+        XCTAssertEqual(analyzer.angleWithHorizontalDegrees(p1: p1, p2: p1), 0)
+        XCTAssertEqual(analyzer.angleWithHorizontalDegrees(
+            p1: p1, p2: CGPoint(x: 300, y: 400)), 90)
+    }
 }
