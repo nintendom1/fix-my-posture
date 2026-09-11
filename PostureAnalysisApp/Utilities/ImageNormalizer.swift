@@ -28,7 +28,8 @@ public struct ImageNormalizer {
     /// from standard `.up` frame to match a target `UIImage.Orientation`.
     public static func mapNormalizedToOrientation(
         _ point: CGPoint,
-        orientation: UIImage.Orientation
+        orientation: UIImage.Orientation,
+        clampToImage: Bool = true
     ) -> CGPoint {
         var x = point.x
         var y = point.y
@@ -63,6 +64,7 @@ public struct ImageNormalizer {
             break
         }
 
+        guard clampToImage else { return CGPoint(x: x, y: y) }
         return CGPoint(
             x: max(0.0, min(1.0, x)),
             y: max(0.0, min(1.0, y))

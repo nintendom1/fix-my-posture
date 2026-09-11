@@ -126,6 +126,73 @@ final class RealtimeCameraTests: XCTestCase {
         XCTAssertTrue(assessment.measurements.isEmpty)
     }
 
+    func testRefreshRatesAndPreferenceChanges() {
+        for rate in [2, 5, 10] {
+            var gate = FeedbackRefreshGate()
+            let accepted = (0..<1000).filter { gate.accepts(time: Double($0) / 1000, rate: rate) }
+            XCTAssertEqual(accepted.count, rate)
+        }
+        var gate = FeedbackRefreshGate()
+        XCTAssertTrue(gate.accepts(time: 0, rate: 2))
+        XCTAssertFalse(gate.accepts(time: 0.1, rate: 2))
+        XCTAssertTrue(gate.accepts(time: 0.1, rate: 10))
+        XCTAssertFalse(gate.accepts(time: 0.2, rate: 5))
+        XCTAssertTrue(gate.accepts(time: 0.3, rate: 5))
+    }
+
+    @MainActor
+    func testDetailsStayPausedAcrossForegroundAndSettingsChanges() {
+        let camera = FakeCaptureService()
+        let model = RealtimeCameraModel(camera: camera, permission: FakeCameraPermission(status: .authorized))
+        model.onAppear()
+        model.setDetailsPresented(true)
+        model.setApplicationActive(false)
+        model.setFeedback(rate: 10, reduceMotion: true)
+        model.setApplicationActive(true)
+        model.checkPermissionAndSetup()
+        camera.emit(trackingState(), start: 0)
+        XCTAssertEqual(camera.starts.count, 1)
+        XCTAssertNil(model.displayPose)
+        model.setDetailsPresented(false)
+        XCTAssertEqual(camera.starts.count, 2)
+    }
+
+    @MainActor
+    func testTargetClearingAndStaleResultRejectionAfterPreferenceChange() {
+        let camera = FakeCaptureService()
+        let model = RealtimeCameraModel(camera: camera, permission: FakeCameraPermission(status: .authorized))
+        model.onAppear()
+        let target = ReferencePose(jointLocations: [.leftShoulder: CGPoint(x: 100, y: 200)])
+        camera.emit(trackingState(), start: 0, target: target)
+        XCTAssertEqual(model.target, target)
+        model.setFeedback(rate: 2, reduceMotion: false)
+        XCTAssertNil(model.target)
+        camera.emit(trackingState(), start: 0, target: target)
+        XCTAssertNil(model.target)
+        camera.emit(trackingState(), start: 1, target: target)
+        XCTAssertEqual(model.target, target)
+        camera.emit(.searchingForBody, start: 1, target: target)
+        XCTAssertNil(model.target)
+        camera.emit(trackingState(), start: 1, target: target)
+        model.setDetailsPresented(true)
+        XCTAssertNil(model.target)
+    }
+
+    func testTargetSmoothingReduceMotionAndMirroring() throws {
+        let old = ReferencePose(jointLocations: [.leftShoulder: CGPoint(x: 100, y: 200)])
+        let target = ReferencePose(jointLocations: [.leftShoulder: CGPoint(x: 110, y: 200)])
+        let smooth = RealtimePoseProcessing.smoothedTarget(target, previous: old, imageWidth: 1000, reduceMotion: false)
+        XCTAssertEqual(smooth.jointLocations[.leftShoulder]?.x, 104)
+        XCTAssertEqual(RealtimePoseProcessing.smoothedTarget(target, previous: old, imageWidth: 1000, reduceMotion: true), target)
+        XCTAssertEqual(RealtimePoseProcessing.smoothedTarget(target, previous: old, imageWidth: 100, reduceMotion: false), target)
+        let imageSize = CGSize(width: 1000, height: 2000)
+        let size = CGSize(width: 393, height: 852)
+        let original = try XCTUnwrap(AlignmentTargetOverlayView.rects(reference: target, imageSize: imageSize, containerSize: size).first)
+        let mirrored = try XCTUnwrap(AlignmentTargetOverlayView.rects(reference: target, imageSize: imageSize, containerSize: size, mirrored: true).first)
+        XCTAssertEqual(original.midX + mirrored.midX, size.width, accuracy: 0.001)
+        XCTAssertEqual(original.midY, mirrored.midY)
+    }
+
     private func samplePose() -> BodyPose {
         let points: [(LandmarkType, CGPoint)] = [(.leftShoulder, CGPoint(x: 0.3, y: 0.75)),
                                                 (.rightShoulder, CGPoint(x: 0.7, y: 0.70))]
@@ -152,16 +219,22 @@ private final class FakeCaptureService: RealtimeCaptureService {
         let view: PostureView
         let generation: UUID
         let receive: RealtimeStateReceiver
+        let targetReceive: (@MainActor (UUID, ReferencePose?) -> Void)?
     }
     var starts: [Start] = []
     var stops = 0
+    var targetReceive: (@MainActor (UUID, ReferencePose?) -> Void)?
+    func configureFeedback(rate: Int, reduceMotion: Bool, receive: @escaping @MainActor (UUID, ReferencePose?) -> Void) {
+        targetReceive = receive
+    }
     func start(position: AVCaptureDevice.Position, view: PostureView, generation: UUID,
                receive: @escaping RealtimeStateReceiver) {
-        starts.append(Start(position: position, view: view, generation: generation, receive: receive))
+        starts.append(Start(position: position, view: view, generation: generation, receive: receive, targetReceive: targetReceive))
     }
     func stop() { stops += 1 }
-    @MainActor func emit(_ state: RealtimeCameraState, start: Int) {
+    @MainActor func emit(_ state: RealtimeCameraState, start: Int, target: ReferencePose? = nil) {
         starts[start].receive(starts[start].generation, state)
+        starts[start].targetReceive?(starts[start].generation, target)
     }
 }
 

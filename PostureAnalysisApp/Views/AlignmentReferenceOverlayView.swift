@@ -69,7 +69,7 @@ public struct AlignmentReferenceOverlayView: View {
                     torsoPath.closeSubpath()
 
                     context.fill(torsoPath, with: .color(fillColor))
-                    context.stroke(torsoPath, with: .color(strokeColor.opacity(0.6)), lineWidth: 2)
+                    context.stroke(torsoPath, with: .color(strokeColor.opacity(0.85)), lineWidth: 3)
                 } else {
                     // A side-view pose commonly contains only the visible shoulder and hip.
                     for (shoulder, hip) in [(LandmarkType.leftShoulder, LandmarkType.leftHip), (.rightShoulder, .rightHip)] {
@@ -149,7 +149,7 @@ public struct AlignmentReferenceOverlayView: View {
                         linePath.addLine(to: pB)
 
                         let strokeStyle = StrokeStyle(
-                            lineWidth: 3.0,
+                            lineWidth: 4.0,
                             dash: [6.0, 3.0]
                         )
                         context.stroke(linePath, with: .color(strokeColor), style: strokeStyle)
@@ -159,7 +159,7 @@ public struct AlignmentReferenceOverlayView: View {
                 // Reference Joint Dots
                 for (_, pt) in joints {
                     let p = convertPixelPoint(pt)
-                    let radius: CGFloat = 5.0
+                    let radius: CGFloat = 6.0
                     let dotRect = CGRect(x: p.x - radius, y: p.y - radius, width: radius * 2, height: radius * 2)
                     context.fill(Path(ellipseIn: dotRect), with: .color(strokeColor))
                     context.stroke(Path(ellipseIn: dotRect), with: .color(.white), lineWidth: 1.5)

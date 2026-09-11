@@ -32,12 +32,15 @@ public struct AssessmentDetailView: View {
                     image: image,
                     pose: displayPose,
                     view: assessment.view,
+                    measurements: assessment.measurements,
+                    sourcePose: assessment.pose,
                     referenceProvider: referenceProvider
                 )
 
                 if let base = baselineAssessment {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Baseline Comparison")
+                        Text("Directional metrics compare magnitude changes; knee angles and stance ratios compare original values.").font(.caption)
                             .font(.title3)
                             .bold()
 
@@ -60,7 +63,7 @@ public struct AssessmentDetailView: View {
                                     Spacer()
                                     Text("\(comp.deltaValue >= 0 ? "+" : "")\(String(format: "%.1f", comp.deltaValue))\(comp.unit)")
                                         .bold()
-                                        .foregroundColor(comp.deltaValue == 0 ? .primary : (comp.deltaValue > 0 ? .red : .green))
+                                        .foregroundColor(comp.deltaValue == 0 ? .secondary : .blue)
                                 }
                                 .padding(10)
                                 .background(Color(uiColor: .tertiarySystemBackground))
@@ -80,22 +83,17 @@ public struct AssessmentDetailView: View {
                         .bold()
 
                     ForEach(assessment.measurements) { m in
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text(m.name)
-                                    .font(.headline)
-                                Spacer()
-                                Text("\(String(format: "%.1f", m.value))\(m.unit)")
-                                    .bold()
-                                    .foregroundColor(.blue)
-                            }
-                            Text(m.explanation)
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding()
-                        .background(Color(uiColor: .secondarySystemBackground))
-                        .cornerRadius(10)
+                        let feedback = MeasurementFeedbackEvaluator().feedback(
+                            for: m,
+                            view: assessment.view,
+                            profile: referenceProvider.profile(for: assessment.view)
+                        )
+                        PostureMeasurementCard(
+                            measurement: m,
+                            feedback: feedback,
+                            explanation: MeasurementPresentation.explanation(m),
+                            reading: MeasurementPresentation.reading(m, pose: assessment.pose, view: assessment.view)
+                        )
                     }
                 }
                 .padding(.horizontal)

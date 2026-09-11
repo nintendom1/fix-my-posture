@@ -27,6 +27,50 @@ final class ReferenceGeometryTests: XCTestCase {
         super.tearDown()
     }
 
+    func testStaticOnlyMatchesReplayFinalAcrossProportionsAndMissingLandmarks() {
+        for width: CGFloat in [800, 1000, 1400] {
+            for height: CGFloat in [1800, 2400] {
+                var pose = createFrontPose(width: width, height: height)
+                for partial in [false, true] {
+                    if partial { pose.landmarks.removeValue(forKey: .leftEye) }
+                    let full = generator.generateReference(for: pose, view: .front, profile: defaultProvider.currentProfile)
+                    let target = generator.generateStaticReference(for: pose, view: .front, profile: defaultProvider.currentProfile)
+                    XCTAssertEqual(full.staticReference, target.staticReference)
+                    XCTAssertTrue(target.motionSequence.isEmpty)
+                    XCTAssertFalse(target.isReplayAvailable)
+                    if let ankle = target.staticReference.jointLocations[.leftAnkle] {
+                        XCTAssertEqual(ankle, pose[.leftAnkle]!.imageLocation)
+                    }
+                }
+            }
+        }
+    }
+
+    func testStaticTargetsPreserveDifferentBodyProportionsAndBothSides() {
+        for view in [PostureView.front, .leftSide, .rightSide] {
+            for scale: CGFloat in [0.7, 1.3] {
+                var pose = view == .front ? createFrontPose(width: 1000, height: 2000) : createSidePose(width: 1000, height: 2000, view: view)
+                for (joint, landmark) in pose.landmarks {
+                    let pixel = CGPoint(x: 500 + (landmark.imageLocation.x - 500) * scale, y: landmark.imageLocation.y * (2 - scale))
+                    pose[joint]?.imageLocation = pixel
+                    let normalized = CoordinateConverter.imagePixelToNormalized(pixel: pixel, imageWidth: pose.imageWidth, imageHeight: pose.imageHeight)
+                    pose[joint]?.normalizedLocation = normalized
+                }
+                let full = generator.generateReference(for: pose, view: view, profile: defaultProvider.currentProfile)
+                let target = generator.generateStaticReference(for: pose, view: view, profile: defaultProvider.currentProfile).staticReference
+                XCTAssertEqual(full.staticReference, target)
+                for (a, b) in [(LandmarkType.leftShoulder, LandmarkType.rightShoulder), (.leftHip, .rightHip),
+                               (.leftHip, .leftKnee), (.leftKnee, .leftAnkle), (.rightHip, .rightKnee), (.rightKnee, .rightAnkle)] {
+                    if let originalA = pose[a]?.imageLocation, let originalB = pose[b]?.imageLocation,
+                       let targetA = target.jointLocations[a], let targetB = target.jointLocations[b] {
+                        XCTAssertEqual(hypot(originalA.x - originalB.x, originalA.y - originalB.y),
+                                       hypot(targetA.x - targetB.x, targetA.y - targetB.y), accuracy: 0.01)
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - Helper Fixtures
 
     private func createFrontPose(width: CGFloat, height: CGFloat, shoulderTilt: CGFloat = 40.0) -> BodyPose {

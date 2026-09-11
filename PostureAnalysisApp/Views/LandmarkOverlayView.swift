@@ -8,6 +8,8 @@ public struct LandmarkOverlayView: View {
     public var onSelectLandmark: ((LandmarkType) -> Void)?
     public var showSkeleton: Bool = true
     public var showLandmarks: Bool = true
+    public var distanceEmphasis: Bool = false
+    public var feedback: [LandmarkType: MeasurementFeedback] = [:]
 
     public init(
         pose: BodyPose,
@@ -15,7 +17,9 @@ public struct LandmarkOverlayView: View {
         selectedLandmark: LandmarkType? = nil,
         onSelectLandmark: ((LandmarkType) -> Void)? = nil,
         showSkeleton: Bool = true,
-        showLandmarks: Bool = true
+        showLandmarks: Bool = true,
+        distanceEmphasis: Bool = false,
+        feedback: [LandmarkType: MeasurementFeedback] = [:]
     ) {
         self.pose = pose
         self.containerSize = containerSize
@@ -23,6 +27,8 @@ public struct LandmarkOverlayView: View {
         self.onSelectLandmark = onSelectLandmark
         self.showSkeleton = showSkeleton
         self.showLandmarks = showLandmarks
+        self.distanceEmphasis = distanceEmphasis
+        self.feedback = feedback
     }
 
     public var body: some View {
@@ -48,8 +54,8 @@ public struct LandmarkOverlayView: View {
                         path.addLine(to: pB)
 
                         let isCorrected = lmA.isManuallyCorrected || lmB.isManuallyCorrected
-                        let strokeColor = isCorrected ? Color.orange : Color.cyan
-                        context.stroke(path, with: .color(strokeColor.opacity(0.8)), lineWidth: 3)
+                        let strokeColor = isCorrected && onSelectLandmark != nil ? Color.orange : Color.gray
+                        context.stroke(path, with: .color(strokeColor.opacity(0.9)), lineWidth: distanceEmphasis ? 5 : 3)
                     }
                 }
             }
@@ -61,8 +67,8 @@ public struct LandmarkOverlayView: View {
                     let isSelected = (type == selectedLandmark)
                     let isCorrected = landmark.isManuallyCorrected
 
-                    let radius: CGFloat = isSelected ? 12.0 : 7.0
-                    let color: Color = isCorrected ? .orange : (isSelected ? .yellow : .green)
+                    let radius: CGFloat = isSelected ? 12.0 : (distanceEmphasis ? 9.0 : 7.0)
+                    let color: Color = isSelected ? .yellow : (isCorrected && onSelectLandmark != nil ? .orange : feedback[type].map { PostureFeedbackPalette.color(for: $0) } ?? .gray)
 
                     let circleRect = CGRect(x: pt.x - radius, y: pt.y - radius, width: radius * 2, height: radius * 2)
                     context.fill(Path(ellipseIn: circleRect), with: .color(color))
@@ -70,6 +76,7 @@ public struct LandmarkOverlayView: View {
                 }
             }
         }
+        .accessibilityLabel(MeasurementPresentation.convention)
         .contentShape(Rectangle())
         .gesture(
             DragGesture(minimumDistance: 0)

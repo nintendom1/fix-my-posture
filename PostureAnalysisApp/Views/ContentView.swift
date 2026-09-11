@@ -44,6 +44,7 @@ public struct ContentView: View {
                                 image: image,
                                 pose: assessment.pose,
                                 view: assessment.view,
+                                measurements: assessment.measurements,
                                 referenceProvider: referenceProvider
                             )
 
@@ -101,22 +102,17 @@ public struct ContentView: View {
                                     .bold()
 
                                 ForEach(assessment.measurements) { m in
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        HStack {
-                                            Text(m.name)
-                                                .font(.headline)
-                                            Spacer()
-                                            Text("\(String(format: "%.1f", m.value))\(m.unit)")
-                                                .bold()
-                                                .foregroundColor(.blue)
-                                        }
-                                        Text(m.explanation)
-                                            .font(.subheadline)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    .padding()
-                                    .background(Color(uiColor: .secondarySystemBackground))
-                                    .cornerRadius(10)
+                                    let feedback = MeasurementFeedbackEvaluator().feedback(
+                                        for: m,
+                                        view: assessment.view,
+                                        profile: referenceProvider.profile(for: assessment.view)
+                                    )
+                                    PostureMeasurementCard(
+                                        measurement: m,
+                                        feedback: feedback,
+                                        explanation: MeasurementPresentation.explanation(m),
+                                        reading: MeasurementPresentation.reading(m, pose: assessment.pose, view: assessment.view)
+                                    )
                                 }
                             }
                             .padding(.horizontal)

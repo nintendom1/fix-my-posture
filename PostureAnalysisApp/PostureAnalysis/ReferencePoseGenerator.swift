@@ -23,7 +23,11 @@ public final class ReferencePoseGenerator {
 
     public init() {}
 
-    public func generateReference(for pose: BodyPose, view: PostureView, profile: PostureReferenceProfile) -> ReferenceGenerationResult {
+    public func generateStaticReference(for pose: BodyPose, view: PostureView, profile: PostureReferenceProfile) -> ReferenceGenerationResult {
+        generateReference(for: pose, view: view, profile: profile, includeReplay: false)
+    }
+
+    public func generateReference(for pose: BodyPose, view: PostureView, profile: PostureReferenceProfile, includeReplay: Bool = true) -> ReferenceGenerationResult {
         guard view != .uncertain else { return unavailable("Choose a front or side view to display an alignment reference.") }
         guard pose.imageWidth > 0, pose.imageHeight > 0 else { return unavailable("The image dimensions are unavailable for alignment reference.") }
 
@@ -66,6 +70,9 @@ public final class ReferencePoseGenerator {
             return ReferenceGenerationResult(staticReference: staticReference, isReplayAvailable: false, unavailabilityReason: reason)
         }
 
+        guard includeReplay else {
+            return ReferenceGenerationResult(staticReference: staticReference, isReplayAvailable: false, unavailabilityReason: partialReason)
+        }
         // Start with the measured pose so replay never jumps to a partly-corrected frame.
         var sequence: [ReferencePose] = []
         let frameCount = 31

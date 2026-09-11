@@ -4,13 +4,17 @@ import SwiftUI
 public struct PostureReportView: View {
     public let image: UIImage?
     public let pose: BodyPose
+    public var sourcePose: BodyPose?
     public let view: PostureView
+    public let measurements: [PostureMeasurement]
     public let referenceProvider: PostureReferenceProviding
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var showMeasuredOverlay: Bool = true
-    @State private var showReference: Bool = true
+    @State private var showReference: Bool = false
+    @State private var showTargets = true
+    @State private var showCallouts: Bool = true
     @State private var selectedStyle: ReferenceStyle = .combined
 
     @State private var referenceResult: ReferenceGenerationResult? = nil
@@ -23,11 +27,15 @@ public struct PostureReportView: View {
         image: UIImage?,
         pose: BodyPose,
         view: PostureView,
+        measurements: [PostureMeasurement] = [],
+        sourcePose: BodyPose? = nil,
         referenceProvider: PostureReferenceProviding = DefaultPostureReferenceProvider()
     ) {
         self.image = image
         self.pose = pose
+        self.sourcePose = sourcePose
         self.view = view
+        self.measurements = measurements
         self.referenceProvider = referenceProvider
     }
 
@@ -46,7 +54,9 @@ public struct PostureReportView: View {
                         if showMeasuredOverlay {
                             LandmarkOverlayView(
                                 pose: pose,
-                                containerSize: geo.size
+                                containerSize: geo.size,
+                                feedback: MeasurementPresentation.jointFeedback(measurements: measurements, pose: pose,
+                                    view: view, profile: referenceProvider.profile(for: view))
                             )
                         }
 
@@ -59,13 +69,30 @@ public struct PostureReportView: View {
                                 style: selectedStyle
                             )
                         }
+
+                        if showTargets, let target = referenceResult?.staticReference {
+                            AlignmentTargetOverlayView(reference: target, imageSize: CGSize(width: pose.imageWidth, height: pose.imageHeight))
+                        }
+
+                        if showCallouts, !measurements.isEmpty {
+                            PostureCalloutOverlayView(
+                                measurements: measurements,
+                                pose: pose,
+                                view: view,
+                                profile: referenceProvider.profile(for: view),
+                                sourcePose: sourcePose,
+                                targetRects: showTargets ? AlignmentTargetOverlayView.rects(reference: referenceResult?.staticReference,
+                                    imageSize: CGSize(width: pose.imageWidth, height: pose.imageHeight), containerSize: geo.size) : []
+                            )
+                        }
                     }
                 }
-                .frame(height: 350)
+                .frame(height: min(max(UIScreen.main.bounds.height - 180, 350), 700))
             }
 
             // Controls Section
             VStack(spacing: 12) {
+                Toggle("Alignment targets", isOn: $showTargets).padding(.horizontal)
                 HStack {
                     Toggle("Show Measured Landmarks", isOn: $showMeasuredOverlay)
                         .accessibilityIdentifier("toggleMeasuredOverlaySwitch")
@@ -75,6 +102,12 @@ public struct PostureReportView: View {
                 HStack {
                     Toggle("Show Alignment Reference", isOn: $showReference)
                         .accessibilityIdentifier("toggleReferenceSwitch")
+                }
+                .padding(.horizontal)
+
+                HStack {
+                    Toggle("Show Measurement Callouts", isOn: $showCallouts)
+                        .accessibilityIdentifier("toggleMeasurementCalloutsSwitch")
                 }
                 .padding(.horizontal)
 
@@ -107,22 +140,24 @@ public struct PostureReportView: View {
                 }
             }
 
+            Text(MeasurementPresentation.convention).font(.caption).padding(.horizontal)
+
             // Legend
             HStack(spacing: 20) {
                 HStack(spacing: 6) {
                     Circle()
                         .fill(Color.green)
                         .frame(width: 10, height: 10)
-                    Text("Measured Pose")
+                    Text("Measured Landmarks")
                         .font(.caption)
                         .bold()
                 }
 
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(Color.purple)
+                        .stroke(Color.purple, lineWidth: 2)
                         .frame(width: 10, height: 10)
-                    Text("Alignment Reference")
+                    Text("Alignment targets")
                         .font(.caption)
                         .bold()
                 }
@@ -132,7 +167,7 @@ public struct PostureReportView: View {
             .cornerRadius(8)
 
             // Reference Info & Explanations
-            if showReference {
+            if showReference || showTargets {
                 VStack(alignment: .leading, spacing: 8) {
                     let profile = referenceProvider.profile(for: view)
                     Text("Alignment Reference (\(profile.name) v\(profile.version))")
@@ -209,7 +244,20 @@ public struct PostureReportView: View {
 
         let generator = ReferencePoseGenerator()
         let profile = referenceProvider.profile(for: view)
-        let result = generator.generateReference(for: pose, view: view, profile: profile)
+        let raw = generator.generateReference(for: sourcePose ?? pose, view: view, profile: profile)
+        func display(_ reference: ReferencePose) -> ReferencePose {
+            guard let sourcePose else { return reference }
+            var result = reference
+            result.jointLocations = reference.jointLocations.mapValues { point in
+                let norm = CoordinateConverter.imagePixelToNormalized(pixel: point, imageWidth: sourcePose.imageWidth, imageHeight: sourcePose.imageHeight)
+                let mapped = ImageNormalizer.mapNormalizedToOrientation(norm, orientation: image?.imageOrientation ?? .up, clampToImage: false)
+                return CoordinateConverter.normalizedToImagePixel(normalized: mapped, imageWidth: pose.imageWidth, imageHeight: pose.imageHeight)
+            }
+            return result
+        }
+        let result = ReferenceGenerationResult(staticReference: display(raw.staticReference),
+            motionSequence: raw.motionSequence.map(display), isReplayAvailable: raw.isReplayAvailable,
+            unavailabilityReason: raw.unavailabilityReason)
 
         self.referenceResult = result
         self.displayedReferencePose = result.staticReference
