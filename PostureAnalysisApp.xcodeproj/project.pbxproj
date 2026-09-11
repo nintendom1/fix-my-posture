@@ -43,6 +43,7 @@
 		A10000012B00000000000034 /* AlignmentReferenceOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000034 /* AlignmentReferenceOverlayView.swift */; };
 		A10000012B00000000000035 /* PostureReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000035 /* PostureReportView.swift */; };
 		A10000012B00000000000036 /* ReferenceGeometryTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000036 /* ReferenceGeometryTests.swift */; };
+		A10000012B00000000000037 /* RealtimeCorrectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000037 /* RealtimeCorrectionView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -94,6 +95,7 @@
 		B10000012B00000000000034 /* AlignmentReferenceOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlignmentReferenceOverlayView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000035 /* PostureReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureReportView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000036 /* ReferenceGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferenceGeometryTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000037 /* RealtimeCorrectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeCorrectionView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -207,6 +209,7 @@
 				B10000012B00000000000027 /* Previews.swift */,
 				B10000012B00000000000034 /* AlignmentReferenceOverlayView.swift */,
 				B10000012B00000000000035 /* PostureReportView.swift */,
+				B10000012B00000000000037 /* RealtimeCorrectionView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -359,6 +362,7 @@
 				A10000012B00000000000033 /* ReferencePoseGenerator.swift in Sources */,
 				A10000012B00000000000034 /* AlignmentReferenceOverlayView.swift in Sources */,
 				A10000012B00000000000035 /* PostureReportView.swift in Sources */,
+				A10000012B00000000000037 /* RealtimeCorrectionView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

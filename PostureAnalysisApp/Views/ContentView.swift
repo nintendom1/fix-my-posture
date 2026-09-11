@@ -14,6 +14,7 @@ public struct ContentView: View {
     @State private var processingTime: TimeInterval = 0.0
     @State private var errorMessage: String? = nil
 
+    @State private var showRealtimeCorrection = false
     @State private var showCamera = false
     @State private var showEditLandmarks = false
     @State private var showDebugView = false
@@ -168,6 +169,17 @@ public struct ContentView: View {
                         Spacer()
 
                         VStack(spacing: 14) {
+                            Button(action: { showRealtimeCorrection = true }) {
+                                Label("Realtime Posture Correction", systemImage: "figure.stand")
+                                    .font(.headline)
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Color.green)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(12)
+                            }
+                            .accessibilityIdentifier("realtimeCorrectionButton")
+
                             Button(action: { showCamera = true }) {
                                 Label("Take Standing Photo", systemImage: "camera")
                                     .font(.headline)
@@ -222,6 +234,9 @@ public struct ContentView: View {
                             .accessibilityHint("Returns to the home screen without saving the assessment")
                     }
                 }
+            }
+            .fullScreenCover(isPresented: $showRealtimeCorrection) {
+                RealtimeCorrectionView()
             }
             .sheet(isPresented: $showCamera) {
                 CameraPickerView { capturedImage in
