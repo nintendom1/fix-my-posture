@@ -22,6 +22,8 @@ public struct RealtimeCorrectionView: View {
     @StateObject private var cameraModel = RealtimeCameraModel()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("feedbackRefreshRate") private var feedbackRate = 5
+    @AppStorage("cameraTiltCompensationEnabled") private var cameraTiltCompensationEnabled = true
+    @AppStorage("showHorizonLine") private var showHorizonLine = true
     @State private var showTargets = true
     @State private var controlRects: [CGRect] = []
     @State private var detailsTarget: ReferencePose?
@@ -50,7 +52,7 @@ public struct RealtimeCorrectionView: View {
             }
         }
         .onAppear {
-            cameraModel.setFeedback(rate: feedbackRate, reduceMotion: reduceMotion)
+            cameraModel.setFeedback(rate: feedbackRate, reduceMotion: reduceMotion, compensationEnabled: cameraTiltCompensationEnabled)
             cameraModel.onAppear(isApplicationActive: scenePhase == .active)
         }
         .onDisappear {
@@ -62,8 +64,9 @@ public struct RealtimeCorrectionView: View {
         .onChange(of: scenePhase) { _, phase in
             cameraModel.setApplicationActive(phase == .active)
         }
-        .onChange(of: feedbackRate) { _, rate in cameraModel.setFeedback(rate: rate, reduceMotion: reduceMotion) }
-        .onChange(of: reduceMotion) { _, value in cameraModel.setFeedback(rate: feedbackRate, reduceMotion: value) }
+        .onChange(of: feedbackRate) { _, rate in cameraModel.setFeedback(rate: rate, reduceMotion: reduceMotion, compensationEnabled: cameraTiltCompensationEnabled) }
+        .onChange(of: reduceMotion) { _, value in cameraModel.setFeedback(rate: feedbackRate, reduceMotion: value, compensationEnabled: cameraTiltCompensationEnabled) }
+        .onChange(of: cameraTiltCompensationEnabled) { _, value in cameraModel.setFeedback(rate: feedbackRate, reduceMotion: reduceMotion, compensationEnabled: value) }
         .sheet(isPresented: $showDetails, onDismiss: {
             cameraModel.setDetailsPresented(false)
         }) {
@@ -94,6 +97,17 @@ public struct RealtimeCorrectionView: View {
                     .allowsHitTesting(false)
                 }
 
+                if showHorizonLine, let reading = cameraModel.horizonReading {
+                    HorizonOverlayView(
+                        reading: reading,
+                        isCompensationApplied: cameraTiltCompensationEnabled,
+                        isMirrored: cameraModel.isFrontCamera,
+                        imageSize: cameraModel.displayPose.map { CGSize(width: $0.imageWidth, height: $0.imageHeight) } ?? geo.size,
+                        containerSize: geo.size
+                    )
+                    .allowsHitTesting(false)
+                }
+
                 if showTargets, let target = cameraModel.target, let pose = cameraModel.displayPose {
                     AlignmentTargetOverlayView(reference: target, imageSize: CGSize(width: pose.imageWidth, height: pose.imageHeight), mirrored: cameraModel.isFrontCamera)
                 }
@@ -107,6 +121,7 @@ public struct RealtimeCorrectionView: View {
                         view: assessment.view,
                         profile: referenceProvider.profile(for: assessment.view),
                         sourcePose: assessment.pose,
+                        horizonContext: assessment.horizonContext,
                         targetRects: showTargets ? AlignmentTargetOverlayView.rects(reference: cameraModel.target,
                             imageSize: CGSize(width: pose.imageWidth, height: pose.imageHeight), containerSize: geo.size, mirrored: cameraModel.isFrontCamera) : [],
                         reservedRects: controlRects.isEmpty ? [
@@ -163,6 +178,13 @@ public struct RealtimeCorrectionView: View {
 
                     // Compact controls preserve the camera and floating feedback area.
                     VStack(spacing: 8) {
+                        if cameraTiltCompensationEnabled, cameraModel.isHorizonUnavailable {
+                            Text("Horizon unavailable—hold the phone upright and closer to portrait.")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                                .multilineTextAlignment(.center)
+                        }
+
                         HStack {
                             Label(realtimeStatusLabel, systemImage: realtimeStatusSymbol)
                                 .font(.subheadline.bold())
@@ -196,6 +218,8 @@ public struct RealtimeCorrectionView: View {
                                 .accessibilityIdentifier("realtimeCalloutToggle")
 
                             Menu {
+                                Toggle("Camera tilt compensation", isOn: $cameraTiltCompensationEnabled)
+                                Toggle("Horizon line", isOn: $showHorizonLine)
                                 Toggle("Alignment targets", isOn: $showTargets)
                                 Picker("Feedback refresh", selection: $feedbackRate) {
                                     ForEach([2, 5, 10], id: \.self) { rate in Text("\(rate) per second").tag(rate) }
@@ -271,7 +295,8 @@ public struct RealtimeCorrectionView: View {
                                     profile: referenceProvider.profile(for: assessment.view)
                                 ),
                                 explanation: MeasurementPresentation.explanation(measurement),
-                                reading: MeasurementPresentation.reading(measurement, pose: assessment.pose, view: assessment.view)
+                                reading: MeasurementPresentation.reading(measurement, pose: assessment.pose, view: assessment.view,
+                                    horizonContext: assessment.horizonContext)
                             )
                         }
                     }

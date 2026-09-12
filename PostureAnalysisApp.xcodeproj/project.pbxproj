@@ -55,6 +55,11 @@
 		A10000012B00000000000044 /* PostureCalloutOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000044 /* PostureCalloutOverlayView.swift */; };
 		A10000012B00000000000047 /* AlignmentTargetOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000047 /* AlignmentTargetOverlayView.swift */; };
 		A10000012B00000000000045 /* PostureCalloutLayoutTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000045 /* PostureCalloutLayoutTests.swift */; };
+		A10000012B00000000000049 /* HorizonContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000049 /* HorizonContext.swift */; };
+		A10000012B00000000000050 /* HorizonGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000050 /* HorizonGeometry.swift */; };
+		A10000012B00000000000051 /* HorizonMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000051 /* HorizonMonitor.swift */; };
+		A10000012B00000000000052 /* HorizonOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000052 /* HorizonOverlayView.swift */; };
+		A10000012B00000000000053 /* HorizonTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000053 /* HorizonTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -118,6 +123,11 @@
 		B10000012B00000000000044 /* PostureCalloutOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureCalloutOverlayView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000047 /* AlignmentTargetOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlignmentTargetOverlayView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000045 /* PostureCalloutLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureCalloutLayoutTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000049 /* HorizonContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HorizonContext.swift; sourceTree = "<group>"; };
+		B10000012B00000000000050 /* HorizonGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HorizonGeometry.swift; sourceTree = "<group>"; };
+		B10000012B00000000000051 /* HorizonMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HorizonMonitor.swift; sourceTree = "<group>"; };
+		B10000012B00000000000052 /* HorizonOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HorizonOverlayView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000053 /* HorizonTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HorizonTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -177,6 +187,7 @@
 				B10000012B00000000000029 /* BodyRegion.swift */,
 				B10000012B00000000000030 /* PostureReferenceProfile.swift */,
 				B10000012B00000000000031 /* ReferencePose.swift */,
+				B10000012B00000000000049 /* HorizonContext.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -238,6 +249,7 @@
 				B10000012B00000000000041 /* PostureMeasurementCard.swift */,
 				B10000012B00000000000044 /* PostureCalloutOverlayView.swift */,
 				B10000012B00000000000047 /* AlignmentTargetOverlayView.swift */,
+				B10000012B00000000000052 /* HorizonOverlayView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -256,6 +268,8 @@
 				B10000012B00000000000024 /* CoordinateConverter.swift */,
 				B10000012B00000000000028 /* ImageNormalizer.swift */,
 				B10000012B00000000000043 /* PostureCalloutLayout.swift */,
+				B10000012B00000000000050 /* HorizonGeometry.swift */,
+				B10000012B00000000000051 /* HorizonMonitor.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -269,6 +283,7 @@
 				B10000012B00000000000042 /* MeasurementFeedbackTests.swift */,
 				B10000012B00000000000048 /* MeasurementPresentationTests.swift */,
 				B10000012B00000000000045 /* PostureCalloutLayoutTests.swift */,
+				B10000012B00000000000053 /* HorizonTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -403,6 +418,10 @@
 				A10000012B00000000000043 /* PostureCalloutLayout.swift in Sources */,
 				A10000012B00000000000044 /* PostureCalloutOverlayView.swift in Sources */,
 				A10000012B00000000000047 /* AlignmentTargetOverlayView.swift in Sources */,
+				A10000012B00000000000049 /* HorizonContext.swift in Sources */,
+				A10000012B00000000000050 /* HorizonGeometry.swift in Sources */,
+				A10000012B00000000000051 /* HorizonMonitor.swift in Sources */,
+				A10000012B00000000000052 /* HorizonOverlayView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -416,6 +435,7 @@
 				A10000012B00000000000042 /* MeasurementFeedbackTests.swift in TestSources */,
 				A10000012B00000000000048 /* MeasurementPresentationTests.swift in TestSources */,
 				A10000012B00000000000045 /* PostureCalloutLayoutTests.swift in TestSources */,
+				A10000012B00000000000053 /* HorizonTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

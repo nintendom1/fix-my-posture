@@ -12,6 +12,9 @@ public final class AssessmentEntity {
     public var imageWidth: Double
     public var imageHeight: Double
     public var warningsData: Data
+    public var horizonAngle: Double?
+    public var horizonSourceRawValue: String?
+    public var isHorizonCompensationApplied: Bool?
 
     @Relationship(deleteRule: .cascade) public var landmarks: [LandmarkEntity]
     @Relationship(deleteRule: .cascade) public var measurements: [MeasurementEntity]
@@ -26,6 +29,9 @@ public final class AssessmentEntity {
         imageWidth: Double = 1000.0,
         imageHeight: Double = 2000.0,
         warningsData: Data = Data(),
+        horizonAngle: Double? = nil,
+        horizonSourceRawValue: String? = nil,
+        isHorizonCompensationApplied: Bool? = nil,
         landmarks: [LandmarkEntity] = [],
         measurements: [MeasurementEntity] = []
     ) {
@@ -38,6 +44,9 @@ public final class AssessmentEntity {
         self.imageWidth = imageWidth
         self.imageHeight = imageHeight
         self.warningsData = warningsData
+        self.horizonAngle = horizonAngle
+        self.horizonSourceRawValue = horizonSourceRawValue
+        self.isHorizonCompensationApplied = isHorizonCompensationApplied
         self.landmarks = landmarks
         self.measurements = measurements
     }

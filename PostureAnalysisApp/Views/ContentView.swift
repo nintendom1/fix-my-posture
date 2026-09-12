@@ -7,8 +7,10 @@ public struct ContentView: View {
 
     public var referenceProvider: PostureReferenceProviding = DefaultPostureReferenceProvider()
 
+    @AppStorage("cameraTiltCompensationEnabled") private var cameraTiltCompensationEnabled = true
     @State private var selectedPhotoItem: PhotosPickerItem? = nil
     @State private var inputImage: UIImage? = nil
+    @State private var currentInputSource: ImageMetadata.ImageSource? = nil
     @State private var isProcessing = false
     @State private var currentAssessment: PostureAssessment? = nil
     @State private var processingTime: TimeInterval = 0.0
@@ -45,8 +47,31 @@ public struct ContentView: View {
                                 pose: assessment.pose,
                                 view: assessment.view,
                                 measurements: assessment.measurements,
+                                horizonContext: assessment.horizonContext,
                                 referenceProvider: referenceProvider
                             )
+
+                            if currentInputSource == .camera, assessment.horizonContext != nil {
+                                Toggle("Compensate camera tilt", isOn: Binding(
+                                    get: { currentAssessment?.horizonContext?.isCompensationApplied ?? false },
+                                    set: { newValue in
+                                        currentAssessment?.horizonContext?.isCompensationApplied = newValue
+                                        reanalyze(with: assessment.view)
+                                    }
+                                ))
+                                .padding(.horizontal)
+                                .accessibilityIdentifier("compensateCameraTiltToggle")
+                            } else if currentInputSource == .camera {
+                                Text("Camera horizon was unavailable. Measurements use the image axes without tilt compensation.")
+                                    .font(.footnote)
+                                    .foregroundColor(.orange)
+                                    .padding(.horizontal)
+                            } else {
+                                Text("Camera tilt was not evaluated for library photos.")
+                                    .font(.footnote)
+                                    .foregroundColor(.secondary)
+                                    .padding(.horizontal)
+                            }
 
                             HStack {
                                 Text("View:")
@@ -111,7 +136,8 @@ public struct ContentView: View {
                                         measurement: m,
                                         feedback: feedback,
                                         explanation: MeasurementPresentation.explanation(m),
-                                        reading: MeasurementPresentation.reading(m, pose: assessment.pose, view: assessment.view)
+                                        reading: MeasurementPresentation.reading(m, pose: assessment.pose, view: assessment.view,
+                                            horizonContext: assessment.horizonContext)
                                     )
                                 }
                             }
@@ -230,13 +256,22 @@ public struct ContentView: View {
                             .accessibilityHint("Returns to the home screen without saving the assessment")
                     }
                 }
+                if currentAssessment == nil {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Menu {
+                            Toggle("Compensate camera tilt", isOn: $cameraTiltCompensationEnabled)
+                        } label: {
+                            Label("Camera settings", systemImage: "gearshape")
+                        }
+                    }
+                }
             }
             .fullScreenCover(isPresented: $showRealtimeCorrection) {
                 RealtimeCorrectionView()
             }
             .sheet(isPresented: $showCamera) {
-                CameraPickerView { capturedImage in
-                    processImage(capturedImage)
+                CameraPickerView { capturedImage, isCamera, reading in
+                    processImage(capturedImage, isCamera: isCamera, horizonReading: reading)
                 }
             }
             .sheet(isPresented: $showEditLandmarks) {
@@ -269,23 +304,32 @@ public struct ContentView: View {
         }
     }
 
-    private func processImage(_ image: UIImage) {
+    private func processImage(_ image: UIImage, isCamera: Bool = false, horizonReading: HorizonReading? = nil) {
         let normalizedImage = ImageNormalizer.normalizeToUpright(image)
         guard let cgImg = normalizedImage.cgImage else { return }
         inputImage = normalizedImage
+        currentInputSource = isCamera ? .camera : .photoLibrary
         isProcessing = true
         errorMessage = nil
         let startTime = CFAbsoluteTimeGetCurrent()
+
+        let horizonContext: HorizonContext?
+        if isCamera, let reading = horizonReading {
+            horizonContext = HorizonContext(angleDegrees: reading.angleDegrees, source: .deviceMotion, isCompensationApplied: cameraTiltCompensationEnabled)
+        } else {
+            horizonContext = nil
+        }
 
         Task {
             let estimator = AppleVisionPoseEstimator()
             do {
                 let pose = try await estimator.estimatePose(in: cgImg)
-                let meta = ImageMetadata(width: CGFloat(cgImg.width), height: CGFloat(cgImg.height))
-                let detectedView = ViewClassifier.classify(pose: pose)
+                let meta = ImageMetadata(width: CGFloat(cgImg.width), height: CGFloat(cgImg.height),
+                    source: isCamera ? .camera : .photoLibrary)
+                let detectedView = ViewClassifier.classify(pose: pose, horizonContext: horizonContext)
 
                 let analyzer = PostureAnalyzer()
-                let assessment = analyzer.analyze(pose: pose, imageMetadata: meta, view: detectedView)
+                let assessment = analyzer.analyze(pose: pose, imageMetadata: meta, view: detectedView, horizonContext: horizonContext)
 
                 await MainActor.run {
                     self.processingTime = CFAbsoluteTimeGetCurrent() - startTime
@@ -304,10 +348,11 @@ public struct ContentView: View {
     private func reanalyze(with newView: PostureView, customPose: BodyPose? = nil) {
         guard let image = inputImage, let cgImg = image.cgImage else { return }
         let poseToUse = customPose ?? currentAssessment?.pose ?? BodyPose(landmarks: [:], imageWidth: CGFloat(cgImg.width), imageHeight: CGFloat(cgImg.height))
-        let meta = ImageMetadata(width: CGFloat(cgImg.width), height: CGFloat(cgImg.height))
+        let meta = ImageMetadata(width: CGFloat(cgImg.width), height: CGFloat(cgImg.height),
+            source: currentInputSource ?? .photoLibrary)
 
         let analyzer = PostureAnalyzer()
-        var updated = analyzer.analyze(pose: poseToUse, imageMetadata: meta, view: newView)
+        var updated = analyzer.analyze(pose: poseToUse, imageMetadata: meta, view: newView, horizonContext: currentAssessment?.horizonContext)
         updated.pose = poseToUse
         self.currentAssessment = updated
     }
@@ -317,6 +362,7 @@ public struct ContentView: View {
         showDebugView = false
         currentAssessment = nil
         inputImage = nil
+        currentInputSource = nil
         selectedPhotoItem = nil
         processingTime = 0
         errorMessage = nil
@@ -335,7 +381,10 @@ public struct ContentView: View {
                 isBaseline: assessment.isBaseline,
                 appVersion: assessment.appVersion,
                 imageWidth: Double(assessment.pose.imageWidth),
-                imageHeight: Double(assessment.pose.imageHeight)
+                imageHeight: Double(assessment.pose.imageHeight),
+                horizonAngle: assessment.horizonContext?.angleDegrees,
+                horizonSourceRawValue: assessment.horizonContext?.source.rawValue,
+                isHorizonCompensationApplied: assessment.horizonContext?.isCompensationApplied
             )
 
             for (type, lm) in assessment.pose.landmarks {

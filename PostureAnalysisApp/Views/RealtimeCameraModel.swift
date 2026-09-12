@@ -9,7 +9,7 @@ protocol RealtimeCaptureService: AnyObject {
     func start(position: AVCaptureDevice.Position, view: PostureView, generation: UUID,
                receive: @escaping RealtimeStateReceiver)
     func stop()
-    func configureFeedback(rate: Int, reduceMotion: Bool, receive: @escaping @MainActor (UUID, ReferencePose?) -> Void)
+    func configureFeedback(rate: Int, reduceMotion: Bool, compensationEnabled: Bool, horizonMonitor: HorizonMonitoring?, receive: @escaping @MainActor (UUID, ReferencePose?) -> Void)
 }
 
 struct FeedbackRefreshGate {
@@ -44,9 +44,15 @@ public final class RealtimeCameraModel: ObservableObject {
     @Published public private(set) var state: RealtimeCameraState = .initializing
     @Published public private(set) var isFrontCamera = true
     @Published public private(set) var target: ReferencePose?
+    @Published public private(set) var horizonReading: HorizonReading?
+    @Published public private(set) var isHorizonUnavailable = false
+
+    public let horizonMonitor: HorizonMonitoring
     private var detailsPresented = false
     private var feedbackRate = 5
     private var reduceMotion = false
+    private var compensationEnabled = true
+    private var horizonTimer: Timer?
 
     public var captureSession: AVCaptureSession { camera.session }
     public var displayPose: BodyPose? {
@@ -63,13 +69,14 @@ public final class RealtimeCameraModel: ObservableObject {
     private var generation = UUID()
     private var canCapture: Bool { isViewActive && isApplicationActive && !detailsPresented }
 
-    public convenience init(poseEstimator: FramePoseEstimator = AppleVisionPoseEstimator()) {
-        self.init(camera: RealtimeCameraController(estimator: poseEstimator), permission: SystemCameraPermission())
+    public convenience init(poseEstimator: FramePoseEstimator = AppleVisionPoseEstimator(), horizonMonitor: HorizonMonitoring = CoreMotionHorizonMonitor()) {
+        self.init(camera: RealtimeCameraController(estimator: poseEstimator), permission: SystemCameraPermission(), horizonMonitor: horizonMonitor)
     }
 
-    init(camera: RealtimeCaptureService, permission: RealtimeCameraPermission) {
+    init(camera: RealtimeCaptureService, permission: RealtimeCameraPermission, horizonMonitor: HorizonMonitoring = CoreMotionHorizonMonitor()) {
         self.camera = camera
         self.permission = permission
+        self.horizonMonitor = horizonMonitor
     }
 
     public func setDetailsPresented(_ presented: Bool) {
@@ -77,9 +84,10 @@ public final class RealtimeCameraModel: ObservableObject {
         if presented { stopSession() } else if canCapture { checkPermissionAndSetup() }
     }
 
-    public func setFeedback(rate: Int, reduceMotion: Bool) {
+    public func setFeedback(rate: Int, reduceMotion: Bool, compensationEnabled: Bool = true) {
         feedbackRate = [2, 5, 10].contains(rate) ? rate : 5
         self.reduceMotion = reduceMotion
+        self.compensationEnabled = compensationEnabled
         if canCapture, permission.status == .authorized { startSession() }
     }
 
@@ -134,6 +142,7 @@ public final class RealtimeCameraModel: ObservableObject {
         default:
             generation = UUID()
             camera.stop()
+            stopHorizonUpdates()
             state = .notAuthorized
         }
     }
@@ -142,7 +151,9 @@ public final class RealtimeCameraModel: ObservableObject {
         generation = UUID()
         state = .starting
         target = nil
-        camera.configureFeedback(rate: feedbackRate, reduceMotion: reduceMotion) { [weak self] token, target in
+        startHorizonUpdates()
+
+        camera.configureFeedback(rate: feedbackRate, reduceMotion: reduceMotion, compensationEnabled: compensationEnabled, horizonMonitor: horizonMonitor) { [weak self] token, target in
             guard let self, self.canCapture, self.generation == token,
                   case .tracking = self.state else { return }
             self.target = target
@@ -152,6 +163,36 @@ public final class RealtimeCameraModel: ObservableObject {
             guard let self, self.canCapture, self.generation == token else { return }
             self.state = state
             if case .tracking = state {} else { self.target = nil }
+            switch state {
+            case .interrupted, .failed, .notAuthorized:
+                self.stopHorizonUpdates()
+            case .searchingForBody where self.horizonTimer == nil:
+                self.startHorizonUpdates()
+            default:
+                break
+            }
+        }
+    }
+
+    private func updateHorizonDisplay() {
+        let reading = horizonMonitor.latestReading.map { reading in
+            HorizonReading(
+                angleDegrees: HorizonGeometry.realtimeImageAngle(reading.angleDegrees, isFrontCamera: isFrontCamera),
+                timestamp: reading.timestamp,
+                gravityMagnitude: reading.gravityMagnitude
+            )
+        }
+        if compensationEnabled {
+            if let reading {
+                horizonReading = reading
+                isHorizonUnavailable = false
+            } else {
+                horizonReading = nil
+                isHorizonUnavailable = true
+            }
+        } else {
+            horizonReading = reading
+            isHorizonUnavailable = false
         }
     }
 
@@ -164,8 +205,25 @@ public final class RealtimeCameraModel: ObservableObject {
     public func stopSession() {
         generation = UUID()
         target = nil
+        stopHorizonUpdates()
         state = .interrupted
         camera.stop()
+    }
+
+    private func startHorizonUpdates() {
+        horizonMonitor.startUpdates()
+        horizonTimer?.invalidate()
+        horizonTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.updateHorizonDisplay() }
+        }
+    }
+
+    private func stopHorizonUpdates() {
+        horizonTimer?.invalidate()
+        horizonTimer = nil
+        horizonMonitor.stopUpdates()
+        horizonReading = nil
+        isHorizonUnavailable = false
     }
 }
 
@@ -222,13 +280,18 @@ private final class RealtimeCameraController: NSObject, RealtimeCaptureService, 
     private var gate = FeedbackRefreshGate()
     private var feedbackRate = 5
     private var reduceMotion = false
+    private var compensationEnabled = true
+    private var horizonMonitor: HorizonMonitoring?
     private var previousTarget: ReferencePose?
     private var referenceReceiver: (@MainActor (UUID, ReferencePose?) -> Void)?
+    private var cameraPosition: AVCaptureDevice.Position = .front
 
-    func configureFeedback(rate: Int, reduceMotion: Bool, receive: @escaping @MainActor (UUID, ReferencePose?) -> Void) {
+    func configureFeedback(rate: Int, reduceMotion: Bool, compensationEnabled: Bool, horizonMonitor: HorizonMonitoring?, receive: @escaping @MainActor (UUID, ReferencePose?) -> Void) {
         queue.async {
             self.feedbackRate = rate
             self.reduceMotion = reduceMotion
+            self.compensationEnabled = compensationEnabled
+            self.horizonMonitor = horizonMonitor
             self.referenceReceiver = receive
         }
     }
@@ -289,6 +352,7 @@ private final class RealtimeCameraController: NSObject, RealtimeCaptureService, 
             guard let self, self.isCurrent(generation) else { return }
             self.generation = generation
             self.view = view
+            self.cameraPosition = position
             self.receive = receive
             self.gate = FeedbackRefreshGate()
             self.previousTarget = nil
@@ -361,10 +425,27 @@ private final class RealtimeCameraController: NSObject, RealtimeCaptureService, 
         autoreleasepool {
             do {
                 let pose = RealtimePoseProcessing.reliablePose(try estimator.estimatePose(in: buffer))
-                let metadata = ImageMetadata(width: pose.imageWidth, height: pose.imageHeight)
-                let assessment = analyzer.analyze(pose: pose, imageMetadata: metadata, view: view)
+                let metadata = ImageMetadata(width: pose.imageWidth, height: pose.imageHeight, source: .camera)
+
+                let reading = horizonMonitor?.latestReading.map { reading in
+                    HorizonReading(
+                        angleDegrees: HorizonGeometry.realtimeImageAngle(reading.angleDegrees, isFrontCamera: cameraPosition == .front),
+                        timestamp: reading.timestamp,
+                        gravityMagnitude: reading.gravityMagnitude
+                    )
+                }
+                let horizonContext: HorizonContext?
+                if compensationEnabled, let reading {
+                    horizonContext = HorizonContext(angleDegrees: reading.angleDegrees, source: .deviceMotion, isCompensationApplied: true)
+                } else if compensationEnabled, reading == nil {
+                    horizonContext = HorizonContext(angleDegrees: 0, source: .deviceMotion, isCompensationApplied: false)
+                } else {
+                    horizonContext = reading.map { HorizonContext(angleDegrees: $0.angleDegrees, source: .deviceMotion, isCompensationApplied: false) }
+                }
+
+                let assessment = analyzer.analyze(pose: pose, imageMetadata: metadata, view: view, horizonContext: horizonContext)
                 let result = ReferencePoseGenerator().generateStaticReference(for: pose, view: view,
-                    profile: DefaultPostureReferenceProvider().profile(for: view))
+                    profile: DefaultPostureReferenceProvider().profile(for: view), horizonContext: horizonContext)
                 previousTarget = RealtimePoseProcessing.smoothedTarget(result.staticReference, previous: previousTarget,
                     imageWidth: pose.imageWidth, reduceMotion: reduceMotion)
                 publish(assessment.measurements.isEmpty ? .searchingForBody : .tracking(pose, assessment))

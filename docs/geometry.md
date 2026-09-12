@@ -58,3 +58,11 @@ Alignment Reference overlays and animated replays are non-diagnostic geometric i
 `ReferencePoseGenerator.generateStaticReference` shares the final solver with replay generation but skips the 31 intermediate solves. Targets remain in original pixel coordinates until display transformation. Photo targets always use the final reference, even during replay. Live mirroring applies identically to measured joints and target rings. Missing supported regions retain the generator's partial-reference explanations.
 
 Callout collision protection covers continuously sampled limb segments at intervals of at most 4 points with overlapping 20-point squares, plus joints and torso bounds. Every protected shape and visible target ring receives 8-point clearance. This conservative coverage may hide a callout; all readings remain available in Details.
+
+## Camera horizon compensation
+
+Core Motion produces a camera-independent screen-space true horizon using `atan2(gravity.x, -gravity.y)`. Positive angles rise toward screen-right. Samples run at 30 Hz through a 0.2 low-pass filter and are usable only when projected XY gravity is at least 0.75, roll is within ±45°, and the reading is no more than 0.25 seconds old.
+
+Consumers map that reading into their own pixels. Rear unmirrored buffers preserve the sign; front unmirrored buffers reverse it; the mirrored selfie display reverses it once more. Still captures transform a horizon direction vector through the complete `UIImage.Orientation` transform used during upright normalization, including mirrored variants. Invalid or missing motion data leaves geometry uncompensated against the image axes.
+
+Raw images and landmarks are never rotated. Analysis, classification, and signed presentation use a shared leveled-pose transform. Reference generation operates in that leveled space, then inverse-rotates static and replay targets into the original image coordinates so overlays remain aligned.

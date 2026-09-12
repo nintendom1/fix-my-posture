@@ -8,6 +8,7 @@ public struct PostureCalloutOverlayView: View {
     public var reservedRects: [CGRect] = []
 
     public var sourcePose: BodyPose?
+    public var horizonContext: HorizonContext?
     public var targetRects: [CGRect]
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var previous: [PostureCalloutPlacement] = []
@@ -18,6 +19,7 @@ public struct PostureCalloutOverlayView: View {
         view: PostureView,
         profile: PostureReferenceProfile,
         sourcePose: BodyPose? = nil,
+        horizonContext: HorizonContext? = nil,
         targetRects: [CGRect] = [],
         reservedRects: [CGRect] = []
     ) {
@@ -27,6 +29,7 @@ public struct PostureCalloutOverlayView: View {
         self.profile = profile
         self.reservedRects = reservedRects
         self.sourcePose = sourcePose
+        self.horizonContext = horizonContext
         self.targetRects = targetRects
     }
 
@@ -79,7 +82,7 @@ public struct PostureCalloutOverlayView: View {
     }
 
     private func reading(_ item: PostureCalloutItem) -> String {
-        MeasurementPresentation.reading(item.measurement, pose: sourcePose ?? pose, view: view)
+        MeasurementPresentation.reading(item.measurement, pose: sourcePose ?? pose, view: view, horizonContext: horizonContext)
     }
 
     private func nearestPoint(on rect: CGRect, to point: CGPoint) -> CGPoint {
