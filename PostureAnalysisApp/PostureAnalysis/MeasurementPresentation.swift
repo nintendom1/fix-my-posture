@@ -9,11 +9,19 @@ public enum MeasurementPresentation {
         ![.kneeJointAngle, .kneeAnkleStanceRatio, .shoulderHeightAsymmetry, .hipHeightAsymmetry, .custom].contains(id)
     }
 
-    public static func reading(_ measurement: PostureMeasurement, pose: BodyPose?, view: PostureView) -> String {
+    public static func reading(_ measurement: PostureMeasurement, pose: BodyPose?, view: PostureView, horizonContext: HorizonContext? = nil) -> String {
         let digits = measurement.measurementID == .kneeAnkleStanceRatio ? 2 : 1
         let magnitude = abs(measurement.value)
-        guard isDirectional(measurement.measurementID), let pose,
-              let direction = direction(measurement, pose: pose, view: view) else {
+        guard isDirectional(measurement.measurementID), let pose else {
+            return String(format: "%.*f", digits, measurement.value == 0 ? 0 : measurement.value)
+        }
+        let targetPose: BodyPose
+        if let horizonContext, horizonContext.isCompensationApplied, horizonContext.angleDegrees != 0 {
+            targetPose = HorizonGeometry.rotatePose(pose, angleDegrees: -horizonContext.angleDegrees)
+        } else {
+            targetPose = pose
+        }
+        guard let direction = direction(measurement, pose: targetPose, view: view) else {
             return String(format: "%.*f", digits, measurement.value == 0 ? 0 : measurement.value)
         }
         let rounded = (magnitude * 10).rounded() / 10

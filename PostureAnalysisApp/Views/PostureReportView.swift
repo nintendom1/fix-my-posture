@@ -7,9 +7,11 @@ public struct PostureReportView: View {
     public var sourcePose: BodyPose?
     public let view: PostureView
     public let measurements: [PostureMeasurement]
+    public let horizonContext: HorizonContext?
     public let referenceProvider: PostureReferenceProviding
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage("showHorizonLine") private var showHorizonLine: Bool = true
 
     @State private var showMeasuredOverlay: Bool = true
     @State private var showReference: Bool = false
@@ -29,6 +31,7 @@ public struct PostureReportView: View {
         view: PostureView,
         measurements: [PostureMeasurement] = [],
         sourcePose: BodyPose? = nil,
+        horizonContext: HorizonContext? = nil,
         referenceProvider: PostureReferenceProviding = DefaultPostureReferenceProvider()
     ) {
         self.image = image
@@ -36,6 +39,7 @@ public struct PostureReportView: View {
         self.sourcePose = sourcePose
         self.view = view
         self.measurements = measurements
+        self.horizonContext = horizonContext
         self.referenceProvider = referenceProvider
     }
 
@@ -49,6 +53,16 @@ public struct PostureReportView: View {
                             .resizable()
                             .scaledToFit()
                             .cornerRadius(12)
+
+                        // Horizon Line Overlay
+                        if showHorizonLine, let ctx = horizonContext {
+                            HorizonOverlayView(
+                                angleDegrees: ctx.angleDegrees,
+                                isCompensationApplied: ctx.isCompensationApplied,
+                                containerSize: geo.size
+                            )
+                            .allowsHitTesting(false)
+                        }
 
                         // 1. Measured Landmarks Overlay
                         if showMeasuredOverlay {
@@ -92,6 +106,14 @@ public struct PostureReportView: View {
 
             // Controls Section
             VStack(spacing: 12) {
+                if horizonContext != nil {
+                    HStack {
+                        Toggle("Horizon line", isOn: $showHorizonLine)
+                            .accessibilityIdentifier("toggleHorizonLineSwitch")
+                    }
+                    .padding(.horizontal)
+                }
+
                 Toggle("Alignment targets", isOn: $showTargets).padding(.horizontal)
                 HStack {
                     Toggle("Show Measured Landmarks", isOn: $showMeasuredOverlay)

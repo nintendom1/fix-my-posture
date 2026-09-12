@@ -11,6 +11,7 @@ public struct PostureAssessment: Codable, Identifiable, Hashable {
     public var warnings: [String]
     public var isBaseline: Bool
     public var appVersion: String
+    public var horizonContext: HorizonContext?
 
     public init(
         id: UUID = UUID(),
@@ -21,7 +22,8 @@ public struct PostureAssessment: Codable, Identifiable, Hashable {
         measurements: [PostureMeasurement],
         warnings: [String] = [],
         isBaseline: Bool = false,
-        appVersion: String = "1.0.0"
+        appVersion: String = "1.0.0",
+        horizonContext: HorizonContext? = nil
     ) {
         self.id = id
         self.date = date
@@ -32,5 +34,6 @@ public struct PostureAssessment: Codable, Identifiable, Hashable {
         self.warnings = warnings
         self.isBaseline = isBaseline
         self.appVersion = appVersion
+        self.horizonContext = horizonContext
     }
 }

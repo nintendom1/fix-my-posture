@@ -34,15 +34,25 @@ public struct AssessmentDetailView: View {
                     view: assessment.view,
                     measurements: assessment.measurements,
                     sourcePose: assessment.pose,
+                    horizonContext: assessment.horizonContext,
                     referenceProvider: referenceProvider
                 )
 
                 if let base = baselineAssessment {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Baseline Comparison")
-                        Text("Directional metrics compare magnitude changes; knee angles and stance ratios compare original values.").font(.caption)
                             .font(.title3)
                             .bold()
+                        Text("Directional metrics compare magnitude changes; knee angles and stance ratios compare original values.")
+                            .font(.caption)
+
+                        let currentCompensated = assessment.horizonContext?.isCompensationApplied ?? false
+                        let baselineCompensated = base.horizonContext?.isCompensationApplied ?? false
+                        if currentCompensated != baselineCompensated {
+                            Text("Notice: Camera tilt compensation differs between baseline and current assessment.")
+                                .font(.footnote)
+                                .foregroundColor(.orange)
+                        }
 
                         let comparisons = BaselineComparisonEngine.compare(current: assessment, baseline: base)
                         if comparisons.isEmpty {

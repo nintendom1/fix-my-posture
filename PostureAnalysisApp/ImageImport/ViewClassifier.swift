@@ -4,8 +4,14 @@ import CoreGraphics
 /// Classifier to estimate whether a photo is front view, left side, or right side view.
 public struct ViewClassifier {
 
-    public static func classify(pose: BodyPose) -> PostureView {
-        let landmarks = pose.landmarks
+    public static func classify(pose: BodyPose, horizonContext: HorizonContext? = nil) -> PostureView {
+        let classifiedPose: BodyPose
+        if let horizonContext, horizonContext.isCompensationApplied, horizonContext.angleDegrees != 0 {
+            classifiedPose = HorizonGeometry.rotatePose(pose, angleDegrees: -horizonContext.angleDegrees)
+        } else {
+            classifiedPose = pose
+        }
+        let landmarks = classifiedPose.landmarks
 
         // Extract bilateral pairs
         let leftShoulder = landmarks[.leftShoulder]

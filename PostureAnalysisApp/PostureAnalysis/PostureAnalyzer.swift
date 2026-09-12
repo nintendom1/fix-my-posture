@@ -10,17 +10,25 @@ public struct PostureAnalyzer {
     public func analyze(
         pose: BodyPose,
         imageMetadata: ImageMetadata,
-        view: PostureView
+        view: PostureView,
+        horizonContext: HorizonContext? = nil
     ) -> PostureAssessment {
         var measurements: [PostureMeasurement] = []
 
+        let analyzedPose: BodyPose
+        if let horizonContext, horizonContext.isCompensationApplied, horizonContext.angleDegrees != 0 {
+            analyzedPose = HorizonGeometry.rotatePose(pose, angleDegrees: -horizonContext.angleDegrees)
+        } else {
+            analyzedPose = pose
+        }
+
         switch view {
         case .front:
-            measurements = analyzeFrontView(pose: pose)
+            measurements = analyzeFrontView(pose: analyzedPose)
         case .leftSide, .rightSide:
-            measurements = analyzeSideView(pose: pose, side: view)
+            measurements = analyzeSideView(pose: analyzedPose, side: view)
         case .uncertain:
-            measurements = analyzeFrontView(pose: pose) + analyzeSideView(pose: pose, side: view)
+            measurements = analyzeFrontView(pose: analyzedPose) + analyzeSideView(pose: analyzedPose, side: view)
         }
 
         let validation = PhotoValidator.validate(pose: pose, metadata: imageMetadata)
@@ -34,7 +42,8 @@ public struct PostureAnalyzer {
             measurements: measurements,
             warnings: validation.warnings,
             isBaseline: false,
-            appVersion: "1.0.0"
+            appVersion: "1.0.0",
+            horizonContext: horizonContext
         )
     }
 

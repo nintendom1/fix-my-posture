@@ -98,6 +98,16 @@ public struct HistoryView: View {
         let pose = BodyPose(landmarks: landmarks, imageWidth: CGFloat(entity.imageWidth), imageHeight: CGFloat(entity.imageHeight))
         let pView = PostureView(rawValue: entity.viewRawValue) ?? .uncertain
 
+        let horizonCtx: HorizonContext?
+        if let angle = entity.horizonAngle,
+           let srcRaw = entity.horizonSourceRawValue,
+           let src = HorizonSource(rawValue: srcRaw),
+           let applied = entity.isHorizonCompensationApplied {
+            horizonCtx = HorizonContext(angleDegrees: angle, source: src, isCompensationApplied: applied)
+        } else {
+            horizonCtx = nil
+        }
+
         return PostureAssessment(
             id: entity.id,
             date: entity.date,
@@ -107,7 +117,8 @@ public struct HistoryView: View {
             measurements: measurements,
             warnings: [],
             isBaseline: entity.isBaseline,
-            appVersion: entity.appVersion
+            appVersion: entity.appVersion,
+            horizonContext: horizonCtx
         )
     }
 

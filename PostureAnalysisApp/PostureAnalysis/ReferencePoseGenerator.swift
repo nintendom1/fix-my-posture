@@ -23,11 +23,44 @@ public final class ReferencePoseGenerator {
 
     public init() {}
 
-    public func generateStaticReference(for pose: BodyPose, view: PostureView, profile: PostureReferenceProfile) -> ReferenceGenerationResult {
-        generateReference(for: pose, view: view, profile: profile, includeReplay: false)
+    public func generateStaticReference(for pose: BodyPose, view: PostureView, profile: PostureReferenceProfile, horizonContext: HorizonContext? = nil) -> ReferenceGenerationResult {
+        generateReference(for: pose, view: view, profile: profile, horizonContext: horizonContext, includeReplay: false)
     }
 
-    public func generateReference(for pose: BodyPose, view: PostureView, profile: PostureReferenceProfile, includeReplay: Bool = true) -> ReferenceGenerationResult {
+    public func generateReference(for pose: BodyPose, view: PostureView, profile: PostureReferenceProfile, horizonContext: HorizonContext? = nil, includeReplay: Bool = true) -> ReferenceGenerationResult {
+        let isCompensated = horizonContext?.isCompensationApplied ?? false
+        let angle = isCompensated ? (horizonContext?.angleDegrees ?? 0) : 0
+        let targetPose = angle != 0 ? HorizonGeometry.rotatePose(pose, angleDegrees: -angle) : pose
+
+        let result = generateUncompensatedReference(for: targetPose, view: view, profile: profile, includeReplay: includeReplay)
+        guard angle != 0 else { return result }
+
+        let staticRef = inverseTransformReference(result.staticReference, pose: pose, angle: angle)
+        let sequence = result.motionSequence.map { inverseTransformReference($0, pose: pose, angle: angle) }
+        return ReferenceGenerationResult(
+            staticReference: staticRef,
+            motionSequence: sequence,
+            isReplayAvailable: result.isReplayAvailable,
+            unavailabilityReason: result.unavailabilityReason
+        )
+    }
+
+    private func inverseTransformReference(_ ref: ReferencePose, pose: BodyPose, angle: Double) -> ReferencePose {
+        guard angle != 0, pose.imageWidth > 0, pose.imageHeight > 0 else { return ref }
+        var transformedJoints: [LandmarkType: CGPoint] = [:]
+        for (type, pt) in ref.jointLocations {
+            transformedJoints[type] = HorizonGeometry.rotatePoint(pt, imageWidth: pose.imageWidth, imageHeight: pose.imageHeight, angleDegrees: angle)
+        }
+        return ReferencePose(
+            jointLocations: transformedJoints,
+            connections: ref.connections,
+            supportedRegions: ref.supportedRegions,
+            achievedChanges: ref.achievedChanges,
+            unavailabilityReason: ref.unavailabilityReason
+        )
+    }
+
+    private func generateUncompensatedReference(for pose: BodyPose, view: PostureView, profile: PostureReferenceProfile, includeReplay: Bool) -> ReferenceGenerationResult {
         guard view != .uncertain else { return unavailable("Choose a front or side view to display an alignment reference.") }
         guard pose.imageWidth > 0, pose.imageHeight > 0 else { return unavailable("The image dimensions are unavailable for alignment reference.") }
 
