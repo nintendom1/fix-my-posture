@@ -224,7 +224,7 @@ private final class FakeCaptureService: RealtimeCaptureService {
     var starts: [Start] = []
     var stops = 0
     var targetReceive: (@MainActor (UUID, ReferencePose?) -> Void)?
-    func configureFeedback(rate: Int, reduceMotion: Bool, receive: @escaping @MainActor (UUID, ReferencePose?) -> Void) {
+    func configureFeedback(rate: Int, reduceMotion: Bool, compensationEnabled: Bool, horizonMonitor: HorizonMonitoring?, receive: @escaping @MainActor (UUID, ReferencePose?) -> Void) {
         targetReceive = receive
     }
     func start(position: AVCaptureDevice.Position, view: PostureView, generation: UUID,
