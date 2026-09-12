@@ -34,6 +34,10 @@ public struct CameraPickerView: UIViewControllerRepresentable {
 
     public func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
 
+    public static func dismantleUIViewController(_ uiViewController: UIImagePickerController, coordinator: Coordinator) {
+        coordinator.monitor.stopUpdates()
+    }
+
     public func makeCoordinator() -> Coordinator {
         Coordinator(self, monitor: monitor)
     }
@@ -50,20 +54,19 @@ public struct CameraPickerView: UIViewControllerRepresentable {
         public func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
             let isCamera = (picker.sourceType == .camera)
             let isFront = (picker.cameraDevice == .front)
-            monitor.isFrontCamera = isFront
             let rawReading = isCamera ? monitor.latestReading : nil
-            monitor.stopUpdates()
 
             if let image = info[.originalImage] as? UIImage {
                 let transformedReading = rawReading.map { r in
                     HorizonReading(
-                        angleDegrees: HorizonGeometry.transformAngleForOrientation(r.angleDegrees, orientation: image.imageOrientation),
+                        angleDegrees: HorizonGeometry.capturedImageAngle(r.angleDegrees, isFrontCamera: isFront, orientation: image.imageOrientation),
                         timestamp: r.timestamp,
                         gravityMagnitude: r.gravityMagnitude
                     )
                 }
                 parent.onCapture(image, isCamera, transformedReading)
             }
+            monitor.stopUpdates()
             parent.dismiss()
         }
 

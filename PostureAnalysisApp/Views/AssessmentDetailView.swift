@@ -102,7 +102,8 @@ public struct AssessmentDetailView: View {
                             measurement: m,
                             feedback: feedback,
                             explanation: MeasurementPresentation.explanation(m),
-                            reading: MeasurementPresentation.reading(m, pose: assessment.pose, view: assessment.view)
+                            reading: MeasurementPresentation.reading(m, pose: assessment.pose, view: assessment.view,
+                                horizonContext: assessment.horizonContext)
                         )
                     }
                 }

@@ -59,6 +59,7 @@ public struct PostureReportView: View {
                             HorizonOverlayView(
                                 angleDegrees: ctx.angleDegrees,
                                 isCompensationApplied: ctx.isCompensationApplied,
+                                imageSize: CGSize(width: pose.imageWidth, height: pose.imageHeight),
                                 containerSize: geo.size
                             )
                             .allowsHitTesting(false)
@@ -95,6 +96,7 @@ public struct PostureReportView: View {
                                 view: view,
                                 profile: referenceProvider.profile(for: view),
                                 sourcePose: sourcePose,
+                                horizonContext: horizonContext,
                                 targetRects: showTargets ? AlignmentTargetOverlayView.rects(reference: referenceResult?.staticReference,
                                     imageSize: CGSize(width: pose.imageWidth, height: pose.imageHeight), containerSize: geo.size) : []
                             )
@@ -236,6 +238,9 @@ public struct PostureReportView: View {
         .onChange(of: pose) { _, _ in
             computeReference()
         }
+        .onChange(of: horizonContext) { _, _ in
+            computeReference()
+        }
         .onChange(of: reduceMotion) { _, shouldReduceMotion in
             if shouldReduceMotion { computeReference() }
         }
@@ -266,7 +271,7 @@ public struct PostureReportView: View {
 
         let generator = ReferencePoseGenerator()
         let profile = referenceProvider.profile(for: view)
-        let raw = generator.generateReference(for: sourcePose ?? pose, view: view, profile: profile)
+        let raw = generator.generateReference(for: sourcePose ?? pose, view: view, profile: profile, horizonContext: horizonContext)
         func display(_ reference: ReferencePose) -> ReferencePose {
             guard let sourcePose else { return reference }
             var result = reference

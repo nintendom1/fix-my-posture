@@ -120,7 +120,7 @@ final class HorizonTests: XCTestCase {
         let upright = CMAcceleration(x: 0, y: -1.0, z: 0)
         let now = ProcessInfo.processInfo.systemUptime
 
-        monitor.processMotion(upright, isFrontCamera: false, timestamp: now)
+        monitor.processMotion(upright, timestamp: now)
         let reading = monitor.latestReading
 
         XCTAssertNotNil(reading)
@@ -128,7 +128,7 @@ final class HorizonTests: XCTestCase {
         XCTAssertEqual(reading!.gravityMagnitude, 1.0, accuracy: 0.01)
     }
 
-    func testFrontVsRearCameraSign() {
+    func testDeviceReadingAndCameraMappingSigns() {
         let monitor = CoreMotionHorizonMonitor()
         let now = ProcessInfo.processInfo.systemUptime
 
@@ -136,17 +136,12 @@ final class HorizonTests: XCTestCase {
         let rad = 10.0 * .pi / 180.0
         let gravity = CMAcceleration(x: -sin(rad), y: -cos(rad), z: 0)
 
-        // Rear camera -> Positive roll
-        monitor.processMotion(gravity, isFrontCamera: false, timestamp: now)
-        let rearReading = monitor.latestReading
-        XCTAssertNotNil(rearReading)
-        XCTAssertGreaterThan(rearReading!.angleDegrees, 0)
-
-        // Front camera -> Inverted roll
-        monitor.processMotion(gravity, isFrontCamera: true, timestamp: now)
-        let frontReading = monitor.latestReading
-        XCTAssertNotNil(frontReading)
-        XCTAssertLessThan(frontReading!.angleDegrees, 0)
+        monitor.processMotion(gravity, timestamp: now)
+        let reading = monitor.latestReading
+        XCTAssertNotNil(reading)
+        XCTAssertLessThan(reading!.angleDegrees, 0)
+        XCTAssertEqual(HorizonGeometry.realtimeImageAngle(reading!.angleDegrees, isFrontCamera: false), reading!.angleDegrees)
+        XCTAssertEqual(HorizonGeometry.realtimeImageAngle(reading!.angleDegrees, isFrontCamera: true), -reading!.angleDegrees)
     }
 
     func testStaleReadingFilter() {
@@ -154,7 +149,7 @@ final class HorizonTests: XCTestCase {
         let oldTimestamp = ProcessInfo.processInfo.systemUptime - 0.50 // 0.5s old > 0.25s limit
 
         let gravity = CMAcceleration(x: 0, y: -1.0, z: 0)
-        monitor.processMotion(gravity, isFrontCamera: false, timestamp: oldTimestamp)
+        monitor.processMotion(gravity, timestamp: oldTimestamp)
 
         XCTAssertNil(monitor.latestReading, "Readings older than 0.25 seconds must be rejected as stale.")
     }
@@ -165,7 +160,7 @@ final class HorizonTests: XCTestCase {
 
         // Phone lying nearly flat on table: Gy = -0.3, Gz = -0.95 -> projected XY magnitude = 0.3 < 0.75
         let flatGravity = CMAcceleration(x: 0, y: -0.3, z: -0.95)
-        monitor.processMotion(flatGravity, isFrontCamera: false, timestamp: now)
+        monitor.processMotion(flatGravity, timestamp: now)
 
         XCTAssertNil(monitor.latestReading, "Projected gravity magnitude below 0.75 must be rejected.")
     }
@@ -177,7 +172,7 @@ final class HorizonTests: XCTestCase {
         // 50 degree roll (> 45 degree limit)
         let rad = 50.0 * .pi / 180.0
         let extremeGravity = CMAcceleration(x: -sin(rad), y: -cos(rad), z: 0)
-        monitor.processMotion(extremeGravity, isFrontCamera: false, timestamp: now)
+        monitor.processMotion(extremeGravity, timestamp: now)
 
         XCTAssertNil(monitor.latestReading, "Absolute roll angles beyond 45 degrees must be rejected.")
     }
@@ -187,16 +182,34 @@ final class HorizonTests: XCTestCase {
         let now = ProcessInfo.processInfo.systemUptime
 
         let g1 = CMAcceleration(x: 0, y: -1.0, z: 0)
-        monitor.processMotion(g1, isFrontCamera: false, timestamp: now)
+        monitor.processMotion(g1, timestamp: now)
 
         let g2 = CMAcceleration(x: -0.2, y: -0.98, z: 0)
-        monitor.processMotion(g2, isFrontCamera: false, timestamp: now + 0.03)
+        monitor.processMotion(g2, timestamp: now + 0.03)
 
         let reading = monitor.latestReading
         XCTAssertNotNil(reading)
         // Smooth factor 0.2: 0.2 * (-0.2) + 0.8 * (0) = -0.04
         // atan2(0.04, 0.984) ~ 2.33 degrees (smoothed, less than raw ~11.5)
         XCTAssertLessThan(abs(reading!.angleDegrees), 5.0)
+    }
+
+    func testCapturedImageAngleUsesEveryOrientationAndMirror() {
+        let orientations: [UIImage.Orientation] = [
+            .up, .upMirrored, .down, .downMirrored,
+            .left, .leftMirrored, .right, .rightMirrored
+        ]
+        for orientation in orientations {
+            let rear = HorizonGeometry.capturedImageAngle(10, isFrontCamera: false, orientation: orientation)
+            let front = HorizonGeometry.capturedImageAngle(10, isFrontCamera: true, orientation: orientation)
+            XCTAssertTrue(rear.isFinite, "rear \(orientation)")
+            XCTAssertTrue(front.isFinite, "front \(orientation)")
+            XCTAssertEqual(front, -rear, accuracy: 0.0001, "\(orientation)")
+            XCTAssertLessThanOrEqual(abs(rear), 90)
+        }
+        XCTAssertEqual(HorizonGeometry.capturedImageAngle(10, isFrontCamera: false, orientation: .up), 10, accuracy: 0.0001)
+        XCTAssertEqual(HorizonGeometry.capturedImageAngle(10, isFrontCamera: false, orientation: .upMirrored), -10, accuracy: 0.0001)
+        XCTAssertEqual(HorizonGeometry.capturedImageAngle(0, isFrontCamera: false, orientation: .upMirrored), 0)
     }
 
     // MARK: - Persistence & Context Tests

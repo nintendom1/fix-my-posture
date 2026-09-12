@@ -6,11 +6,7 @@ public struct ViewClassifier {
 
     public static func classify(pose: BodyPose, horizonContext: HorizonContext? = nil) -> PostureView {
         let classifiedPose: BodyPose
-        if let horizonContext, horizonContext.isCompensationApplied, horizonContext.angleDegrees != 0 {
-            classifiedPose = HorizonGeometry.rotatePose(pose, angleDegrees: -horizonContext.angleDegrees)
-        } else {
-            classifiedPose = pose
-        }
+        classifiedPose = HorizonGeometry.leveledPose(pose, context: horizonContext)
         let landmarks = classifiedPose.landmarks
 
         // Extract bilateral pairs

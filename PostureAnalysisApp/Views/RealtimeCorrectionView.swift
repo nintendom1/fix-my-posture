@@ -102,6 +102,7 @@ public struct RealtimeCorrectionView: View {
                         reading: reading,
                         isCompensationApplied: cameraTiltCompensationEnabled,
                         isMirrored: cameraModel.isFrontCamera,
+                        imageSize: cameraModel.displayPose.map { CGSize(width: $0.imageWidth, height: $0.imageHeight) } ?? geo.size,
                         containerSize: geo.size
                     )
                     .allowsHitTesting(false)
@@ -120,6 +121,7 @@ public struct RealtimeCorrectionView: View {
                         view: assessment.view,
                         profile: referenceProvider.profile(for: assessment.view),
                         sourcePose: assessment.pose,
+                        horizonContext: assessment.horizonContext,
                         targetRects: showTargets ? AlignmentTargetOverlayView.rects(reference: cameraModel.target,
                             imageSize: CGSize(width: pose.imageWidth, height: pose.imageHeight), containerSize: geo.size, mirrored: cameraModel.isFrontCamera) : [],
                         reservedRects: controlRects.isEmpty ? [
@@ -293,7 +295,8 @@ public struct RealtimeCorrectionView: View {
                                     profile: referenceProvider.profile(for: assessment.view)
                                 ),
                                 explanation: MeasurementPresentation.explanation(measurement),
-                                reading: MeasurementPresentation.reading(measurement, pose: assessment.pose, view: assessment.view)
+                                reading: MeasurementPresentation.reading(measurement, pose: assessment.pose, view: assessment.view,
+                                    horizonContext: assessment.horizonContext)
                             )
                         }
                     }

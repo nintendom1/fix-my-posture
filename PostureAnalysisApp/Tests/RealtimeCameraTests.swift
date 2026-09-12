@@ -193,6 +193,28 @@ final class RealtimeCameraTests: XCTestCase {
         XCTAssertEqual(original.midY, mirrored.midY)
     }
 
+    @MainActor
+    func testHorizonMonitorStopsAndRestartsWithCaptureLifecycle() {
+        let camera = FakeCaptureService()
+        let monitor = FakeHorizonMonitor()
+        let model = RealtimeCameraModel(camera: camera,
+            permission: FakeCameraPermission(status: .authorized), horizonMonitor: monitor)
+        model.onAppear()
+        XCTAssertEqual(monitor.startCount, 1)
+
+        camera.emit(.interrupted, start: 0)
+        XCTAssertEqual(monitor.stopCount, 1)
+        camera.emit(.searchingForBody, start: 0)
+        XCTAssertEqual(monitor.startCount, 2)
+
+        model.setDetailsPresented(true)
+        XCTAssertEqual(monitor.stopCount, 2)
+        model.setDetailsPresented(false)
+        XCTAssertEqual(monitor.startCount, 3)
+        model.onDisappear()
+        XCTAssertEqual(monitor.stopCount, 3)
+    }
+
     private func samplePose() -> BodyPose {
         let points: [(LandmarkType, CGPoint)] = [(.leftShoulder, CGPoint(x: 0.3, y: 0.75)),
                                                 (.rightShoulder, CGPoint(x: 0.7, y: 0.70))]
@@ -210,6 +232,14 @@ final class RealtimeCameraTests: XCTestCase {
             imageMetadata: ImageMetadata(width: 1080, height: 1920), view: .front)
         return .tracking(pose, assessment)
     }
+}
+
+private final class FakeHorizonMonitor: HorizonMonitoring {
+    var latestReading: HorizonReading?
+    private(set) var startCount = 0
+    private(set) var stopCount = 0
+    func startUpdates() { startCount += 1 }
+    func stopUpdates() { stopCount += 1 }
 }
 
 private final class FakeCaptureService: RealtimeCaptureService {

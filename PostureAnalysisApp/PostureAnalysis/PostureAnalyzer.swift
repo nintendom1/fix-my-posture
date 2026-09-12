@@ -15,12 +15,7 @@ public struct PostureAnalyzer {
     ) -> PostureAssessment {
         var measurements: [PostureMeasurement] = []
 
-        let analyzedPose: BodyPose
-        if let horizonContext, horizonContext.isCompensationApplied, horizonContext.angleDegrees != 0 {
-            analyzedPose = HorizonGeometry.rotatePose(pose, angleDegrees: -horizonContext.angleDegrees)
-        } else {
-            analyzedPose = pose
-        }
+        let analyzedPose = HorizonGeometry.leveledPose(pose, context: horizonContext)
 
         switch view {
         case .front:

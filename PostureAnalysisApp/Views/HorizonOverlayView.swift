@@ -5,17 +5,20 @@ public struct HorizonOverlayView: View {
     public let angleDegrees: Double
     public let isCompensationApplied: Bool
     public let isMirrored: Bool
+    public let imageSize: CGSize
     public let containerSize: CGSize
 
     public init(
         angleDegrees: Double,
         isCompensationApplied: Bool = true,
         isMirrored: Bool = false,
+        imageSize: CGSize,
         containerSize: CGSize
     ) {
         self.angleDegrees = angleDegrees
         self.isCompensationApplied = isCompensationApplied
         self.isMirrored = isMirrored
+        self.imageSize = imageSize
         self.containerSize = containerSize
     }
 
@@ -23,12 +26,14 @@ public struct HorizonOverlayView: View {
         reading: HorizonReading,
         isCompensationApplied: Bool = true,
         isMirrored: Bool = false,
+        imageSize: CGSize,
         containerSize: CGSize
     ) {
         self.init(
             angleDegrees: reading.angleDegrees,
             isCompensationApplied: isCompensationApplied,
             isMirrored: isMirrored,
+            imageSize: imageSize,
             containerSize: containerSize
         )
     }
@@ -48,8 +53,9 @@ public struct HorizonOverlayView: View {
 
     public var body: some View {
         GeometryReader { _ in
-            let center = CGPoint(x: containerSize.width / 2.0, y: containerSize.height / 2.0)
-            let length = max(containerSize.width, containerSize.height) * 1.5
+            let imageRect = CoordinateConverter.aspectFitRect(for: imageSize, in: containerSize)
+            let center = CGPoint(x: imageRect.width / 2, y: imageRect.height / 2)
+            let length = hypot(imageRect.width, imageRect.height) * 1.1
             // In image pixel space, positive angle rises toward image-right (+Y is down).
             // Rotation in SwiftUI: positive degrees rotates CW.
             // In top-left origin pixel space with Y down, rotating CW by -angleDegrees rotates line upward to image-right.
@@ -83,11 +89,13 @@ public struct HorizonOverlayView: View {
                         Capsule().stroke(Color.cyan.opacity(0.6), lineWidth: 1)
                     )
             }
+            .frame(width: imageRect.width, height: imageRect.height)
             .rotationEffect(.degrees(displayAngle), anchor: .center)
+            .clipped()
+            .position(x: imageRect.midX, y: imageRect.midY)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(accessibilityText)
         }
-        .clipped()
         .allowsHitTesting(false)
     }
 }

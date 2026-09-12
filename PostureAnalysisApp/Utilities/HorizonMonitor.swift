@@ -16,7 +16,6 @@ public struct HorizonReading: Equatable, Hashable, Sendable {
 
 /// Abstract interface for motion-backed horizon monitoring.
 public protocol HorizonMonitoring: AnyObject {
-    var isFrontCamera: Bool { get set }
     var latestReading: HorizonReading? { get }
     func startUpdates()
     func stopUpdates()
@@ -24,16 +23,6 @@ public protocol HorizonMonitoring: AnyObject {
 
 /// Core Motion-backed monitor sampling device roll at 30 Hz with gravity low-pass filtering.
 public final class CoreMotionHorizonMonitor: HorizonMonitoring, @unchecked Sendable {
-    public var isFrontCamera: Bool = true {
-        didSet {
-            lock.lock()
-            defer { lock.unlock() }
-            // Invalidate current reading on camera switch
-            cachedReading = nil
-            smoothedGravity = nil
-        }
-    }
-
     private let motionManager = CMMotionManager()
     private let queue = OperationQueue()
     private let lock = NSLock()
@@ -76,10 +65,9 @@ public final class CoreMotionHorizonMonitor: HorizonMonitoring, @unchecked Senda
         motionManager.deviceMotionUpdateInterval = 1.0 / 30.0
         isUpdating = true
 
-        let isFront = isFrontCamera
         motionManager.startDeviceMotionUpdates(to: queue) { [weak self] motion, error in
             guard let self, let motion, error == nil else { return }
-            self.processMotion(motion.gravity, isFrontCamera: isFront)
+            self.processMotion(motion.gravity)
         }
     }
 
@@ -96,7 +84,7 @@ public final class CoreMotionHorizonMonitor: HorizonMonitoring, @unchecked Senda
     }
 
     /// Internal process method for gravity updates (also accessible for unit testing).
-    public func processMotion(_ gravity: CMAcceleration, isFrontCamera: Bool, timestamp: TimeInterval = ProcessInfo.processInfo.systemUptime) {
+    public func processMotion(_ gravity: CMAcceleration, timestamp: TimeInterval = ProcessInfo.processInfo.systemUptime) {
         lock.lock()
         defer { lock.unlock() }
 
@@ -122,8 +110,8 @@ public final class CoreMotionHorizonMonitor: HorizonMonitoring, @unchecked Senda
         }
 
         // Calculate roll angle relative to portrait upright
-        let rawAngle = atan2(-smoothed.x, -smoothed.y) * (180.0 / .pi)
-        let angle = isFrontCamera ? -rawAngle : rawAngle
+        // True horizon in screen space. Positive rises toward screen-right.
+        let angle = atan2(smoothed.x, -smoothed.y) * (180.0 / .pi)
 
         guard abs(angle) <= 45.0 else {
             cachedReading = nil

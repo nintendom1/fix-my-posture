@@ -15,12 +15,7 @@ public enum MeasurementPresentation {
         guard isDirectional(measurement.measurementID), let pose else {
             return String(format: "%.*f", digits, measurement.value == 0 ? 0 : measurement.value)
         }
-        let targetPose: BodyPose
-        if let horizonContext, horizonContext.isCompensationApplied, horizonContext.angleDegrees != 0 {
-            targetPose = HorizonGeometry.rotatePose(pose, angleDegrees: -horizonContext.angleDegrees)
-        } else {
-            targetPose = pose
-        }
+        let targetPose = HorizonGeometry.leveledPose(pose, context: horizonContext)
         guard let direction = direction(measurement, pose: targetPose, view: view) else {
             return String(format: "%.*f", digits, measurement.value == 0 ? 0 : measurement.value)
         }

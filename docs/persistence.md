@@ -7,6 +7,7 @@ The app utilizes **SwiftData** for local metadata storage and the app sandboxed 
 ### Entities
 
 - `AssessmentEntity`: Stores assessment ID, date, view classification, app version, baseline status, and relationships to landmarks and measurements.
+- Camera assessments may also store a nullable original-image horizon angle, its source, and whether compensation was applied. A missing field set identifies legacy/library records and keeps them uncompensated. Comparisons explicitly warn when only one side used compensation.
 - `LandmarkEntity`: Stores landmark type, normalized coordinates, pixel coordinates, confidence, and manual edit flag.
 - `MeasurementEntity`: Stores stable `measurementIDRawValue`, user display label, value, unit, confidence, explanation, and used landmarks.
 

@@ -30,7 +30,7 @@ public final class ReferencePoseGenerator {
     public func generateReference(for pose: BodyPose, view: PostureView, profile: PostureReferenceProfile, horizonContext: HorizonContext? = nil, includeReplay: Bool = true) -> ReferenceGenerationResult {
         let isCompensated = horizonContext?.isCompensationApplied ?? false
         let angle = isCompensated ? (horizonContext?.angleDegrees ?? 0) : 0
-        let targetPose = angle != 0 ? HorizonGeometry.rotatePose(pose, angleDegrees: -angle) : pose
+        let targetPose = HorizonGeometry.leveledPose(pose, context: horizonContext)
 
         let result = generateUncompensatedReference(for: targetPose, view: view, profile: profile, includeReplay: includeReplay)
         guard angle != 0 else { return result }

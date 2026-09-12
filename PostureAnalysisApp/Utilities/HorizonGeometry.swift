@@ -5,20 +5,36 @@ import UIKit
 /// Utility for image center point rotation and horizon geometry transforms.
 public enum HorizonGeometry {
 
-    /// Transforms a device roll reading through captured UIImage.Orientation into upright pixel space.
-    public static func transformAngleForOrientation(_ angleDegrees: Double, orientation: UIImage.Orientation) -> Double {
-        switch orientation {
-        case .up, .upMirrored:
-            return angleDegrees
-        case .down, .downMirrored:
-            return -angleDegrees
-        case .left, .leftMirrored:
-            return angleDegrees
-        case .right, .rightMirrored:
-            return angleDegrees
-        @unknown default:
-            return angleDegrees
-        }
+    /// Maps a screen-space horizon into an unmirrored realtime camera buffer.
+    public static func realtimeImageAngle(_ screenAngleDegrees: Double, isFrontCamera: Bool) -> Double {
+        isFrontCamera ? -screenAngleDegrees : screenAngleDegrees
+    }
+
+    /// Maps a screen-space horizon through the same orientation/mirroring transform used
+    /// when UIImage draws into its normalized upright representation.
+    public static func capturedImageAngle(
+        _ screenAngleDegrees: Double,
+        isFrontCamera: Bool,
+        orientation: UIImage.Orientation
+    ) -> Double {
+        let imageAngle = realtimeImageAngle(screenAngleDegrees, isFrontCamera: isFrontCamera)
+        let radians = imageAngle * .pi / 180
+        let a = CGPoint(x: 0.25, y: 0.5 - 0.25 * tan(radians))
+        let b = CGPoint(x: 0.75, y: 0.5 + 0.25 * tan(radians))
+        let mappedA = ImageNormalizer.mapNormalizedToOrientation(a, orientation: orientation, clampToImage: false)
+        let mappedB = ImageNormalizer.mapNormalizedToOrientation(b, orientation: orientation, clampToImage: false)
+        var result = atan2(mappedB.y - mappedA.y, mappedB.x - mappedA.x) * 180 / .pi
+        // A horizon is an undirected line, so keep its equivalent representation
+        // in the range used by posture geometry.
+        while result > 90 { result -= 180 }
+        while result < -90 { result += 180 }
+        return abs(result) < 0.000_000_1 ? 0 : result
+    }
+
+    /// Returns geometry leveled to the persisted original-image horizon.
+    public static func leveledPose(_ pose: BodyPose, context: HorizonContext?) -> BodyPose {
+        guard let context, context.isCompensationApplied, context.angleDegrees != 0 else { return pose }
+        return rotatePose(pose, angleDegrees: -context.angleDegrees)
     }
 
     /// Rotates a 2D point around image center in equal-scale pixel space.
