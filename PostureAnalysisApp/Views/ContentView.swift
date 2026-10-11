@@ -17,6 +17,7 @@ public struct ContentView: View {
     @State private var errorMessage: String? = nil
 
     @State private var showRealtimeCorrection = false
+    @State private var showWorkoutCoach = false
     @State private var showCamera = false
     @State private var showEditLandmarks = false
     @State private var showDebugView = false
@@ -202,6 +203,17 @@ public struct ContentView: View {
                             }
                             .accessibilityIdentifier("realtimeCorrectionButton")
 
+                            Button(action: { showWorkoutCoach = true }) {
+                                Label("Workout Coach (Beta)", systemImage: "dumbbell.fill")
+                                    .font(.headline)
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Color.orange)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(12)
+                            }
+                            .accessibilityIdentifier("workoutCoachButton")
+
                             Button(action: { showCamera = true }) {
                                 Label("Take Standing Photo", systemImage: "camera")
                                     .font(.headline)
@@ -268,6 +280,9 @@ public struct ContentView: View {
             }
             .fullScreenCover(isPresented: $showRealtimeCorrection) {
                 RealtimeCorrectionView()
+            }
+            .fullScreenCover(isPresented: $showWorkoutCoach) {
+                WorkoutCoachView()
             }
             .sheet(isPresented: $showCamera) {
                 CameraPickerView { capturedImage, isCamera, reading in

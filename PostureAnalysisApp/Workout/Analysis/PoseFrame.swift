@@ -1,0 +1,18 @@
+import CoreGraphics
+import Foundation
+
+/// One pose sample from the workout camera.
+/// Landmarks below the live confidence floor are already removed, and geometry is unmirrored image pixels.
+struct PoseFrame {
+    let pose: BodyPose
+    /// Sample buffer presentation time in seconds. Compare only with other frame timestamps.
+    let timestamp: TimeInterval
+
+    var imageSize: CGSize { CGSize(width: pose.imageWidth, height: pose.imageHeight) }
+
+    /// Pixel location (origin top-left) when the joint meets `minimumConfidence`.
+    func point(_ type: LandmarkType, minimumConfidence: Double) -> CGPoint? {
+        guard let landmark = pose[type], landmark.confidence >= minimumConfidence else { return nil }
+        return landmark.imageLocation
+    }
+}
