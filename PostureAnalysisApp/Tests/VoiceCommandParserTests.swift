@@ -64,6 +64,26 @@ final class VoiceCommandParserTests: XCTestCase {
         XCTAssertNil(parser.parse("my weights are seventeen"), "No unit yet.")
     }
 
+    func testWaitHeardForWeight() {
+        for transcript in ["wait 17.5 pounds", "Wait. 17.5 lb", "weigh seventeen point five pounds"] {
+            XCTAssertEqual(parser.parse(transcript)?.command, .setWeight(.mass(17.5, .pounds)), transcript)
+        }
+        for transcript in ["wait", "okay wait"] {
+            let match = parser.parse(transcript)
+            XCTAssertEqual(match?.command, .pause, transcript)
+            XCTAssertEqual(match?.isPrefixOfLongerPhrase, true, "A number may still follow.")
+            XCTAssertEqual(match?.settleTime, VoiceCommandParser.weightSoundAlikeSettleTime)
+        }
+        XCTAssertNil(parser.parse("wait 17"), "A weight still being said runs nothing.")
+        XCTAssertNil(parser.parse("wait seventeen point"))
+        let notAWeight = parser.parse("wait I lost five pounds")
+        XCTAssertEqual(notAWeight?.command, .pause)
+        XCTAssertEqual(notAWeight?.isPrefixOfLongerPhrase, false, "Other words after \u{201C}wait\u{201D} pause right away.")
+        for transcript in ["pause", "hold on"] {
+            XCTAssertNil(parser.parse(transcript)?.settleTime, "\(transcript) stays immediate.")
+        }
+    }
+
     func testSoundCommands() {
         XCTAssertEqual(parser.parse("mute")?.command, .muteCoach)
         XCTAssertEqual(parser.parse("be quiet please")?.command, .muteCoach)

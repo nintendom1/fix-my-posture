@@ -8,6 +8,8 @@ struct VoiceCommandMatch: Equatable {
     /// The match ends the transcript and is the start of a longer phrase with a different meaning
     /// ("start" could become "start over"), so it should wait for a final or settled transcript.
     let isPrefixOfLongerPhrase: Bool
+    /// How long the transcript must stay unchanged before the match runs; nil uses the default.
+    var settleTime: TimeInterval?
 }
 
 protocol VoiceCommandParsing {

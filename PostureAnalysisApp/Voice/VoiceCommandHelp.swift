@@ -35,7 +35,7 @@ enum VoiceCommandHelp {
         return [
             Section(title: "Sets", entries: entries([
                 (.start, "Begins the set, or the next set after rest."),
-                (.pause, "Pauses counting during a set."),
+                (.pause, "Pauses counting during a set. \u{201C}Wait\u{201D} takes a second, in case you meant \u{201C}weight\u{201D}."),
                 (.resume, "Continues a paused set."),
                 (.restartSet, "Restarts the current set from zero."),
                 (.nextSet, "Finishes this set and starts rest, or starts the next set after rest.")

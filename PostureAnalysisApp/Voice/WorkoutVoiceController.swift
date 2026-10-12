@@ -230,7 +230,7 @@ final class WorkoutVoiceController {
     private func checkTranscript() {
         guard isRecognizing, !transcript.isEmpty else { return }
         let settled = clock() - transcriptChangedAt
-        if let pending, settled >= Self.ambiguousSettleTime {
+        if let pending, settled >= pending.settleTime ?? Self.ambiguousSettleTime {
             execute(pending)
         } else if pending == nil, settled >= Self.utteranceEndTime {
             // End of utterance without a command: start fresh so old words can't combine with new ones.
