@@ -106,6 +106,10 @@
 		A10000012B00000000000097 /* WorkoutTipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000097 /* WorkoutTipView.swift */; };
 		A10000012B00000000000098 /* CoachingCueSchedulerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000098 /* CoachingCueSchedulerTests.swift */; };
 		A10000012B00000000000099 /* WorkoutTipLayoutTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000099 /* WorkoutTipLayoutTests.swift */; };
+		A10000012B00000000000100 /* HammerCurlExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000100 /* HammerCurlExercise.swift */; };
+		A10000012B00000000000101 /* HammerCurlAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000101 /* HammerCurlAnalyzer.swift */; };
+		A10000012B00000000000102 /* HammerCurlFormMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000102 /* HammerCurlFormMonitor.swift */; };
+		A10000012B00000000000103 /* HammerCurlAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000103 /* HammerCurlAnalyzerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -220,6 +224,10 @@
 		B10000012B00000000000097 /* WorkoutTipView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutTipView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000098 /* CoachingCueSchedulerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachingCueSchedulerTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000099 /* WorkoutTipLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutTipLayoutTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000100 /* HammerCurlExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HammerCurlExercise.swift; sourceTree = "<group>"; };
+		B10000012B00000000000101 /* HammerCurlAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HammerCurlAnalyzer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000102 /* HammerCurlFormMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HammerCurlFormMonitor.swift; sourceTree = "<group>"; };
+		B10000012B00000000000103 /* HammerCurlAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HammerCurlAnalyzerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -387,6 +395,7 @@
 				B10000012B00000000000089 /* VoiceCommandParserTests.swift */,
 				B10000012B00000000000098 /* CoachingCueSchedulerTests.swift */,
 				B10000012B00000000000099 /* WorkoutTipLayoutTests.swift */,
+				B10000012B00000000000103 /* HammerCurlAnalyzerTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -420,6 +429,7 @@
 				B10000012B00000000000057 /* ExerciseAnalyzing.swift */,
 				H10000012B00000000000015 /* ShoulderPress */,
 				B10000012B00000000000074 /* ExerciseGuide.swift */,
+				H10000012B00000000000022 /* HammerCurl */,
 			);
 			path = Exercises;
 			sourceTree = "<group>";
@@ -505,6 +515,16 @@
 				B10000012B00000000000095 /* WorkoutTipLayout.swift */,
 			);
 			path = Coaching;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000022 /* HammerCurl */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000100 /* HammerCurlExercise.swift */,
+				B10000012B00000000000101 /* HammerCurlAnalyzer.swift */,
+				B10000012B00000000000102 /* HammerCurlFormMonitor.swift */,
+			);
+			path = HammerCurl;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -672,6 +692,9 @@
 				A10000012B00000000000095 /* WorkoutTipLayout.swift in Sources */,
 				A10000012B00000000000096 /* ShoulderPressFormMonitor.swift in Sources */,
 				A10000012B00000000000097 /* WorkoutTipView.swift in Sources */,
+				A10000012B00000000000100 /* HammerCurlExercise.swift in Sources */,
+				A10000012B00000000000101 /* HammerCurlAnalyzer.swift in Sources */,
+				A10000012B00000000000102 /* HammerCurlFormMonitor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -692,6 +715,7 @@
 				A10000012B00000000000089 /* VoiceCommandParserTests.swift in TestSources */,
 				A10000012B00000000000098 /* CoachingCueSchedulerTests.swift in TestSources */,
 				A10000012B00000000000099 /* WorkoutTipLayoutTests.swift in TestSources */,
+				A10000012B00000000000103 /* HammerCurlAnalyzerTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,6 +1,6 @@
 # Workout Coach (Beta)
 
-Open **Workout Coach (Beta)** from the main menu. The first time, a short guide shows and describes the dumbbell shoulder press. Then prop the phone up in portrait, step back so the front camera can see both arms and your shoulders with room overhead, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10), announces the target range and set completion, gives occasional form tips, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
+Open **Workout Coach (Beta)** from the main menu. The first time, a short guide shows and describes the dumbbell shoulder press. Then prop the phone up in portrait, step back so the front camera can see both arms and your shoulders with room overhead, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10) and hammer curls (2 sets of 10), announces the target range and set completion, gives occasional form tips, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
 
 Rep counts, framing checks, and form tips are geometric heuristics from a 2D camera. They are not medical, injury, or performance assessments.
 
@@ -55,7 +55,7 @@ Stale events are dropped. Every analyzer instance carries an epoch, and the sess
 
 ## Framing
 
-`FramingEvaluator` uses each exercise's required joints. For shoulder press those are both shoulders, elbows, and wrists at confidence ≥ 0.4. Hips aren't required, so users can stand closer for steadier tracking; when visible, they still help center the left/right guidance.
+`FramingEvaluator` uses each exercise's required joints. For shoulder press and hammer curls those are both shoulders, elbows, and wrists at confidence ≥ 0.4. Hips aren't required, so users can stand closer for steadier tracking; when visible, they still help center the left/right guidance.
 
 - Tracking becomes reliable after the required joints stay visible for 0.6 s. It becomes unreliable after they are missing for 0.3 s.
 - Guidance, in order: step into view; step back until both arms and shoulders are visible; leave room above the hands; move a little left or right.
@@ -77,6 +77,18 @@ The press is filmed from the front, using pixel geometry and an independent hyst
 - A gap longer than 0.28 s between complete samples (two dropped samples at the 100–133 ms cadence) invalidates the cycle, so a fresh start is required. Movement done out of view never counts. Pausing or losing tracking has the same effect.
 - The set announces "You're in the target range" at 8 and completes automatically at 10. Other reps are not spoken.
 
+## Hammer curl rep rule
+
+Hammer curls are filmed from the front. Each arm counts on its own with its own hysteresis tracker, so curls can alternate or move together. The displayed count is the number of reps both arms have done, and the HUD also shows "L 6 · R 7". Thresholds live in `HammerCurlConfiguration`.
+
+- Signal: `r` = the wrist's height above its elbow, in that arm's upper-arm length. From the front, the upper arm hangs nearly vertical, so it's a steady ruler at any distance, while the forearm swings toward the camera and looks shorter. The ruler is the longest upper arm over the last second.
+- Start when `r ≤ −0.6` (hanging straight). Top when `r ≥ 0.25` (wrist well above the elbow). Each checkpoint needs 2 consecutive 10 Hz samples.
+- Locked reference: while an arm hangs at the start, its smoothed elbow height and ruler are refreshed; once it curls, they're locked until it hangs straight again (dropped after 6 s, or after a tracking gap).
+- An arm earns a rep when it hangs straight, reaches the Top, and hangs straight again within a cycle of at least 0.8 s. An arm that curls up again without hanging straight doesn't count; that raises "Straighten at the bottom."
+- Validation: the guide's own demonstration reads about −0.88 hanging and 0.83 at the top. It counts exactly one rep per arm per loop at ½× and 2× scale, with upper arm or forearm ±15%. The weakest case, a forearm 15% shorter, still reads −0.75 and 0.71. `HammerCurlAnalyzerTests` also cover alternating arms, a half curl, and curling again from midway.
+- The set completes automatically at 10. There's no target-range announcement, since the target is exactly 10.
+- The demonstration's forearm moves in the sagittal plane (`ArmMotion.forearmPlane = .sagittal`): toward the camera, so in the guide and the ghost it rises straight up in front of the elbow, as it does on camera.
+
 ## Form coaching
 
 While counting, the coach watches how each rep is done and offers a short tip now and then. Corrective cues are spoken and shown as a tip; reminders are only shown. Cues describe movement relative to the user's own set. They never mention grip, wrist rotation, dumbbell orientation, or injury, and they never make medical claims.
@@ -92,6 +104,17 @@ While counting, the coach watches how each rep is done and offers a short tip no
 | "Press both arms evenly." (10) | The wrists cross the Top line more than 0.3 s apart, or differ in height by more than 0.25 on the way up. | 0 s / 0 |
 
 Reminders, visual only: "Brace your core.", "Breathe out as you press.", "Keep your ribs down."
+
+Hammer curls (`HammerCurlFormMonitor`) judge each arm's attempts separately. An attempt begins once an arm settles hanging straight and its wrist rises 0.5 above where it hung.
+
+| Cue (priority) | Raised when | Guide demo |
+|---|---|---|
+| "Curl all the way up." (50) | An arm's attempt ends without reaching the Top. | never |
+| "Straighten at the bottom." (40) | After the Top, a wrist dips at least 0.4 and curls up again without hanging straight. | never |
+| "Keep your elbows by your sides." (20, continuous) | An elbow's sideways distance from its shoulder grows by more than 0.25 shoulder widths compared with the start of the set. | 0 |
+| "Keep your body still." (10, continuous) | The shoulder midpoint moves more than 0.35 upper-arm lengths relative to the hip midpoint compared with the start of the set. Skipped while hips aren't visible. | 0 |
+
+Curl reminders: "Elbows stay close.", "Lower slowly.", "Stand tall." The curl's motion envelope runs from the shoulders down past the hanging dumbbells, and out past them to the sides. Its "Last rep" line shows each arm's last top and hanging heights, plus the live flare and sway drift.
 
 **Scheduling.** `CoachingCueScheduler` keeps cues sparse:
 
@@ -175,6 +198,12 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
   - no form cues for the demonstration itself;
   - "Press all the way up" for a half press, "Lower with control" for a 0.5 s lowering, "Press both arms evenly" for one arm 0.4 s late, and "Lower to just above your shoulders" for re-pressing from midway;
   - the torso signal for a sideways lean, never without hips, and never affecting the count.
+- `HammerCurlAnalyzerTests` run the curl guide's own demonstration (forearm moving toward the camera) at 10 Hz:
+  - one rep per arm per loop, at ½× and 2× scale and with either segment ±15%;
+  - alternating arms each count;
+  - curling again from midway counts once and asks to straighten;
+  - a half curl doesn't count and asks to curl all the way up;
+  - flared elbows and sway raise their signals, and sway needs hips.
 - `CoachingCueSchedulerTests` check the 0.5 s hold, 2 of the last 3 attempts, the 10 s cooldown and 4 s gap, replacement by priority only upward, waiting while the coach speaks, and reminders at set start and after 25 s quiet.
 - `WorkoutTipLayoutTests` check the preferred slot, keeping a still-valid slot, speak-only when nothing fits, and that press tips at typical and close distances never touch the arms, body, envelope, or HUD.
 - `WorkoutSessionTests` drive the reducer:

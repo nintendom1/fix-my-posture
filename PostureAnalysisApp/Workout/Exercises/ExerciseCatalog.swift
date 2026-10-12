@@ -3,7 +3,8 @@ import Foundation
 /// The exercises the coach offers, in menu order.
 enum ExerciseCatalog {
     static let all: [ExerciseDefinition] = [
-        ShoulderPressExercise.definition()
+        ShoulderPressExercise.definition(),
+        HammerCurlExercise.definition()
     ]
 
     static func definition(for id: ExerciseID) -> ExerciseDefinition? {
