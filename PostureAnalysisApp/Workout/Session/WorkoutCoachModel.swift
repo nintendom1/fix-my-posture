@@ -8,6 +8,10 @@ struct WorkoutOverlayState: Equatable {
     var segments: [FocusSegment]
     /// Arms at their counted end position while counting.
     var endPositionSides: Set<BodySide>
+    /// Every detected joint, mirrored but unsmoothed; tips keep clear of the whole body.
+    var pose: BodyPose
+    /// Joints the active corrective tip refers to; drawn amber.
+    var emphasizedJoints: Set<LandmarkType> = []
 }
 
 /// Smoothed arm-segment lengths in image pixels, used to fit the ghost demo to the user.
@@ -58,6 +62,10 @@ final class WorkoutCoachModel: ObservableObject {
     @Published private(set) var isCoachMuted: Bool
     /// The microphone stays off until the user turns it back on. Remembered between workouts.
     @Published private(set) var isMicMuted: Bool
+    /// The coaching tip on screen; it clears after `tipDuration`.
+    @Published private(set) var activeTip: CoachingTip?
+    /// The last rep's form values, for Show Measurements.
+    @Published private(set) var formReadings: [FormReading] = []
 
     var captureSession: AVCaptureSession { camera.session }
     var exercises: [ExerciseDefinition] { session.exercises }
@@ -89,6 +97,7 @@ final class WorkoutCoachModel: ObservableObject {
 
     static let tickInterval: TimeInterval = 0.5
     static let heardChipDuration: TimeInterval = 1.5
+    static let tipDuration = CoachingCueScheduler.Configuration().tipDuration
     /// Spoken once per install, after the intro, when voice first works.
     static let voiceTipKey = "workoutCoach.voiceTipSpoken"
     static let voiceTip = "Say \u{201C}what can I say\u{201D} anytime to see voice commands."
@@ -124,8 +133,7 @@ final class WorkoutCoachModel: ObservableObject {
         now = clock()
         audio?.onEvent = { [weak self] event in self?.handleAudio(event) }
         speech.onActivityChanged = { [weak self] speaking in
-            self?.isCoachSpeaking = speaking
-            self?.voice?.setCoachSpeaking(speaking)
+            self?.coachSpeakingChanged(speaking)
         }
         voice?.onCommand = { [weak self] command in self?.send(command) }
         voice?.onHeard = { [weak self] phrase in self?.showHeard(phrase) }
@@ -374,6 +382,13 @@ final class WorkoutCoachModel: ObservableObject {
             for rep in analysis.repEvents {
                 apply(session.handle(.repCompleted(rep), at: clock()))
             }
+            if formReadings != analysis.formReadings { formReadings = analysis.formReadings }
+            // After reps, so a rep that completes the set isn't followed by a stale cue.
+            if isCounting {
+                let observation = FormObservation(epoch: analyzer.epoch, repForms: analysis.repForms,
+                                                  signals: analysis.formSignals)
+                apply(session.handle(.formObserved(observation), at: clock()))
+            }
         }
 
         // Display only: mirror for the selfie preview, then smooth.
@@ -382,8 +397,15 @@ final class WorkoutCoachModel: ObservableObject {
             imageSize: frame.imageSize,
             joints: smoother.update(pose: display, joints: exercise.focusJoints, at: frame.timestamp),
             segments: exercise.focusSegments,
-            endPositionSides: endSides
+            endPositionSides: endSides,
+            pose: display,
+            emphasizedJoints: emphasizedJoints
         )
+    }
+
+    private var emphasizedJoints: Set<LandmarkType> {
+        guard let cue = activeTip?.cue, cue.kind == .corrective else { return [] }
+        return cue.joints
     }
 
     /// The session sees a fresh, unreliable start; the overlay clears.
@@ -395,6 +417,7 @@ final class WorkoutCoachModel: ObservableObject {
         guideMetrics = nil
         armReadings = [:]
         armThresholds = [:]
+        formReadings = []
         setStartPositionHeld(false)
         if session.framing != .lost {
             apply(session.handle(.framingChanged(.lost), at: clock()))
@@ -470,6 +493,9 @@ final class WorkoutCoachModel: ObservableObject {
                 isCounting = counting
             case .clearFeedback:
                 overlay?.endPositionSides = []
+                setActiveTip(nil)
+            case .showTip(let tip):
+                setActiveTip(tip)
             case .stopCaptureAndVoice:
                 stopTicks()
                 stopCapture()
@@ -531,6 +557,25 @@ final class WorkoutCoachModel: ObservableObject {
         guard hasOpened, micStatus.isUsable, !isCoachMuted, !defaults.bool(forKey: Self.voiceTipKey) else { return }
         defaults.set(true, forKey: Self.voiceTipKey)
         speech.speak(Utterance(text: Self.voiceTip, isInstruction: false))
+    }
+
+    private func coachSpeakingChanged(_ speaking: Bool) {
+        isCoachSpeaking = speaking
+        voice?.setCoachSpeaking(speaking)
+        apply(session.handle(.coachSpeakingChanged(speaking), at: clock()))
+    }
+
+    /// Shows a tip for `tipDuration`; a newer tip or a cleared one cancels the pending hide.
+    private func setActiveTip(_ tip: CoachingTip?) {
+        activeTip = tip
+        overlay?.emphasizedJoints = emphasizedJoints
+        guard let id = tip?.id else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.tipDuration) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.activeTip?.id == id else { return }
+                self.setActiveTip(nil)
+            }
+        }
     }
 
     private func showHeard(_ phrase: String) {

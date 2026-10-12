@@ -12,6 +12,8 @@ struct WorkoutCoachView: View {
     @State private var showGuide = false
     /// Open the Voice Commands help once the guide finishes dismissing.
     @State private var showVoiceCommandsAfterGuide = false
+    /// Top and bottom HUD frames, which tips keep clear of.
+    @State private var hudRects: [CGRect] = []
 
     var body: some View {
         ZStack {
@@ -113,10 +115,14 @@ struct WorkoutCoachView: View {
                     }
                 }
 
+                WorkoutTipOverlayView(tip: model.activeTip, protectedRects: tipProtectedRects(in: geo.size), hudRects: hudRects)
+                    .frame(width: geo.size.width, height: geo.size.height)
+
                 WorkoutHUDView(
                     session: model.session,
                     now: model.now,
                     readings: model.armReadings,
+                    formReadings: model.formReadings,
                     isPhoneTilted: model.isPhoneTilted,
                     micStatus: model.micStatus,
                     heardPhrase: model.heardPhrase,
@@ -131,7 +137,17 @@ struct WorkoutCoachView: View {
                 )
             }
             .coordinateSpace(name: Self.coordinateSpace)
+            .onPreferenceChange(WorkoutHUDRects.self) { hudRects = $0 }
         }
+    }
+
+    /// The body and the exercise's motion envelope, computed only while a tip is up.
+    private func tipProtectedRects(in size: CGSize) -> [CGRect] {
+        guard model.activeTip != nil, let overlay = model.overlay else { return [] }
+        let envelope = model.session.exercise.flatMap {
+            WorkoutTipLayout.envelopeRect($0.motionEnvelope, overlay: overlay, metrics: model.guideMetrics, containerSize: size)
+        }
+        return WorkoutTipLayout.protectedRects(pose: overlay.pose, envelope: envelope, containerSize: size)
     }
 
     private func close() {

@@ -53,6 +53,12 @@ struct ExerciseDefinition: Identifiable {
     /// recognizer's contextual hints.
     let voiceAliases: [String]
     let guide: ExerciseGuide
+    /// Corrective cues, spoken and shown as tips. The analyzer raises them by `CoachingCueID`.
+    let coachingCues: [CoachingCue]
+    /// Visual-only reminders, one at set start and then between corrections.
+    let reminders: [CoachingCue]
+    /// Where the limbs travel during a rep; tips stay out of it.
+    let motionEnvelope: MotionEnvelope
     let makeAnalyzer: (_ epoch: Int) -> ExerciseAnalyzing
 
     var focusJoints: Set<LandmarkType> {

@@ -1,8 +1,8 @@
 # Workout Coach (Beta)
 
-Open **Workout Coach (Beta)** from the main menu. The first time, a short guide shows and describes the dumbbell shoulder press. Then prop the phone up in portrait, step back so the front camera can see both arms and your shoulders with room overhead, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10), announces the target range and set completion, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
+Open **Workout Coach (Beta)** from the main menu. The first time, a short guide shows and describes the dumbbell shoulder press. Then prop the phone up in portrait, step back so the front camera can see both arms and your shoulders with room overhead, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10), announces the target range and set completion, gives occasional form tips, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
 
-Rep counts and framing checks are geometric heuristics from a 2D camera. They are not medical, injury, or performance assessments.
+Rep counts, framing checks, and form tips are geometric heuristics from a 2D camera. They are not medical, injury, or performance assessments.
 
 ## Privacy
 
@@ -13,9 +13,10 @@ Everything runs on device. Apple Vision estimates the pose, `AVSpeechSynthesizer
 - `Workout/Exercises`: `ExerciseCatalog.all` is the visible exercise list. Each `ExerciseDefinition` supplies a stable `ExerciseID` (for example `shoulder_press`), sets, target reps, required joints, overlay focus segments, the setup line, an `ExerciseGuide`, and an analyzer factory. To add an exercise, add one folder and one catalog line.
 - `Workout/Analysis`: `PoseFrame` (reliable, unmirrored pixel pose plus capture timestamp), `ArmGeometry`, `HysteresisPhaseTracker`, `FramingEvaluator`, and the display-only `LandmarkSmoother` (One Euro filter).
 - `Workout/Session`: `WorkoutSession` is a pure reducer, `handle(_ event:at:) -> [WorkoutEffect]`. `WorkoutCoachModel` is the main-actor orchestrator. It depends only on the `PoseFrameSource`, `ExerciseAnalyzing`, and `SpeechCoaching` protocols, so test fakes can be injected.
+- `Workout/Coaching`: `CoachingCue` (stable `CoachingCueID` keys such as `press.full_extension`, separate from the wording), the pure `CoachingCueScheduler` (owned by `WorkoutSession`), and the pure `WorkoutTipLayout` with each exercise's `MotionEnvelope`. `Utilities/ProtectedBodyGeometry` supplies the body areas that both posture callouts and workout tips avoid.
 - `Workout/Camera`: `WorkoutCameraController` uses the shared `PortraitCameraSession` configuration, the same configuration as realtime posture correction. It has one serial queue, a 10 Hz gate on sample timestamps, synchronous `FramePoseEstimator` inference, and the existing 0.3 confidence filter. Frames reach the main actor through one lock-protected pending slot: at most one hop is in flight, newer frames replace older ones, and no buffers are retained. Vision code stays in `AppleVisionPoseEstimator`.
 - `Voice`: `SpeechCoach` and `WorkoutAudioSession`.
-- `Views/Workout`: `WorkoutCoachView`, `WorkoutHUDView`, `WorkoutJointOverlayView`, `ExerciseGuideView`, `ExerciseDemoFigureView`, and `WorkoutGuideOverlayView`.
+- `Views/Workout`: `WorkoutCoachView`, `WorkoutHUDView`, `WorkoutJointOverlayView`, `ExerciseGuideView`, `ExerciseDemoFigureView`, `WorkoutGuideOverlayView`, and `WorkoutTipView`.
 
 ## Guidance
 
@@ -28,7 +29,7 @@ The guide and the live overlay share one description of the movement. `ExerciseG
 - **Hold ring.** While a hold is being timed, a ring labeled "Hold" fills over the second (`WorkoutSession.startHoldProgress`). It floats beside the body at chest height, just outside the widest visible joint on whichever side has more room, and is separate from the HUD. Letting go hides it. The set starts on the frame where the ring fills.
 - **Threshold lines.** During a set, each arm gets a short **Start ↓** and **Top ↑** segment, drawn from the analyzer's own per-arm thresholds, so the user sees exactly what counts. A rep begins and ends at Start and turns around at Top. The checkpoint an arm is heading toward is bright and dashed, the other is dim, and a segment turns solid once that arm reaches it (cyan for Start, green for Top). The heights are locked at the start position for each rep (see the rep rule), so the segments hold still while you press.
 - **Phone tilt.** `CoreMotionTiltMonitor` reads the phone's forward/back lean from gravity at 10 Hz while the camera runs. A lean of more than 15° for 1 s shows "Phone tilted: stand it upright" under the title and speaks a warning (at most every 30 s); it clears below 10°. A leaning phone squashes or stretches heights unevenly, more so up close. The warning is advisory and never blocks a set.
-- **Show Measurements.** This exercise-menu toggle is off by default and remembered. It shows each arm's live height ratio, elbow angle, and zone (↓ bottom, ↑ top, ◌ between), for tuning thresholds on device.
+- **Show Measurements.** This exercise-menu toggle is off by default and remembered. It shows each arm's live height ratio, elbow angle, and zone (↓ bottom, ↑ top, ◌ between), for tuning thresholds on device. A second line shows the last rep's form values for tuning the coaching thresholds: `↓` Top-to-Start lowering time, `Δt` Top-line timing gap, `Δh` largest height gap on the way up, `ext` the lower peak elbow angle, and `torso` the live sideways drift from the set's start.
 
 Analysis always uses the original unmirrored pixel geometry. Only the overlay is mirrored for the selfie preview, then smoothed. Overlay and preview share aspect-fit bounds through `CoordinateConverter`.
 
@@ -45,7 +46,7 @@ Tracking reliability is a separate input. While exercising and unreliable, count
 | Resume | Acts only from paused. Harmless while exercising. |
 | Restart set | Resets the current set's reps and starts a fresh analyzer. Nothing else changes. |
 | Next set | While exercising or paused, completes the set and rests. From resting, starts the next set. After the last set, the exercise is complete. |
-| Exercise menu | Selecting another exercise discards an in-progress set (finished sets are kept per exercise) and clears the analyzer, smoothing, and feedback. |
+| Exercise menu | Selecting another exercise discards an in-progress set (finished sets are kept per exercise) and clears the analyzer, smoothing, and feedback, including any tip and the coaching history. |
 | End | Asks for confirmation when tapped. Then stops the camera, restores other audio, and shows a summary with a Done button. |
 
 Backgrounding the app or locking the phone pauses an active set with the matching reason and stops the camera and microphone. On return the set stays paused, and the coach says "Paused. Say resume when ready." (or "Tap Resume" without voice control). Camera and audio-session interruptions pause the same way.
@@ -76,11 +77,52 @@ The press is filmed from the front, using pixel geometry and an independent hyst
 - A gap longer than 0.28 s between complete samples (two dropped samples at the 100–133 ms cadence) invalidates the cycle, so a fresh start is required. Movement done out of view never counts. Pausing or losing tracking has the same effect.
 - The set announces "You're in the target range" at 8 and completes automatically at 10. Other reps are not spoken.
 
+## Form coaching
+
+While counting, the coach watches how each rep is done and offers a short tip now and then. Corrective cues are spoken and shown as a tip; reminders are only shown. Cues describe movement relative to the user's own set. They never mention grip, wrist rotation, dumbbell orientation, or injury, and they never make medical claims.
+
+**Signals.** `ShoulderPressFormMonitor` only observes; counting never depends on it. It uses the analyzer's own units (wrist height in that arm's length, with the locked shoulder), so readings are the same at any distance. The times when a wrist crosses the drawn Top and Start lines are interpolated between samples, so they don't jump with the 10 Hz cadence. An *attempt* begins once both arms settle at the Start and a wrist rises 0.2 above where it rested, and it ends when both settle again. Attempts that don't count, such as a half press, are judged too, so the coach can say why. All values are prototype heuristics in `ShoulderPressConfiguration`, and the guide's own demonstration raises none of them.
+
+| Cue (priority) | Raised when | Guide demo |
+|---|---|---|
+| "Press all the way up." (50) | An attempt ends with an arm that never reached the Top, or with a peak 2D elbow angle under 155°. | peak 173° |
+| "Lower to just above your shoulders." (40) | After the Top, a wrist dips at least 0.2 below its peak and presses back to the Top without reaching the Start. | never |
+| "Lower with control." (30) | A wrist takes less than 0.15 s from the Top line down to the Start line, a full lowering faster than about 0.8 s. | 0.29 s for a 1.5 s lowering |
+| "Keep your torso centered." (20, continuous) | The shoulder midpoint's sideways offset from the hip midpoint drifts more than 0.12 arm lengths from where it was at the start of the set (the mean of 5 samples at the Start). Skipped while hips aren't visible. | 0 |
+| "Press both arms evenly." (10) | The wrists cross the Top line more than 0.3 s apart, or differ in height by more than 0.25 on the way up. | 0 s / 0 |
+
+Reminders, visual only: "Brace your core.", "Breathe out as you press.", "Keep your ribs down."
+
+**Scheduling.** `CoachingCueScheduler` keeps cues sparse:
+
+- A continuous signal must hold for 0.5 s. A per-rep cue needs the newest attempt and 2 of the last 3 attempts to raise it.
+- Each cue waits 10 s before it can repeat. Cues start at least 4 s apart, unless a higher-priority cue replaces the one on screen.
+- One tip shows at a time, for 3 s. A higher-priority cue replaces a lower one immediately; a lower one waits.
+- A corrective cue doesn't start while the coach is speaking, so the tip and its spoken line stay together and cues never pile up in the speech queue. Cues never interrupt speech, and they go through the normal speech path, so coach mute, half-duplex listening, and ducking apply. "Repeat that" can repeat a cue.
+- Reminders: one at set start, then one after 25 s without any cue, rotating through the list across sets.
+- Pausing or losing tracking clears signals in progress. Restarting, finishing, or switching clears everything, including the tip.
+
+**Tips.** `WorkoutTipLayout.placement(size:container:protected:reserved:previous:)` keeps a tip clear of three areas:
+
+- the body (`ProtectedBodyGeometry`);
+- the exercise's motion envelope (for the press, from the shoulders up one arm length overhead, 0.75 arm lengths out to each side, and 0.3 below);
+- both HUD regions (`WorkoutHUDRects`).
+
+It keeps the current slot while it stays valid. Otherwise it tries these slots in order:
+
+1. below the top HUD (center, left, right);
+2. above the bottom HUD (center, left, right);
+3. the left and right gutters, scanning from mid-height outward.
+
+The tip is measured on one line (up to 320 pt) and as a compact, wrapped tip (up to 120 pt), which fits beside the hips when the user stands close. At typical distances the tip sits under the top HUD. When the body fills the frame from head to ankles, there's no room, so a corrective cue is only spoken and a reminder is skipped. Tips fade in and out over 0.25 s, instantly with Reduce Motion. A muted coach still shows tips, silently.
+
+**Emphasis.** While a corrective tip shows, the joints it refers to are drawn amber: elbows and wrists for the arm cues, and shoulders and hips (with their lines) for the torso cue. Amber takes precedence over the green end position. Gray for missing joints still takes precedence. The overlay never uses red.
+
 ## Overlay and HUD
 
 - The ghost demo (ready) and threshold lines (during a set) are drawn beneath the joints. See [Guidance](#guidance).
-- The overlay draws only the focus segments (each shoulder→elbow→wrist chain plus thin shoulder and hip lines) and their joints. Joints are cyan when tracked and green while that arm holds the counted top position. Joints missing for up to 0.3 s turn muted gray, then disappear. The overlay never uses red.
-- The top HUD stays small to preserve overhead room: close, exercise name (tap for the guide), and status. The bottom HUD shows the rep count against the target (it pulses on each counted rep), set progress, a rest countdown (90 s for the press), optional measurements, and controls: start/pause/resume, restart set, next set, the exercise menu (exercises, How to Do It, Show Measurements), and end. Both HUD regions publish their frames for later layout work.
+- The overlay draws only the focus segments (each shoulder→elbow→wrist chain plus thin shoulder and hip lines) and their joints. Joints are cyan when tracked, green while that arm holds the counted top position, and amber while a form tip refers to them. Joints missing for up to 0.3 s turn muted gray, then disappear. The overlay never uses red.
+- The top HUD stays small to preserve overhead room: close, exercise name (tap for the guide), and status. The bottom HUD shows the rep count against the target (it pulses on each counted rep), set progress, a rest countdown (90 s for the press), optional measurements, and controls: start/pause/resume, restart set, next set, the exercise menu (exercises, How to Do It, Show Measurements), and end. Both HUD regions publish their frames (`WorkoutHUDRects`), and form tips keep clear of them.
 - The idle timer is disabled while the screen is open.
 
 ## Speech and audio
@@ -106,7 +148,7 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
     - While it's muted, nothing listens, no permission is requested, and prompts say "Tap".
   - **🔊 Coach voice.** Tap to mute or unmute; a red disc shows it's muted. Muting cuts the current line.
     - By voice: "mute" or "be quiet" (said on its own) to mute, and "unmute" or "talk to me" to unmute. Unmuting replies "Coach voice on." The coach can't hear while it's talking, so mute by voice between lines, or tap anytime.
-    - A muted coach is fully silent: no announcements, replies, or tips, and no music ducking. The guide's Read Aloud still plays, because it's an explicit tap.
+    - A muted coach is fully silent: no announcements, replies, or spoken tips, and no music ducking. Form tips still appear on screen. The guide's Read Aloud still plays, because it's an explicit tap.
 - **Heard chip.** A "Heard: …" chip confirms each recognized command for 1.5 s.
 - **Voice Commands help.** A full-height sheet with large type, readable from across the room. It opens by voice ("what can I say", "help", "voice commands"), from **Voice Commands** in the ☰ menu, or by tapping the microphone.
   - **Content:** `VoiceCommandHelp` generates every command from the parser's alias table, grouped as Sets, Exercises, Info, and Finish. Each shows its main phrase, a short description, and its alternates, and destructive commands are marked "Say it on its own". Because the list comes from the same table the parser uses, it always matches what's recognized.
@@ -126,10 +168,15 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
 
 - `ShoulderPressAnalyzerTests` sample the guide's own demonstration (`ExerciseDemoFigureView.pose` driven by `ArmMotion`) at 10 Hz:
   - one rep per loop;
-  - identical readings at ½× and 2× scale;
+  - identical readings, including form readings, at ½× and 2× scale;
   - counting with no hips in view;
   - no count for a half press;
-  - a locked Top threshold that stays put while the shoulders lift mid-press.
+  - a locked Top threshold that stays put while the shoulders lift mid-press;
+  - no form cues for the demonstration itself;
+  - "Press all the way up" for a half press, "Lower with control" for a 0.5 s lowering, "Press both arms evenly" for one arm 0.4 s late, and "Lower to just above your shoulders" for re-pressing from midway;
+  - the torso signal for a sideways lean, never without hips, and never affecting the count.
+- `CoachingCueSchedulerTests` check the 0.5 s hold, 2 of the last 3 attempts, the 10 s cooldown and 4 s gap, replacement by priority only upward, waiting while the coach speaks, and reminders at set start and after 25 s quiet.
+- `WorkoutTipLayoutTests` check the preferred slot, keeping a still-valid slot, speak-only when nothing fits, and that press tips at typical and close distances never touch the arms, body, envelope, or HUD.
 - `WorkoutSessionTests` drive the reducer:
   - holding the start position for 1 s auto-starts the set;
   - rest is never skipped before its timer ends;
@@ -137,9 +184,25 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
   - the target range is announced at 8 and the set completes at 10;
   - the tilt warning is rate-limited;
   - the hold ring's progress fills over 1 s and disappears when you let go;
-  - the "Right now" suggestions follow the phase.
+  - the "Right now" suggestions follow the phase;
+  - set start shows a reminder tip without speaking it;
+  - a corrective cue is spoken and shown, and only for the current analyzer;
+  - restarting a set forgets its coaching history, and pausing restarts a continuous cue's hold.
 - `VoiceCommandParserTests` cover fillers, longest-phrase matching, the whole-utterance rule for destructive commands, prefix ambiguity, exercise names, and opening and closing help by voice. They also check that every recognized phrase appears exactly once in the Voice Commands help.
 - `PhoneTiltDetectorTests` check the 1 s settle time, the 15°/10° hysteresis, and that missing motion data never warns.
+
+## Adding an exercise
+
+Every new exercise ships with full guidance, even when the request only names it:
+
+1. One folder under `Workout/Exercises` (definition, configuration, analyzer) and one line in `ExerciseCatalog`.
+2. Guide: steps, the Read Aloud walkthrough, the start-position instruction, and `ArmMotion` keyframes whose first keyframe is the start position. These drive the guide sheet, the first-time display, the ghost, and the hold ring.
+3. Threshold lines that match the movement's direction. Don't assume "top" means higher wrists.
+4. Validate the thresholds by running the guide's own demonstration through the analyzer. Expect exactly one rep per loop at any scale and proportions, with a scale-invariant ruler such as arm length. Report any deviation from the planned thresholds.
+5. Coaching: corrective cues with stable `CoachingCueID`s, priorities, and emphasized joints; visual-only reminders; and a `MotionEnvelope`. The demonstration should raise no cues.
+6. Voice aliases (`ExerciseDefinition.voiceAliases`); the parser, the help list, and the every-phrase test pick them up.
+7. Docs: the rep rule section, the coaching cues, and physical-device checklist items.
+8. Non-diagnostic wording: never comment on grip, wrist rotation, dumbbell orientation, or injury.
 
 ## Future options
 
@@ -181,6 +244,19 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Tap 🎙 while it's listening: it turns red, and prompts switch to "Tap". Tap again to resume listening.
     - Say "stop listening": the mic mutes. Long-press 🎙 and choose Voice Commands.
     - Close and reopen the coach: both mutes are remembered, and a muted mic doesn't start listening (no orange recording dot).
-19. Afterward, confirm realtime posture correction still works.
+19. Form tips (turn on Show Measurements to see the "Last rep" values):
+    - Do a few half presses: after the second, the coach says and shows "Press all the way up." with your elbows and wrists amber.
+    - Drop the weights quickly from the top for a few reps: "Lower with control."
+    - Press with one arm clearly behind the other: "Press both arms evenly."
+    - From the top, lower only to forehead height and press again, twice: "Lower to just above your shoulders."
+    - With your hips in view, lean sideways for a second: "Keep your torso centered." With hips out of view, it never appears.
+    - Ten clean reps at the guide's pace bring no corrective cues.
+20. No cue repeats within 10 s. Cues start at least 4 s apart, except when a more important cue replaces the one on screen. A cue never cuts off a voice reply or announcement.
+21. Tips never cover your arms or the HUD during the press, at the bottom or the top of the rep, standing far or close. Standing so close that your body fills the screen, cues are spoken without a tip.
+22. A reminder (for example "Brace your core.") appears at set start, isn't spoken, and another appears about every 25 s while reps stay clean.
+23. Mute the coach: tips still appear, silently. With Reduce Motion on, tips appear and disappear without fading.
+24. Voice commands keep working mid-set while cues are spoken. Saying "repeat that" right after a cue repeats it.
+25. Restarting the set, finishing it, or switching exercise clears the tip and the amber joints immediately.
+26. Afterward, confirm realtime posture correction still works.
 
 These checks remain manual; a passing simulator run does not imply they were performed.

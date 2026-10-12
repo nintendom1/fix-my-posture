@@ -98,6 +98,14 @@
 		A10000012B00000000000089 /* VoiceCommandParserTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000089 /* VoiceCommandParserTests.swift */; };
 		A10000012B00000000000090 /* VoiceCommandHelp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000090 /* VoiceCommandHelp.swift */; };
 		A10000012B00000000000091 /* VoiceCommandsHelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000091 /* VoiceCommandsHelpView.swift */; };
+		A10000012B00000000000092 /* ProtectedBodyGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000092 /* ProtectedBodyGeometry.swift */; };
+		A10000012B00000000000093 /* CoachingCue.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000093 /* CoachingCue.swift */; };
+		A10000012B00000000000094 /* CoachingCueScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000094 /* CoachingCueScheduler.swift */; };
+		A10000012B00000000000095 /* WorkoutTipLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000095 /* WorkoutTipLayout.swift */; };
+		A10000012B00000000000096 /* ShoulderPressFormMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000096 /* ShoulderPressFormMonitor.swift */; };
+		A10000012B00000000000097 /* WorkoutTipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000097 /* WorkoutTipView.swift */; };
+		A10000012B00000000000098 /* CoachingCueSchedulerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000098 /* CoachingCueSchedulerTests.swift */; };
+		A10000012B00000000000099 /* WorkoutTipLayoutTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000099 /* WorkoutTipLayoutTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -204,6 +212,14 @@
 		B10000012B00000000000089 /* VoiceCommandParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommandParserTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000090 /* VoiceCommandHelp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommandHelp.swift; sourceTree = "<group>"; };
 		B10000012B00000000000091 /* VoiceCommandsHelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommandsHelpView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000092 /* ProtectedBodyGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtectedBodyGeometry.swift; sourceTree = "<group>"; };
+		B10000012B00000000000093 /* CoachingCue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachingCue.swift; sourceTree = "<group>"; };
+		B10000012B00000000000094 /* CoachingCueScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachingCueScheduler.swift; sourceTree = "<group>"; };
+		B10000012B00000000000095 /* WorkoutTipLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutTipLayout.swift; sourceTree = "<group>"; };
+		B10000012B00000000000096 /* ShoulderPressFormMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShoulderPressFormMonitor.swift; sourceTree = "<group>"; };
+		B10000012B00000000000097 /* WorkoutTipView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutTipView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000098 /* CoachingCueSchedulerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachingCueSchedulerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000099 /* WorkoutTipLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutTipLayoutTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -350,6 +366,7 @@
 				B10000012B00000000000050 /* HorizonGeometry.swift */,
 				B10000012B00000000000051 /* HorizonMonitor.swift */,
 				B10000012B00000000000054 /* PortraitCameraSession.swift */,
+				B10000012B00000000000092 /* ProtectedBodyGeometry.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -368,6 +385,8 @@
 				B10000012B00000000000080 /* WorkoutSessionTests.swift */,
 				B10000012B00000000000081 /* PhoneTiltDetectorTests.swift */,
 				B10000012B00000000000089 /* VoiceCommandParserTests.swift */,
+				B10000012B00000000000098 /* CoachingCueSchedulerTests.swift */,
+				B10000012B00000000000099 /* WorkoutTipLayoutTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -388,6 +407,7 @@
 				H10000012B00000000000016 /* Analysis */,
 				H10000012B00000000000017 /* Session */,
 				H10000012B00000000000018 /* Camera */,
+				H10000012B00000000000021 /* Coaching */,
 			);
 			path = Workout;
 			sourceTree = "<group>";
@@ -409,6 +429,7 @@
 			children = (
 				B10000012B00000000000058 /* ShoulderPressExercise.swift */,
 				B10000012B00000000000059 /* ShoulderPressAnalyzer.swift */,
+				B10000012B00000000000096 /* ShoulderPressFormMonitor.swift */,
 			);
 			path = ShoulderPress;
 			sourceTree = "<group>";
@@ -471,8 +492,19 @@
 				B10000012B00000000000087 /* MicrophoneStatusView.swift */,
 				B10000012B00000000000088 /* HoldProgressRingView.swift */,
 				B10000012B00000000000091 /* VoiceCommandsHelpView.swift */,
+				B10000012B00000000000097 /* WorkoutTipView.swift */,
 			);
 			path = Workout;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000021 /* Coaching */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000093 /* CoachingCue.swift */,
+				B10000012B00000000000094 /* CoachingCueScheduler.swift */,
+				B10000012B00000000000095 /* WorkoutTipLayout.swift */,
+			);
+			path = Coaching;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -634,6 +666,12 @@
 				A10000012B00000000000088 /* HoldProgressRingView.swift in Sources */,
 				A10000012B00000000000090 /* VoiceCommandHelp.swift in Sources */,
 				A10000012B00000000000091 /* VoiceCommandsHelpView.swift in Sources */,
+				A10000012B00000000000092 /* ProtectedBodyGeometry.swift in Sources */,
+				A10000012B00000000000093 /* CoachingCue.swift in Sources */,
+				A10000012B00000000000094 /* CoachingCueScheduler.swift in Sources */,
+				A10000012B00000000000095 /* WorkoutTipLayout.swift in Sources */,
+				A10000012B00000000000096 /* ShoulderPressFormMonitor.swift in Sources */,
+				A10000012B00000000000097 /* WorkoutTipView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -652,6 +690,8 @@
 				A10000012B00000000000080 /* WorkoutSessionTests.swift in TestSources */,
 				A10000012B00000000000081 /* PhoneTiltDetectorTests.swift in TestSources */,
 				A10000012B00000000000089 /* VoiceCommandParserTests.swift in TestSources */,
+				A10000012B00000000000098 /* CoachingCueSchedulerTests.swift in TestSources */,
+				A10000012B00000000000099 /* WorkoutTipLayoutTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
