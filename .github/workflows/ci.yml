@@ -14,15 +14,15 @@ concurrency:
 jobs:
   validate:
     name: Build & Test
-    runs-on: macos-14
+    # The same toolchain that builds the app for the phone (`make ios`).
+    runs-on: macos-15
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Select Xcode Version
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
 
+      # SIMULATOR_DESTINATION is unset, so validate.sh picks the newest installed iPhone simulator.
       - name: Run Validation Script
         run: ./scripts/validate.sh
-        env:
-          SIMULATOR_DESTINATION: "platform=iOS Simulator,name=iPhone 15 Pro,OS=17.5"

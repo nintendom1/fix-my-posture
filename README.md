@@ -28,7 +28,7 @@ make ios
 ```
 
 This builds, signs, installs, and launches a Debug build using Xcode's command-line
-tools. Full Xcode 15+ is required, with support for your phone's installed iOS
+tools. Full Xcode 16+ is required, with support for your phone's installed iOS
 version. No Node or npm installation is needed.
 
 **First-time setup:**
