@@ -98,6 +98,44 @@
 		A10000012B00000000000089 /* VoiceCommandParserTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000089 /* VoiceCommandParserTests.swift */; };
 		A10000012B00000000000090 /* VoiceCommandHelp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000090 /* VoiceCommandHelp.swift */; };
 		A10000012B00000000000091 /* VoiceCommandsHelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000091 /* VoiceCommandsHelpView.swift */; };
+		A10000012B00000000000092 /* ProtectedBodyGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000092 /* ProtectedBodyGeometry.swift */; };
+		A10000012B00000000000093 /* CoachingCue.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000093 /* CoachingCue.swift */; };
+		A10000012B00000000000094 /* CoachingCueScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000094 /* CoachingCueScheduler.swift */; };
+		A10000012B00000000000095 /* WorkoutTipLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000095 /* WorkoutTipLayout.swift */; };
+		A10000012B00000000000096 /* ShoulderPressFormMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000096 /* ShoulderPressFormMonitor.swift */; };
+		A10000012B00000000000097 /* WorkoutTipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000097 /* WorkoutTipView.swift */; };
+		A10000012B00000000000098 /* CoachingCueSchedulerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000098 /* CoachingCueSchedulerTests.swift */; };
+		A10000012B00000000000099 /* WorkoutTipLayoutTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000099 /* WorkoutTipLayoutTests.swift */; };
+		A10000012B00000000000100 /* HammerCurlExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000100 /* HammerCurlExercise.swift */; };
+		A10000012B00000000000101 /* HammerCurlAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000101 /* HammerCurlAnalyzer.swift */; };
+		A10000012B00000000000102 /* HammerCurlFormMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000102 /* HammerCurlFormMonitor.swift */; };
+		A10000012B00000000000103 /* HammerCurlAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000103 /* HammerCurlAnalyzerTests.swift */; };
+		A10000012B00000000000104 /* WorkoutSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000104 /* WorkoutSelectionView.swift */; };
+		A10000012B00000000000106 /* ExerciseCompleteCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000106 /* ExerciseCompleteCard.swift */; };
+		A10000012B00000000000108 /* TricepsExtensionExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000108 /* TricepsExtensionExercise.swift */; };
+		A10000012B00000000000109 /* TricepsExtensionAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000109 /* TricepsExtensionAnalyzer.swift */; };
+		A10000012B00000000000110 /* TricepsExtensionAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000110 /* TricepsExtensionAnalyzerTests.swift */; };
+		A10000012B00000000000112 /* AirSquatExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000112 /* AirSquatExercise.swift */; };
+		A10000012B00000000000113 /* AirSquatAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000113 /* AirSquatAnalyzer.swift */; };
+		A10000012B00000000000114 /* AirSquatAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000114 /* AirSquatAnalyzerTests.swift */; };
+		A10000012B00000000000116 /* NearArmSelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000116 /* NearArmSelector.swift */; };
+		A10000012B00000000000117 /* DumbbellRowExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000117 /* DumbbellRowExercise.swift */; };
+		A10000012B00000000000118 /* DumbbellRowAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000118 /* DumbbellRowAnalyzer.swift */; };
+		A10000012B00000000000119 /* DumbbellRowAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000119 /* DumbbellRowAnalyzerTests.swift */; };
+		A10000012B00000000000121 /* PushUpExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000121 /* PushUpExercise.swift */; };
+		A10000012B00000000000122 /* PushUpAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000122 /* PushUpAnalyzer.swift */; };
+		A10000012B00000000000123 /* PushUpAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000123 /* PushUpAnalyzerTests.swift */; };
+		A10000012B00000000000125 /* WorkoutPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000125 /* WorkoutPlan.swift */; };
+		A10000012B00000000000126 /* SavedExerciseSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000126 /* SavedExerciseSet.swift */; };
+		A10000012B00000000000127 /* SavedSetEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000127 /* SavedSetEditorView.swift */; };
+		A10000012B00000000000128 /* SavedExerciseSetTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000128 /* SavedExerciseSetTests.swift */; };
+		A10000012B00000000000130 /* WorkoutWeight.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000130 /* WorkoutWeight.swift */; };
+		A10000012B00000000000131 /* WorkoutHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000131 /* WorkoutHistory.swift */; };
+		A10000012B00000000000132 /* WorkoutHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000132 /* WorkoutHistoryView.swift */; };
+		A10000012B00000000000133 /* WorkoutHistoryTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000133 /* WorkoutHistoryTests.swift */; };
+		A10000012B00000000000135 /* WeightPhraseParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000135 /* WeightPhraseParser.swift */; };
+		A10000012B00000000000136 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000136 /* Assets.xcassets */; };
+		A10000012B00000000000137 /* AcknowledgementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000137 /* AcknowledgementsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -204,6 +242,44 @@
 		B10000012B00000000000089 /* VoiceCommandParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommandParserTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000090 /* VoiceCommandHelp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommandHelp.swift; sourceTree = "<group>"; };
 		B10000012B00000000000091 /* VoiceCommandsHelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommandsHelpView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000092 /* ProtectedBodyGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtectedBodyGeometry.swift; sourceTree = "<group>"; };
+		B10000012B00000000000093 /* CoachingCue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachingCue.swift; sourceTree = "<group>"; };
+		B10000012B00000000000094 /* CoachingCueScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachingCueScheduler.swift; sourceTree = "<group>"; };
+		B10000012B00000000000095 /* WorkoutTipLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutTipLayout.swift; sourceTree = "<group>"; };
+		B10000012B00000000000096 /* ShoulderPressFormMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShoulderPressFormMonitor.swift; sourceTree = "<group>"; };
+		B10000012B00000000000097 /* WorkoutTipView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutTipView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000098 /* CoachingCueSchedulerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachingCueSchedulerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000099 /* WorkoutTipLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutTipLayoutTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000100 /* HammerCurlExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HammerCurlExercise.swift; sourceTree = "<group>"; };
+		B10000012B00000000000101 /* HammerCurlAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HammerCurlAnalyzer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000102 /* HammerCurlFormMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HammerCurlFormMonitor.swift; sourceTree = "<group>"; };
+		B10000012B00000000000103 /* HammerCurlAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HammerCurlAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000104 /* WorkoutSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSelectionView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000106 /* ExerciseCompleteCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseCompleteCard.swift; sourceTree = "<group>"; };
+		B10000012B00000000000108 /* TricepsExtensionExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TricepsExtensionExercise.swift; sourceTree = "<group>"; };
+		B10000012B00000000000109 /* TricepsExtensionAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TricepsExtensionAnalyzer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000110 /* TricepsExtensionAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TricepsExtensionAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000112 /* AirSquatExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirSquatExercise.swift; sourceTree = "<group>"; };
+		B10000012B00000000000113 /* AirSquatAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirSquatAnalyzer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000114 /* AirSquatAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirSquatAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000116 /* NearArmSelector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearArmSelector.swift; sourceTree = "<group>"; };
+		B10000012B00000000000117 /* DumbbellRowExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DumbbellRowExercise.swift; sourceTree = "<group>"; };
+		B10000012B00000000000118 /* DumbbellRowAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DumbbellRowAnalyzer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000119 /* DumbbellRowAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DumbbellRowAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000121 /* PushUpExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushUpExercise.swift; sourceTree = "<group>"; };
+		B10000012B00000000000122 /* PushUpAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushUpAnalyzer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000123 /* PushUpAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushUpAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000125 /* WorkoutPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutPlan.swift; sourceTree = "<group>"; };
+		B10000012B00000000000126 /* SavedExerciseSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedExerciseSet.swift; sourceTree = "<group>"; };
+		B10000012B00000000000127 /* SavedSetEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedSetEditorView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000128 /* SavedExerciseSetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedExerciseSetTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000130 /* WorkoutWeight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutWeight.swift; sourceTree = "<group>"; };
+		B10000012B00000000000131 /* WorkoutHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistory.swift; sourceTree = "<group>"; };
+		B10000012B00000000000132 /* WorkoutHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistoryView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000133 /* WorkoutHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistoryTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000135 /* WeightPhraseParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightPhraseParser.swift; sourceTree = "<group>"; };
+		B10000012B00000000000136 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B10000012B00000000000137 /* AcknowledgementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcknowledgementsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -247,6 +323,7 @@
 				H10000012B00000000000010 /* Tests */,
 				H10000012B00000000000013 /* Workout */,
 				H10000012B00000000000019 /* Voice */,
+				B10000012B00000000000136 /* Assets.xcassets */,
 			);
 			path = PostureAnalysisApp;
 			sourceTree = "<group>";
@@ -306,6 +383,8 @@
 				B10000012B00000000000015 /* AssessmentEntity.swift */,
 				B10000012B00000000000016 /* ImageStore.swift */,
 				B10000012B00000000000017 /* BaselineComparisonEngine.swift */,
+				B10000012B00000000000126 /* SavedExerciseSet.swift */,
+				B10000012B00000000000131 /* WorkoutHistory.swift */,
 			);
 			path = Persistence;
 			sourceTree = "<group>";
@@ -328,6 +407,7 @@
 				B10000012B00000000000044 /* PostureCalloutOverlayView.swift */,
 				B10000012B00000000000047 /* AlignmentTargetOverlayView.swift */,
 				B10000012B00000000000052 /* HorizonOverlayView.swift */,
+				B10000012B00000000000137 /* AcknowledgementsView.swift */,
 				H10000012B00000000000020 /* Workout */,
 			);
 			path = Views;
@@ -350,6 +430,7 @@
 				B10000012B00000000000050 /* HorizonGeometry.swift */,
 				B10000012B00000000000051 /* HorizonMonitor.swift */,
 				B10000012B00000000000054 /* PortraitCameraSession.swift */,
+				B10000012B00000000000092 /* ProtectedBodyGeometry.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -368,6 +449,15 @@
 				B10000012B00000000000080 /* WorkoutSessionTests.swift */,
 				B10000012B00000000000081 /* PhoneTiltDetectorTests.swift */,
 				B10000012B00000000000089 /* VoiceCommandParserTests.swift */,
+				B10000012B00000000000098 /* CoachingCueSchedulerTests.swift */,
+				B10000012B00000000000099 /* WorkoutTipLayoutTests.swift */,
+				B10000012B00000000000103 /* HammerCurlAnalyzerTests.swift */,
+				B10000012B00000000000110 /* TricepsExtensionAnalyzerTests.swift */,
+				B10000012B00000000000114 /* AirSquatAnalyzerTests.swift */,
+				B10000012B00000000000119 /* DumbbellRowAnalyzerTests.swift */,
+				B10000012B00000000000123 /* PushUpAnalyzerTests.swift */,
+				B10000012B00000000000128 /* SavedExerciseSetTests.swift */,
+				B10000012B00000000000133 /* WorkoutHistoryTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -388,6 +478,7 @@
 				H10000012B00000000000016 /* Analysis */,
 				H10000012B00000000000017 /* Session */,
 				H10000012B00000000000018 /* Camera */,
+				H10000012B00000000000021 /* Coaching */,
 			);
 			path = Workout;
 			sourceTree = "<group>";
@@ -400,6 +491,11 @@
 				B10000012B00000000000057 /* ExerciseAnalyzing.swift */,
 				H10000012B00000000000015 /* ShoulderPress */,
 				B10000012B00000000000074 /* ExerciseGuide.swift */,
+				H10000012B00000000000022 /* HammerCurl */,
+				H10000012B00000000000023 /* TricepsExtension */,
+				H10000012B00000000000024 /* AirSquat */,
+				H10000012B00000000000025 /* DumbbellRow */,
+				H10000012B00000000000026 /* PushUp */,
 			);
 			path = Exercises;
 			sourceTree = "<group>";
@@ -409,6 +505,7 @@
 			children = (
 				B10000012B00000000000058 /* ShoulderPressExercise.swift */,
 				B10000012B00000000000059 /* ShoulderPressAnalyzer.swift */,
+				B10000012B00000000000096 /* ShoulderPressFormMonitor.swift */,
 			);
 			path = ShoulderPress;
 			sourceTree = "<group>";
@@ -421,6 +518,7 @@
 				B10000012B00000000000062 /* HysteresisPhaseTracker.swift */,
 				B10000012B00000000000063 /* FramingEvaluator.swift */,
 				B10000012B00000000000064 /* LandmarkSmoother.swift */,
+				B10000012B00000000000116 /* NearArmSelector.swift */,
 			);
 			path = Analysis;
 			sourceTree = "<group>";
@@ -430,6 +528,8 @@
 			children = (
 				B10000012B00000000000065 /* WorkoutSession.swift */,
 				B10000012B00000000000066 /* WorkoutCoachModel.swift */,
+				B10000012B00000000000125 /* WorkoutPlan.swift */,
+				B10000012B00000000000130 /* WorkoutWeight.swift */,
 			);
 			path = Session;
 			sourceTree = "<group>";
@@ -455,6 +555,7 @@
 				B10000012B00000000000085 /* OnDeviceSpeechRecognizer.swift */,
 				B10000012B00000000000086 /* WorkoutVoiceController.swift */,
 				B10000012B00000000000090 /* VoiceCommandHelp.swift */,
+				B10000012B00000000000135 /* WeightPhraseParser.swift */,
 			);
 			path = Voice;
 			sourceTree = "<group>";
@@ -471,8 +572,69 @@
 				B10000012B00000000000087 /* MicrophoneStatusView.swift */,
 				B10000012B00000000000088 /* HoldProgressRingView.swift */,
 				B10000012B00000000000091 /* VoiceCommandsHelpView.swift */,
+				B10000012B00000000000097 /* WorkoutTipView.swift */,
+				B10000012B00000000000104 /* WorkoutSelectionView.swift */,
+				B10000012B00000000000106 /* ExerciseCompleteCard.swift */,
+				B10000012B00000000000127 /* SavedSetEditorView.swift */,
+				B10000012B00000000000132 /* WorkoutHistoryView.swift */,
 			);
 			path = Workout;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000021 /* Coaching */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000093 /* CoachingCue.swift */,
+				B10000012B00000000000094 /* CoachingCueScheduler.swift */,
+				B10000012B00000000000095 /* WorkoutTipLayout.swift */,
+			);
+			path = Coaching;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000022 /* HammerCurl */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000100 /* HammerCurlExercise.swift */,
+				B10000012B00000000000101 /* HammerCurlAnalyzer.swift */,
+				B10000012B00000000000102 /* HammerCurlFormMonitor.swift */,
+			);
+			path = HammerCurl;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000023 /* TricepsExtension */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000108 /* TricepsExtensionExercise.swift */,
+				B10000012B00000000000109 /* TricepsExtensionAnalyzer.swift */,
+			);
+			path = TricepsExtension;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000024 /* AirSquat */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000112 /* AirSquatExercise.swift */,
+				B10000012B00000000000113 /* AirSquatAnalyzer.swift */,
+			);
+			path = AirSquat;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000025 /* DumbbellRow */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000117 /* DumbbellRowExercise.swift */,
+				B10000012B00000000000118 /* DumbbellRowAnalyzer.swift */,
+			);
+			path = DumbbellRow;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000026 /* PushUp */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000121 /* PushUpExercise.swift */,
+				B10000012B00000000000122 /* PushUpAnalyzer.swift */,
+			);
+			path = PushUp;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -484,6 +646,7 @@
 			buildPhases = (
 				J10000012B00000000000001 /* Sources */,
 				G10000012B00000000000001 /* Frameworks */,
+				N10000012B00000000000001 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -548,6 +711,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		N10000012B00000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000012B00000000000136 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		J10000012B00000000000001 /* Sources */ = {
@@ -634,6 +808,34 @@
 				A10000012B00000000000088 /* HoldProgressRingView.swift in Sources */,
 				A10000012B00000000000090 /* VoiceCommandHelp.swift in Sources */,
 				A10000012B00000000000091 /* VoiceCommandsHelpView.swift in Sources */,
+				A10000012B00000000000092 /* ProtectedBodyGeometry.swift in Sources */,
+				A10000012B00000000000093 /* CoachingCue.swift in Sources */,
+				A10000012B00000000000094 /* CoachingCueScheduler.swift in Sources */,
+				A10000012B00000000000095 /* WorkoutTipLayout.swift in Sources */,
+				A10000012B00000000000096 /* ShoulderPressFormMonitor.swift in Sources */,
+				A10000012B00000000000097 /* WorkoutTipView.swift in Sources */,
+				A10000012B00000000000100 /* HammerCurlExercise.swift in Sources */,
+				A10000012B00000000000101 /* HammerCurlAnalyzer.swift in Sources */,
+				A10000012B00000000000102 /* HammerCurlFormMonitor.swift in Sources */,
+				A10000012B00000000000104 /* WorkoutSelectionView.swift in Sources */,
+				A10000012B00000000000106 /* ExerciseCompleteCard.swift in Sources */,
+				A10000012B00000000000108 /* TricepsExtensionExercise.swift in Sources */,
+				A10000012B00000000000109 /* TricepsExtensionAnalyzer.swift in Sources */,
+				A10000012B00000000000112 /* AirSquatExercise.swift in Sources */,
+				A10000012B00000000000113 /* AirSquatAnalyzer.swift in Sources */,
+				A10000012B00000000000116 /* NearArmSelector.swift in Sources */,
+				A10000012B00000000000117 /* DumbbellRowExercise.swift in Sources */,
+				A10000012B00000000000118 /* DumbbellRowAnalyzer.swift in Sources */,
+				A10000012B00000000000121 /* PushUpExercise.swift in Sources */,
+				A10000012B00000000000122 /* PushUpAnalyzer.swift in Sources */,
+				A10000012B00000000000125 /* WorkoutPlan.swift in Sources */,
+				A10000012B00000000000126 /* SavedExerciseSet.swift in Sources */,
+				A10000012B00000000000127 /* SavedSetEditorView.swift in Sources */,
+				A10000012B00000000000130 /* WorkoutWeight.swift in Sources */,
+				A10000012B00000000000131 /* WorkoutHistory.swift in Sources */,
+				A10000012B00000000000132 /* WorkoutHistoryView.swift in Sources */,
+				A10000012B00000000000135 /* WeightPhraseParser.swift in Sources */,
+				A10000012B00000000000137 /* AcknowledgementsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -652,6 +854,15 @@
 				A10000012B00000000000080 /* WorkoutSessionTests.swift in TestSources */,
 				A10000012B00000000000081 /* PhoneTiltDetectorTests.swift in TestSources */,
 				A10000012B00000000000089 /* VoiceCommandParserTests.swift in TestSources */,
+				A10000012B00000000000098 /* CoachingCueSchedulerTests.swift in TestSources */,
+				A10000012B00000000000099 /* WorkoutTipLayoutTests.swift in TestSources */,
+				A10000012B00000000000103 /* HammerCurlAnalyzerTests.swift in TestSources */,
+				A10000012B00000000000110 /* TricepsExtensionAnalyzerTests.swift in TestSources */,
+				A10000012B00000000000114 /* AirSquatAnalyzerTests.swift in TestSources */,
+				A10000012B00000000000119 /* DumbbellRowAnalyzerTests.swift in TestSources */,
+				A10000012B00000000000123 /* PushUpAnalyzerTests.swift in TestSources */,
+				A10000012B00000000000128 /* SavedExerciseSetTests.swift in TestSources */,
+				A10000012B00000000000133 /* WorkoutHistoryTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -740,11 +951,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				MARKETING_VERSION = 1.0;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Fix My Posture";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Use the camera for standing photos, live posture alignment, and workout rep counting. All analysis stays on your device.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Listen for workout voice commands such as \"pause\" and \"next set\". Speech is recognized on this iPhone and never recorded or sent.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Recognize workout voice commands on this iPhone. Audio never leaves your device.";
@@ -767,11 +978,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				MARKETING_VERSION = 1.0;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Fix My Posture";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Use the camera for standing photos, live posture alignment, and workout rep counting. All analysis stays on your device.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Listen for workout voice commands such as \"pause\" and \"next set\". Speech is recognized on this iPhone and never recorded or sent.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Recognize workout voice commands on this iPhone. Audio never leaves your device.";

@@ -25,6 +25,17 @@ struct FocusSegment: Hashable {
     let style: Style
 }
 
+/// Where the user faces relative to the phone.
+enum ExerciseCameraView: Equatable {
+    /// Facing the phone; both arms visible.
+    case front
+    /// Side-on to the phone; the arm nearer the phone is tracked.
+    case side
+    /// The phone lies on the floor facing the head, as for push-ups: hands planted near the bottom of the
+    /// frame, shoulders rising and falling above them.
+    case floor
+}
+
 /// Everything the coach needs to run one exercise. Register new exercises in `ExerciseCatalog.all`.
 struct ExerciseDefinition: Identifiable {
     let id: ExerciseID
@@ -32,12 +43,12 @@ struct ExerciseDefinition: Identifiable {
     let displayName: String
     /// Lower case, for spoken sentences.
     let spokenName: String
-    let sets: Int
-    let targetReps: ClosedRange<Int>
+    var sets: Int
+    var targetReps: ClosedRange<Int>
     /// The set completes automatically at this count.
-    let autoCompleteReps: Int
+    var autoCompleteReps: Int
     /// Announced once when reached, before auto-completion.
-    let targetRangeAnnouncementReps: Int?
+    var targetRangeAnnouncementReps: Int?
     let restSeconds: Int
     /// Joints that must be visible for reliable tracking.
     let requiredJoints: Set<LandmarkType>
@@ -53,6 +64,33 @@ struct ExerciseDefinition: Identifiable {
     /// recognizer's contextual hints.
     let voiceAliases: [String]
     let guide: ExerciseGuide
+    /// Corrective cues, spoken and shown as tips. The analyzer raises them by `CoachingCueID`.
+    let coachingCues: [CoachingCue]
+    /// Visual-only reminders, one at set start and then between corrections.
+    let reminders: [CoachingCue]
+    /// Where the limbs travel during a rep; tips stay out of it.
+    let motionEnvelope: MotionEnvelope
+    var cameraView: ExerciseCameraView = .front
+    /// When not empty, tracking also needs one of these sets fully visible, such as either arm from the side.
+    var anyOfRequiredJoints: [Set<LandmarkType>] = []
+    /// Holding the start position for a moment begins a set. Off when the start position is just standing,
+    /// so a set never starts by accident; "start" and the Start button always work.
+    var startsByHolding = true
+    /// Each set is done one arm at a time: left, then right, then rest. Each arm's half is recorded as its
+    /// own entry in the set history.
+    var perSide = false
+    /// False when the phone deliberately leans back, as on the floor for push-ups.
+    var warnsAboutTilt = true
+    /// Decides what kind of weight can be recorded for a set.
+    var equipment: ExerciseEquipment = .dumbbells
+
+    /// Recorded entries that make up the full exercise.
+    var setEntries: Int { perSide ? sets * 2 : sets }
+
+    /// "Set 2" or, one arm at a time, "Set 2 L".
+    func setLabel(entry index: Int) -> String {
+        perSide ? "Set \(index / 2 + 1) \(index % 2 == 0 ? "L" : "R")" : "Set \(index + 1)"
+    }
     let makeAnalyzer: (_ epoch: Int) -> ExerciseAnalyzing
 
     var focusJoints: Set<LandmarkType> {

@@ -7,11 +7,21 @@ struct WorkoutCoachView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
-    @StateObject private var model = WorkoutCoachModel()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.modelContext) private var modelContext
+    @StateObject private var model: WorkoutCoachModel
     @AppStorage("workoutCoach.showMeasurements") private var showMeasurements = false
     @State private var showGuide = false
     /// Open the Voice Commands help once the guide finishes dismissing.
     @State private var showVoiceCommandsAfterGuide = false
+    /// Top and bottom HUD frames, which tips keep clear of.
+    @State private var hudRects: [CGRect] = []
+    @State private var startedAt = Date()
+    @State private var historySaved = false
+
+    init(initialExercise: ExerciseID? = nil, plan: WorkoutPlan? = nil) {
+        _model = StateObject(wrappedValue: WorkoutCoachModel(initialExercise: initialExercise, plan: plan))
+    }
 
     var body: some View {
         ZStack {
@@ -26,7 +36,8 @@ struct WorkoutCoachView: View {
                 workoutContent
             }
 
-            if model.session.phase == .ended {
+            // Ending from the completion card exits directly; it already showed the results.
+            if model.session.phase == .ended, !model.session.endedAfterCompletion {
                 WorkoutSummaryView(session: model.session, onDone: close)
             }
         }
@@ -46,6 +57,11 @@ struct WorkoutCoachView: View {
         }
         .onChange(of: model.session.exerciseID) { _, _ in
             presentGuideIfUnseen()
+        }
+        .onChange(of: model.session.phase) { _, phase in
+            guard phase == .ended else { return }
+            saveHistory()
+            if model.session.endedAfterCompletion { close() }
         }
         .sheet(isPresented: $showGuide, onDismiss: guideDismissed) {
             if let exercise = model.session.exercise {
@@ -92,7 +108,8 @@ struct WorkoutCoachView: View {
                 switch model.session.phase {
                 case .ready:
                     if let overlay = model.overlay, let metrics = model.guideMetrics, let exercise = model.session.exercise {
-                        WorkoutGhostOverlayView(overlay: overlay, metrics: metrics, motion: exercise.guide.motion)
+                        WorkoutGhostOverlayView(overlay: overlay, metrics: metrics, motion: exercise.guide.motion,
+                                                cameraView: exercise.cameraView)
                             .frame(width: geo.size.width, height: geo.size.height)
                     }
                 case .exercising, .paused:
@@ -113,10 +130,14 @@ struct WorkoutCoachView: View {
                     }
                 }
 
+                WorkoutTipOverlayView(tip: model.activeTip, protectedRects: tipProtectedRects(in: geo.size), hudRects: hudRects)
+                    .frame(width: geo.size.width, height: geo.size.height)
+
                 WorkoutHUDView(
                     session: model.session,
                     now: model.now,
                     readings: model.armReadings,
+                    formReadings: model.formReadings,
                     isPhoneTilted: model.isPhoneTilted,
                     micStatus: model.micStatus,
                     heardPhrase: model.heardPhrase,
@@ -129,14 +150,50 @@ struct WorkoutCoachView: View {
                     onShowVoiceCommands: { model.setHelpPresented(true) },
                     onCommand: { model.send($0) }
                 )
+
+                if model.session.phase == .exerciseComplete {
+                    ExerciseCompleteCard(session: model.session,
+                                         onAnotherRound: { model.send(.anotherRound) },
+                                         onChooseExercise: { model.send(.changeExercise) },
+                                         onEndWorkout: { model.send(.endWorkout) })
+                        .transition(.opacity)
+                }
+
+                if case .changingExercise = model.session.phase {
+                    ExerciseChooserOverlay(session: model.session, voiceActive: model.session.voiceControlActive,
+                                           onSelect: { model.send(.selectExercise($0)) },
+                                           onCancel: { model.send(.cancel) })
+                }
             }
             .coordinateSpace(name: Self.coordinateSpace)
+            .onPreferenceChange(WorkoutHUDRects.self) { hudRects = $0 }
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: model.session.phase == .exerciseComplete)
         }
     }
 
+    /// The body and the exercise's motion envelope, computed only while a tip is up.
+    private func tipProtectedRects(in size: CGSize) -> [CGRect] {
+        guard model.activeTip != nil, let overlay = model.overlay else { return [] }
+        let envelope = model.session.exercise.flatMap {
+            WorkoutTipLayout.envelopeRect($0.motionEnvelope, overlay: overlay, metrics: model.guideMetrics, containerSize: size)
+        }
+        return WorkoutTipLayout.protectedRects(pose: overlay.pose, envelope: envelope, containerSize: size)
+    }
+
     private func close() {
+        // Closing without ending still keeps any finished sets.
+        saveHistory()
         model.onDisappear()
         dismiss()
+    }
+
+    /// Saves what was done once per workout; nothing is saved when no set was finished.
+    private func saveHistory() {
+        guard !historySaved else { return }
+        historySaved = true
+        guard let record = WorkoutRecord(session: model.session, startedAt: startedAt, endedAt: Date()) else { return }
+        modelContext.insert(WorkoutRecordEntity(record))
+        try? modelContext.save()
     }
 
     // MARK: - Guide
@@ -249,6 +306,17 @@ private struct WorkoutSummaryView: View {
         VStack(spacing: 16) {
             Text("Workout Summary")
                 .font(.title2.bold())
+            if let plan = session.plan {
+                Text(plan.name)
+                    .font(.headline)
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(plan.items.enumerated()), id: \.element.id) { index, item in
+                        PlanItemSummaryRow(index: index, item: item, record: session.planRecords[item.id],
+                                           exercise: session.exercises.first { $0.id == item.exerciseID })
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
             let finished = session.exercises.filter { !(session.progress[$0.id]?.setReps.isEmpty ?? true) }
             if finished.isEmpty {
                 Text("No sets recorded.")
@@ -260,7 +328,7 @@ private struct WorkoutSummaryView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(exercise.displayName)
                                 .font(.headline)
-                            Text(reps.enumerated().map { "Set \($0.offset + 1): \($0.element)" }.joined(separator: " · "))
+                            Text(reps.enumerated().map { "\(exercise.setLabel(entry: $0.offset)): \($0.element)" }.joined(separator: " · "))
                                 .font(.subheadline.monospacedDigit())
                                 .foregroundStyle(.secondary)
                         }

@@ -14,6 +14,8 @@ struct WorkoutHUDView: View {
     let session: WorkoutSession
     let now: TimeInterval
     let readings: [BodySide: ArmReading]
+    /// The last rep's form values, shown with the measurements for tuning cue thresholds.
+    let formReadings: [FormReading]
     let isPhoneTilted: Bool
     let micStatus: WorkoutVoiceController.Status
     let heardPhrase: String?
@@ -29,6 +31,8 @@ struct WorkoutHUDView: View {
     @ScaledMetric(relativeTo: .largeTitle) private var repSize: CGFloat = 64
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var confirmingEnd = false
+    /// An exercise picked from the menu mid-set, waiting for confirmation that the set's reps can go.
+    @State private var pendingExercise: ExerciseDefinition?
     @State private var repPulse = false
 
     var body: some View {
@@ -135,7 +139,9 @@ struct WorkoutHUDView: View {
             if micStatus.isUsable, Int(now / Self.hintAlternation) % 2 == 1 {
                 return "Say \u{201C}what can I say\u{201D} for commands"
             }
-            return session.exercise.map { "\($0.guide.startPositionInstruction) to begin" } ?? "Ready"
+            guard let exercise = session.exercise else { return "Ready" }
+            guard exercise.startsByHolding else { return micStatus.isUsable ? "Say \u{201C}start\u{201D} to begin" : "Tap Start to begin" }
+            return "\(exercise.guide.startPositionInstruction) to begin"
         case .exercising:
             return session.isCounting ? "Counting" : (session.framing.guidance?.shortText ?? FramingGuidance.stepIntoView.shortText)
         case .paused: return "Paused"
@@ -186,6 +192,22 @@ struct WorkoutHUDView: View {
                                 .font(.subheadline.monospacedDigit())
                                 .foregroundStyle(rest > 0 ? .yellow : WorkoutJointOverlayView.endPositionColor)
                         }
+                        if let weight = session.currentWeights[exercise.id] {
+                            Label(weight.label, systemImage: exercise.equipment == .band ? "lasso" : "scalemass")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.white.opacity(0.85))
+                                .accessibilityLabel("Weight \(weight.spokenLabel)")
+                        }
+                        if session.isRestingBeforeNextExercise {
+                            Text("Up next: \(exercise.displayName) · \(exercise.setsAndRepsLabel)")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.85))
+                                .multilineTextAlignment(.trailing)
+                        } else if let position = session.planPositionLabel {
+                            Text(position)
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.85))
+                        }
                         if exercise.countsArmsIndependently {
                             Text("L \(session.sideReps[.left] ?? 0) · R \(session.sideReps[.right] ?? 0)")
                                 .font(.caption.monospacedDigit())
@@ -220,9 +242,27 @@ struct WorkoutHUDView: View {
                 onCommand(.nextSet)
             }
             Menu {
-                Section("Exercise") {
-                    ForEach(session.exercises) { exercise in
-                        Button(exercise.displayName) { onCommand(.selectExercise(exercise.id)) }
+                if let plan = session.plan, session.isFollowingPlan {
+                    // In a Saved Set, skip ahead in order, or leave it through the chooser, which explains.
+                    Section(plan.name) {
+                        Button { onCommand(.nextExercise) } label: {
+                            Label("Skip to Next Exercise", systemImage: "forward.fill")
+                        }
+                        Button { onCommand(.changeExercise) } label: {
+                            Label("Change Exercise\u{2026}", systemImage: "list.bullet")
+                        }
+                    }
+                } else {
+                    Section("Exercise") {
+                        ForEach(session.exercises) { exercise in
+                            Button { requestExercise(exercise) } label: {
+                                if exercise.id == session.exerciseID {
+                                    Label(exercise.displayName, systemImage: "checkmark")
+                                } else {
+                                    Text(exercise.displayName)
+                                }
+                            }
+                        }
                     }
                 }
                 Button(action: onShowGuide) {
@@ -250,15 +290,45 @@ struct WorkoutHUDView: View {
                 Button("Keep Going", role: .cancel) {}
             }
         }
+        .confirmationDialog(switchTitle, isPresented: Binding(get: { pendingExercise != nil },
+                                                              set: { if !$0 { pendingExercise = nil } }),
+                            titleVisibility: .visible) {
+            if let exercise = pendingExercise {
+                Button("Switch to \(exercise.displayName)", role: .destructive) { onCommand(.selectExercise(exercise.id)) }
+            }
+            Button("Keep Going", role: .cancel) {}
+        }
     }
 
-    /// Live signals per arm, for checking the counting thresholds on device.
+    /// Switching mid-set discards that set's reps, so confirm when there are any.
+    private func requestExercise(_ exercise: ExerciseDefinition) {
+        if exercise.id != session.exerciseID, isSetInProgress, session.sideReps.values.contains(where: { $0 > 0 }) {
+            pendingExercise = exercise
+        } else {
+            onCommand(.selectExercise(exercise.id))
+        }
+    }
+
+    private var switchTitle: String {
+        let reps = max(session.sideReps[.left] ?? 0, session.sideReps[.right] ?? 0)
+        return "Discard this set's \(reps == 1 ? "1 rep" : "\(reps) reps")?"
+    }
+
+    /// Live signals per arm, for checking the counting thresholds on device, and the last rep's form
+    /// values for checking the coaching thresholds.
     private var measurementsRow: some View {
-        HStack(spacing: 14) {
-            ForEach(BodySide.allCases, id: \.self) { side in
-                measurement(for: side)
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 14) {
+                ForEach(BodySide.allCases, id: \.self) { side in
+                    measurement(for: side)
+                }
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
+            if !formReadings.isEmpty {
+                Text("Last rep: " + formReadings.map { "\($0.label) \($0.value)" }.joined(separator: " · "))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
         }
         .font(.caption.monospacedDigit())
         .foregroundStyle(.white.opacity(0.85))
@@ -325,10 +395,11 @@ struct WorkoutHUDView: View {
     }
 
     private func setLabel(_ exercise: ExerciseDefinition) -> String {
+        let arm = session.currentSide.map { $0 == .left ? " · Left arm" : " · Right arm" } ?? ""
         switch session.phase {
-        case .resting: return "Next: set \(session.currentSetNumber) of \(exercise.sets)"
+        case .resting: return "Next: set \(session.currentSetNumber) of \(exercise.sets)\(arm)"
         case .exerciseComplete: return "All \(exercise.sets) sets done"
-        default: return "Set \(session.currentSetNumber) of \(exercise.sets)"
+        default: return "Set \(session.currentSetNumber) of \(exercise.sets)\(arm)"
         }
     }
 

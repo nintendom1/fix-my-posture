@@ -19,6 +19,7 @@ final class ShoulderPressAnalyzer: ExerciseAnalyzing {
     private var lockedReference: [BodySide: Reference] = [:]
     private var awayFromStartSince: [BodySide: TimeInterval] = [:]
     private var lastThresholds: [BodySide: ArmThresholds] = [:]
+    private var formMonitor: ShoulderPressFormMonitor
 
     private enum Cycle {
         /// Both arms must confirm the start before a rep can begin.
@@ -43,6 +44,7 @@ final class ShoulderPressAnalyzer: ExerciseAnalyzing {
         self.configuration = configuration
         let tracker = HysteresisPhaseTracker(requiredSamples: configuration.confirmationSamples)
         trackers = [.left: tracker, .right: tracker]
+        formMonitor = ShoulderPressFormMonitor(configuration: configuration)
     }
 
     func process(_ frame: PoseFrame, counting: Bool) -> ExerciseAnalysis {
@@ -53,6 +55,7 @@ final class ShoulderPressAnalyzer: ExerciseAnalyzing {
             var analysis = ExerciseAnalysis()
             analysis.startPositionHeld = bothConfirmedBottom
             analysis.thresholds = lastThresholds
+            analysis.formReadings = formMonitor.readings
             return analysis
         }
 
@@ -65,7 +68,9 @@ final class ShoulderPressAnalyzer: ExerciseAnalyzing {
         var analysis = ExerciseAnalysis()
         var zones: [BodySide: MovementZone] = [:]
         var newlyConfirmed: [BodySide: MovementZone] = [:]
-        for (side, arm) in [(BodySide.left, left), (.right, right)] {
+        var formSamples: [BodySide: ShoulderPressFormMonitor.ArmSample] = [:]
+        var rulers: [CGFloat] = []
+        for (side, arm, other) in [(BodySide.left, left, right), (.right, right, left)] {
             let live = liveReference(for: side, arm: arm)
             let reference = lockedReference[side] ?? live
             let height = Double((reference.shoulderY - arm.wrist.y) / reference.ruler)
@@ -74,13 +79,22 @@ final class ShoulderPressAnalyzer: ExerciseAnalyzing {
             zones[side] = zone
             analysis.readings[side] = ArmReading(signal: height, elbowAngle: elbowAngle, zone: zone)
             if let confirmed = trackers[side]?.update(zone) { newlyConfirmed[side] = confirmed }
+            formSamples[side] = .init(height: height, elbowAngle: elbowAngle, zone: zone, confirmed: trackers[side]?.confirmed)
+            rulers.append(reference.ruler)
             updateLock(for: side, zone: zone, live: live, at: time)
-            analysis.thresholds[side] = thresholds(for: side, shoulderX: arm.shoulder.x, live: live)
+            analysis.thresholds[side] = thresholds(for: side, shoulderX: arm.shoulder.x, otherShoulderX: other.shoulder.x, live: live)
         }
         lastThresholds = analysis.thresholds
 
         analysis.endPositionSides = Set(BodySide.allCases.filter { trackers[$0]?.confirmed == .top })
         analysis.startPositionHeld = bothConfirmedBottom
+
+        let form = formMonitor.update(at: time, arms: formSamples,
+                                      torsoOffset: torsoOffset(frame, left: left, right: right, rulers: rulers),
+                                      counting: counting)
+        analysis.repForms = form.repForms
+        analysis.formSignals = form.signals
+        analysis.formReadings = formMonitor.readings
 
         guard counting else {
             cycle = .awaitingBottom
@@ -142,8 +156,15 @@ final class ShoulderPressAnalyzer: ExerciseAnalyzing {
         }
     }
 
-    private func thresholds(for side: BodySide, shoulderX: CGFloat, live: Reference) -> ArmThresholds {
+    /// Each line spans from just inside the shoulder to past the elbow: where the wrist travels.
+    private func thresholds(for side: BodySide, shoulderX: CGFloat, otherShoulderX: CGFloat, live: Reference) -> ArmThresholds {
         let reference = lockedReference[side] ?? live
+        let outward: CGFloat = shoulderX >= otherShoulderX ? 1 : -1
+        func line(heightAbove height: Double, label: String) -> ThresholdLine {
+            let y = reference.shoulderY - CGFloat(height) * reference.ruler
+            return ThresholdLine(from: CGPoint(x: shoulderX - outward * 0.1 * reference.ruler, y: y),
+                                 to: CGPoint(x: shoulderX + outward * 0.8 * reference.ruler, y: y), label: label)
+        }
         let confirmed: RepCheckpoint?
         switch trackers[side]?.confirmed {
         case .bottom: confirmed = .start
@@ -151,13 +172,23 @@ final class ShoulderPressAnalyzer: ExerciseAnalyzing {
         default: confirmed = nil
         }
         return ArmThresholds(
-            shoulder: CGPoint(x: shoulderX, y: reference.shoulderY),
-            ruler: reference.ruler,
-            startY: reference.shoulderY - CGFloat(configuration.bottomMaxHeight) * reference.ruler,
-            topY: reference.shoulderY - CGFloat(configuration.topMinHeight) * reference.ruler,
+            startLine: line(heightAbove: configuration.bottomMaxHeight, label: "Start ↓"),
+            topLine: line(heightAbove: configuration.topMinHeight, label: "Top ↑"),
             isLocked: lockedReference[side] != nil,
             confirmed: confirmed
         )
+    }
+
+    /// Sideways offset of the shoulder midpoint from the hip midpoint, in arm lengths; nil without hips.
+    private func torsoOffset(_ frame: PoseFrame, left: ArmPoints, right: ArmPoints, rulers: [CGFloat]) -> Double? {
+        let confidence = configuration.minimumJointConfidence
+        guard let leftHip = frame.point(.leftHip, minimumConfidence: confidence),
+              let rightHip = frame.point(.rightHip, minimumConfidence: confidence),
+              !rulers.isEmpty else { return nil }
+        let ruler = rulers.reduce(0, +) / CGFloat(rulers.count)
+        let shoulders = ArmGeometry.midpoint(left.shoulder, right.shoulder)
+        let hips = ArmGeometry.midpoint(leftHip, rightHip)
+        return Double((shoulders.x - hips.x) / ruler)
     }
 
     // MARK: - Classification
@@ -178,6 +209,7 @@ final class ShoulderPressAnalyzer: ExerciseAnalyzing {
 
     private func invalidateCycle() {
         cycle = .awaitingBottom
+        formMonitor.invalidate()
         for side in BodySide.allCases { trackers[side]?.reset() }
         lockedReference = [:]
         awayFromStartSince = [:]

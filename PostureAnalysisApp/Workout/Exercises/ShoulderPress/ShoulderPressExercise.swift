@@ -41,6 +41,30 @@ struct ShoulderPressConfiguration {
     /// after stepping closer mid-rep.
     var referenceTimeout: TimeInterval = 6
 
+    // Form coaching. Prototype heuristics in the same arm-length units; Show Measurements' "Last rep" line
+    // shows the live values. The guide's own demonstration raises none of these.
+
+    /// A wrist rising this far above where it settled starts an attempt, counted or not.
+    var attemptMinimumRise: Double = 0.2
+    /// "Press all the way up": an arm missed the Top, or its peak 2D elbow angle stayed below this.
+    /// A straight arm stays straight in 2D, so this means a clearly bent arm. The demo peaks at 173°.
+    var fullExtensionElbowAngle: Double = 155
+    /// "Lower to just above your shoulders": after the Top, a wrist dipped at least this far below its
+    /// peak and pressed back to the Top without reaching the Start.
+    var returnDip: Double = 0.2
+    /// "Lower with control": a wrist took less than this to travel from the Top line to the Start line.
+    /// The demo's 1.5 s lowering reads 0.29 s; 0.15 s is a full lowering faster than about 0.8 s.
+    var minimumDescentTime: TimeInterval = 0.15
+    /// "Press both arms evenly": the wrists crossed the Top line further apart than this in time, or
+    /// differed in height by more than `maximumHeightGap` on the way up.
+    var maximumTopTimingGap: TimeInterval = 0.3
+    var maximumHeightGap: Double = 0.25
+    /// "Keep your torso centered": the shoulder midpoint's sideways offset from the hip midpoint drifted
+    /// this far from where it was at the start of the set. Skipped while hips aren't visible.
+    var torsoOffsetTolerance: Double = 0.12
+    /// Samples at the start position that set the torso baseline.
+    var torsoBaselineSamples = 5
+
     static let standard = ShoulderPressConfiguration()
 }
 
@@ -70,8 +94,29 @@ enum ShoulderPressExercise {
             setupLine: "Dumbbell shoulder press, two sets of 8 to 10. Face the phone and hold a dumbbell in each hand just above your shoulders.",
             voiceAliases: ["dumbbell shoulder press", "shoulder press", "shoulder presses", "dumbbell press", "overhead press"],
             guide: guide,
+            coachingCues: coachingCues,
+            reminders: [
+                .reminder(CoachingCueID(rawValue: "press.reminder.brace"), "Brace your core."),
+                .reminder(CoachingCueID(rawValue: "press.reminder.breathe"), "Breathe out as you press."),
+                .reminder(CoachingCueID(rawValue: "press.reminder.ribs"), "Keep your ribs down.")
+            ],
+            // From the shoulders up one arm length overhead, and out past the flared elbows and dumbbells.
+            motionEnvelope: MotionEnvelope(above: 1.05, below: 0.3, outward: 0.75),
             makeAnalyzer: { epoch in ShoulderPressAnalyzer(epoch: epoch, configuration: configuration) }
         )
+    }
+
+    /// Missing the Top or the Start explains why a rep didn't count, so those come first.
+    private static var coachingCues: [CoachingCue] {
+        let arms: Set<LandmarkType> = [.leftElbow, .rightElbow, .leftWrist, .rightWrist]
+        return [
+            .corrective(.pressFullExtension, "Press all the way up.", trigger: .perRep, priority: 50, joints: arms),
+            .corrective(.pressReturnToStart, "Lower to just above your shoulders.", trigger: .perRep, priority: 40, joints: arms),
+            .corrective(.pressControlledLowering, "Lower with control.", trigger: .perRep, priority: 30, joints: arms),
+            .corrective(.pressTorsoCentered, "Keep your torso centered.", trigger: .continuous, priority: 20,
+                        joints: [.leftShoulder, .rightShoulder, .leftHip, .rightHip]),
+            .corrective(.pressEvenArms, "Press both arms evenly.", trigger: .perRep, priority: 10, joints: arms)
+        ]
     }
 
     private static var guide: ExerciseGuide {

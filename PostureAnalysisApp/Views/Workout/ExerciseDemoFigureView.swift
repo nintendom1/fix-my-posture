@@ -41,6 +41,11 @@ enum DumbbellDrawing {
 /// The body reuses the posture reference silhouette renderer.
 struct ExerciseDemoFigureView: View {
     let angles: ArmAngles
+    var forearmPlane: MotionPlane = .frontal
+    var cameraView: ExerciseCameraView = .front
+    var holdsDumbbells = true
+    var legs: LegPose = .standing
+    var torsoPitch: Double = 0
     var tint: Color = Color(red: 0.62, green: 0.42, blue: 0.95)
 
     /// Figure coordinates in pixels, origin top-left.
@@ -56,21 +61,98 @@ struct ExerciseDemoFigureView: View {
         .leftAnkle: CGPoint(x: 186, y: 460), .rightAnkle: CGPoint(x: 114, y: 460)
     ]
 
-    static func pose(for angles: ArmAngles) -> ReferencePose {
-        var joints = figureJoints
+    /// A profile facing +x. Only the near (left) side is drawn, which the silhouette renders as a side view.
+    static let sideFigureJoints: [LandmarkType: CGPoint] = [
+        .nose: CGPoint(x: 164, y: 136),
+        .leftShoulder: CGPoint(x: 150, y: 170),
+        .leftHip: CGPoint(x: 150, y: 300),
+        .leftKnee: CGPoint(x: 153, y: 385),
+        .leftAnkle: CGPoint(x: 150, y: 460)
+    ]
+
+    /// Hands planted on the floor in the floor view; the shoulders hang above them by the arm pose.
+    static let floorHands: [BodySide: CGPoint] = [.left: CGPoint(x: 196, y: 430), .right: CGPoint(x: 104, y: 430)]
+
+    /// Seen from a phone on the floor facing the head: hands planted, shoulders above them by the arm
+    /// pose, head above the shoulders, and the hips just beyond them as the body recedes.
+    static func floorPose(for angles: ArmAngles) -> ReferencePose {
+        var joints: [LandmarkType: CGPoint] = [:]
+        for side in BodySide.allCases {
+            guard let hand = floorHands[side] else { continue }
+            let arm = ArmMotion.place(shoulder: .zero, outward: side == .left ? 1 : -1, upperArm: upperArm, forearm: forearm, angles: angles)
+            let shoulder = CGPoint(x: hand.x - arm.wrist.x, y: hand.y - arm.wrist.y)
+            joints[side.shoulder] = shoulder
+            joints[side.elbow] = CGPoint(x: shoulder.x + arm.elbow.x, y: shoulder.y + arm.elbow.y)
+            joints[side.wrist] = hand
+        }
+        if let left = joints[.leftShoulder], let right = joints[.rightShoulder] {
+            let middle = ArmGeometry.midpoint(left, right)
+            joints[.nose] = CGPoint(x: middle.x, y: middle.y - 34)
+            joints[.leftHip] = CGPoint(x: middle.x + 26, y: middle.y - 16)
+            joints[.rightHip] = CGPoint(x: middle.x - 26, y: middle.y - 16)
+        }
+        return ReferencePose(jointLocations: joints)
+    }
+
+    static func pose(for angles: ArmAngles, legs: LegPose = .standing, forearmPlane: MotionPlane = .frontal,
+                     cameraView: ExerciseCameraView = .front, torsoPitch: Double = 0) -> ReferencePose {
+        if cameraView == .floor { return floorPose(for: angles) }
+        if cameraView == .side {
+            var joints = sideFigureJoints
+            // Lean forward from the hips: the head and shoulder swing toward the way the figure faces.
+            if torsoPitch != 0, let hip = joints[.leftHip] {
+                let radians = torsoPitch * .pi / 180
+                for joint in [LandmarkType.nose, .leftShoulder] {
+                    guard let point = joints[joint] else { continue }
+                    let dx = point.x - hip.x
+                    let dy = point.y - hip.y
+                    joints[joint] = CGPoint(x: hip.x + dx * CGFloat(cos(radians)) - dy * CGFloat(sin(radians)),
+                                            y: hip.y + dx * CGFloat(sin(radians)) + dy * CGFloat(cos(radians)))
+                }
+            }
+            if let shoulder = joints[.leftShoulder] {
+                // Outward is the direction the figure faces.
+                let arm = ArmMotion.place(shoulder: shoulder, outward: 1, upperArm: upperArm, forearm: forearm,
+                                          angles: angles, forearmPlane: forearmPlane)
+                joints[.leftElbow] = arm.elbow
+                joints[.leftWrist] = arm.wrist
+            }
+            return ReferencePose(jointLocations: joints)
+        }
+        var joints = lowered(figureJoints, by: legs)
         for side in BodySide.allCases {
             let other: BodySide = side == .left ? .right : .left
             guard let shoulder = figureJoints[side.shoulder], let otherShoulder = figureJoints[other.shoulder] else { continue }
             let arm = ArmMotion.place(shoulder: shoulder, otherShoulder: otherShoulder,
-                                      upperArm: upperArm, forearm: forearm, angles: angles)
+                                      upperArm: upperArm, forearm: forearm, angles: angles, forearmPlane: forearmPlane)
             joints[side.elbow] = arm.elbow
             joints[side.wrist] = arm.wrist
         }
         return ReferencePose(jointLocations: joints)
     }
 
+    /// Front view lowering into a squat: the upper body drops with the hips, the knees push out and dip
+    /// slightly, and the feet stay planted.
+    static func lowered(_ joints: [LandmarkType: CGPoint], by legs: LegPose) -> [LandmarkType: CGPoint] {
+        guard legs != .standing, let hip = joints[.leftHip], let knee = joints[.leftKnee],
+              let otherHip = joints[.rightHip] else { return joints }
+        var result = joints
+        let drop = CGFloat(legs.hipDrop) * ArmGeometry.distance(hip, knee)
+        for joint in [LandmarkType.nose, .neck, .leftShoulder, .rightShoulder, .leftHip, .rightHip] {
+            result[joint]?.y += drop
+        }
+        let halfWidth = abs(hip.x - otherHip.x) / 2
+        let center = (hip.x + otherHip.x) / 2
+        for side in BodySide.allCases {
+            guard let point = result[side.knee] else { continue }
+            let outward: CGFloat = point.x >= center ? 1 : -1
+            result[side.knee] = CGPoint(x: point.x + outward * CGFloat(legs.kneeSpread) * halfWidth, y: point.y + drop * 0.1)
+        }
+        return result
+    }
+
     var body: some View {
-        let pose = Self.pose(for: angles)
+        let pose = Self.pose(for: angles, legs: legs, forearmPlane: forearmPlane, cameraView: cameraView, torsoPitch: torsoPitch)
         ZStack {
             AlignmentReferenceOverlayView(referencePose: pose, imageSize: Self.canvasSize, containerSize: Self.canvasSize,
                                           style: .silhouette, strokeColor: tint, fillColor: tint.opacity(0.5))
@@ -81,8 +163,15 @@ struct ExerciseDemoFigureView: View {
                 func map(_ point: CGPoint) -> CGPoint {
                     CGPoint(x: fit.minX + point.x * scale, y: fit.minY + point.y * scale)
                 }
+                if cameraView == .floor {
+                    var floorLine = Path()
+                    floorLine.move(to: map(CGPoint(x: 20, y: 436)))
+                    floorLine.addLine(to: map(CGPoint(x: 280, y: 436)))
+                    context.stroke(floorLine, with: .color(tint.opacity(0.6)), lineWidth: 2)
+                }
                 for side in BodySide.allCases {
                     guard let elbow = pose.jointLocations[side.elbow], let wrist = pose.jointLocations[side.wrist] else { continue }
+                    guard holdsDumbbells else { continue }
                     DumbbellDrawing.draw(in: context, elbow: map(elbow), wrist: map(wrist), forearmLength: Self.forearm * scale)
                 }
             }

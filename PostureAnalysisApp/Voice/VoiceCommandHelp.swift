@@ -35,12 +35,13 @@ enum VoiceCommandHelp {
         return [
             Section(title: "Sets", entries: entries([
                 (.start, "Begins the set, or the next set after rest."),
-                (.pause, "Pauses counting during a set."),
+                (.pause, "Pauses counting during a set. \u{201C}Wait\u{201D} takes a second, in case you meant \u{201C}weight\u{201D}."),
                 (.resume, "Continues a paused set."),
                 (.restartSet, "Restarts the current set from zero."),
                 (.nextSet, "Finishes this set and starts rest, or starts the next set after rest.")
             ])),
-            Section(title: "Exercises", entries: entries([(.changeExercise, "Asks which exercise to switch to.")])
+            Section(title: "Exercises", entries: entries([(.changeExercise, "Asks which exercise to switch to."),
+                                                         (.nextExercise, "In a Saved Set, skips to the next exercise.")])
                 + exerciseEntries
                 + entries([(.cancel, "Backs out of changing exercise, or closes this list.")])),
             Section(title: "Info", entries: entries([
@@ -50,12 +51,20 @@ enum VoiceCommandHelp {
                 (.help, "Opens this list."),
                 (.closeHelp, "Closes this list.")
             ])),
+            Section(title: "Weights", entries: [
+                Entry(command: .setWeight(.mass(17.5, .pounds)), title: "My weights are 17.5 pounds",
+                      detail: "Records the weight of each dumbbell for this set and the next ones, until you change it. Kilograms and bands work too.",
+                      alternates: ["add weight seventeen point five pounds", "weight 8 kilograms", "using the red band"], isDestructive: false)
+            ]),
             Section(title: "Sound", entries: entries([
                 (.muteCoach, "Silences the coach. Voice commands keep working."),
                 (.unmuteCoach, "Turns the coach's voice back on."),
                 (.muteMicrophone, "Stops listening. Tap the microphone to turn it back on.")
             ])),
-            Section(title: "Finish", entries: entries([(.endWorkout, "Ends the workout and shows your summary.")]))
+            Section(title: "Finish", entries: entries([
+                (.anotherRound, "After the last set, does the exercise again from set 1."),
+                (.endWorkout, "Ends the workout and shows your summary.")
+            ]))
         ]
     }
 

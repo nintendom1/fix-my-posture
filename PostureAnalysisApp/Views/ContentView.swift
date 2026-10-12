@@ -21,6 +21,7 @@ public struct ContentView: View {
     @State private var showCamera = false
     @State private var showEditLandmarks = false
     @State private var showDebugView = false
+    @State private var showAcknowledgements = false
 
     public init(referenceProvider: PostureReferenceProviding = DefaultPostureReferenceProvider()) {
         self.referenceProvider = referenceProvider
@@ -272,8 +273,12 @@ public struct ContentView: View {
                     ToolbarItem(placement: .topBarTrailing) {
                         Menu {
                             Toggle("Compensate camera tilt", isOn: $cameraTiltCompensationEnabled)
+                            Divider()
+                            Button(action: { showAcknowledgements = true }) {
+                                Label("Acknowledgements", systemImage: "info.circle")
+                            }
                         } label: {
-                            Label("Camera settings", systemImage: "gearshape")
+                            Label("Settings", systemImage: "gearshape")
                         }
                     }
                 }
@@ -282,7 +287,7 @@ public struct ContentView: View {
                 RealtimeCorrectionView()
             }
             .fullScreenCover(isPresented: $showWorkoutCoach) {
-                WorkoutCoachView()
+                WorkoutSelectionView()
             }
             .sheet(isPresented: $showCamera) {
                 CameraPickerView { capturedImage, isCamera, reading in
@@ -315,6 +320,9 @@ public struct ContentView: View {
                 if let assessment = currentAssessment {
                     DeveloperDebugView(assessment: assessment, processingDuration: processingTime)
                 }
+            }
+            .sheet(isPresented: $showAcknowledgements) {
+                AcknowledgementsView()
             }
         }
     }

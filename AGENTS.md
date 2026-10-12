@@ -16,18 +16,21 @@ PostureAnalysisApp/
 ├── PoseEstimation/      # PoseEstimator protocol & AppleVisionPoseEstimator implementation
 ├── PostureAnalysis/    # PostureAnalyzer geometry calculation engine
 ├── ImageImport/         # PhotoValidator & ViewClassifier
-├── Persistence/         # SwiftData entities (AssessmentEntity), ImageStore, BaselineComparisonEngine
-├── Views/               # SwiftUI views (ContentView, HistoryView, LandmarkOverlayView, AssessmentDetailView, DeveloperDebugView)
-│   └── Workout/         # WorkoutCoachView, WorkoutHUDView, WorkoutJointOverlayView, ExerciseGuideView, WorkoutGuideOverlayView (ghost & per-arm thresholds), HoldProgressRingView, MicrophoneStatusView, VoiceCommandsHelpView
+├── Persistence/         # SwiftData entities (AssessmentEntity, SavedExerciseSetEntity, WorkoutRecordEntity), Saved Set, exercise-target & workout-history models, ImageStore, BaselineComparisonEngine
+├── Views/               # SwiftUI views (ContentView, HistoryView, LandmarkOverlayView, AssessmentDetailView, DeveloperDebugView, AcknowledgementsView)
+│   └── Workout/         # WorkoutCoachView, WorkoutHUDView, WorkoutJointOverlayView, ExerciseGuideView, WorkoutGuideOverlayView (ghost & per-arm thresholds), HoldProgressRingView, MicrophoneStatusView, VoiceCommandsHelpView, WorkoutTipView (coaching tips), WorkoutSelectionView (Saved Sets & exercise list, in-camera chooser), SavedSetEditorView, WorkoutHistoryView (history & weight editing), ExerciseCompleteCard
 ├── Workout/             # Workout Coach (Beta)
-│   ├── Exercises/       # ExerciseCatalog, ExerciseDefinition, ExerciseAnalyzing, ExerciseGuide; one folder per exercise
-│   ├── Analysis/        # PoseFrame, ArmGeometry, HysteresisPhaseTracker, FramingEvaluator, LandmarkSmoother
-│   ├── Session/         # WorkoutSession (pure reducer) & WorkoutCoachModel (main-actor orchestrator)
+│   ├── Exercises/       # ExerciseCatalog, ExerciseDefinition, ExerciseAnalyzing, ExerciseGuide; one folder per exercise (ShoulderPress/, HammerCurl/, TricepsExtension/, AirSquat/, DumbbellRow/, PushUp/)
+│   ├── Analysis/        # PoseFrame, ArmGeometry, HysteresisPhaseTracker, FramingEvaluator, LandmarkSmoother, NearArmSelector
+│   ├── Session/         # WorkoutSession (pure reducer), WorkoutPlan (ordered exercise occurrences) & WorkoutCoachModel (main-actor orchestrator)
+│   ├── Coaching/        # CoachingCue, CoachingCueScheduler (pure), WorkoutTipLayout & MotionEnvelope (pure tip placement)
 │   └── Camera/          # PoseFrameSource protocol, WorkoutCameraController, PhoneTiltMonitor
 ├── Voice/               # SpeechCoach & WorkoutAudioSession (speech, ducking); VoiceCommandParser, VoiceCommandHelp, OnDeviceSpeechRecognizer, WorkoutVoiceController, VoicePermissions (hands-free commands)
 ├── LandmarkEditing/     # LandmarkEditingView (manual point repositioning)
-├── Utilities/           # CoordinateConverter (aspect-correct image pixel transform), PortraitCameraSession
+├── Utilities/           # CoordinateConverter (aspect-correct image pixel transform), PortraitCameraSession, ProtectedBodyGeometry (body areas overlays avoid)
+├── Assets.xcassets/     # AppIcon (exported from Design/AppIcon; don't edit the PNG by hand)
 └── Tests/               # GeometryTests XCTest suite
+Design/AppIcon/          # App icon SVG source, export script, Tabler license (see THIRD_PARTY_NOTICES.md)
 ```
 
 ## Critical Invariants
@@ -36,6 +39,10 @@ PostureAnalysisApp/
 2. **Decoupled Pose Estimator**: All Apple Vision code MUST remain inside `AppleVisionPoseEstimator`. Domain models use estimator-agnostic `BodyPose` and `Landmark`.
 3. **Stable Measurement Identity**: Every metric must maintain a stable `MeasurementID` string key (e.g. `front.shoulder_line_angle`) separate from user-facing display names.
 4. **Non-Diagnostic Framing**: Avoid medical claims (e.g., scoliosis). Measurements are geometric observations relative to baseline.
+
+## Adding a Workout Exercise
+
+Every new Workout Coach exercise ships with full guidance (guide, ghost demo, threshold lines, hold ring, coaching cues, docs, and checklist items) even when a request only names the exercise. Follow the *Adding an exercise* checklist in `docs/workout.md`.
 
 ## Useful Validation & Build Commands
 
@@ -65,3 +72,4 @@ PostureAnalysisApp/
 - Photo Validation: `docs/validation.md`
 - Developer Diagnostics: `docs/debugging.md`
 - Workout Coach (Beta): `docs/workout.md`
+- App icon source & export: `Design/AppIcon/README.md`
