@@ -49,6 +49,25 @@ A **Saved Set** is an ordered sequence of exercises, each occurrence with its ow
 - **Changing exercise.** "Change exercise" still opens the chooser, which warns that choosing another exercise leaves the Saved Set and skips the rest of it. Naming an exercise directly mid-set asks you to use "next exercise" or "change exercise" instead.
 - **Completion.** After the last occurrence, the completion card lists each occurrence: its sets and reps, "Skipped" (with any sets done first), or "Not reached". **Another Round** runs the whole Saved Set again, and the end-of-workout summary lists the same.
 
+## Workout history
+
+Ending a workout saves it automatically: End Workout on the completion card, End and then Done, or closing the camera screen after finishing a set. A workout with no finished set saves nothing.
+
+- **Storage.** `WorkoutRecord` (pure Codable, built from the session by `WorkoutRecord(session:startedAt:endedAt:)`) is stored by `WorkoutRecordEntity` (SwiftData, entries as JSON).
+  - The record has the start and end time and, for a Saved Set, its name.
+  - Each entry is one exercise (or one Saved Set occurrence, marked completed or skipped) with its sets: reps, the arm for one-arm exercises, and the weight.
+  - The exercise's name is copied, so history still reads well if the exercise changes.
+- **Weights by voice.** Mid-set, say "my weights are 17.5 pounds", "add weight seventeen point five pounds", "weight 8 kilograms", or for bands "using the red band" (red, yellow, green, blue, black, purple, orange, gray, light, medium, or heavy).
+  - The coach confirms out loud ("17.5 pounds."), the Heard chip shows "Weight 17.5 lb", and the HUD shows the weight beside the set count.
+  - The weight applies to the current set and carries to the next ones until changed. Bodyweight exercises reply that they don't use weights.
+  - `WeightPhraseParser` reads digits ("17.5") and number words ("seventeen point five", "twenty two and a half"). A mass needs a unit and "weight", "weights", or "using" before the number, with only number words between, so other numbers never set a weight.
+  - Speech recognition often writes "weight" as "wait", so "wait", "weigh", and their forms count as weight words too ("wait 17.5 pounds" sets a weight). While a number follows "wait" with no unit yet, nothing runs. "Wait" on its own pauses only after 1 s of quiet (`VoiceCommandParser.weightSoundAlikeSettleTime`), in case a weight is coming. Pausing longer than that between "weight" and the number still pauses the set. A spoken weight waits for the transcript to settle, so "17" doesn't fire before "point five".
+- **Weights** (`WorkoutWeight`) are per dumbbell and per set: a value in the unit given (shown as lb or kg), or a band's name for band exercises (`ExerciseDefinition.equipment`). Bodyweight exercises (squats, push-ups) take no weight.
+  - During a workout, the weight in use is recorded with each finished set and carries to the next sets of that exercise until changed. The HUD shows it beside the set count.
+- **History screen.** **History** on the exercise list shows past workouts, newest first. Swipe to delete.
+  - Each workout shows its sets. Tap a set's weight (or **Add weight**) to enter or change it per dumbbell in lb or kg, or name the band.
+  - **Also for the later sets** copies it to the rest of that exercise. **Remove Weight** clears it.
+
 ## Session state machine
 
 Phases: `choosingExercise`, `framing`, `ready`, `exercising`, `paused(user | background | interruption)`, `resting`, `changingExercise(previous)`, `exerciseComplete`, and `ended`.
@@ -264,7 +283,7 @@ The tip is measured on one line (up to 320 pt) and as a compact, wrapped tip (up
 
 The microphone and speech-recognition prompts follow the camera prompt, in that order. Without voice, the touch controls keep working and prompts say "Tap" instead of "Say".
 
-- **Commands.** Start ("begin", "let's go"). Pause ("stop", "hold on", "wait"; "stop workout" also pauses). Resume ("continue", "keep going"). Start over ("restart set", "reset set"). Next set ("finish set", "end set"). Change exercise ("switch exercise"), or name one ("switch to shoulder press", "dumbbell press instead"; aliases come from `ExerciseDefinition.voiceAliases`). Cancel ("never mind"). How many reps. Which set. Repeat that ("say that again"). Voice commands ("what can I say", "help", "show commands"). Close ("done", "go back"). Mute ("mute coach", "be quiet") and unmute ("talk to me") the coach. Stop listening ("mute microphone"). End workout ("finish workout", "quit workout").
+- **Commands.** Start ("begin", "let's go"). Pause ("stop", "hold on", "wait"; "stop workout" also pauses; "wait" alone runs after 1 s, in case it was "weight"). Resume ("continue", "keep going"). Start over ("restart set", "reset set"). Next set ("finish set", "end set"). Change exercise ("switch exercise"), or name one ("switch to shoulder press", "dumbbell press instead"; aliases come from `ExerciseDefinition.voiceAliases`). Cancel ("never mind"). How many reps. Which set. Repeat that ("say that again"). Voice commands ("what can I say", "help", "show commands"). Close ("done", "go back"). Mute ("mute coach", "be quiet") and unmute ("talk to me") the coach. Weights ("my weights are 17.5 pounds", "add weight seventeen point five pounds", "weight 8 kilograms", "using the red band"). Stop listening ("mute microphone"). End workout ("finish workout", "quit workout").
 - **Parsing.** `VoiceCommandParser` lowercases and strips punctuation and apostrophes, then takes the longest known phrase (the most recent on ties). Destructive commands (end workout, restart set, next set, change or select exercise) count only when they're nearly the whole utterance: at most 2 extra words, not counting fillers such as "please", "okay", "coach", and "let's". A match that could still become a different command ("start" → "start over") waits for a final result or for the transcript to settle for 0.6 s; anything else runs immediately.
 - **Listening.** `OnDeviceSpeechRecognizer` uses `SFSpeechRecognizer` for the current locale if it's English, or en-US otherwise. It requires on-device support; without it the microphone shows unavailable and touch controls remain. Requests set `requiresOnDeviceRecognition`, partial results, `contextualStrings` from the parser's vocabulary, and no punctuation. Tasks restart after every command and final result, after 1.2 s of unchanged transcript (so old words can't combine with new ones), and every 50 s. Errors back off 0.5–4 s; after 5 in a row, voice reports unavailable until the microphone is tapped.
 - **Half-duplex.** `WorkoutVoiceController` stops recognition, discarding any partial transcript, before the coach speaks, and resumes once the speech queue drains. The coach never hears itself.
@@ -314,6 +333,7 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
 - `DumbbellRowAnalyzerTests` run the bent-over side demonstration facing either way, with either arm, at ½×/2× and with either segment ±15%. They also check that a half pull asks to pull higher, a fast lowering asks for control, pulling again from midway asks to lower all the way, and a tipping back raises its signal only with the hip visible.
 - `PushUpAnalyzerTests` run the floor-view demonstration at ½×/2×, mirrored, and with either segment ±15%. They also check that a shallow push-up asks to go lower, a fast lowering asks for control, and going back down without straightening asks to push all the way up.
 - `SavedExerciseSetTests` check that order, ids, and repeated exercises survive storage; that unavailable exercises need attention without being removed; that duplicates get fresh ids; and that remembered targets apply without changing the defaults.
+- `WorkoutHistoryTests` check that weights carry to later sets until changed (and are confirmed out loud), that bodyweight exercises take no weight, that Saved Set occurrences are recorded with their outcome and survive storage, that one-arm sets are labeled by arm, and that a workout with no sets saves nothing.
 - `CoachingCueSchedulerTests` check the 0.5 s hold, 2 of the last 3 attempts, the 10 s cooldown and 4 s gap, replacement by priority only upward, waiting while the coach speaks, and reminders at set start and after 25 s quiet.
 - `WorkoutTipLayoutTests` check the preferred slot, keeping a still-valid slot, speak-only when nothing fits, and that press tips at typical and close distances never touch the arms, body, envelope, or HUD.
 - `WorkoutSessionTests` drive the reducer:
@@ -331,7 +351,7 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
   - one-arm-at-a-time sets switch arms without rest, then rest after both, recording an entry per arm;
   - a Saved Set rests, then selects the next exercise without counting; skipping records skipped occurrences; a repeated exercise counts its own sets; and switching away needs the chooser;
   - switching mid-set keeps finished sets, restarts the set in progress, clears feedback, and starts a fresh analyzer; curl arms count separately, and the count is what both arms have done.
-- `VoiceCommandParserTests` cover fillers, longest-phrase matching, the whole-utterance rule for destructive commands, prefix ambiguity, exercise names, and opening and closing help by voice. They also check that every recognized phrase appears exactly once in the Voice Commands help.
+- `VoiceCommandParserTests` cover spoken weights (digits, number words, halves, kilograms, bands, settling, and ignoring unrelated numbers), "wait" heard for "weight" (a weight, held while the number is said, or a pause after 1 s), fillers, longest-phrase matching, the whole-utterance rule for destructive commands, prefix ambiguity, exercise names, and opening and closing help by voice. They also check that every recognized phrase appears exactly once in the Voice Commands help.
 - `PhoneTiltDetectorTests` check the 1 s settle time, the 15°/10° hysteresis, and that missing motion data never warns.
 
 ## Adding an exercise
@@ -441,6 +461,18 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Say "next exercise" mid-curl: it skips to the second press, which starts at set 1 of 1.
     - The final card lists the press as completed, curls as skipped, and the last press.
     - On the list, adjust Hammer Curl to 3 × 12, start it, and confirm the set completes at 12. Reset to Default restores 2 × 10.
-36. Afterward, confirm realtime posture correction still works.
+36. History:
+    - Finish two press sets and end the workout. History (on the exercise list) shows it, newest first.
+    - Open it, add 17.5 lb to set 1 with "Also for the later sets", and set 2 shows 17.5 lb too. Change set 2 to 8 kg and remove it again.
+    - Band triceps take a band name, and push-ups and squats show no weight control.
+    - Closing the coach after a finished set (without ending) still saves it. Opening and closing without a set saves nothing. Swipe to delete a workout.
+37. Weights by voice:
+    - Mid-set, say "my weights are seventeen point five pounds". The coach says "17.5 pounds.", the Heard chip shows it, and the HUD shows 17.5 lb.
+    - The next set keeps 17.5 lb. Say "weight 8 kilograms" mid-set, and the history shows 17.5 lb for set 1 and 8 kg for set 2.
+    - With band triceps, say "using the red band".
+    - With music playing, saying "I lost five pounds" in conversation sets nothing.
+    - Mid-set, say "weight 17.5 pounds" (often heard as "wait"): the set doesn't pause, the coach says "17.5 pounds.", and the HUD shows 17.5 lb.
+    - Say "wait" on its own: the set pauses after about a second. "Pause" and "stop" still pause right away.
+38. Afterward, confirm realtime posture correction still works.
 
 These checks remain manual; a passing simulator run does not imply they were performed.

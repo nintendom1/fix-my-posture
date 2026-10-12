@@ -25,6 +25,8 @@ struct PlanItemRecord: Equatable {
     var outcome: Outcome?
     /// Reps for each finished set entry of this occurrence.
     var setReps: [Int] = []
+    /// The weight used for each of those sets.
+    var setWeights: [WorkoutWeight?] = []
 }
 
 extension ExerciseDefinition {

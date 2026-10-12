@@ -12,6 +12,6 @@ struct PostureAnalysisApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(for: [AssessmentEntity.self, SavedExerciseSetEntity.self])
+        .modelContainer(for: [AssessmentEntity.self, SavedExerciseSetEntity.self, WorkoutRecordEntity.self])
     }
 }

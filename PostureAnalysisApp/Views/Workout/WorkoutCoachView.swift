@@ -8,6 +8,7 @@ struct WorkoutCoachView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.modelContext) private var modelContext
     @StateObject private var model: WorkoutCoachModel
     @AppStorage("workoutCoach.showMeasurements") private var showMeasurements = false
     @State private var showGuide = false
@@ -15,6 +16,8 @@ struct WorkoutCoachView: View {
     @State private var showVoiceCommandsAfterGuide = false
     /// Top and bottom HUD frames, which tips keep clear of.
     @State private var hudRects: [CGRect] = []
+    @State private var startedAt = Date()
+    @State private var historySaved = false
 
     init(initialExercise: ExerciseID? = nil, plan: WorkoutPlan? = nil) {
         _model = StateObject(wrappedValue: WorkoutCoachModel(initialExercise: initialExercise, plan: plan))
@@ -56,7 +59,9 @@ struct WorkoutCoachView: View {
             presentGuideIfUnseen()
         }
         .onChange(of: model.session.phase) { _, phase in
-            if phase == .ended, model.session.endedAfterCompletion { close() }
+            guard phase == .ended else { return }
+            saveHistory()
+            if model.session.endedAfterCompletion { close() }
         }
         .sheet(isPresented: $showGuide, onDismiss: guideDismissed) {
             if let exercise = model.session.exercise {
@@ -176,8 +181,19 @@ struct WorkoutCoachView: View {
     }
 
     private func close() {
+        // Closing without ending still keeps any finished sets.
+        saveHistory()
         model.onDisappear()
         dismiss()
+    }
+
+    /// Saves what was done once per workout; nothing is saved when no set was finished.
+    private func saveHistory() {
+        guard !historySaved else { return }
+        historySaved = true
+        guard let record = WorkoutRecord(session: model.session, startedAt: startedAt, endedAt: Date()) else { return }
+        modelContext.insert(WorkoutRecordEntity(record))
+        try? modelContext.save()
     }
 
     // MARK: - Guide

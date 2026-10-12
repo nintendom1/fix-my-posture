@@ -6,6 +6,8 @@ struct VoiceCommandParser: VoiceCommandParsing {
     static let fillers: Set<String> = ["please", "okay", "ok", "coach", "lets", "hey", "now", "um", "uh", "so", "and"]
     /// Extra non-filler words a destructive command tolerates.
     static let destructiveExtraWords = 2
+    /// "Wait" may be "weight" heard wrong, with a number still to come, so it runs only after this much quiet.
+    static let weightSoundAlikeSettleTime: TimeInterval = 1.0
 
     let aliases: [VoiceCommandAlias]
     /// Each alias with its normalized words, computed once.
@@ -18,10 +20,17 @@ struct VoiceCommandParser: VoiceCommandParsing {
 
     var vocabulary: [String] {
         var seen = Set<String>()
-        return aliases.map(\.display).filter { seen.insert($0).inserted }
+        let weights = ["weight", "my weights are", "add weight", "pounds", "kilograms", "red band"]
+        return (aliases.map(\.display) + weights).filter { seen.insert($0).inserted }
     }
 
     func parse(_ transcript: String) -> VoiceCommandMatch? {
+        // A spoken weight can still grow ("17" then "17.5 pounds"), so it waits for the transcript to settle.
+        if let weight = WeightPhraseParser.parse(transcript) {
+            return VoiceCommandMatch(command: .setWeight(weight), phrase: "Weight \(weight.label)", isPrefixOfLongerPhrase: true)
+        }
+        // "Wait 17…" is most likely a weight still being said: nothing runs until it's finished or abandoned.
+        if WeightPhraseParser.isInProgress(transcript) { return nil }
         let words = Self.normalize(transcript)
         guard !words.isEmpty else { return nil }
 
@@ -42,6 +51,10 @@ struct VoiceCommandParser: VoiceCommandParsing {
         }) else { return nil }
 
         let endsTranscript = best.end == words.count
+        if endsTranscript, let last = best.tokens.last, WeightPhraseParser.soundsLikeWeight.contains(last) {
+            return VoiceCommandMatch(command: best.alias.command, phrase: best.alias.display, isPrefixOfLongerPhrase: true,
+                                     settleTime: Self.weightSoundAlikeSettleTime)
+        }
         let isPrefix = endsTranscript && entries.contains { other in
             other.alias.command != best.alias.command && other.tokens.count > best.tokens.count
                 && Array(other.tokens.prefix(best.tokens.count)) == best.tokens

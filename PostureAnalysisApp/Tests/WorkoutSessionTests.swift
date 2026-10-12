@@ -265,7 +265,7 @@ final class WorkoutSessionTests: XCTestCase {
         _ = session.handle(.command(.nextExercise), at: 5)
         XCTAssertEqual(session.exerciseID, curl.id)
         XCTAssertEqual(session.phase, .framing)
-        XCTAssertEqual(session.planRecords[plan.items[0].id], PlanItemRecord(outcome: .skipped, setReps: [0]))
+        XCTAssertEqual(session.planRecords[plan.items[0].id], PlanItemRecord(outcome: .skipped, setReps: [0], setWeights: [nil]))
 
         _ = session.handle(.command(.nextExercise), at: 6)
         XCTAssertEqual(session.exerciseID, press.id)

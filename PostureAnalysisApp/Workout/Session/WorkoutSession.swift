@@ -34,6 +34,8 @@ enum WorkoutCommand: Equatable {
     case anotherRound
     /// In a Saved Set, skips the rest of this exercise and moves to the next one.
     case nextExercise
+    /// Records the weight for this set and later sets of this exercise, until changed.
+    case setWeight(WorkoutWeight)
     case cancel
     case repCount
     case whichSet
@@ -97,6 +99,8 @@ enum WorkoutEffect: Equatable {
 struct ExerciseProgress: Equatable {
     /// Reps recorded for each finished set, in order, across every round.
     var setReps: [Int] = []
+    /// The weight in use for each finished set, parallel to `setReps`.
+    var setWeights: [WorkoutWeight?] = []
     /// Index in `setReps` where the current round began.
     var roundStart = 0
     /// One-based round number.
@@ -104,6 +108,15 @@ struct ExerciseProgress: Equatable {
 
     /// Reps for each finished set of the current round.
     var roundSetReps: [Int] { Array(setReps.dropFirst(roundStart)) }
+    var roundSetWeights: [WorkoutWeight?] { Array(setWeights.dropFirst(roundStart)) }
+
+    /// Records a finished set and the weight in use for it.
+    mutating func record(reps: Int, weight: WorkoutWeight?) {
+        // Older records may predate weights; keep the arrays aligned.
+        while setWeights.count < setReps.count { setWeights.append(nil) }
+        setReps.append(reps)
+        setWeights.append(weight)
+    }
 }
 
 /// Pure workout state machine. Every input is an event with a time; every side effect is returned.
@@ -120,6 +133,8 @@ struct WorkoutSession {
     private(set) var voiceControlActive = false
     /// The workout was ended from the completion card, which already showed the results.
     private(set) var endedAfterCompletion = false
+    /// The weight in use for each exercise; it carries to later sets until changed.
+    private(set) var currentWeights: [ExerciseID: WorkoutWeight] = [:]
     /// Exercises run in order, such as a Saved Set; nil for a single exercise.
     let plan: WorkoutPlan?
     private(set) var planIndex = 0
@@ -368,6 +383,11 @@ struct WorkoutSession {
             return startAnotherRound(at: now)
         case .nextExercise:
             return skipToNextExercise(at: now)
+        case .setWeight(let weight):
+            guard let exercise else { return hint("Choose an exercise first.") }
+            guard exercise.equipment != .bodyweight else { return hint("\(exercise.displayName) doesn't use weights.") }
+            currentWeights[exercise.id] = weight
+            return [.speak(Utterance(text: "\(weight.spokenLabel).", isInstruction: false))]
         case .repCount:
             return [.speak(Utterance(text: repCountReply, isInstruction: false))]
         case .whichSet:
@@ -424,13 +444,14 @@ struct WorkoutSession {
     private mutating func completeSet(at now: TimeInterval) -> [WorkoutEffect] {
         guard let exercise else { return [] }
         let reps = repCount
-        progress[exercise.id, default: ExerciseProgress()].setReps.append(reps)
+        progress[exercise.id, default: ExerciseProgress()].record(reps: reps, weight: currentWeights[exercise.id])
         sideReps = [.left: 0, .right: 0]
         let finished = completedSets(for: exercise.id)
         var effects = setCounting(false) + newAnalyzer() + clearFeedback()
         let done = exercise.perSide ? (finished % 2 == 1 ? "Left arm done" : "Right arm done") : "Set \(finished) done"
         if finished >= exercise.setEntries, let item = currentPlanItem, let plan {
-            planRecords[item.id] = PlanItemRecord(outcome: .completed, setReps: progress[exercise.id]?.roundSetReps ?? [])
+            planRecords[item.id] = PlanItemRecord(outcome: .completed, setReps: progress[exercise.id]?.roundSetReps ?? [],
+                                                  setWeights: progress[exercise.id]?.roundSetWeights ?? [])
             let lead = "\(done), \(repPhrase(reps)). \(exercise.displayName) complete."
             if let next = nextPlanIndex(after: planIndex) {
                 return effects + advancePlan(to: next, at: now, restSeconds: exercise.restSeconds, lead: lead)
@@ -541,7 +562,8 @@ struct WorkoutSession {
             break
         }
         if planRecords[item.id]?.outcome == nil {
-            planRecords[item.id] = PlanItemRecord(outcome: .skipped, setReps: progress[item.exerciseID]?.roundSetReps ?? [])
+            planRecords[item.id] = PlanItemRecord(outcome: .skipped, setReps: progress[item.exerciseID]?.roundSetReps ?? [],
+                                                  setWeights: progress[item.exerciseID]?.roundSetWeights ?? [])
         }
         let effects = setCounting(false) + newAnalyzer() + clearFeedback()
         if let next = nextPlanIndex(after: planIndex) {
@@ -567,8 +589,10 @@ struct WorkoutSession {
     private mutating func leavePlan() {
         guard let plan else { return }
         for item in plan.items[planIndex...] where planRecords[item.id]?.outcome == nil {
-            let done = item.id == currentPlanItem?.id ? (progress[item.exerciseID]?.roundSetReps ?? []) : []
-            planRecords[item.id] = PlanItemRecord(outcome: .skipped, setReps: done)
+            let current = item.id == currentPlanItem?.id
+            planRecords[item.id] = PlanItemRecord(outcome: .skipped,
+                                                  setReps: current ? (progress[item.exerciseID]?.roundSetReps ?? []) : [],
+                                                  setWeights: current ? (progress[item.exerciseID]?.roundSetWeights ?? []) : [])
         }
         isFollowingPlan = false
         isRestingBeforeNextExercise = false
@@ -624,7 +648,11 @@ struct WorkoutSession {
     private mutating func endWorkout() -> [WorkoutEffect] {
         endedAfterCompletion = phase == .exerciseComplete
         if let exercise, phase == .exercising || isPaused, repCount > 0 {
-            progress[exercise.id, default: ExerciseProgress()].setReps.append(repCount)
+            progress[exercise.id, default: ExerciseProgress()].record(reps: repCount, weight: currentWeights[exercise.id])
+        }
+        // The occurrence in progress keeps what was done, with no outcome yet.
+        if let item = currentPlanItem, planRecords[item.id] == nil, let record = progress[item.exerciseID], !record.roundSetReps.isEmpty {
+            planRecords[item.id] = PlanItemRecord(outcome: nil, setReps: record.roundSetReps, setWeights: record.roundSetWeights)
         }
         sideReps = [.left: 0, .right: 0]
         phase = .ended

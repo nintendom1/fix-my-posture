@@ -81,6 +81,8 @@ struct ExerciseDefinition: Identifiable {
     var perSide = false
     /// False when the phone deliberately leans back, as on the floor for push-ups.
     var warnsAboutTilt = true
+    /// Decides what kind of weight can be recorded for a set.
+    var equipment: ExerciseEquipment = .dumbbells
 
     /// Recorded entries that make up the full exercise.
     var setEntries: Int { perSide ? sets * 2 : sets }

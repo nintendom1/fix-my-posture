@@ -100,6 +100,7 @@ enum TricepsExtensionExercise {
             cameraView: .side,
             // The hands can hide behind the head at the start, so a shoulder and elbow are enough.
             anyOfRequiredJoints: [[.leftShoulder, .leftElbow], [.rightShoulder, .rightElbow]],
+            equipment: .band,
             makeAnalyzer: { epoch in TricepsExtensionAnalyzer(epoch: epoch, configuration: configuration) }
         )
     }
