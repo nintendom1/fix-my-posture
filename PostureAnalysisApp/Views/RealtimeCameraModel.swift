@@ -29,7 +29,7 @@ protocol RealtimeCameraPermission {
 }
 
 @MainActor
-private struct SystemCameraPermission: RealtimeCameraPermission {
+struct SystemCameraPermission: RealtimeCameraPermission {
     var status: AVAuthorizationStatus { AVCaptureDevice.authorizationStatus(for: .video) }
 
     func request(_ completion: @escaping @MainActor (Bool) -> Void) {
@@ -358,37 +358,11 @@ private final class RealtimeCameraController: NSObject, RealtimeCaptureService, 
             self.previousTarget = nil
             self.interrupted = false
             if self.session.isRunning { self.session.stopRunning() }
-            self.session.beginConfiguration()
-            self.session.sessionPreset = .high
-            self.session.inputs.forEach { self.session.removeInput($0) }
-            self.session.outputs.forEach { self.session.removeOutput($0) }
-
-            guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position),
-                  let input = try? AVCaptureDeviceInput(device: device), self.session.canAddInput(input) else {
-                self.session.commitConfiguration()
-                self.publish(.failed("Camera hardware is unavailable. Try again on an iPhone with a camera."))
+            if let failure = PortraitCameraSession.configure(session: self.session, output: self.output,
+                    position: position, delegate: self, queue: self.queue) {
+                self.publish(.failed(failure))
                 return
             }
-            self.session.addInput(input)
-            self.output.alwaysDiscardsLateVideoFrames = true
-            self.output.setSampleBufferDelegate(self, queue: self.queue)
-            guard self.session.canAddOutput(self.output) else {
-                self.session.commitConfiguration()
-                self.publish(.failed("Unable to read camera frames. Close this screen and try again."))
-                return
-            }
-            self.session.addOutput(self.output)
-            guard let connection = self.output.connection(with: .video), connection.isVideoRotationAngleSupported(90) else {
-                self.session.commitConfiguration()
-                self.publish(.failed("This camera does not support portrait tracking."))
-                return
-            }
-            connection.videoRotationAngle = 90
-            if connection.isVideoMirroringSupported {
-                connection.automaticallyAdjustsVideoMirroring = false
-                connection.isVideoMirrored = false
-            }
-            self.session.commitConfiguration()
             guard self.isCurrent(generation) else { return }
             self.session.startRunning()
             self.publish(self.session.isRunning ? .searchingForBody : .failed("Unable to start the camera."))

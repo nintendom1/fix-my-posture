@@ -1,0 +1,185 @@
+import CoreGraphics
+import Foundation
+
+/// Counts two-arm presses from the front: both arms must reach the top within one cycle and
+/// both must return to the start. Each arm has its own hysteresis tracker.
+///
+/// Heights are measured in that arm's own length, so the rule is the same at any distance and for
+/// any body proportions, and it never needs the hips. When an arm confirms the start position, its
+/// shoulder height and ruler are locked until it comes back, so the thresholds don't drift as the
+/// shoulders lift during the press.
+final class ShoulderPressAnalyzer: ExerciseAnalyzing {
+    let epoch: Int
+    private let configuration: ShoulderPressConfiguration
+    private var trackers: [BodySide: HysteresisPhaseTracker]
+    private var cycle: Cycle = .awaitingBottom
+    private var lastCompleteSample: TimeInterval?
+    private var recentArmLengths: [BodySide: [CGFloat]] = [:]
+    private var smoothedShoulderY: [BodySide: CGFloat] = [:]
+    private var lockedReference: [BodySide: Reference] = [:]
+    private var awayFromStartSince: [BodySide: TimeInterval] = [:]
+    private var lastThresholds: [BodySide: ArmThresholds] = [:]
+
+    private enum Cycle {
+        /// Both arms must confirm the start before a rep can begin.
+        case awaitingBottom
+        case active(ActiveCycle)
+    }
+
+    private struct ActiveCycle {
+        /// Last time both arms sat at the start before any arm reached the top.
+        var movementStart: TimeInterval
+        var reachedTop: Set<BodySide> = []
+    }
+
+    /// The shoulder height and arm length that one arm's heights are measured from.
+    private struct Reference {
+        var shoulderY: CGFloat
+        var ruler: CGFloat
+    }
+
+    init(epoch: Int, configuration: ShoulderPressConfiguration = .standard) {
+        self.epoch = epoch
+        self.configuration = configuration
+        let tracker = HysteresisPhaseTracker(requiredSamples: configuration.confirmationSamples)
+        trackers = [.left: tracker, .right: tracker]
+    }
+
+    func process(_ frame: PoseFrame, counting: Bool) -> ExerciseAnalysis {
+        let confidence = configuration.minimumJointConfidence
+        guard let left = ArmGeometry.arm(.left, in: frame, minimumConfidence: confidence),
+              let right = ArmGeometry.arm(.right, in: frame, minimumConfidence: confidence) else {
+            // Trackers and references hold; the gap check below decides whether the cycle survives.
+            var analysis = ExerciseAnalysis()
+            analysis.startPositionHeld = bothConfirmedBottom
+            analysis.thresholds = lastThresholds
+            return analysis
+        }
+
+        let time = frame.timestamp
+        if let last = lastCompleteSample, time - last > configuration.maximumSampleGap {
+            invalidateCycle()
+        }
+        lastCompleteSample = time
+
+        var analysis = ExerciseAnalysis()
+        var zones: [BodySide: MovementZone] = [:]
+        var newlyConfirmed: [BodySide: MovementZone] = [:]
+        for (side, arm) in [(BodySide.left, left), (.right, right)] {
+            let live = liveReference(for: side, arm: arm)
+            let reference = lockedReference[side] ?? live
+            let height = Double((reference.shoulderY - arm.wrist.y) / reference.ruler)
+            let elbowAngle = arm.elbowAngle
+            let zone = classify(height: height, elbowAngle: elbowAngle, forearmPointsUp: arm.wrist.y < arm.elbow.y)
+            zones[side] = zone
+            analysis.readings[side] = ArmReading(signal: height, elbowAngle: elbowAngle, zone: zone)
+            if let confirmed = trackers[side]?.update(zone) { newlyConfirmed[side] = confirmed }
+            updateLock(for: side, zone: zone, live: live, at: time)
+            analysis.thresholds[side] = thresholds(for: side, shoulderX: arm.shoulder.x, live: live)
+        }
+        lastThresholds = analysis.thresholds
+
+        analysis.endPositionSides = Set(BodySide.allCases.filter { trackers[$0]?.confirmed == .top })
+        analysis.startPositionHeld = bothConfirmedBottom
+
+        guard counting else {
+            cycle = .awaitingBottom
+            return analysis
+        }
+
+        switch cycle {
+        case .awaitingBottom:
+            if bothConfirmedBottom { cycle = .active(ActiveCycle(movementStart: time)) }
+        case .active(var active):
+            if active.reachedTop.isEmpty, zones.values.allSatisfy({ $0 == .bottom }) {
+                active.movementStart = time
+            }
+            for (side, zone) in newlyConfirmed where zone == .top {
+                active.reachedTop.insert(side)
+            }
+            if !active.reachedTop.isEmpty, bothConfirmedBottom {
+                if active.reachedTop.count == BodySide.allCases.count,
+                   time - active.movementStart >= configuration.minimumRepDuration {
+                    analysis.repEvents.append(RepEvent(epoch: epoch, timestamp: time, sides: Set(BodySide.allCases)))
+                }
+                active = ActiveCycle(movementStart: time)
+            }
+            cycle = .active(active)
+        }
+        return analysis
+    }
+
+    // MARK: - References
+
+    /// Smoothed shoulder height and the longest recent arm length. A maximum resists momentary
+    /// foreshortening when an arm points toward the camera.
+    private func liveReference(for side: BodySide, arm: ArmPoints) -> Reference {
+        var lengths = recentArmLengths[side] ?? []
+        lengths.append(arm.armLength)
+        if lengths.count > configuration.rulerWindow { lengths.removeFirst(lengths.count - configuration.rulerWindow) }
+        recentArmLengths[side] = lengths
+
+        let previous = smoothedShoulderY[side] ?? arm.shoulder.y
+        let shoulderY = previous + (arm.shoulder.y - previous) * configuration.shoulderSmoothing
+        smoothedShoulderY[side] = shoulderY
+        return Reference(shoulderY: shoulderY, ruler: max(lengths.max() ?? arm.armLength, 1))
+    }
+
+    /// Refreshes the lock while the arm sits at the start; holds it while the arm is away. A lock held
+    /// too long (for example after stepping closer mid-rep) is dropped so the arm can't get stuck.
+    private func updateLock(for side: BodySide, zone: MovementZone, live: Reference, at time: TimeInterval) {
+        if trackers[side]?.confirmed == .bottom, zone == .bottom {
+            lockedReference[side] = live
+            awayFromStartSince[side] = nil
+            return
+        }
+        guard lockedReference[side] != nil else { return }
+        let since = awayFromStartSince[side] ?? time
+        awayFromStartSince[side] = since
+        if time - since > configuration.referenceTimeout {
+            lockedReference[side] = nil
+            awayFromStartSince[side] = nil
+        }
+    }
+
+    private func thresholds(for side: BodySide, shoulderX: CGFloat, live: Reference) -> ArmThresholds {
+        let reference = lockedReference[side] ?? live
+        let confirmed: RepCheckpoint?
+        switch trackers[side]?.confirmed {
+        case .bottom: confirmed = .start
+        case .top: confirmed = .top
+        default: confirmed = nil
+        }
+        return ArmThresholds(
+            shoulder: CGPoint(x: shoulderX, y: reference.shoulderY),
+            ruler: reference.ruler,
+            startY: reference.shoulderY - CGFloat(configuration.bottomMaxHeight) * reference.ruler,
+            topY: reference.shoulderY - CGFloat(configuration.topMinHeight) * reference.ruler,
+            isLocked: lockedReference[side] != nil,
+            confirmed: confirmed
+        )
+    }
+
+    // MARK: - Classification
+
+    private var bothConfirmedBottom: Bool {
+        BodySide.allCases.allSatisfy { trackers[$0]?.confirmed == .bottom }
+    }
+
+    private func classify(height: Double, elbowAngle: Double, forearmPointsUp: Bool) -> MovementZone {
+        if height <= configuration.bottomMaxHeight, elbowAngle <= configuration.bottomMaxElbowAngle, forearmPointsUp {
+            return .bottom
+        }
+        if height >= configuration.topMinHeight, elbowAngle >= configuration.topMinElbowAngle {
+            return .top
+        }
+        return .middle
+    }
+
+    private func invalidateCycle() {
+        cycle = .awaitingBottom
+        for side in BodySide.allCases { trackers[side]?.reset() }
+        lockedReference = [:]
+        awayFromStartSince = [:]
+    }
+}
