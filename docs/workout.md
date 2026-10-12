@@ -1,6 +1,6 @@
 # Workout Coach (Beta)
 
-Open **Workout Coach (Beta)** from the main menu and pick an exercise from the list. The first time you pick each exercise, a short guide shows and describes it. Then prop the phone up in portrait, step back so the front camera can see both arms and your shoulders with room overhead, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10) hammer curls (2 sets of 10), and an overhead band triceps extension filmed side-on (2 sets of 10), announces the target range and set completion, gives occasional form tips, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
+Open **Workout Coach (Beta)** from the main menu and pick an exercise from the list. The first time you pick each exercise, a short guide shows and describes it. Then prop the phone up in portrait, step back so the front camera can see both arms and your shoulders with room overhead, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10) hammer curls (2 sets of 10), an overhead band triceps extension filmed side-on (2 sets of 10), and air squats with the whole body in view (2 sets of 15), announces the target range and set completion, gives occasional form tips, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
 
 Rep counts, framing checks, and form tips are geometric heuristics from a 2D camera. They are not medical, injury, or performance assessments.
 
@@ -108,6 +108,16 @@ The overhead triceps extension is filmed from the side, because from the front t
   - The hold ring, tip placement, and arm measurements work with one shoulder; from the side, measurements are checked against torso length.
   - `ArmMotion.holdsDumbbells = false` hides the dumbbells for band exercises.
 
+## Air squat rep rule
+
+Air squats are filmed from the front with the whole body in view (hips, knees, and ankles are required; framing asks you to "Step back until your whole body is in view, head to feet"). Thresholds live in `AirSquatConfiguration`.
+
+- Signal: `d` = how far the hips sit above the knees, in thigh lengths, averaged over both legs. Standing, the thigh is vertical and `d` ≈ 1. Squatting, the thigh points toward the camera, so on screen the hips sink to the knees' height and `d` falls toward 0. The thigh is its own ruler (the longest recent hip-to-knee length, locked while standing), so the rule is the same at any distance and for any build.
+- Standing is the start when `d ≥ 0.85`. The squat is the counted end when `d ≤ 0.45`. A rep is stand → squat → stand within at least 1 s. The lines are drawn across the hips as **Stand ↑** and **Squat ↓**.
+- Validation: the guide's demonstration reads 1.00 standing and 0.19 at the bottom, for any thigh length. It counts exactly one rep per loop at ½×/2× scale and with thigh or shin ±15%. A half-depth squat reads about 0.59 and doesn't count.
+- **No hold-to-start** (`ExerciseDefinition.startsByHolding = false`): standing is the start position, so holding it would start sets by accident. Say "start" or tap Start. The status line and prompts say so.
+- **Lower-body demonstrations**: keyframes carry a `LegPose` (hip drop and knee spread). The guide figure squats, and the ghost draws legs standing on your own ankles, scaled to your leg length, showing how low to go. Leg joints turn green at the counted squat, since only joints of the moving limbs turn green.
+
 ## Form coaching
 
 While counting, the coach watches how each rep is done and offers a short tip now and then. Corrective cues are spoken and shown as a tip; reminders are only shown. Cues describe movement relative to the user's own set. They never mention grip, wrist rotation, dumbbell orientation, or injury, and they never make medical claims.
@@ -134,6 +144,14 @@ Hammer curls (`HammerCurlFormMonitor`) judge each arm's attempts separately. An 
 | "Keep your body still." (10, continuous) | The shoulder midpoint moves more than 0.35 upper-arm lengths relative to the hip midpoint compared with the start of the set. Skipped while hips aren't visible. | 0 |
 
 Triceps extension (drafted wording, for review): "Straighten your arms fully." (50: Top missed or peak elbow under 155°), "Lower behind your head." (40: extended again after dipping 0.5 without reaching the Start), "Lower with control." (30: Top line to Start line in under 0.3 s; the demo's 1.5 s lowering reads 0.57 s), "Keep your elbows pointing up." (20, continuous: the upper arm tips more than 25° from where it pointed at the start of the set). Reminders: "Keep your ribs down.", "Elbows close to your head.", "Breathe out as you extend."
+
+Air squat (drafted wording, for review):
+- "Squat a little deeper." (50): an attempt that dropped at least 0.3 but never reached the Squat line.
+- "Stand all the way up." (40): after the squat, rose at least 0.3 and squatted again without standing.
+- "Keep your knees in line with your toes." (20, continuous, while squatting below 0.6): a knee moved inside its ankle by more than 0.25 hip widths compared with standing.
+- "Keep your chest up." (10, continuous, while squatting below 0.6): the shoulders-to-hips height shrank below 75% of standing, which is a forward lean seen from the front. Needs shoulders.
+
+Reminders: "Weight in your heels.", "Brace your core.", "Breathe in on the way down."
 
 Curl reminders: "Elbows stay close.", "Lower slowly.", "Stand tall." The curl's motion envelope runs from the shoulders down past the hanging dumbbells, and out past them to the sides. Its "Last rep" line shows each arm's last top and hanging heights, plus the live flare and sway drift.
 
@@ -226,6 +244,7 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
   - a half curl doesn't count and asks to curl all the way up;
   - flared elbows and sway raise their signals, and sway needs hips.
 - `TricepsExtensionAnalyzerTests` run the side-view demonstration facing either way, with either arm, at ½×/2× scale and with either segment ±15%. They also check that a half extension asks to straighten, a fast lowering asks for control, extending again from midway asks to lower behind the head, and tipped elbows raise their signal. Side-on framing accepts either arm and asks you to stand side-on.
+- `AirSquatAnalyzerTests` run the squat demonstration at ½×/2× scale and with thigh or shin ±15%. They also check that a shallow squat asks to go deeper, squatting again without standing asks to stand up, caving knees and a forward lean raise their signals only at depth, and the lean check needs shoulders.
 - `CoachingCueSchedulerTests` check the 0.5 s hold, 2 of the last 3 attempts, the 10 s cooldown and 4 s gap, replacement by priority only upward, waiting while the coach speaks, and reminders at set start and after 25 s quiet.
 - `WorkoutTipLayoutTests` check the preferred slot, keeping a still-valid slot, speak-only when nothing fits, and that press tips at typical and close distances never touch the arms, body, envelope, or HUD.
 - `WorkoutSessionTests` drive the reducer:
@@ -326,6 +345,12 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Turn to face the other way between sets: tracking follows the nearer arm.
     - Half extensions get "Straighten your arms fully."
     - Letting the elbows drift forward gets "Keep your elbows pointing up."
-32. Afterward, confirm realtime posture correction still works.
+32. Air squats:
+    - Step back until framing stops asking to see your whole body. Standing still doesn't start the set; the status says to say "start".
+    - The ghost legs show how low to go.
+    - Fifteen squats to thighs-level count exactly 15, and half squats don't count ("Squat a little deeper.").
+    - Squatting again from halfway gets "Stand all the way up."
+    - Letting the knees cave in gets "Keep your knees in line with your toes."
+33. Afterward, confirm realtime posture correction still works.
 
 These checks remain manual; a passing simulator run does not imply they were performed.
