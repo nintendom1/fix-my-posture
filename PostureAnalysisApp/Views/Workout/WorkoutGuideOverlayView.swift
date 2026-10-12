@@ -7,6 +7,7 @@ struct WorkoutGhostOverlayView: View {
     let overlay: WorkoutOverlayState
     let metrics: GuideMetrics
     let motion: ArmMotion
+    var cameraView: ExerciseCameraView = .front
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -24,30 +25,47 @@ struct WorkoutGhostOverlayView: View {
 
     private func draw(in context: GraphicsContext, size: CGSize, time: TimeInterval) {
         let imageSize = overlay.imageSize
-        guard imageSize.width > 0, imageSize.height > 0,
-              let left = overlay.joints[.leftShoulder], !left.isStale,
-              let right = overlay.joints[.rightShoulder], !right.isStale else { return }
+        guard imageSize.width > 0, imageSize.height > 0 else { return }
         let fit = CoordinateConverter.aspectFitRect(for: imageSize, in: size)
         guard fit.width > 0 else { return }
+        let anchors = Self.anchors(overlay: overlay, cameraView: cameraView, containerSize: size)
+        guard !anchors.isEmpty else { return }
         let scale = fit.width / imageSize.width
-        let shoulders = [left, right].map {
-            CoordinateConverter.normalizedToContainer(normalized: $0.location, imageSize: imageSize, containerSize: size)
-        }
         var context = context
         context.clip(to: Path(fit))
         let arms = (upper: metrics.upperArm * scale, fore: metrics.forearm * scale)
         if reduceMotion {
-            drawArms(in: context, shoulders: shoulders, arms: arms, angles: motion.topAngles, opacity: 0.3)
-            drawArms(in: context, shoulders: shoulders, arms: arms, angles: motion.startAngles, opacity: 0.6)
+            drawArms(in: context, anchors: anchors, arms: arms, angles: motion.topAngles, opacity: 0.3)
+            drawArms(in: context, anchors: anchors, arms: arms, angles: motion.startAngles, opacity: 0.6)
         } else {
-            drawArms(in: context, shoulders: shoulders, arms: arms, angles: motion.sample(at: time).angles, opacity: 0.6)
+            drawArms(in: context, anchors: anchors, arms: arms, angles: motion.sample(at: time).angles, opacity: 0.6)
         }
     }
 
-    private func drawArms(in context: GraphicsContext, shoulders: [CGPoint], arms: (upper: CGFloat, fore: CGFloat),
-                          angles: ArmAngles, opacity: Double) {
-        for (shoulder, other) in [(shoulders[0], shoulders[1]), (shoulders[1], shoulders[0])] {
-            let arm = ArmMotion.place(shoulder: shoulder, otherShoulder: other, upperArm: arms.upper, forearm: arms.fore,
+    /// Where each ghost arm hangs from, and which way is outward. From the front, both shoulders, outward
+    /// away from each other. From the side, the near shoulder, outward the way the user faces.
+    static func anchors(overlay: WorkoutOverlayState, cameraView: ExerciseCameraView,
+                        containerSize: CGSize) -> [(shoulder: CGPoint, outward: CGFloat)] {
+        func point(_ joint: OverlayJoint) -> CGPoint {
+            CoordinateConverter.normalizedToContainer(normalized: joint.location, imageSize: overlay.imageSize, containerSize: containerSize)
+        }
+        switch cameraView {
+        case .front:
+            guard let left = overlay.joints[.leftShoulder], !left.isStale,
+                  let right = overlay.joints[.rightShoulder], !right.isStale else { return [] }
+            let (a, b) = (point(left), point(right))
+            return [(a, a.x >= b.x ? 1 : -1), (b, b.x >= a.x ? 1 : -1)]
+        case .side:
+            guard let side = overlay.nearSide, let joint = overlay.joints[side.shoulder] else { return [] }
+            let shoulder = point(joint)
+            return [(shoulder, overlay.facing(from: shoulder, containerSize: containerSize) ?? 1)]
+        }
+    }
+
+    private func drawArms(in context: GraphicsContext, anchors: [(shoulder: CGPoint, outward: CGFloat)],
+                          arms: (upper: CGFloat, fore: CGFloat), angles: ArmAngles, opacity: Double) {
+        for (shoulder, outward) in anchors {
+            let arm = ArmMotion.place(shoulder: shoulder, outward: outward, upperArm: arms.upper, forearm: arms.fore,
                                       angles: angles, forearmPlane: motion.forearmPlane)
             var path = Path()
             path.move(to: shoulder)
@@ -57,8 +75,27 @@ struct WorkoutGhostOverlayView: View {
                            style: StrokeStyle(lineWidth: max(8, arms.fore * 0.16), lineCap: .round, lineJoin: .round))
             var dumbbell = context
             dumbbell.opacity = opacity + 0.2
-            DumbbellDrawing.draw(in: dumbbell, elbow: arm.elbow, wrist: arm.wrist, forearmLength: arms.fore)
+            if motion.holdsDumbbells {
+                DumbbellDrawing.draw(in: dumbbell, elbow: arm.elbow, wrist: arm.wrist, forearmLength: arms.fore)
+            }
         }
+    }
+}
+
+extension WorkoutOverlayState {
+    /// From the side, the arm nearer the phone: the tracked shoulder with the most of its arm in view.
+    var nearSide: BodySide? {
+        func tracked(_ joint: LandmarkType) -> Bool { joints[joint].map { !$0.isStale } ?? false }
+        return BodySide.allCases.filter { tracked($0.shoulder) }
+            .max { lhs, rhs in lhs.armJoints.filter(tracked).count < rhs.armJoints.filter(tracked).count }
+    }
+
+    /// +1 when the user faces larger x on screen, judged by the nose against the shoulder; nil without a nose.
+    func facing(from shoulder: CGPoint, containerSize: CGSize) -> CGFloat? {
+        guard let nose = pose[.nose] else { return nil }
+        let point = CoordinateConverter.normalizedToContainer(normalized: nose.normalizedLocation, imageSize: imageSize,
+                                                              containerSize: containerSize)
+        return point.x >= shoulder.x ? 1 : -1
     }
 }
 

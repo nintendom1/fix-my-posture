@@ -42,6 +42,8 @@ enum DumbbellDrawing {
 struct ExerciseDemoFigureView: View {
     let angles: ArmAngles
     var forearmPlane: MotionPlane = .frontal
+    var cameraView: ExerciseCameraView = .front
+    var holdsDumbbells = true
     var tint: Color = Color(red: 0.62, green: 0.42, blue: 0.95)
 
     /// Figure coordinates in pixels, origin top-left.
@@ -57,7 +59,28 @@ struct ExerciseDemoFigureView: View {
         .leftAnkle: CGPoint(x: 186, y: 460), .rightAnkle: CGPoint(x: 114, y: 460)
     ]
 
-    static func pose(for angles: ArmAngles, forearmPlane: MotionPlane = .frontal) -> ReferencePose {
+    /// A profile facing +x. Only the near (left) side is drawn, which the silhouette renders as a side view.
+    static let sideFigureJoints: [LandmarkType: CGPoint] = [
+        .nose: CGPoint(x: 164, y: 136),
+        .leftShoulder: CGPoint(x: 150, y: 170),
+        .leftHip: CGPoint(x: 150, y: 300),
+        .leftKnee: CGPoint(x: 153, y: 385),
+        .leftAnkle: CGPoint(x: 150, y: 460)
+    ]
+
+    static func pose(for angles: ArmAngles, forearmPlane: MotionPlane = .frontal,
+                     cameraView: ExerciseCameraView = .front) -> ReferencePose {
+        if cameraView == .side {
+            var joints = sideFigureJoints
+            if let shoulder = joints[.leftShoulder] {
+                // Outward is the direction the figure faces.
+                let arm = ArmMotion.place(shoulder: shoulder, outward: 1, upperArm: upperArm, forearm: forearm,
+                                          angles: angles, forearmPlane: forearmPlane)
+                joints[.leftElbow] = arm.elbow
+                joints[.leftWrist] = arm.wrist
+            }
+            return ReferencePose(jointLocations: joints)
+        }
         var joints = figureJoints
         for side in BodySide.allCases {
             let other: BodySide = side == .left ? .right : .left
@@ -71,7 +94,7 @@ struct ExerciseDemoFigureView: View {
     }
 
     var body: some View {
-        let pose = Self.pose(for: angles, forearmPlane: forearmPlane)
+        let pose = Self.pose(for: angles, forearmPlane: forearmPlane, cameraView: cameraView)
         ZStack {
             AlignmentReferenceOverlayView(referencePose: pose, imageSize: Self.canvasSize, containerSize: Self.canvasSize,
                                           style: .silhouette, strokeColor: tint, fillColor: tint.opacity(0.5))
@@ -84,6 +107,7 @@ struct ExerciseDemoFigureView: View {
                 }
                 for side in BodySide.allCases {
                     guard let elbow = pose.jointLocations[side.elbow], let wrist = pose.jointLocations[side.wrist] else { continue }
+                    guard holdsDumbbells else { continue }
                     DumbbellDrawing.draw(in: context, elbow: map(elbow), wrist: map(wrist), forearmLength: Self.forearm * scale)
                 }
             }

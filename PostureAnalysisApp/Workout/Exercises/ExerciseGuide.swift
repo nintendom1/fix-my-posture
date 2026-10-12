@@ -36,6 +36,8 @@ struct ArmMotion {
     /// The first keyframe is the start position; the loop wraps from the last keyframe back to it.
     let keyframes: [ArmKeyframe]
     var forearmPlane: MotionPlane = .frontal
+    /// False for band exercises, so the guide and ghost don't draw dumbbells.
+    var holdsDumbbells = true
 
     var duration: TimeInterval {
         keyframes.reduce(0) { $0 + $1.moveDuration + $1.holdDuration }
