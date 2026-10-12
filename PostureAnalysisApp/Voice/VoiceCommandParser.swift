@@ -18,10 +18,15 @@ struct VoiceCommandParser: VoiceCommandParsing {
 
     var vocabulary: [String] {
         var seen = Set<String>()
-        return aliases.map(\.display).filter { seen.insert($0).inserted }
+        let weights = ["my weights are", "add weight", "pounds", "kilograms", "red band"]
+        return (aliases.map(\.display) + weights).filter { seen.insert($0).inserted }
     }
 
     func parse(_ transcript: String) -> VoiceCommandMatch? {
+        // A spoken weight can still grow ("17" then "17.5 pounds"), so it waits for the transcript to settle.
+        if let weight = WeightPhraseParser.parse(transcript) {
+            return VoiceCommandMatch(command: .setWeight(weight), phrase: "Weight \(weight.label)", isPrefixOfLongerPhrase: true)
+        }
         let words = Self.normalize(transcript)
         guard !words.isEmpty else { return nil }
 

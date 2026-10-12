@@ -133,6 +133,7 @@
 		A10000012B00000000000131 /* WorkoutHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000131 /* WorkoutHistory.swift */; };
 		A10000012B00000000000132 /* WorkoutHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000132 /* WorkoutHistoryView.swift */; };
 		A10000012B00000000000133 /* WorkoutHistoryTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000133 /* WorkoutHistoryTests.swift */; };
+		A10000012B00000000000135 /* WeightPhraseParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000135 /* WeightPhraseParser.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -274,6 +275,7 @@
 		B10000012B00000000000131 /* WorkoutHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistory.swift; sourceTree = "<group>"; };
 		B10000012B00000000000132 /* WorkoutHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistoryView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000133 /* WorkoutHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistoryTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000135 /* WeightPhraseParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightPhraseParser.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -547,6 +549,7 @@
 				B10000012B00000000000085 /* OnDeviceSpeechRecognizer.swift */,
 				B10000012B00000000000086 /* WorkoutVoiceController.swift */,
 				B10000012B00000000000090 /* VoiceCommandHelp.swift */,
+				B10000012B00000000000135 /* WeightPhraseParser.swift */,
 			);
 			path = Voice;
 			sourceTree = "<group>";
@@ -813,6 +816,7 @@
 				A10000012B00000000000130 /* WorkoutWeight.swift in Sources */,
 				A10000012B00000000000131 /* WorkoutHistory.swift in Sources */,
 				A10000012B00000000000132 /* WorkoutHistoryView.swift in Sources */,
+				A10000012B00000000000135 /* WeightPhraseParser.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

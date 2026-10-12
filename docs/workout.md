@@ -57,6 +57,10 @@ Ending a workout saves it automatically: End Workout on the completion card, End
   - The record has the start and end time and, for a Saved Set, its name.
   - Each entry is one exercise (or one Saved Set occurrence, marked completed or skipped) with its sets: reps, the arm for one-arm exercises, and the weight.
   - The exercise's name is copied, so history still reads well if the exercise changes.
+- **Weights by voice.** Mid-set, say "my weights are 17.5 pounds", "add weight seventeen point five pounds", "weight 8 kilograms", or for bands "using the red band" (red, yellow, green, blue, black, purple, orange, gray, light, medium, or heavy).
+  - The coach confirms out loud ("17.5 pounds."), the Heard chip shows "Weight 17.5 lb", and the HUD shows the weight beside the set count.
+  - The weight applies to the current set and carries to the next ones until changed. Bodyweight exercises reply that they don't use weights.
+  - `WeightPhraseParser` reads digits ("17.5") and number words ("seventeen point five", "twenty two and a half"). A mass needs a unit and "weight", "weights", or "using" before the number, so other numbers never set a weight. A spoken weight waits for the transcript to settle, so "17" doesn't fire before "point five".
 - **Weights** (`WorkoutWeight`) are per dumbbell and per set: a value in the unit given (shown as lb or kg), or a band's name for band exercises (`ExerciseDefinition.equipment`). Bodyweight exercises (squats, push-ups) take no weight.
   - During a workout, the weight in use is recorded with each finished set and carries to the next sets of that exercise until changed. The HUD shows it beside the set count.
 - **History screen.** **History** on the exercise list shows past workouts, newest first. Swipe to delete.
@@ -272,7 +276,7 @@ The tip is measured on one line (up to 320 pt) and as a compact, wrapped tip (up
 
 The microphone and speech-recognition prompts follow the camera prompt, in that order. Without voice, the touch controls keep working and prompts say "Tap" instead of "Say".
 
-- **Commands.** Start ("begin", "let's go"). Pause ("stop", "hold on", "wait"; "stop workout" also pauses). Resume ("continue", "keep going"). Start over ("restart set", "reset set"). Next set ("finish set", "end set"). Change exercise ("switch exercise"), or name one ("switch to shoulder press", "dumbbell press instead"; aliases come from `ExerciseDefinition.voiceAliases`). Cancel ("never mind"). How many reps. Which set. Repeat that ("say that again"). Voice commands ("what can I say", "help", "show commands"). Close ("done", "go back"). Mute ("mute coach", "be quiet") and unmute ("talk to me") the coach. Stop listening ("mute microphone"). End workout ("finish workout", "quit workout").
+- **Commands.** Start ("begin", "let's go"). Pause ("stop", "hold on", "wait"; "stop workout" also pauses). Resume ("continue", "keep going"). Start over ("restart set", "reset set"). Next set ("finish set", "end set"). Change exercise ("switch exercise"), or name one ("switch to shoulder press", "dumbbell press instead"; aliases come from `ExerciseDefinition.voiceAliases`). Cancel ("never mind"). How many reps. Which set. Repeat that ("say that again"). Voice commands ("what can I say", "help", "show commands"). Close ("done", "go back"). Mute ("mute coach", "be quiet") and unmute ("talk to me") the coach. Weights ("my weights are 17.5 pounds", "add weight seventeen point five pounds", "weight 8 kilograms", "using the red band"). Stop listening ("mute microphone"). End workout ("finish workout", "quit workout").
 - **Parsing.** `VoiceCommandParser` lowercases and strips punctuation and apostrophes, then takes the longest known phrase (the most recent on ties). Destructive commands (end workout, restart set, next set, change or select exercise) count only when they're nearly the whole utterance: at most 2 extra words, not counting fillers such as "please", "okay", "coach", and "let's". A match that could still become a different command ("start" → "start over") waits for a final result or for the transcript to settle for 0.6 s; anything else runs immediately.
 - **Listening.** `OnDeviceSpeechRecognizer` uses `SFSpeechRecognizer` for the current locale if it's English, or en-US otherwise. It requires on-device support; without it the microphone shows unavailable and touch controls remain. Requests set `requiresOnDeviceRecognition`, partial results, `contextualStrings` from the parser's vocabulary, and no punctuation. Tasks restart after every command and final result, after 1.2 s of unchanged transcript (so old words can't combine with new ones), and every 50 s. Errors back off 0.5–4 s; after 5 in a row, voice reports unavailable until the microphone is tapped.
 - **Half-duplex.** `WorkoutVoiceController` stops recognition, discarding any partial transcript, before the coach speaks, and resumes once the speech queue drains. The coach never hears itself.
@@ -340,7 +344,7 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
   - one-arm-at-a-time sets switch arms without rest, then rest after both, recording an entry per arm;
   - a Saved Set rests, then selects the next exercise without counting; skipping records skipped occurrences; a repeated exercise counts its own sets; and switching away needs the chooser;
   - switching mid-set keeps finished sets, restarts the set in progress, clears feedback, and starts a fresh analyzer; curl arms count separately, and the count is what both arms have done.
-- `VoiceCommandParserTests` cover fillers, longest-phrase matching, the whole-utterance rule for destructive commands, prefix ambiguity, exercise names, and opening and closing help by voice. They also check that every recognized phrase appears exactly once in the Voice Commands help.
+- `VoiceCommandParserTests` cover spoken weights (digits, number words, halves, kilograms, bands, settling, and ignoring unrelated numbers), fillers, longest-phrase matching, the whole-utterance rule for destructive commands, prefix ambiguity, exercise names, and opening and closing help by voice. They also check that every recognized phrase appears exactly once in the Voice Commands help.
 - `PhoneTiltDetectorTests` check the 1 s settle time, the 15°/10° hysteresis, and that missing motion data never warns.
 
 ## Adding an exercise
@@ -454,6 +458,11 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Open it, add 17.5 lb to set 1 with "Also for the later sets", and set 2 shows 17.5 lb too. Change set 2 to 8 kg and remove it again.
     - Band triceps take a band name, and push-ups and squats show no weight control.
     - Closing the coach after a finished set (without ending) still saves it. Opening and closing without a set saves nothing. Swipe to delete a workout.
-37. Afterward, confirm realtime posture correction still works.
+37. Weights by voice:
+    - Mid-set, say "my weights are seventeen point five pounds". The coach says "17.5 pounds.", the Heard chip shows it, and the HUD shows 17.5 lb.
+    - The next set keeps 17.5 lb. Say "weight 8 kilograms" mid-set, and the history shows 17.5 lb for set 1 and 8 kg for set 2.
+    - With band triceps, say "using the red band".
+    - With music playing, saying "I lost five pounds" in conversation sets nothing.
+38. Afterward, confirm realtime posture correction still works.
 
 These checks remain manual; a passing simulator run does not imply they were performed.

@@ -53,6 +53,17 @@ final class VoiceCommandParserTests: XCTestCase {
         }
     }
 
+    func testSpokenWeights() {
+        XCTAssertEqual(parser.parse("My weights are 17.5 pounds")?.command, .setWeight(.mass(17.5, .pounds)))
+        XCTAssertEqual(parser.parse("my weights are seventeen point five pounds")?.command, .setWeight(.mass(17.5, .pounds)))
+        XCTAssertEqual(parser.parse("add weight 8 kilograms")?.command, .setWeight(.mass(8, .kilograms)))
+        XCTAssertEqual(parser.parse("my weights are twenty two and a half pounds")?.command, .setWeight(.mass(22.5, .pounds)))
+        XCTAssertEqual(parser.parse("I'm using the red band")?.command, .setWeight(.band("Red band")))
+        XCTAssertEqual(parser.parse("my weights are 17.5 pounds")?.isPrefixOfLongerPhrase, true, "Waits for the number to settle.")
+        XCTAssertNil(parser.parse("I lost five pounds this month"), "Numbers outside a weight phrase never set one.")
+        XCTAssertNil(parser.parse("my weights are seventeen"), "No unit yet.")
+    }
+
     func testSoundCommands() {
         XCTAssertEqual(parser.parse("mute")?.command, .muteCoach)
         XCTAssertEqual(parser.parse("be quiet please")?.command, .muteCoach)
