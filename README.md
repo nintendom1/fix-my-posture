@@ -6,7 +6,7 @@ An iPhone 15 Pro native Swift/SwiftUI application for analyzing standing body po
 
 - **On-Device Pose Detection**: Uses Apple Vision 2D body pose estimation without sending photos off-device.
 - **Realtime Posture Correction**: Open the main-menu button for a mirrored selfie preview, body landmark overlay, and live geometric measurements. Includes camera switching and front/side views; frames are processed in memory and never recorded.
-- **Workout Coach (Beta)**: Counts reps for a standing dumbbell shoulder press (2 sets of 8–10) from the front camera, with framing guidance, a focus-joint overlay, and short spoken announcements that briefly lower your music. Frames are analyzed on device and never recorded. See [workout coach](docs/workout.md).
+- **Workout Coach (Beta)**: Counts reps for a standing dumbbell shoulder press (2 sets of 8–10) from the front camera. A first-time guide demonstrates and describes the movement, and ghost arms show it over your own body. You can start a set by holding the start position. The coach gives framing guidance, shows per-arm counting thresholds that work the same at any distance, warns if the phone is tilted, and makes short spoken announcements that briefly lower your music. Frames are analyzed on device and never recorded. See [workout coach](docs/workout.md).
 - **Objective Geometry Metrics**: Measures head tilt, shoulder asymmetry, torso lateral deviation, forward-head angle, sagittal body lean, and knee alignment.
 - **Aspect-Correct Coordinate Engine**: Aspect-ratio preserving transformations prevent angle distortion on non-square camera photos.
 - **Manual Landmark Editing**: Interactive point dragging with touch feedback, reset point, and reset all options.

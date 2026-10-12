@@ -10,6 +10,19 @@ struct WorkoutOverlayState: Equatable {
     var endPositionSides: Set<BodySide>
 }
 
+/// Smoothed arm-segment lengths in image pixels, used to fit the ghost demo to the user.
+struct GuideMetrics: Equatable {
+    var upperArm: CGFloat
+    var forearm: CGFloat
+
+    /// Typical proportions relative to shoulder width, used until segments have been measured.
+    static let upperArmToShoulderWidth: CGFloat = 0.85
+    static let forearmToShoulderWidth: CGFloat = 0.72
+    /// Measured segments outside this shoulder-width-relative range are treated as noise.
+    static let plausibleSegmentRatio: ClosedRange<CGFloat> = 0.45...1.4
+    static let smoothing: CGFloat = 0.25
+}
+
 /// Main-actor orchestrator: feeds camera frames, commands, and lifecycle changes through the pure
 /// `WorkoutSession` reducer and carries out the effects it returns.
 @MainActor
@@ -28,6 +41,14 @@ final class WorkoutCoachModel: ObservableObject {
     @Published private(set) var overlay: WorkoutOverlayState?
     /// Refreshed on every tick for the rest timer.
     @Published private(set) var now: TimeInterval
+    @Published private(set) var guideMetrics: GuideMetrics?
+    @Published private(set) var armReadings: [BodySide: ArmReading] = [:]
+    @Published private(set) var armThresholds: [BodySide: ArmThresholds] = [:]
+    /// The phone leans forward or back enough to distort heights.
+    @Published private(set) var isPhoneTilted = false
+    @Published private(set) var isCoachSpeaking = false
+    /// The camera has run and the coach has introduced the workout.
+    @Published private(set) var hasOpened = false
 
     var captureSession: AVCaptureSession { camera.session }
     var exercises: [ExerciseDefinition] { session.exercises }
@@ -36,6 +57,7 @@ final class WorkoutCoachModel: ObservableObject {
     private let permission: RealtimeCameraPermission
     private let speech: SpeechCoaching
     private let audio: WorkoutAudioSession?
+    private let tiltMonitor: PhoneTiltMonitoring?
     private let clock: () -> TimeInterval
 
     private var analyzer: ExerciseAnalyzing?
@@ -45,7 +67,9 @@ final class WorkoutCoachModel: ObservableObject {
     private var smoother = LandmarkSmoother()
     private var isCounting = false
     private var generation = UUID()
-    private var hasOpened = false
+    private var isGuidePresented = false
+    private var lastStartPositionHeld = false
+    private var tiltDetector = PhoneTiltDetector()
     private var isViewActive = false
     private var isApplicationActive = false
     private var isRequestingPermission = false
@@ -56,26 +80,31 @@ final class WorkoutCoachModel: ObservableObject {
     convenience init() {
         let audio = WorkoutAudioSession()
         self.init(camera: WorkoutCameraController(), permission: SystemCameraPermission(),
-                  speech: SpeechCoach(audio: audio), audio: audio,
+                  speech: SpeechCoach(audio: audio), audio: audio, tiltMonitor: CoreMotionTiltMonitor(),
                   exercises: ExerciseCatalog.all, initialExercise: ExerciseCatalog.all.first?.id)
     }
 
     init(camera: PoseFrameSource, permission: RealtimeCameraPermission, speech: SpeechCoaching,
-         audio: WorkoutAudioSession?, exercises: [ExerciseDefinition], initialExercise: ExerciseID?,
+         audio: WorkoutAudioSession?, tiltMonitor: PhoneTiltMonitoring?,
+         exercises: [ExerciseDefinition], initialExercise: ExerciseID?,
          clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
         self.camera = camera
         self.permission = permission
         self.speech = speech
         self.audio = audio
+        self.tiltMonitor = tiltMonitor
         self.clock = clock
         session = WorkoutSession(exercises: exercises, initialExercise: initialExercise)
         now = clock()
         audio?.onEvent = { [weak self] event in self?.handleAudio(event) }
+        speech.onActivityChanged = { [weak self] speaking in self?.isCoachSpeaking = speaking }
     }
 
     // MARK: - Lifecycle
 
-    private var canCapture: Bool { isViewActive && isApplicationActive && session.phase != .ended }
+    private var canCapture: Bool {
+        isViewActive && isApplicationActive && !isGuidePresented && session.phase != .ended
+    }
 
     func onAppear(isApplicationActive: Bool) {
         isViewActive = true
@@ -110,6 +139,30 @@ final class WorkoutCoachModel: ObservableObject {
         apply(session.handle(.command(command), at: clock()))
     }
 
+    // MARK: - Guide
+
+    /// The guide covers the camera, so capture stops while it is open and an active set pauses.
+    func setGuidePresented(_ presented: Bool) {
+        guard presented != isGuidePresented else { return }
+        isGuidePresented = presented
+        if presented {
+            if session.phase == .exercising { send(.pause) }
+            stopCapture()
+        } else {
+            speech.stopAll()
+            startCaptureIfPossible()
+        }
+    }
+
+    func readGuideAloud() {
+        guard let guide = session.exercise?.guide else { return }
+        speech.speak(Utterance(text: guide.walkthrough, isInstruction: false, interrupts: true))
+    }
+
+    func stopSpeaking() {
+        speech.stopAll()
+    }
+
     // MARK: - Camera
 
     private func startCaptureIfPossible() {
@@ -139,6 +192,7 @@ final class WorkoutCoachModel: ObservableObject {
         generation = UUID()
         cameraStatus = .starting
         resetTracking()
+        tiltMonitor?.start()
         camera.start(generation: generation) { [weak self] token, event in
             guard let self, self.canCapture, token == self.generation else { return }
             self.handle(event)
@@ -148,6 +202,9 @@ final class WorkoutCoachModel: ObservableObject {
     private func stopCapture() {
         generation = UUID()
         camera.stop()
+        tiltMonitor?.stop()
+        tiltDetector.reset()
+        setPhoneTilted(false)
         if cameraStatus == .running || cameraStatus == .starting || cameraStatus == .interrupted {
             cameraStatus = .idle
         }
@@ -194,10 +251,15 @@ final class WorkoutCoachModel: ObservableObject {
             }
         }
 
+        updateGuideMetrics(frame)
+
         var endSides: Set<BodySide> = []
         if let analyzer {
             let analysis = analyzer.process(frame, counting: isCounting)
             if isCounting { endSides = analysis.endPositionSides }
+            if armReadings != analysis.readings { armReadings = analysis.readings }
+            if armThresholds != analysis.thresholds { armThresholds = analysis.thresholds }
+            setStartPositionHeld(analysis.startPositionHeld)
             for rep in analysis.repEvents {
                 apply(session.handle(.repCompleted(rep), at: clock()))
             }
@@ -219,9 +281,54 @@ final class WorkoutCoachModel: ObservableObject {
         lastFramingStatus = nil
         smoother.reset()
         overlay = nil
+        guideMetrics = nil
+        armReadings = [:]
+        armThresholds = [:]
+        setStartPositionHeld(false)
         if session.framing != .lost {
             apply(session.handle(.framingChanged(.lost), at: clock()))
         }
+    }
+
+    private func setStartPositionHeld(_ held: Bool) {
+        guard held != lastStartPositionHeld else { return }
+        lastStartPositionHeld = held
+        apply(session.handle(.startPositionChanged(held), at: clock()))
+    }
+
+    /// Arm-segment lengths from the raw pose, smoothed so the ghost doesn't flicker. Shoulder width
+    /// rejects implausible segments and stands in until the arms are measured.
+    private func updateGuideMetrics(_ frame: PoseFrame) {
+        let confidence = FramingConfiguration().minimumConfidence
+        guard let left = frame.point(.leftShoulder, minimumConfidence: confidence),
+              let right = frame.point(.rightShoulder, minimumConfidence: confidence) else { return }
+        let shoulderWidth = ArmGeometry.distance(left, right)
+        guard shoulderWidth > 1 else { return }
+        let arms = BodySide.allCases.compactMap { ArmGeometry.arm($0, in: frame, minimumConfidence: confidence) }
+        func measured(_ lengths: [CGFloat], typical: CGFloat) -> CGFloat {
+            let plausible = lengths.filter { GuideMetrics.plausibleSegmentRatio.contains($0 / shoulderWidth) }
+            guard !plausible.isEmpty else { return shoulderWidth * typical }
+            return plausible.reduce(0, +) / CGFloat(plausible.count)
+        }
+        let sample = GuideMetrics(upperArm: measured(arms.map(\.upperArmLength), typical: GuideMetrics.upperArmToShoulderWidth),
+                                  forearm: measured(arms.map(\.forearmLength), typical: GuideMetrics.forearmToShoulderWidth))
+        guard let previous = guideMetrics else {
+            guideMetrics = sample
+            return
+        }
+        let k = GuideMetrics.smoothing
+        guideMetrics = GuideMetrics(upperArm: previous.upperArm + (sample.upperArm - previous.upperArm) * k,
+                                    forearm: previous.forearm + (sample.forearm - previous.forearm) * k)
+    }
+
+    private func updatePhoneTilt(at now: TimeInterval) {
+        setPhoneTilted(tiltDetector.update(pitchDegrees: tiltMonitor?.latestTilt?.pitchDegrees, at: now))
+    }
+
+    private func setPhoneTilted(_ tilted: Bool) {
+        guard tilted != isPhoneTilted else { return }
+        isPhoneTilted = tilted
+        apply(session.handle(.phoneTiltChanged(tilted), at: clock()))
     }
 
     private func rebuildTracking(for exercise: ExerciseDefinition) {
@@ -276,6 +383,7 @@ final class WorkoutCoachModel: ObservableObject {
 
     private func tick() {
         now = clock()
+        updatePhoneTilt(at: now)
         apply(session.handle(.tick, at: now))
     }
 

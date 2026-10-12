@@ -80,6 +80,11 @@
 		A10000012B00000000000071 /* WorkoutCoachView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000071 /* WorkoutCoachView.swift */; };
 		A10000012B00000000000072 /* WorkoutHUDView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000072 /* WorkoutHUDView.swift */; };
 		A10000012B00000000000073 /* WorkoutJointOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000073 /* WorkoutJointOverlayView.swift */; };
+		A10000012B00000000000074 /* ExerciseGuide.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000074 /* ExerciseGuide.swift */; };
+		A10000012B00000000000075 /* ExerciseGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000075 /* ExerciseGuideView.swift */; };
+		A10000012B00000000000076 /* ExerciseDemoFigureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000076 /* ExerciseDemoFigureView.swift */; };
+		A10000012B00000000000077 /* WorkoutGuideOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000077 /* WorkoutGuideOverlayView.swift */; };
+		A10000012B00000000000078 /* PhoneTiltMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000078 /* PhoneTiltMonitor.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -168,6 +173,11 @@
 		B10000012B00000000000071 /* WorkoutCoachView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCoachView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000072 /* WorkoutHUDView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHUDView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000073 /* WorkoutJointOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutJointOverlayView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000074 /* ExerciseGuide.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseGuide.swift; sourceTree = "<group>"; };
+		B10000012B00000000000075 /* ExerciseGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseGuideView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000076 /* ExerciseDemoFigureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseDemoFigureView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000077 /* WorkoutGuideOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutGuideOverlayView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000078 /* PhoneTiltMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneTiltMonitor.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -359,6 +369,7 @@
 				B10000012B00000000000056 /* ExerciseDefinition.swift */,
 				B10000012B00000000000057 /* ExerciseAnalyzing.swift */,
 				H10000012B00000000000015 /* ShoulderPress */,
+				B10000012B00000000000074 /* ExerciseGuide.swift */,
 			);
 			path = Exercises;
 			sourceTree = "<group>";
@@ -398,6 +409,7 @@
 			children = (
 				B10000012B00000000000067 /* PoseFrameSource.swift */,
 				B10000012B00000000000068 /* WorkoutCameraController.swift */,
+				B10000012B00000000000078 /* PhoneTiltMonitor.swift */,
 			);
 			path = Camera;
 			sourceTree = "<group>";
@@ -417,6 +429,9 @@
 				B10000012B00000000000071 /* WorkoutCoachView.swift */,
 				B10000012B00000000000072 /* WorkoutHUDView.swift */,
 				B10000012B00000000000073 /* WorkoutJointOverlayView.swift */,
+				B10000012B00000000000075 /* ExerciseGuideView.swift */,
+				B10000012B00000000000076 /* ExerciseDemoFigureView.swift */,
+				B10000012B00000000000077 /* WorkoutGuideOverlayView.swift */,
 			);
 			path = Workout;
 			sourceTree = "<group>";
@@ -566,6 +581,11 @@
 				A10000012B00000000000071 /* WorkoutCoachView.swift in Sources */,
 				A10000012B00000000000072 /* WorkoutHUDView.swift in Sources */,
 				A10000012B00000000000073 /* WorkoutJointOverlayView.swift in Sources */,
+				A10000012B00000000000074 /* ExerciseGuide.swift in Sources */,
+				A10000012B00000000000075 /* ExerciseGuideView.swift in Sources */,
+				A10000012B00000000000076 /* ExerciseDemoFigureView.swift in Sources */,
+				A10000012B00000000000077 /* WorkoutGuideOverlayView.swift in Sources */,
+				A10000012B00000000000078 /* PhoneTiltMonitor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -18,12 +18,12 @@ PostureAnalysisApp/
 ├── ImageImport/         # PhotoValidator & ViewClassifier
 ├── Persistence/         # SwiftData entities (AssessmentEntity), ImageStore, BaselineComparisonEngine
 ├── Views/               # SwiftUI views (ContentView, HistoryView, LandmarkOverlayView, AssessmentDetailView, DeveloperDebugView)
-│   └── Workout/         # WorkoutCoachView, WorkoutHUDView, WorkoutJointOverlayView
+│   └── Workout/         # WorkoutCoachView, WorkoutHUDView, WorkoutJointOverlayView, ExerciseGuideView, WorkoutGuideOverlayView (ghost & per-arm thresholds)
 ├── Workout/             # Workout Coach (Beta)
-│   ├── Exercises/       # ExerciseCatalog, ExerciseDefinition, ExerciseAnalyzing; one folder per exercise
+│   ├── Exercises/       # ExerciseCatalog, ExerciseDefinition, ExerciseAnalyzing, ExerciseGuide; one folder per exercise
 │   ├── Analysis/        # PoseFrame, ArmGeometry, HysteresisPhaseTracker, FramingEvaluator, LandmarkSmoother
 │   ├── Session/         # WorkoutSession (pure reducer) & WorkoutCoachModel (main-actor orchestrator)
-│   └── Camera/          # PoseFrameSource protocol & WorkoutCameraController
+│   └── Camera/          # PoseFrameSource protocol, WorkoutCameraController, PhoneTiltMonitor
 ├── Voice/               # SpeechCoach (spoken coaching) & WorkoutAudioSession (ducking)
 ├── LandmarkEditing/     # LandmarkEditingView (manual point repositioning)
 ├── Utilities/           # CoordinateConverter (aspect-correct image pixel transform), PortraitCameraSession

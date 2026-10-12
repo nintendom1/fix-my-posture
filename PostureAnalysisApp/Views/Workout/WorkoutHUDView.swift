@@ -13,18 +13,36 @@ struct WorkoutHUDRects: PreferenceKey {
 struct WorkoutHUDView: View {
     let session: WorkoutSession
     let now: TimeInterval
+    let readings: [BodySide: ArmReading]
+    let isPhoneTilted: Bool
+    @Binding var showMeasurements: Bool
     let onClose: () -> Void
+    let onShowGuide: () -> Void
     let onCommand: (WorkoutCommand) -> Void
 
     @ScaledMetric(relativeTo: .largeTitle) private var repSize: CGFloat = 64
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var confirmingEnd = false
+    @State private var repPulse = false
 
     var body: some View {
         VStack {
-            topBar
-                .background(GeometryReader { proxy in
-                    Color.clear.preference(key: WorkoutHUDRects.self, value: [proxy.frame(in: .named(WorkoutCoachView.coordinateSpace))])
-                })
+            VStack(spacing: 6) {
+                topBar
+                if isPhoneTilted {
+                    Label("Phone tilted: stand it upright", systemImage: "iphone.gen3.radiowaves.left.and.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.orange)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(.black.opacity(0.6))
+                        .clipShape(Capsule())
+                        .accessibilityLabel("Phone tilted. Stand it upright for accurate counts.")
+                }
+            }
+            .background(GeometryReader { proxy in
+                Color.clear.preference(key: WorkoutHUDRects.self, value: [proxy.frame(in: .named(WorkoutCoachView.coordinateSpace))])
+            })
             Spacer()
             bottomPanel
                 .background(GeometryReader { proxy in
@@ -48,20 +66,33 @@ struct WorkoutHUDView: View {
 
             Spacer(minLength: 8)
 
-            VStack(spacing: 2) {
-                Text(session.exercise?.displayName ?? "Workout Coach")
-                    .font(.headline)
+            // Tapping the title reopens the how-to guide.
+            Button(action: onShowGuide) {
+                VStack(spacing: 2) {
+                    HStack(spacing: 4) {
+                        Text(session.exercise?.displayName ?? "Workout Coach")
+                            .font(.headline)
+                        if session.exercise != nil {
+                            Image(systemName: "info.circle")
+                                .font(.subheadline)
+                        }
+                    }
                     .foregroundStyle(.white)
-                Text(statusText)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(statusColor)
-                    .multilineTextAlignment(.center)
+                    Text(statusText)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(statusColor)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(.black.opacity(0.6))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(.black.opacity(0.6))
-            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .buttonStyle(.plain)
+            .disabled(session.exercise == nil)
             .accessibilityElement(children: .combine)
+            .accessibilityHint("Shows how to do this exercise")
+            .accessibilityIdentifier("workoutGuideButton")
 
             Spacer(minLength: 8)
 
@@ -77,7 +108,7 @@ struct WorkoutHUDView: View {
         switch session.phase {
         case .choosingExercise, .changingExercise: return "Choose an exercise"
         case .framing: return session.framing.guidance?.shortText ?? "Hold still"
-        case .ready: return "Ready"
+        case .ready: return session.exercise.map { "\($0.guide.startPositionInstruction) to begin" } ?? "Ready"
         case .exercising:
             return session.isCounting ? "Counting" : (session.framing.guidance?.shortText ?? FramingGuidance.stepIntoView.shortText)
         case .paused: return "Paused"
@@ -107,6 +138,14 @@ struct WorkoutHUDView: View {
                         .monospacedDigit()
                         .foregroundStyle(.white)
                         .contentTransition(.numericText())
+                        .scaleEffect(repPulse ? 1.15 : 1, anchor: .bottomLeading)
+                        .onChange(of: session.repCount) { old, new in
+                            guard new > old, !reduceMotion else { return }
+                            withAnimation(.spring(response: 0.18, dampingFraction: 0.5)) { repPulse = true }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { repPulse = false }
+                            }
+                        }
                     Text("/ \(exercise.targetLabel)")
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.white.opacity(0.75))
@@ -130,6 +169,9 @@ struct WorkoutHUDView: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(accessibilitySummary(exercise))
             }
+            if showMeasurements {
+                measurementsRow
+            }
             controls
         }
         .padding(10)
@@ -151,8 +193,17 @@ struct WorkoutHUDView: View {
                 onCommand(.nextSet)
             }
             Menu {
-                ForEach(session.exercises) { exercise in
-                    Button(exercise.displayName) { onCommand(.selectExercise(exercise.id)) }
+                Section("Exercise") {
+                    ForEach(session.exercises) { exercise in
+                        Button(exercise.displayName) { onCommand(.selectExercise(exercise.id)) }
+                    }
+                }
+                Button(action: onShowGuide) {
+                    Label("How to Do It", systemImage: "questionmark.circle")
+                }
+                .disabled(session.exercise == nil)
+                Toggle(isOn: $showMeasurements) {
+                    Label("Show Measurements", systemImage: "ruler")
                 }
             } label: {
                 Image(systemName: "list.bullet")
@@ -160,7 +211,7 @@ struct WorkoutHUDView: View {
                     .frame(width: 40, height: 40)
             }
             .tint(.white)
-            .accessibilityLabel("Choose exercise")
+            .accessibilityLabel("Exercise options")
             iconButton("stop.fill", label: "End workout", enabled: session.phase != .ended) {
                 confirmingEnd = true
             }
@@ -169,6 +220,31 @@ struct WorkoutHUDView: View {
                 Button("Keep Going", role: .cancel) {}
             }
         }
+    }
+
+    /// Live signals per arm, for checking the counting thresholds on device.
+    private var measurementsRow: some View {
+        HStack(spacing: 14) {
+            ForEach(BodySide.allCases, id: \.self) { side in
+                measurement(for: side)
+            }
+            Spacer(minLength: 0)
+        }
+        .font(.caption.monospacedDigit())
+        .foregroundStyle(.white.opacity(0.85))
+        .accessibilityElement(children: .combine)
+    }
+
+    private func measurement(for side: BodySide) -> Text {
+        guard let reading = readings[side] else { return Text("\(side.shortLabel) –") }
+        let symbol: String
+        switch reading.zone {
+        case .top: symbol = "arrow.up.circle.fill"
+        case .bottom: symbol = "arrow.down.circle.fill"
+        case .middle: symbol = "circle.dotted"
+        }
+        return Text("\(side.shortLabel) \(String(format: "%.2f", reading.signal)) · \(Int(reading.elbowAngle.rounded()))° ")
+            + Text(Image(systemName: symbol))
     }
 
     @ViewBuilder

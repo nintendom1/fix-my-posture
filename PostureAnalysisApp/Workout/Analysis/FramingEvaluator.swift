@@ -12,7 +12,7 @@ enum FramingGuidance: String, Equatable {
     var spokenText: String {
         switch self {
         case .stepIntoView: return "Step into view, facing the phone."
-        case .stepBack: return "Step back until your shoulders, elbows, wrists, and hips are in view."
+        case .stepBack: return "Step back until both arms and shoulders are in view."
         case .moreHeadroom: return "Step back a little more so there's room above your hands."
         case .moveLeft: return "Move a little to your left."
         case .moveRight: return "Move a little to your right."
@@ -22,7 +22,7 @@ enum FramingGuidance: String, Equatable {
     var shortText: String {
         switch self {
         case .stepIntoView: return "Step into view"
-        case .stepBack: return "Step back: show shoulders to hips"
+        case .stepBack: return "Step back: show both arms"
         case .moreHeadroom: return "Step back: leave room overhead"
         case .moveLeft: return "Move a little to your left"
         case .moveRight: return "Move a little to your right"

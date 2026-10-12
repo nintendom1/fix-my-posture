@@ -49,6 +49,7 @@ struct ExerciseDefinition: Identifiable {
     let countsArmsIndependently: Bool
     /// Spoken when the exercise is selected.
     let setupLine: String
+    let guide: ExerciseGuide
     let makeAnalyzer: (_ epoch: Int) -> ExerciseAnalyzing
 
     var focusJoints: Set<LandmarkType> {

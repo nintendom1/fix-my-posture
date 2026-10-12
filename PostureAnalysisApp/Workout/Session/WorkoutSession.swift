@@ -52,6 +52,10 @@ enum WorkoutEvent: Equatable {
     case command(WorkoutCommand)
     case framingChanged(FramingStatus)
     case repCompleted(RepEvent)
+    /// Every arm is (or stops being) confirmed at the exercise's start position.
+    case startPositionChanged(Bool)
+    /// The phone has settled into (or out of) a forward/back lean that distorts heights.
+    case phoneTiltChanged(Bool)
     /// Periodic clock for debounced guidance and the rest timer.
     case tick
     case appBackgrounded
@@ -97,6 +101,9 @@ struct WorkoutSession {
     private var trackingLossAnnounced = false
     private var restDoneAnnounced = false
     private var lastReadyAnnouncedAt: TimeInterval?
+    private var startPositionSince: TimeInterval?
+    private var readySince: TimeInterval?
+    private var lastTiltWarningAt: TimeInterval?
 
     /// Guidance must hold this long before it is spoken.
     static let guidanceSettleTime: TimeInterval = 1.0
@@ -104,6 +111,10 @@ struct WorkoutSession {
     static let guidanceRepeatInterval: TimeInterval = 20
     /// Tracking must stay lost this long mid-set before guidance is spoken.
     static let trackingLossGrace: TimeInterval = 0.5
+    /// Holding the start position this long while ready (or after rest ends) begins the set.
+    static let startHoldDuration: TimeInterval = 1.0
+    /// The tilt warning is spoken at most this often.
+    static let tiltWarningInterval: TimeInterval = 30
 
     init(exercises: [ExerciseDefinition], initialExercise: ExerciseID?) {
         self.exercises = exercises
@@ -143,6 +154,14 @@ struct WorkoutSession {
             return framingChanged(status, at: now)
         case .repCompleted(let rep):
             return repCompleted(rep, at: now)
+        case .startPositionChanged(let held):
+            startPositionSince = held ? (startPositionSince ?? now) : nil
+            return []
+        case .phoneTiltChanged(let tilted):
+            // Advisory only: counting continues, and the warning never blocks a set.
+            guard tilted, lastTiltWarningAt.map({ now - $0 >= Self.tiltWarningInterval }) ?? true else { return [] }
+            lastTiltWarningAt = now
+            return [.speak(Utterance(text: "Your phone is tilted. Stand it upright so your reps are measured accurately."))]
         case .tick:
             return tick(at: now)
         case .appBackgrounded:
@@ -295,7 +314,7 @@ struct WorkoutSession {
             phase = .resting
             restEndsAt = now + TimeInterval(exercise.restSeconds)
             restDoneAnnounced = false
-            effects.append(.speak(Utterance(text: "Set \(finished) done, \(repPhrase(reps)). Rest, then \(prompt("start").lowercased()) for set \(finished + 1).")))
+            effects.append(.speak(Utterance(text: "Set \(finished) done, \(repPhrase(reps)). Rest up. I'll tell you when it's time for set \(finished + 1).")))
         }
         return effects
     }
@@ -366,11 +385,12 @@ struct WorkoutSession {
         switch phase {
         case .framing where status.isReliable && status.guidance == nil:
             phase = .ready
+            readySince = now
             lastSpokenGuidance = nil
             // Framing near a threshold can flicker; announce readiness once per interval.
             if let last = lastReadyAnnouncedAt, now - last < Self.guidanceRepeatInterval { return [] }
             lastReadyAnnouncedAt = now
-            return [.speak(Utterance(text: "Looks good. \(prompt("start")) when you're ready."))]
+            return [.speak(Utterance(text: "Looks good. \(startPrompt) to start, or \(prompt("start").lowercased())."))]
         case .ready where !status.isReliable || status.guidance != nil:
             phase = .framing
             return []
@@ -410,6 +430,9 @@ struct WorkoutSession {
             lastSpokenGuidance = guidance
             lastGuidanceSpokenAt = now
             return [.speak(Utterance(text: guidance.spokenText))]
+        case .ready:
+            guard let readySince, heldStartPosition(since: readySince, at: now) else { return [] }
+            return beginSet(at: now)
         case .exercising:
             guard !framing.isReliable, !trackingLossAnnounced, let lostAt = trackingLostAt,
                   now - lostAt >= Self.trackingLossGrace else { return [] }
@@ -417,15 +440,27 @@ struct WorkoutSession {
             let guidance = framing.guidance?.spokenText ?? FramingGuidance.stepIntoView.spokenText
             return [.speak(Utterance(text: "I can't see you. \(guidance)"))]
         case .resting:
-            guard let restEndsAt, now >= restEndsAt, !restDoneAnnounced else { return [] }
+            guard let restEndsAt, now >= restEndsAt else { return [] }
+            if heldStartPosition(since: restEndsAt, at: now) { return beginSet(at: now) }
+            guard !restDoneAnnounced else { return [] }
             restDoneAnnounced = true
-            return [.speak(Utterance(text: "Rest is up. \(prompt("start")) for set \(currentSetNumber)."))]
+            return [.speak(Utterance(text: "Rest is up. \(startPrompt) or \(prompt("start").lowercased()) for set \(currentSetNumber)."))]
         default:
             return []
         }
     }
 
     // MARK: - Helpers
+
+    /// The start position has been held long enough, counting only from `phaseStart`.
+    private func heldStartPosition(since phaseStart: TimeInterval, at now: TimeInterval) -> Bool {
+        guard framing.isReliable, let held = startPositionSince else { return false }
+        return now - max(held, phaseStart) >= Self.startHoldDuration
+    }
+
+    private var startPrompt: String {
+        exercise?.guide.startPositionInstruction ?? "Get into the start position"
+    }
 
     private var isPaused: Bool {
         if case .paused = phase { return true }
