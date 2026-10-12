@@ -16,13 +16,13 @@ PostureAnalysisApp/
 ├── PoseEstimation/      # PoseEstimator protocol & AppleVisionPoseEstimator implementation
 ├── PostureAnalysis/    # PostureAnalyzer geometry calculation engine
 ├── ImageImport/         # PhotoValidator & ViewClassifier
-├── Persistence/         # SwiftData entities (AssessmentEntity), ImageStore, BaselineComparisonEngine
+├── Persistence/         # SwiftData entities (AssessmentEntity, SavedExerciseSetEntity), Saved Set & exercise-target models, ImageStore, BaselineComparisonEngine
 ├── Views/               # SwiftUI views (ContentView, HistoryView, LandmarkOverlayView, AssessmentDetailView, DeveloperDebugView)
-│   └── Workout/         # WorkoutCoachView, WorkoutHUDView, WorkoutJointOverlayView, ExerciseGuideView, WorkoutGuideOverlayView (ghost & per-arm thresholds), HoldProgressRingView, MicrophoneStatusView, VoiceCommandsHelpView, WorkoutTipView (coaching tips), WorkoutSelectionView (exercise list & in-camera chooser), ExerciseCompleteCard
+│   └── Workout/         # WorkoutCoachView, WorkoutHUDView, WorkoutJointOverlayView, ExerciseGuideView, WorkoutGuideOverlayView (ghost & per-arm thresholds), HoldProgressRingView, MicrophoneStatusView, VoiceCommandsHelpView, WorkoutTipView (coaching tips), WorkoutSelectionView (Saved Sets & exercise list, in-camera chooser), SavedSetEditorView, ExerciseCompleteCard
 ├── Workout/             # Workout Coach (Beta)
 │   ├── Exercises/       # ExerciseCatalog, ExerciseDefinition, ExerciseAnalyzing, ExerciseGuide; one folder per exercise (ShoulderPress/, HammerCurl/, TricepsExtension/, AirSquat/, DumbbellRow/, PushUp/)
 │   ├── Analysis/        # PoseFrame, ArmGeometry, HysteresisPhaseTracker, FramingEvaluator, LandmarkSmoother, NearArmSelector
-│   ├── Session/         # WorkoutSession (pure reducer) & WorkoutCoachModel (main-actor orchestrator)
+│   ├── Session/         # WorkoutSession (pure reducer), WorkoutPlan (ordered exercise occurrences) & WorkoutCoachModel (main-actor orchestrator)
 │   ├── Coaching/        # CoachingCue, CoachingCueScheduler (pure), WorkoutTipLayout & MotionEnvelope (pure tip placement)
 │   └── Camera/          # PoseFrameSource protocol, WorkoutCameraController, PhoneTiltMonitor
 ├── Voice/               # SpeechCoach & WorkoutAudioSession (speech, ducking); VoiceCommandParser, VoiceCommandHelp, OnDeviceSpeechRecognizer, WorkoutVoiceController, VoicePermissions (hands-free commands)

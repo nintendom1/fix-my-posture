@@ -125,6 +125,10 @@
 		A10000012B00000000000121 /* PushUpExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000121 /* PushUpExercise.swift */; };
 		A10000012B00000000000122 /* PushUpAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000122 /* PushUpAnalyzer.swift */; };
 		A10000012B00000000000123 /* PushUpAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000123 /* PushUpAnalyzerTests.swift */; };
+		A10000012B00000000000125 /* WorkoutPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000125 /* WorkoutPlan.swift */; };
+		A10000012B00000000000126 /* SavedExerciseSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000126 /* SavedExerciseSet.swift */; };
+		A10000012B00000000000127 /* SavedSetEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000127 /* SavedSetEditorView.swift */; };
+		A10000012B00000000000128 /* SavedExerciseSetTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000128 /* SavedExerciseSetTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -258,6 +262,10 @@
 		B10000012B00000000000121 /* PushUpExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushUpExercise.swift; sourceTree = "<group>"; };
 		B10000012B00000000000122 /* PushUpAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushUpAnalyzer.swift; sourceTree = "<group>"; };
 		B10000012B00000000000123 /* PushUpAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushUpAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000125 /* WorkoutPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutPlan.swift; sourceTree = "<group>"; };
+		B10000012B00000000000126 /* SavedExerciseSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedExerciseSet.swift; sourceTree = "<group>"; };
+		B10000012B00000000000127 /* SavedSetEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedSetEditorView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000128 /* SavedExerciseSetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedExerciseSetTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -360,6 +368,7 @@
 				B10000012B00000000000015 /* AssessmentEntity.swift */,
 				B10000012B00000000000016 /* ImageStore.swift */,
 				B10000012B00000000000017 /* BaselineComparisonEngine.swift */,
+				B10000012B00000000000126 /* SavedExerciseSet.swift */,
 			);
 			path = Persistence;
 			sourceTree = "<group>";
@@ -430,6 +439,7 @@
 				B10000012B00000000000114 /* AirSquatAnalyzerTests.swift */,
 				B10000012B00000000000119 /* DumbbellRowAnalyzerTests.swift */,
 				B10000012B00000000000123 /* PushUpAnalyzerTests.swift */,
+				B10000012B00000000000128 /* SavedExerciseSetTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -500,6 +510,7 @@
 			children = (
 				B10000012B00000000000065 /* WorkoutSession.swift */,
 				B10000012B00000000000066 /* WorkoutCoachModel.swift */,
+				B10000012B00000000000125 /* WorkoutPlan.swift */,
 			);
 			path = Session;
 			sourceTree = "<group>";
@@ -544,6 +555,7 @@
 				B10000012B00000000000097 /* WorkoutTipView.swift */,
 				B10000012B00000000000104 /* WorkoutSelectionView.swift */,
 				B10000012B00000000000106 /* ExerciseCompleteCard.swift */,
+				B10000012B00000000000127 /* SavedSetEditorView.swift */,
 			);
 			path = Workout;
 			sourceTree = "<group>";
@@ -783,6 +795,9 @@
 				A10000012B00000000000118 /* DumbbellRowAnalyzer.swift in Sources */,
 				A10000012B00000000000121 /* PushUpExercise.swift in Sources */,
 				A10000012B00000000000122 /* PushUpAnalyzer.swift in Sources */,
+				A10000012B00000000000125 /* WorkoutPlan.swift in Sources */,
+				A10000012B00000000000126 /* SavedExerciseSet.swift in Sources */,
+				A10000012B00000000000127 /* SavedSetEditorView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -808,6 +823,7 @@
 				A10000012B00000000000114 /* AirSquatAnalyzerTests.swift in TestSources */,
 				A10000012B00000000000119 /* DumbbellRowAnalyzerTests.swift in TestSources */,
 				A10000012B00000000000123 /* PushUpAnalyzerTests.swift in TestSources */,
+				A10000012B00000000000128 /* SavedExerciseSetTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

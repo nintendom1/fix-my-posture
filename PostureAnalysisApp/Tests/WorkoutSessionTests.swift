@@ -210,6 +210,73 @@ final class WorkoutSessionTests: XCTestCase {
         XCTAssertEqual(session.progress[oneArm.id]?.setReps.count, 4, "One entry per arm per set.")
     }
 
+    func testSavedSetRestsThenSelectsTheNextExerciseWithoutCounting() {
+        let curl = HammerCurlExercise.definition()
+        let plan = WorkoutPlan(name: "Upper Body", items: [
+            WorkoutPlanItem(id: UUID(), exerciseID: press.id, sets: 1, targetReps: 2...2),
+            WorkoutPlanItem(id: UUID(), exerciseID: curl.id, sets: 1, targetReps: 3...3)
+        ])
+        let reliable = FramingStatus(isReliable: true, guidance: nil)
+        var session = WorkoutSession(exercises: [press, curl], initialExercise: nil, plan: plan)
+        _ = session.handle(.opened, at: 0)
+        _ = session.handle(.framingChanged(reliable), at: 1)
+        XCTAssertEqual(session.exercise?.autoCompleteReps, 2, "The Saved Set's reps apply for this workout.")
+        XCTAssertEqual(press.autoCompleteReps, 10, "The exercise's own default is unchanged.")
+        XCTAssertEqual(session.planPositionLabel, "Exercise 1 of 2")
+
+        _ = session.handle(.command(.start), at: 2)
+        _ = session.handle(.repCompleted(rep(epoch: session.analyzerEpoch)), at: 3)
+        let effects = session.handle(.repCompleted(rep(epoch: session.analyzerEpoch)), at: 4)
+        XCTAssertEqual(session.phase, .resting)
+        XCTAssertEqual(session.exerciseID, curl.id, "The next exercise is selected during rest.")
+        XCTAssertTrue(session.isRestingBeforeNextExercise)
+        XCTAssertTrue(spoken(effects).last?.contains("complete. Up next: hammer curl, 1 set of 3. Rest up.") ?? false)
+        XCTAssertEqual(session.planRecords[plan.items[0].id]?.outcome, .completed)
+
+        _ = session.handle(.tick, at: 4 + Double(press.restSeconds) + 1)
+        XCTAssertEqual(session.phase, .framing, "Rest ends in the next exercise's setup.")
+        _ = session.handle(.framingChanged(reliable), at: 100)
+        XCTAssertEqual(session.phase, .ready)
+        XCTAssertFalse(session.isCounting, "Counting waits for a start.")
+
+        _ = session.handle(.command(.start), at: 101)
+        for time in 102...104 { _ = session.handle(.repCompleted(rep(epoch: session.analyzerEpoch)), at: Double(time)) }
+        XCTAssertEqual(session.phase, .exerciseComplete)
+        XCTAssertEqual(session.planRecords[plan.items[1].id]?.outcome, .completed)
+    }
+
+    func testSavedSetSkipsAndCountsEachOccurrenceSeparately() {
+        let curl = HammerCurlExercise.definition()
+        let plan = WorkoutPlan(name: "Mixed", items: [
+            WorkoutPlanItem(id: UUID(), exerciseID: press.id, sets: 2, targetReps: 8...10),
+            WorkoutPlanItem(id: UUID(), exerciseID: curl.id, sets: 1, targetReps: 10...10),
+            WorkoutPlanItem(id: UUID(), exerciseID: press.id, sets: 1, targetReps: 12...12)
+        ])
+        var session = WorkoutSession(exercises: [press, curl], initialExercise: nil, plan: plan)
+        _ = session.handle(.opened, at: 0)
+        _ = session.handle(.framingChanged(FramingStatus(isReliable: true, guidance: nil)), at: 1)
+        _ = session.handle(.command(.start), at: 2)
+        _ = session.handle(.command(.nextSet), at: 3)
+        XCTAssertEqual(session.phase, .resting, "Rest between sets of the same exercise is unchanged.")
+
+        _ = session.handle(.command(.selectExercise(curl.id)), at: 4)
+        XCTAssertEqual(session.exerciseID, press.id, "Switching away from a Saved Set needs the chooser.")
+
+        _ = session.handle(.command(.nextExercise), at: 5)
+        XCTAssertEqual(session.exerciseID, curl.id)
+        XCTAssertEqual(session.phase, .framing)
+        XCTAssertEqual(session.planRecords[plan.items[0].id], PlanItemRecord(outcome: .skipped, setReps: [0]))
+
+        _ = session.handle(.command(.nextExercise), at: 6)
+        XCTAssertEqual(session.exerciseID, press.id)
+        XCTAssertEqual(session.currentSetNumber, 1, "The second press occurrence counts its own sets.")
+        XCTAssertEqual(session.exercise?.targetReps, 12...12)
+
+        _ = session.handle(.command(.nextExercise), at: 7)
+        XCTAssertEqual(session.phase, .exerciseComplete)
+        XCTAssertEqual(session.planRecords.values.filter { $0.outcome == .skipped }.count, 3)
+    }
+
     /// Opened and reliably framed, waiting in ready at t = 1.
     private func readySession() -> WorkoutSession {
         var session = WorkoutSession(exercises: [press], initialExercise: press.id)

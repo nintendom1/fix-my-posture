@@ -16,8 +16,8 @@ struct WorkoutCoachView: View {
     /// Top and bottom HUD frames, which tips keep clear of.
     @State private var hudRects: [CGRect] = []
 
-    init(initialExercise: ExerciseID? = nil) {
-        _model = StateObject(wrappedValue: WorkoutCoachModel(initialExercise: initialExercise))
+    init(initialExercise: ExerciseID? = nil, plan: WorkoutPlan? = nil) {
+        _model = StateObject(wrappedValue: WorkoutCoachModel(initialExercise: initialExercise, plan: plan))
     }
 
     var body: some View {
@@ -290,6 +290,17 @@ private struct WorkoutSummaryView: View {
         VStack(spacing: 16) {
             Text("Workout Summary")
                 .font(.title2.bold())
+            if let plan = session.plan {
+                Text(plan.name)
+                    .font(.headline)
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(plan.items.enumerated()), id: \.element.id) { index, item in
+                        PlanItemSummaryRow(index: index, item: item, record: session.planRecords[item.id],
+                                           exercise: session.exercises.first { $0.id == item.exerciseID })
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
             let finished = session.exercises.filter { !(session.progress[$0.id]?.setReps.isEmpty ?? true) }
             if finished.isEmpty {
                 Text("No sets recorded.")

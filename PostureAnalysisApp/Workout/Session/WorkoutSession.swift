@@ -30,8 +30,10 @@ enum WorkoutCommand: Equatable {
     case nextSet
     case changeExercise
     case selectExercise(ExerciseID)
-    /// After the last set, does the exercise again from set 1.
+    /// After the last set, does the exercise (or the whole Saved Set) again from the start.
     case anotherRound
+    /// In a Saved Set, skips the rest of this exercise and moves to the next one.
+    case nextExercise
     case cancel
     case repCount
     case whichSet
@@ -118,6 +120,15 @@ struct WorkoutSession {
     private(set) var voiceControlActive = false
     /// The workout was ended from the completion card, which already showed the results.
     private(set) var endedAfterCompletion = false
+    /// Exercises run in order, such as a Saved Set; nil for a single exercise.
+    let plan: WorkoutPlan?
+    private(set) var planIndex = 0
+    /// What happened to each plan occurrence, by item id.
+    private(set) var planRecords: [UUID: PlanItemRecord] = [:]
+    /// False once the user leaves the plan for another exercise.
+    private(set) var isFollowingPlan = false
+    /// Resting between plan exercises; the next exercise is already selected.
+    private(set) var isRestingBeforeNextExercise = false
 
     private var guidanceChangedAt: TimeInterval?
     private var lastSpokenGuidance: FramingGuidance?
@@ -129,6 +140,7 @@ struct WorkoutSession {
     private var startPositionSince: TimeInterval?
     private var readySince: TimeInterval?
     private var lastTiltWarningAt: TimeInterval?
+    private var restLeadsToNextExercise = false
     private var coaching: CoachingCueScheduler
     private var isCoachSpeaking = false
     private var lastTipID = 0
@@ -144,16 +156,38 @@ struct WorkoutSession {
     /// The tilt warning is spoken at most this often.
     static let tiltWarningInterval: TimeInterval = 30
 
-    init(exercises: [ExerciseDefinition], initialExercise: ExerciseID?) {
+    init(exercises: [ExerciseDefinition], initialExercise: ExerciseID?, plan: WorkoutPlan? = nil) {
         self.exercises = exercises
-        let initial = initialExercise.flatMap { id in exercises.contains { $0.id == id } ? id : nil }
+        // Occurrences whose exercise isn't available are skipped.
+        let usable = plan.flatMap { plan in plan.items.firstIndex { item in exercises.contains { $0.id == item.exerciseID } } }
+        self.plan = usable == nil ? nil : plan
+        planIndex = usable ?? 0
+        isFollowingPlan = usable != nil
+        let requested = usable.flatMap { plan?.items[$0].exerciseID } ?? initialExercise
+        let initial = requested.flatMap { id in exercises.contains { $0.id == id } ? id : nil }
         exerciseID = initial
         phase = initial == nil ? .choosingExercise : .framing
-        coaching = Self.scheduler(for: initial.flatMap { id in exercises.first { $0.id == id } })
+        coaching = CoachingCueScheduler(cues: [], reminders: [])
+        coaching = Self.scheduler(for: exercise)
     }
 
+    /// The selected exercise, with the plan occurrence's sets and reps when following a plan.
     var exercise: ExerciseDefinition? {
-        exerciseID.flatMap { id in exercises.first { $0.id == id } }
+        guard let id = exerciseID, let base = exercises.first(where: { $0.id == id }) else { return nil }
+        if let item = currentPlanItem, item.exerciseID == id { return base.withTarget(sets: item.sets, reps: item.targetReps) }
+        return base
+    }
+
+    /// The plan occurrence in progress or up next.
+    var currentPlanItem: WorkoutPlanItem? {
+        guard isFollowingPlan, let plan, plan.items.indices.contains(planIndex) else { return nil }
+        return plan.items[planIndex]
+    }
+
+    /// "Exercise 2 of 5" while following a plan.
+    var planPositionLabel: String? {
+        guard let plan, isFollowingPlan else { return nil }
+        return "Exercise \(planIndex + 1) of \(plan.items.count)"
     }
 
     /// Reps both arms have completed in the current set.
@@ -317,13 +351,23 @@ struct WorkoutSession {
                 if case .changingExercise(let previous) = phase { return returnFromChange(to: previous, at: now) }
                 return hint("You're already on \(exercise?.spokenName ?? "this exercise").")
             }
+            if let plan, isFollowingPlan {
+                // Leaving a Saved Set skips the rest of it, so it only happens from the chooser, which says so.
+                guard case .changingExercise = phase else {
+                    return hint("You're in \(plan.name). \(prompt("next exercise")) to skip ahead, or \(prompt("change exercise").lowercased()) to leave it.")
+                }
+                leavePlan()
+            }
             return switchExercise(to: id)
         case .cancel:
             if case .changingExercise(let previous) = phase { return returnFromChange(to: previous, at: now) }
             return []
         case .anotherRound:
             guard phase == .exerciseComplete else { return hint("Another round is available after the last set.") }
+            if plan != nil, isFollowingPlan { return restartPlan(at: now) }
             return startAnotherRound(at: now)
+        case .nextExercise:
+            return skipToNextExercise(at: now)
         case .repCount:
             return [.speak(Utterance(text: repCountReply, isInstruction: false))]
         case .whichSet:
@@ -361,6 +405,8 @@ struct WorkoutSession {
         sideReps = [.left: 0, .right: 0]
         trackingLostAt = framing.isReliable ? nil : now
         trackingLossAnnounced = false
+        restLeadsToNextExercise = false
+        isRestingBeforeNextExercise = false
         let line = "Set \(currentSetNumber) of \(exercise.sets). Go."
         let effects = newAnalyzer() + clearFeedback() + setCounting(framing.isReliable) + [.speak(Utterance(text: line))]
         return effects + tipEffects(coaching.beginSet(at: now))
@@ -383,7 +429,16 @@ struct WorkoutSession {
         let finished = completedSets(for: exercise.id)
         var effects = setCounting(false) + newAnalyzer() + clearFeedback()
         let done = exercise.perSide ? (finished % 2 == 1 ? "Left arm done" : "Right arm done") : "Set \(finished) done"
-        if finished >= exercise.setEntries {
+        if finished >= exercise.setEntries, let item = currentPlanItem, let plan {
+            planRecords[item.id] = PlanItemRecord(outcome: .completed, setReps: progress[exercise.id]?.roundSetReps ?? [])
+            let lead = "\(done), \(repPhrase(reps)). \(exercise.displayName) complete."
+            if let next = nextPlanIndex(after: planIndex) {
+                return effects + advancePlan(to: next, at: now, restSeconds: exercise.restSeconds, lead: lead)
+            }
+            phase = .exerciseComplete
+            restEndsAt = nil
+            effects.append(.speak(Utterance(text: "\(lead) \(plan.name) complete. \(completePrompt)")))
+        } else if finished >= exercise.setEntries {
             phase = .exerciseComplete
             restEndsAt = nil
             effects.append(.speak(Utterance(text: "\(done), \(repPhrase(reps)). \(exercise.displayName) complete. \(completePrompt)")))
@@ -429,6 +484,95 @@ struct WorkoutSession {
         }
         let line = "Round \(record.round) of \(exercise.spokenName). \(beginPrompt)."
         return newAnalyzer() + clearFeedback() + [.speak(Utterance(text: line))]
+    }
+
+    // MARK: - Plans
+
+    /// The next occurrence whose exercise is available, after `index`.
+    private func nextPlanIndex(after index: Int) -> Int? {
+        guard let plan else { return nil }
+        return plan.items.indices.first { candidate in
+            candidate > index && exercises.contains { $0.id == plan.items[candidate].exerciseID }
+        }
+    }
+
+    /// Selects the plan occurrence at `index`. With `restSeconds`, the rest timer runs first and the next
+    /// exercise is announced; without, it goes straight to setup. Counting never starts on its own.
+    private mutating func advancePlan(to index: Int, at now: TimeInterval, restSeconds: Int?, lead: String) -> [WorkoutEffect] {
+        guard let plan, plan.items.indices.contains(index) else { return [] }
+        let item = plan.items[index]
+        planIndex = index
+        exerciseID = item.exerciseID
+        // This occurrence counts its own sets, even when the exercise appeared earlier.
+        var record = progress[item.exerciseID, default: ExerciseProgress()]
+        record.roundStart = record.setReps.count
+        progress[item.exerciseID] = record
+        sideReps = [.left: 0, .right: 0]
+        framing = .lost
+        guidanceChangedAt = nil
+        lastSpokenGuidance = nil
+        coaching = Self.scheduler(for: exercise)
+        guard let next = exercise else { return [] }
+        if let restSeconds {
+            phase = .resting
+            restEndsAt = now + TimeInterval(restSeconds)
+            restDoneAnnounced = false
+            restLeadsToNextExercise = true
+            isRestingBeforeNextExercise = true
+            let target = "\(next.sets == 1 ? "1 set" : "\(next.sets) sets") of \(next.spokenTarget)"
+            return [.speak(Utterance(text: "\(lead) Up next: \(next.spokenName), \(target). Rest up."))]
+        }
+        phase = .framing
+        restEndsAt = nil
+        restLeadsToNextExercise = false
+        isRestingBeforeNextExercise = false
+        return [.speak(Utterance(text: "\(lead) \(next.setupLine)"))]
+    }
+
+    /// Skips the rest of the current occurrence, keeping any finished sets, and moves on.
+    private mutating func skipToNextExercise(at now: TimeInterval) -> [WorkoutEffect] {
+        guard let plan, isFollowingPlan, let item = currentPlanItem else {
+            return hint("Next exercise works during a Saved Set.")
+        }
+        switch phase {
+        case .exerciseComplete, .ended, .choosingExercise:
+            return hint(completePrompt)
+        default:
+            break
+        }
+        if planRecords[item.id]?.outcome == nil {
+            planRecords[item.id] = PlanItemRecord(outcome: .skipped, setReps: progress[item.exerciseID]?.roundSetReps ?? [])
+        }
+        let effects = setCounting(false) + newAnalyzer() + clearFeedback()
+        if let next = nextPlanIndex(after: planIndex) {
+            let name = exercises.first { $0.id == plan.items[next].exerciseID }?.spokenName ?? "the next exercise"
+            return effects + advancePlan(to: next, at: now, restSeconds: nil, lead: "Skipping to \(name).")
+        }
+        sideReps = [.left: 0, .right: 0]
+        phase = .exerciseComplete
+        restEndsAt = nil
+        isRestingBeforeNextExercise = false
+        return effects + [.speak(Utterance(text: "\(plan.name) complete. \(completePrompt)"))]
+    }
+
+    /// The whole Saved Set again from its first exercise; earlier sets stay in the summary.
+    private mutating func restartPlan(at now: TimeInterval) -> [WorkoutEffect] {
+        guard let plan, let first = plan.items.indices.first(where: { index in exercises.contains { $0.id == plan.items[index].exerciseID } }) else { return [] }
+        planRecords = [:]
+        let effects = setCounting(false) + newAnalyzer() + clearFeedback()
+        return effects + advancePlan(to: first, at: now, restSeconds: nil, lead: "Another round of \(plan.name).")
+    }
+
+    /// Choosing a different exercise ends the plan's order; what's left of it is skipped.
+    private mutating func leavePlan() {
+        guard let plan else { return }
+        for item in plan.items[planIndex...] where planRecords[item.id]?.outcome == nil {
+            let done = item.id == currentPlanItem?.id ? (progress[item.exerciseID]?.roundSetReps ?? []) : []
+            planRecords[item.id] = PlanItemRecord(outcome: .skipped, setReps: done)
+        }
+        isFollowingPlan = false
+        isRestingBeforeNextExercise = false
+        restLeadsToNextExercise = false
     }
 
     private mutating func switchExercise(to id: ExerciseID) -> [WorkoutEffect] {
@@ -558,6 +702,19 @@ struct WorkoutSession {
             return isCounting ? tipEffects(coaching.tick(speaking: isCoachSpeaking, at: now)) : []
         case .resting:
             guard let restEndsAt, now >= restEndsAt else { return [] }
+            if restLeadsToNextExercise {
+                // Rest before the next plan exercise ends in its normal setup; counting waits for a start.
+                restLeadsToNextExercise = false
+                isRestingBeforeNextExercise = false
+                self.restEndsAt = nil
+                if framing.isReliable, framing.guidance == nil {
+                    phase = .ready
+                    readySince = now
+                } else {
+                    phase = .framing
+                }
+                return [.speak(Utterance(text: "Rest is up. \(exercise?.setupLine ?? "")"))]
+            }
             if startHoldProgress(at: now) == 1 { return beginSet(at: now) }
             guard !restDoneAnnounced else { return [] }
             restDoneAnnounced = true
@@ -664,13 +821,16 @@ struct WorkoutSession {
         guard let exercise else { return "No exercise selected yet." }
         let finished = setsDone(for: exercise)
         let arm = currentSide.map { $0 == .left ? " Left arm." : " Right arm." } ?? ""
+        let position = planPositionLabel.map { "\($0). " } ?? ""
         switch phase {
+        case .resting where isRestingBeforeNextExercise:
+            return "\(position)Up next: \(exercise.spokenName), set 1 of \(exercise.sets)."
         case .resting:
-            return "Set \(finished) of \(exercise.sets) done. Set \(finished + 1) is next."
+            return "\(position)Set \(finished) of \(exercise.sets) done. Set \(finished + 1) is next."
         case .exerciseComplete:
             return "All \(exercise.sets) sets of \(exercise.spokenName) are done."
         default:
-            return "Set \(currentSetNumber) of \(exercise.sets).\(arm)"
+            return "\(position)Set \(currentSetNumber) of \(exercise.sets).\(arm)"
         }
     }
 
@@ -685,6 +845,8 @@ struct WorkoutSession {
         case .choosingExercise, .changingExercise:
             return exercises.map { .selectExercise($0.id) } + (phase == .choosingExercise ? [] : [.cancel])
         case .framing, .ready: return [.start, .repeatLast]
+        case .exercising where isFollowingPlan: return [.pause, .repCount, .nextSet, .nextExercise]
+        case .resting where isFollowingPlan: return [.start, .whichSet, .nextExercise]
         case .exercising: return [.pause, .repCount, .nextSet, .restartSet]
         case .paused: return [.resume, .restartSet, .nextSet]
         case .resting: return [.start, .whichSet]
