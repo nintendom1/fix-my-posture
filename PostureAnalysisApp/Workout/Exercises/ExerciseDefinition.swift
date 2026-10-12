@@ -25,6 +25,14 @@ struct FocusSegment: Hashable {
     let style: Style
 }
 
+/// Where the user faces relative to the phone.
+enum ExerciseCameraView: Equatable {
+    /// Facing the phone; both arms visible.
+    case front
+    /// Side-on to the phone; the arm nearer the phone is tracked.
+    case side
+}
+
 /// Everything the coach needs to run one exercise. Register new exercises in `ExerciseCatalog.all`.
 struct ExerciseDefinition: Identifiable {
     let id: ExerciseID
@@ -59,6 +67,9 @@ struct ExerciseDefinition: Identifiable {
     let reminders: [CoachingCue]
     /// Where the limbs travel during a rep; tips stay out of it.
     let motionEnvelope: MotionEnvelope
+    var cameraView: ExerciseCameraView = .front
+    /// When not empty, tracking also needs one of these sets fully visible, such as either arm from the side.
+    var anyOfRequiredJoints: [Set<LandmarkType>] = []
     let makeAnalyzer: (_ epoch: Int) -> ExerciseAnalyzing
 
     var focusJoints: Set<LandmarkType> {

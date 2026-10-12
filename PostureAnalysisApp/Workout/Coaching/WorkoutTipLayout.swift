@@ -104,14 +104,16 @@ enum WorkoutTipLayout {
     static func envelopeRect(_ envelope: MotionEnvelope, overlay: WorkoutOverlayState, metrics: GuideMetrics?,
                              containerSize: CGSize) -> CGRect? {
         let imageSize = overlay.imageSize
-        guard imageSize.width > 0, imageSize.height > 0,
-              let left = overlay.joints[.leftShoulder], !left.isStale,
-              let right = overlay.joints[.rightShoulder], !right.isStale else { return nil }
+        guard imageSize.width > 0, imageSize.height > 0 else { return nil }
         let fit = CoordinateConverter.aspectFitRect(for: imageSize, in: containerSize)
         guard fit.width > 0 else { return nil }
-        let shoulders = [left, right].map {
-            CoordinateConverter.normalizedToContainer(normalized: $0.location, imageSize: imageSize, containerSize: containerSize)
-        }
+        // From the side only one shoulder may be tracked; the envelope then surrounds it.
+        var shoulders = [overlay.joints[.leftShoulder], overlay.joints[.rightShoulder]]
+            .compactMap { $0 }.filter { !$0.isStale }.map {
+                CoordinateConverter.normalizedToContainer(normalized: $0.location, imageSize: imageSize, containerSize: containerSize)
+            }
+        guard let first = shoulders.first else { return nil }
+        if shoulders.count == 1 { shoulders.append(first) }
         let armLength: CGFloat
         if let metrics {
             armLength = (metrics.upperArm + metrics.forearm) * fit.width / imageSize.width

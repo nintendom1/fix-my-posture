@@ -8,11 +8,15 @@ enum FramingGuidance: String, Equatable {
     case moreHeadroom
     case moveLeft
     case moveRight
+    case stepIntoViewSideOn
+    case stepBackSideOn
 
     var spokenText: String {
         switch self {
         case .stepIntoView: return "Step into view, facing the phone."
         case .stepBack: return "Step back until both arms and shoulders are in view."
+        case .stepIntoViewSideOn: return "Step into view, standing side-on to the phone."
+        case .stepBackSideOn: return "Step back until your arm and head are in view."
         case .moreHeadroom: return "Step back a little more so there's room above your hands."
         case .moveLeft: return "Move a little to your left."
         case .moveRight: return "Move a little to your right."
@@ -23,6 +27,8 @@ enum FramingGuidance: String, Equatable {
         switch self {
         case .stepIntoView: return "Step into view"
         case .stepBack: return "Step back: show both arms"
+        case .stepIntoViewSideOn: return "Step into view, side-on"
+        case .stepBackSideOn: return "Step back: show your arm"
         case .moreHeadroom: return "Step back: leave room overhead"
         case .moveLeft: return "Move a little to your left"
         case .moveRight: return "Move a little to your right"
@@ -56,22 +62,31 @@ struct FramingConfiguration {
 /// Decides tracking reliability and framing guidance from an exercise's required joints.
 struct FramingEvaluator {
     let requiredJoints: Set<LandmarkType>
+    /// When not empty, one of these sets must also be fully visible.
+    let anyOfRequiredJoints: [Set<LandmarkType>]
     /// Overhead room needed above the shoulders, in measured arm lengths; nil skips the check.
     let headroomArmLengths: CGFloat?
+    let cameraView: ExerciseCameraView
     let configuration: FramingConfiguration
     private var presentSince: TimeInterval?
     private var lastPresent: TimeInterval?
     private(set) var isReliable = false
 
-    init(requiredJoints: Set<LandmarkType>, headroomArmLengths: CGFloat?, configuration: FramingConfiguration = FramingConfiguration()) {
+    init(requiredJoints: Set<LandmarkType>, anyOfRequiredJoints: [Set<LandmarkType>] = [], headroomArmLengths: CGFloat?,
+         cameraView: ExerciseCameraView = .front, configuration: FramingConfiguration = FramingConfiguration()) {
         self.requiredJoints = requiredJoints
+        self.anyOfRequiredJoints = anyOfRequiredJoints
         self.headroomArmLengths = headroomArmLengths
+        self.cameraView = cameraView
         self.configuration = configuration
     }
 
     mutating func evaluate(_ frame: PoseFrame) -> FramingStatus {
         let time = frame.timestamp
-        let present = requiredJoints.allSatisfy { frame.point($0, minimumConfidence: configuration.minimumConfidence) != nil }
+        func visible(_ joints: Set<LandmarkType>) -> Bool {
+            joints.allSatisfy { frame.point($0, minimumConfidence: configuration.minimumConfidence) != nil }
+        }
+        let present = visible(requiredJoints) && (anyOfRequiredJoints.isEmpty || anyOfRequiredJoints.contains(where: visible))
         if present {
             let since = presentSince ?? time
             presentSince = since
@@ -93,8 +108,9 @@ struct FramingEvaluator {
     private func guidance(for frame: PoseFrame, requiredPresent: Bool) -> FramingGuidance? {
         let confidence = configuration.minimumConfidence
         let visible = frame.pose.landmarks.values.filter { $0.confidence >= confidence }
-        guard visible.count >= configuration.minimumBodyJoints else { return .stepIntoView }
-        guard requiredPresent else { return .stepBack }
+        let sideOn = cameraView == .side
+        guard visible.count >= configuration.minimumBodyJoints else { return sideOn ? .stepIntoViewSideOn : .stepIntoView }
+        guard requiredPresent else { return sideOn ? .stepBackSideOn : .stepBack }
 
         if let headroomArmLengths {
             let arms = BodySide.allCases.compactMap { ArmGeometry.arm($0, in: frame, minimumConfidence: confidence) }

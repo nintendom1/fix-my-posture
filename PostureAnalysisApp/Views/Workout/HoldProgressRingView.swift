@@ -47,18 +47,20 @@ struct HoldProgressRingView: View {
         let points = overlay.joints.values.filter { !$0.isStale }.map {
             CoordinateConverter.normalizedToContainer(normalized: $0.location, imageSize: imageSize, containerSize: size)
         }
-        guard let left = overlay.joints[.leftShoulder], let right = overlay.joints[.rightShoulder],
-              let minX = points.map(\.x).min(), let maxX = points.map(\.x).max() else { return nil }
-        let fit = CoordinateConverter.aspectFitRect(for: imageSize, in: size)
-        let shoulders = [left, right].map {
+        // From the side only one shoulder may be tracked.
+        let shoulders = [overlay.joints[.leftShoulder], overlay.joints[.rightShoulder]].compactMap { $0 }.map {
             CoordinateConverter.normalizedToContainer(normalized: $0.location, imageSize: imageSize, containerSize: size)
         }
+        guard !shoulders.isEmpty, let minX = points.map(\.x).min(), let maxX = points.map(\.x).max() else { return nil }
+        let fit = CoordinateConverter.aspectFitRect(for: imageSize, in: size)
         let radius = Self.diameter / 2
         let rightRoom = fit.maxX - maxX
         let leftRoom = minX - fit.minX
         let x = rightRoom >= leftRoom ? maxX + Self.gap + radius : minX - Self.gap - radius
-        let shoulderWidth = abs(shoulders[0].x - shoulders[1].x)
-        let y = (shoulders[0].y + shoulders[1].y) / 2 + shoulderWidth * 0.6
+        let shoulderWidth = shoulders.count > 1 ? abs(shoulders[0].x - shoulders[1].x) : 0
+        // Chest height: below the shoulders by a share of their width, or a fixed drop from the side.
+        let drop = shoulders.count > 1 ? shoulderWidth * 0.6 : 40
+        let y = shoulders.map(\.y).reduce(0, +) / CGFloat(shoulders.count) + drop
         return CGPoint(x: min(max(x, fit.minX + radius + 8), fit.maxX - radius - 8),
                        y: min(max(y, fit.minY + radius + 8), fit.maxY - radius - 8))
     }

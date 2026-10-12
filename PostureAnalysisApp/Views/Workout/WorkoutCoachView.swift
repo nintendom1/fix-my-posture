@@ -103,7 +103,8 @@ struct WorkoutCoachView: View {
                 switch model.session.phase {
                 case .ready:
                     if let overlay = model.overlay, let metrics = model.guideMetrics, let exercise = model.session.exercise {
-                        WorkoutGhostOverlayView(overlay: overlay, metrics: metrics, motion: exercise.guide.motion)
+                        WorkoutGhostOverlayView(overlay: overlay, metrics: metrics, motion: exercise.guide.motion,
+                                                cameraView: exercise.cameraView)
                             .frame(width: geo.size.width, height: geo.size.height)
                     }
                 case .exercising, .paused:

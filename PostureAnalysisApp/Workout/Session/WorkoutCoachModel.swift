@@ -24,6 +24,10 @@ struct GuideMetrics: Equatable {
     static let forearmToShoulderWidth: CGFloat = 0.72
     /// Measured segments outside this shoulder-width-relative range are treated as noise.
     static let plausibleSegmentRatio: ClosedRange<CGFloat> = 0.45...1.4
+    /// From the side, shoulder width vanishes, so segments are judged against torso length instead.
+    static let upperArmToTorso: CGFloat = 0.53
+    static let forearmToTorso: CGFloat = 0.47
+    static let plausibleTorsoRatio: ClosedRange<CGFloat> = 0.3...0.9
     static let smoothing: CGFloat = 0.25
 }
 
@@ -434,18 +438,15 @@ final class WorkoutCoachModel: ObservableObject {
     /// rejects implausible segments and stands in until the arms are measured.
     private func updateGuideMetrics(_ frame: PoseFrame) {
         let confidence = FramingConfiguration().minimumConfidence
-        guard let left = frame.point(.leftShoulder, minimumConfidence: confidence),
-              let right = frame.point(.rightShoulder, minimumConfidence: confidence) else { return }
-        let shoulderWidth = ArmGeometry.distance(left, right)
-        guard shoulderWidth > 1 else { return }
+        guard let reference = metricsReference(frame, confidence: confidence) else { return }
         let arms = BodySide.allCases.compactMap { ArmGeometry.arm($0, in: frame, minimumConfidence: confidence) }
         func measured(_ lengths: [CGFloat], typical: CGFloat) -> CGFloat {
-            let plausible = lengths.filter { GuideMetrics.plausibleSegmentRatio.contains($0 / shoulderWidth) }
-            guard !plausible.isEmpty else { return shoulderWidth * typical }
+            let plausible = lengths.filter { reference.plausible.contains($0 / reference.length) }
+            guard !plausible.isEmpty else { return reference.length * typical }
             return plausible.reduce(0, +) / CGFloat(plausible.count)
         }
-        let sample = GuideMetrics(upperArm: measured(arms.map(\.upperArmLength), typical: GuideMetrics.upperArmToShoulderWidth),
-                                  forearm: measured(arms.map(\.forearmLength), typical: GuideMetrics.forearmToShoulderWidth))
+        let sample = GuideMetrics(upperArm: measured(arms.map(\.upperArmLength), typical: reference.upperArm),
+                                  forearm: measured(arms.map(\.forearmLength), typical: reference.forearm))
         guard let previous = guideMetrics else {
             guideMetrics = sample
             return
@@ -453,6 +454,28 @@ final class WorkoutCoachModel: ObservableObject {
         let k = GuideMetrics.smoothing
         guideMetrics = GuideMetrics(upperArm: previous.upperArm + (sample.upperArm - previous.upperArm) * k,
                                     forearm: previous.forearm + (sample.forearm - previous.forearm) * k)
+    }
+
+    /// The body length arm segments are checked against: shoulder width from the front, torso length
+    /// (shoulder to hip on either side) from the side.
+    private func metricsReference(_ frame: PoseFrame, confidence: Double)
+        -> (length: CGFloat, upperArm: CGFloat, forearm: CGFloat, plausible: ClosedRange<CGFloat>)? {
+        if session.exercise?.cameraView == .side {
+            for side in BodySide.allCases {
+                guard let shoulder = frame.point(side.shoulder, minimumConfidence: confidence),
+                      let hip = frame.point(side.hip, minimumConfidence: confidence) else { continue }
+                let torso = ArmGeometry.distance(shoulder, hip)
+                if torso > 1 {
+                    return (torso, GuideMetrics.upperArmToTorso, GuideMetrics.forearmToTorso, GuideMetrics.plausibleTorsoRatio)
+                }
+            }
+            return nil
+        }
+        guard let left = frame.point(.leftShoulder, minimumConfidence: confidence),
+              let right = frame.point(.rightShoulder, minimumConfidence: confidence) else { return nil }
+        let width = ArmGeometry.distance(left, right)
+        guard width > 1 else { return nil }
+        return (width, GuideMetrics.upperArmToShoulderWidth, GuideMetrics.forearmToShoulderWidth, GuideMetrics.plausibleSegmentRatio)
     }
 
     private func updatePhoneTilt(at now: TimeInterval) {
@@ -467,7 +490,9 @@ final class WorkoutCoachModel: ObservableObject {
 
     private func rebuildTracking(for exercise: ExerciseDefinition) {
         framingEvaluator = FramingEvaluator(requiredJoints: exercise.requiredJoints,
-                                            headroomArmLengths: exercise.headroomArmLengths)
+                                            anyOfRequiredJoints: exercise.anyOfRequiredJoints,
+                                            headroomArmLengths: exercise.headroomArmLengths,
+                                            cameraView: exercise.cameraView)
         framingExerciseID = exercise.id
         // The previous exercise's lines and readings must not linger after a switch.
         armReadings = [:]
