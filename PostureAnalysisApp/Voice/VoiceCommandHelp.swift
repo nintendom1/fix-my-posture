@@ -55,7 +55,10 @@ enum VoiceCommandHelp {
                 (.unmuteCoach, "Turns the coach's voice back on."),
                 (.muteMicrophone, "Stops listening. Tap the microphone to turn it back on.")
             ])),
-            Section(title: "Finish", entries: entries([(.endWorkout, "Ends the workout and shows your summary.")]))
+            Section(title: "Finish", entries: entries([
+                (.anotherRound, "After the last set, does the exercise again from set 1."),
+                (.endWorkout, "Ends the workout and shows your summary.")
+            ]))
         ]
     }
 

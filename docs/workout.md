@@ -38,6 +38,7 @@ Analysis always uses the original unmirrored pixel geometry. Only the overlay is
 Phases: `choosingExercise`, `framing`, `ready`, `exercising`, `paused(user | background | interruption)`, `resting`, `changingExercise(previous)`, `exerciseComplete`, and `ended`.
 
 - **Entry.** Opening the coach shows `WorkoutSelectionView`, a list of every exercise with its sets × reps, before the camera starts. Picking one opens the camera with that exercise in `framing`. Closing the camera screen returns to the list. `choosingExercise` remains only for a session started without an exercise.
+- **Completion.** When the last set of an exercise finishes, a card fades in over the camera (instantly with Reduce Motion). It shows "<Exercise> complete", this round's reps per set and in total, and anything else done in the workout. Its buttons are **Another Round**, **Choose Exercise** (shown when there are other exercises), and **End Workout**. The coach says the same choices: "Say another round, change exercise, or end workout", or "Tap Another Round, Choose Exercise, or End Workout" without voice.
 - **Changing exercise.** Saying "change exercise" enters `changingExercise` and shows an exercise chooser over the camera, with each exercise's sets and how many are done. Pick one by voice or tap, or cancel to return to where you were. The ☰ menu lists the exercises too, with a checkmark on the current one. Picking another one mid-set asks "Discard this set's N reps?" when the set has reps.
 
 Tracking reliability is a separate input. While exercising and unreliable, counting is suspended without changing phase. Framing guidance is spoken once per loss, and counting resumes automatically.
@@ -50,7 +51,8 @@ Tracking reliability is a separate input. While exercising and unreliable, count
 | Restart set | Resets the current set's reps and starts a fresh analyzer. Nothing else changes. |
 | Next set | While exercising or paused, completes the set and rests. From resting, starts the next set. After the last set, the exercise is complete. |
 | Exercise menu / change exercise | Selecting another exercise discards an in-progress set (finished sets are kept per exercise; returning picks up at the next set) and clears the analyzer, smoothing, threshold lines, readings, and feedback, including any tip and the coaching history. The first time an exercise is chosen, its guide opens. |
-| End | Asks for confirmation when tapped. Then stops the camera, restores other audio, and shows a summary with a Done button. |
+| Another round | After the last set, does the same exercise again from set 1. Earlier rounds stay in the summary. Elsewhere it changes nothing and gives a short hint. |
+| End | Asks for confirmation when tapped mid-workout. Then stops the camera, restores other audio, and shows a summary with a Done button. From the completion card, End Workout exits straight back to the exercise list, since the card already showed the results. |
 
 Backgrounding the app or locking the phone pauses an active set with the matching reason and stops the camera and microphone. On return the set stays paused, and the coach says "Paused. Say resume when ready." (or "Tap Resume" without voice control). Camera and audio-session interruptions pause the same way.
 
@@ -220,6 +222,7 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
   - set start shows a reminder tip without speaking it;
   - a corrective cue is spoken and shown, and only for the current analyzer;
   - restarting a set forgets its coaching history, and pausing restarts a continuous cue's hold;
+  - the last set offers another round (earlier rounds kept), and ending from the completion card skips the summary;
   - switching mid-set keeps finished sets, restarts the set in progress, clears feedback, and starts a fresh analyzer; curl arms count separately, and the count is what both arms have done.
 - `VoiceCommandParserTests` cover fillers, longest-phrase matching, the whole-utterance rule for destructive commands, prefix ambiguity, exercise names, and opening and closing help by voice. They also check that every recognized phrase appears exactly once in the Voice Commands help.
 - `PhoneTiltDetectorTests` check the 1 s settle time, the 15°/10° hysteresis, and that missing motion data never warns.
@@ -294,6 +297,11 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
 27. Hammer curls, simultaneous: with both arms hanging straight, the Hold ring fills and the set starts. Curl both arms together 10 times; the count reaches 10 and the set completes. The HUD shows "L · R" counts, and each arm's Start line sits below its elbow and its Top line above it, with labels clear of the arms.
 28. Hammer curls, alternating: curl left, then right, and so on. The count goes up once both arms have done a rep ("L 3 · R 2" shows 2). Curling one arm up again from halfway, without hanging straight, doesn't count; after two of those, "Straighten at the bottom." plays. Half curls get "Curl all the way up."
 29. Switching mid-set: during a press set with a few reps, choose Hammer Curl from ☰. It asks to discard the reps; confirm, and the curl guide (first time) or setup line follows, with no leftover tip, amber joints, or press lines. Say "change exercise", then "cancel": you're back where you were. Switch back to the press: it resumes at its next set.
-30. Afterward, confirm realtime posture correction still works.
+30. Completion: finish both sets of an exercise. The completion card fades in with each set's reps and the total, and the coach names the buttons (no more "push end").
+    - **Another Round** (or say "another round") starts set 1 again.
+    - **Choose Exercise** (or "change exercise") opens the chooser; Cancel returns to the card.
+    - **End Workout** (or "end workout") goes straight back to the exercise list without a second summary.
+    - Ending mid-set with the stop button still asks for confirmation and shows the summary.
+31. Afterward, confirm realtime posture correction still works.
 
 These checks remain manual; a passing simulator run does not imply they were performed.
