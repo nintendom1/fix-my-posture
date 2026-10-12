@@ -1,6 +1,6 @@
 # Workout Coach (Beta)
 
-Open **Workout Coach (Beta)** from the main menu and pick an exercise from the list. The first time you pick each exercise, a short guide shows and describes it. Then prop the phone up in portrait, step back so the front camera can see both arms and your shoulders with room overhead, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10) and hammer curls (2 sets of 10), announces the target range and set completion, gives occasional form tips, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
+Open **Workout Coach (Beta)** from the main menu and pick an exercise from the list. The first time you pick each exercise, a short guide shows and describes it. Then prop the phone up in portrait, step back so the front camera can see both arms and your shoulders with room overhead, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10) hammer curls (2 sets of 10), and an overhead band triceps extension filmed side-on (2 sets of 10), announces the target range and set completion, gives occasional form tips, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
 
 Rep counts, framing checks, and form tips are geometric heuristics from a 2D camera. They are not medical, injury, or performance assessments.
 
@@ -94,6 +94,20 @@ Hammer curls are filmed from the front. Each arm counts on its own with its own 
 - The set completes automatically at 10. There's no target-range announcement, since the target is exactly 10.
 - The demonstration's forearm moves in the sagittal plane (`ArmMotion.forearmPlane = .sagittal`): toward the camera, so in the guide and the ghost it rises straight up in front of the elbow, as it does on camera.
 
+## Band triceps extension rep rule
+
+The overhead triceps extension is filmed from the side, because from the front the hands hide behind the head at the start. Stand side-on to the phone, facing either way. The arm nearer the phone is tracked: the most confident complete arm, kept until the other is clearly more confident (by 0.2). Both arms move with one band, so each rep counts for both. Thresholds live in `TricepsExtensionConfiguration`.
+
+- Signal: `s` = the wrist's height above its elbow in forearm lengths, plus the 2D elbow angle. From the side, the forearm swings in the image plane, so its longest length over the last second is a full ruler at any distance and for any proportions.
+- Start when `s ≤ −0.4` and the elbow is at most 100° (hands lowered behind the head). Top when `s ≥ 0.75` and the elbow is at least 140° (straight overhead). The elbow height and ruler are locked at the start, as with curls.
+- A rep is Start → Top → Start within at least 0.8 s.
+- Validation: the guide's side-view demonstration reads −0.71 at 40° and 1.00 at 177°. It counts exactly one rep per loop facing either way, with either arm, at ½× and 2× scale, and with either arm segment ±15%.
+- **Side-view support**:
+  - `ExerciseDefinition.cameraView = .side` gives a profile guide figure and a ghost arm on the nearer shoulder, facing the way the user faces (from the nose).
+  - Framing (`anyOfRequiredJoints`) accepts either arm and asks you to "Step into view, standing side-on to the phone."
+  - The hold ring, tip placement, and arm measurements work with one shoulder; from the side, measurements are checked against torso length.
+  - `ArmMotion.holdsDumbbells = false` hides the dumbbells for band exercises.
+
 ## Form coaching
 
 While counting, the coach watches how each rep is done and offers a short tip now and then. Corrective cues are spoken and shown as a tip; reminders are only shown. Cues describe movement relative to the user's own set. They never mention grip, wrist rotation, dumbbell orientation, or injury, and they never make medical claims.
@@ -118,6 +132,8 @@ Hammer curls (`HammerCurlFormMonitor`) judge each arm's attempts separately. An 
 | "Straighten at the bottom." (40) | After the Top, a wrist dips at least 0.4 and curls up again without hanging straight. | never |
 | "Keep your elbows by your sides." (20, continuous) | An elbow's sideways distance from its shoulder grows by more than 0.25 shoulder widths compared with the start of the set. | 0 |
 | "Keep your body still." (10, continuous) | The shoulder midpoint moves more than 0.35 upper-arm lengths relative to the hip midpoint compared with the start of the set. Skipped while hips aren't visible. | 0 |
+
+Triceps extension (drafted wording, for review): "Straighten your arms fully." (50: Top missed or peak elbow under 155°), "Lower behind your head." (40: extended again after dipping 0.5 without reaching the Start), "Lower with control." (30: Top line to Start line in under 0.3 s; the demo's 1.5 s lowering reads 0.57 s), "Keep your elbows pointing up." (20, continuous: the upper arm tips more than 25° from where it pointed at the start of the set). Reminders: "Keep your ribs down.", "Elbows close to your head.", "Breathe out as you extend."
 
 Curl reminders: "Elbows stay close.", "Lower slowly.", "Stand tall." The curl's motion envelope runs from the shoulders down past the hanging dumbbells, and out past them to the sides. Its "Last rep" line shows each arm's last top and hanging heights, plus the live flare and sway drift.
 
@@ -209,6 +225,7 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
   - curling again from midway counts once and asks to straighten;
   - a half curl doesn't count and asks to curl all the way up;
   - flared elbows and sway raise their signals, and sway needs hips.
+- `TricepsExtensionAnalyzerTests` run the side-view demonstration facing either way, with either arm, at ½×/2× scale and with either segment ±15%. They also check that a half extension asks to straighten, a fast lowering asks for control, extending again from midway asks to lower behind the head, and tipped elbows raise their signal. Side-on framing accepts either arm and asks you to stand side-on.
 - `CoachingCueSchedulerTests` check the 0.5 s hold, 2 of the last 3 attempts, the 10 s cooldown and 4 s gap, replacement by priority only upward, waiting while the coach speaks, and reminders at set start and after 25 s quiet.
 - `WorkoutTipLayoutTests` check the preferred slot, keeping a still-valid slot, speak-only when nothing fits, and that press tips at typical and close distances never touch the arms, body, envelope, or HUD.
 - `WorkoutSessionTests` drive the reducer:
@@ -302,6 +319,13 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - **Choose Exercise** (or "change exercise") opens the chooser; Cancel returns to the card.
     - **End Workout** (or "end workout") goes straight back to the exercise list without a second summary.
     - Ending mid-set with the stop button still asks for confirmation and shows the summary.
-31. Afterward, confirm realtime posture correction still works.
+31. Band triceps extension, side-on:
+    - Stand side-on with the band under your feet. Framing asks you to stand side-on until one arm is in view.
+    - The ghost arm appears on your nearer shoulder, facing your way, with no dumbbells.
+    - Holding your hands behind your head fills the Hold ring. Ten extensions count exactly 10.
+    - Turn to face the other way between sets: tracking follows the nearer arm.
+    - Half extensions get "Straighten your arms fully."
+    - Letting the elbows drift forward gets "Keep your elbows pointing up."
+32. Afterward, confirm realtime posture correction still works.
 
 These checks remain manual; a passing simulator run does not imply they were performed.

@@ -75,7 +75,9 @@ struct WorkoutGhostOverlayView: View {
                            style: StrokeStyle(lineWidth: max(8, arms.fore * 0.16), lineCap: .round, lineJoin: .round))
             var dumbbell = context
             dumbbell.opacity = opacity + 0.2
-            DumbbellDrawing.draw(in: dumbbell, elbow: arm.elbow, wrist: arm.wrist, forearmLength: arms.fore)
+            if motion.holdsDumbbells {
+                DumbbellDrawing.draw(in: dumbbell, elbow: arm.elbow, wrist: arm.wrist, forearmLength: arms.fore)
+            }
         }
     }
 }

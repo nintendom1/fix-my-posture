@@ -43,6 +43,7 @@ struct ExerciseDemoFigureView: View {
     let angles: ArmAngles
     var forearmPlane: MotionPlane = .frontal
     var cameraView: ExerciseCameraView = .front
+    var holdsDumbbells = true
     var tint: Color = Color(red: 0.62, green: 0.42, blue: 0.95)
 
     /// Figure coordinates in pixels, origin top-left.
@@ -106,6 +107,7 @@ struct ExerciseDemoFigureView: View {
                 }
                 for side in BodySide.allCases {
                     guard let elbow = pose.jointLocations[side.elbow], let wrist = pose.jointLocations[side.wrist] else { continue }
+                    guard holdsDumbbells else { continue }
                     DumbbellDrawing.draw(in: context, elbow: map(elbow), wrist: map(wrist), forearmLength: Self.forearm * scale)
                 }
             }

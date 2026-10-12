@@ -112,6 +112,9 @@
 		A10000012B00000000000103 /* HammerCurlAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000103 /* HammerCurlAnalyzerTests.swift */; };
 		A10000012B00000000000104 /* WorkoutSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000104 /* WorkoutSelectionView.swift */; };
 		A10000012B00000000000106 /* ExerciseCompleteCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000106 /* ExerciseCompleteCard.swift */; };
+		A10000012B00000000000108 /* TricepsExtensionExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000108 /* TricepsExtensionExercise.swift */; };
+		A10000012B00000000000109 /* TricepsExtensionAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000109 /* TricepsExtensionAnalyzer.swift */; };
+		A10000012B00000000000110 /* TricepsExtensionAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000110 /* TricepsExtensionAnalyzerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -232,6 +235,9 @@
 		B10000012B00000000000103 /* HammerCurlAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HammerCurlAnalyzerTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000104 /* WorkoutSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSelectionView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000106 /* ExerciseCompleteCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseCompleteCard.swift; sourceTree = "<group>"; };
+		B10000012B00000000000108 /* TricepsExtensionExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TricepsExtensionExercise.swift; sourceTree = "<group>"; };
+		B10000012B00000000000109 /* TricepsExtensionAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TricepsExtensionAnalyzer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000110 /* TricepsExtensionAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TricepsExtensionAnalyzerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -400,6 +406,7 @@
 				B10000012B00000000000098 /* CoachingCueSchedulerTests.swift */,
 				B10000012B00000000000099 /* WorkoutTipLayoutTests.swift */,
 				B10000012B00000000000103 /* HammerCurlAnalyzerTests.swift */,
+				B10000012B00000000000110 /* TricepsExtensionAnalyzerTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -434,6 +441,7 @@
 				H10000012B00000000000015 /* ShoulderPress */,
 				B10000012B00000000000074 /* ExerciseGuide.swift */,
 				H10000012B00000000000022 /* HammerCurl */,
+				H10000012B00000000000023 /* TricepsExtension */,
 			);
 			path = Exercises;
 			sourceTree = "<group>";
@@ -531,6 +539,15 @@
 				B10000012B00000000000102 /* HammerCurlFormMonitor.swift */,
 			);
 			path = HammerCurl;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000023 /* TricepsExtension */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000108 /* TricepsExtensionExercise.swift */,
+				B10000012B00000000000109 /* TricepsExtensionAnalyzer.swift */,
+			);
+			path = TricepsExtension;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -703,6 +720,8 @@
 				A10000012B00000000000102 /* HammerCurlFormMonitor.swift in Sources */,
 				A10000012B00000000000104 /* WorkoutSelectionView.swift in Sources */,
 				A10000012B00000000000106 /* ExerciseCompleteCard.swift in Sources */,
+				A10000012B00000000000108 /* TricepsExtensionExercise.swift in Sources */,
+				A10000012B00000000000109 /* TricepsExtensionAnalyzer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -724,6 +743,7 @@
 				A10000012B00000000000098 /* CoachingCueSchedulerTests.swift in TestSources */,
 				A10000012B00000000000099 /* WorkoutTipLayoutTests.swift in TestSources */,
 				A10000012B00000000000103 /* HammerCurlAnalyzerTests.swift in TestSources */,
+				A10000012B00000000000110 /* TricepsExtensionAnalyzerTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
