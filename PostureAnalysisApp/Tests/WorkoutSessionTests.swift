@@ -183,6 +183,33 @@ final class WorkoutSessionTests: XCTestCase {
         XCTAssertTrue(finished.endedAfterCompletion, "The card already showed the results.")
     }
 
+    func testOneArmAtATimeSwitchesArmsThenRests() {
+        var oneArm = press
+        oneArm.perSide = true
+        var session = WorkoutSession(exercises: [oneArm], initialExercise: oneArm.id)
+        _ = session.handle(.opened, at: 0)
+        _ = session.handle(.framingChanged(FramingStatus(isReliable: true, guidance: nil)), at: 1)
+        XCTAssertEqual(session.currentSide, .left)
+        _ = session.handle(.command(.start), at: 2)
+        let leftDone = session.handle(.command(.nextSet), at: 3)
+        XCTAssertEqual(session.phase, .ready, "No rest between arms.")
+        XCTAssertEqual(session.currentSide, .right)
+        XCTAssertEqual(session.currentSetNumber, 1)
+        XCTAssertTrue(spoken(leftDone).last?.contains("Switch to your right arm.") ?? false)
+
+        _ = session.handle(.command(.start), at: 4)
+        _ = session.handle(.command(.nextSet), at: 5)
+        XCTAssertEqual(session.phase, .resting, "Both arms done: rest.")
+        XCTAssertEqual(session.currentSetNumber, 2)
+        XCTAssertEqual(session.currentSide, .left)
+
+        for time in stride(from: 100.0, through: 103, by: 1) {
+            _ = session.handle(.command(time.truncatingRemainder(dividingBy: 2) == 0 ? .start : .nextSet), at: time)
+        }
+        XCTAssertEqual(session.phase, .exerciseComplete)
+        XCTAssertEqual(session.progress[oneArm.id]?.setReps.count, 4, "One entry per arm per set.")
+    }
+
     /// Opened and reliably framed, waiting in ready at t = 1.
     private func readySession() -> WorkoutSession {
         var session = WorkoutSession(exercises: [press], initialExercise: press.id)

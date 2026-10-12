@@ -301,7 +301,7 @@ private struct WorkoutSummaryView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(exercise.displayName)
                                 .font(.headline)
-                            Text(reps.enumerated().map { "Set \($0.offset + 1): \($0.element)" }.joined(separator: " · "))
+                            Text(reps.enumerated().map { "\(exercise.setLabel(entry: $0.offset)): \($0.element)" }.joined(separator: " · "))
                                 .font(.subheadline.monospacedDigit())
                                 .foregroundStyle(.secondary)
                         }

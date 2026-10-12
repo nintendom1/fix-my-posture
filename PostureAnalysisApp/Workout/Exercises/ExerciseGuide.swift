@@ -50,6 +50,8 @@ struct ArmMotion {
     var forearmPlane: MotionPlane = .frontal
     /// False for band exercises, so the guide and ghost don't draw dumbbells.
     var holdsDumbbells = true
+    /// Forward lean of the side-view figure's torso, in degrees from upright (for example, a bent-over row).
+    var torsoPitch: Double = 0
 
     var duration: TimeInterval {
         keyframes.reduce(0) { $0 + $1.moveDuration + $1.holdDuration }

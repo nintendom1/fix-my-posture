@@ -9,7 +9,7 @@ import Foundation
 final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
     let epoch: Int
     private let configuration: TricepsExtensionConfiguration
-    private var trackedSide: BodySide?
+    private var nearArm = NearArmSelector()
     private var tracker: HysteresisPhaseTracker
     private var lastSample: TimeInterval?
     private var recentForearms: [CGFloat] = []
@@ -30,9 +30,6 @@ final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
         var ruler: CGFloat
     }
 
-    /// The other arm must be this much more confident before tracking switches to it.
-    static let switchMargin = 0.2
-
     init(epoch: Int, configuration: TricepsExtensionConfiguration = .standard) {
         self.epoch = epoch
         self.configuration = configuration
@@ -42,14 +39,12 @@ final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
 
     func process(_ frame: PoseFrame, counting: Bool) -> ExerciseAnalysis {
         var analysis = ExerciseAnalysis()
-        guard let (side, arm) = nearArm(in: frame) else {
+        guard let (side, arm, switched) = nearArm.select(in: frame, minimumConfidence: configuration.minimumJointConfidence) else {
             analysis.thresholds = lastThresholds
             analysis.formReadings = formMonitor.readings
             return analysis
         }
-        if side != trackedSide {
-            startTracking(side)
-        }
+        if switched { startTracking() }
         let time = frame.timestamp
         if let last = lastSample, time - last > configuration.maximumSampleGap {
             invalidate()
@@ -101,23 +96,8 @@ final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
 
     // MARK: - Tracking
 
-    /// The arm nearer the phone: the most confident complete arm, keeping the current one unless the other
-    /// is clearly more confident.
-    private func nearArm(in frame: PoseFrame) -> (BodySide, ArmPoints)? {
-        let candidates = BodySide.allCases.compactMap { side -> (BodySide, ArmPoints, Double)? in
-            guard let arm = ArmGeometry.arm(side, in: frame, minimumConfidence: configuration.minimumJointConfidence) else { return nil }
-            let confidence = side.armJoints.compactMap { frame.pose[$0]?.confidence }.min() ?? 0
-            return (side, arm, confidence)
-        }
-        guard let best = candidates.max(by: { $0.2 < $1.2 }) else { return nil }
-        if let current = candidates.first(where: { $0.0 == trackedSide }), best.2 - current.2 < Self.switchMargin {
-            return (current.0, current.1)
-        }
-        return (best.0, best.1)
-    }
-
-    private func startTracking(_ side: BodySide) {
-        trackedSide = side
+    /// Tracking moved to the other arm: its history doesn't carry over.
+    private func startTracking() {
         tracker.reset()
         cycle = .awaitingBottom
         recentForearms = []
