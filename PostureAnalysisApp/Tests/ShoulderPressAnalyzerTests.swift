@@ -41,7 +41,7 @@ final class ShoulderPressAnalyzerTests: XCTestCase {
         let lockedTops = (10..<40).filter { lifted.readings[$0][.left]?.zone != .bottom }
             .compactMap { lifted.thresholds[$0][.left] }
             .filter(\.isLocked)
-            .map(\.topY)
+            .map(\.topLine.y)
         XCTAssertGreaterThan(lockedTops.count, 3)
         XCTAssertEqual((lockedTops.max() ?? 0) - (lockedTops.min() ?? 0), 0, accuracy: 0.001)
     }

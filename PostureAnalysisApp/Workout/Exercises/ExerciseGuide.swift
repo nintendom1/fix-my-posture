@@ -23,10 +23,19 @@ struct ArmMotionSample: Equatable {
     var stepIndex: Int
 }
 
+/// The plane a forearm moves in, as seen by a front-facing camera.
+enum MotionPlane: Equatable {
+    /// Out to the side and up, as in a press: angles map straight onto the screen.
+    case frontal
+    /// Forward toward the camera, as in a curl: only the vertical part shows, so the forearm looks shorter.
+    case sagittal
+}
+
 /// A looping two-arm demonstration. The guide figure and the live ghost both sample it, so they always agree.
 struct ArmMotion {
     /// The first keyframe is the start position; the loop wraps from the last keyframe back to it.
     let keyframes: [ArmKeyframe]
+    var forearmPlane: MotionPlane = .frontal
 
     var duration: TimeInterval {
         keyframes.reduce(0) { $0 + $1.moveDuration + $1.holdDuration }
@@ -34,9 +43,13 @@ struct ArmMotion {
 
     var startAngles: ArmAngles { keyframes.first?.angles ?? ArmAngles(upperArmElevation: 0, forearmElevation: 90) }
 
-    /// The highest pose in the loop.
+    /// The pose furthest from the start: the other end of the rep.
     var topAngles: ArmAngles {
-        keyframes.max { $0.angles.upperArmElevation < $1.angles.upperArmElevation }?.angles ?? startAngles
+        let start = startAngles
+        func distance(_ angles: ArmAngles) -> Double {
+            abs(angles.upperArmElevation - start.upperArmElevation) + abs(angles.forearmElevation - start.forearmElevation)
+        }
+        return keyframes.max { distance($0.angles) < distance($1.angles) }?.angles ?? start
     }
 
     func sample(at time: TimeInterval) -> ArmMotionSample {
@@ -65,15 +78,21 @@ struct ArmMotion {
     /// Elbow and wrist for one arm in y-down coordinates. Outward is away from the other shoulder, so the
     /// same angles work in mirrored and unmirrored space.
     static func place(shoulder: CGPoint, otherShoulder: CGPoint, upperArm: CGFloat, forearm: CGFloat,
-                      angles: ArmAngles) -> (elbow: CGPoint, wrist: CGPoint) {
-        let outward: CGFloat = shoulder.x >= otherShoulder.x ? 1 : -1
-        func step(from point: CGPoint, length: CGFloat, elevation: Double) -> CGPoint {
+                      angles: ArmAngles, forearmPlane: MotionPlane = .frontal) -> (elbow: CGPoint, wrist: CGPoint) {
+        place(shoulder: shoulder, outward: shoulder.x >= otherShoulder.x ? 1 : -1, upperArm: upperArm, forearm: forearm,
+              angles: angles, forearmPlane: forearmPlane)
+    }
+
+    /// Elbow and wrist with an explicit outward direction: +1 toward larger x, -1 toward smaller x.
+    static func place(shoulder: CGPoint, outward: CGFloat, upperArm: CGFloat, forearm: CGFloat,
+                      angles: ArmAngles, forearmPlane: MotionPlane = .frontal) -> (elbow: CGPoint, wrist: CGPoint) {
+        func step(from point: CGPoint, length: CGFloat, elevation: Double, plane: MotionPlane) -> CGPoint {
             let radians = elevation * .pi / 180
-            return CGPoint(x: point.x + outward * length * CGFloat(cos(radians)),
-                           y: point.y - length * CGFloat(sin(radians)))
+            let sideways = plane == .frontal ? outward * length * CGFloat(cos(radians)) : 0
+            return CGPoint(x: point.x + sideways, y: point.y - length * CGFloat(sin(radians)))
         }
-        let elbow = step(from: shoulder, length: upperArm, elevation: angles.upperArmElevation)
-        return (elbow, step(from: elbow, length: forearm, elevation: angles.forearmElevation))
+        let elbow = step(from: shoulder, length: upperArm, elevation: angles.upperArmElevation, plane: .frontal)
+        return (elbow, step(from: elbow, length: forearm, elevation: angles.forearmElevation, plane: forearmPlane))
     }
 
     private static func smoothstep(_ value: Double) -> Double {

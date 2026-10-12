@@ -70,7 +70,7 @@ final class ShoulderPressAnalyzer: ExerciseAnalyzing {
         var newlyConfirmed: [BodySide: MovementZone] = [:]
         var formSamples: [BodySide: ShoulderPressFormMonitor.ArmSample] = [:]
         var rulers: [CGFloat] = []
-        for (side, arm) in [(BodySide.left, left), (.right, right)] {
+        for (side, arm, other) in [(BodySide.left, left, right), (.right, right, left)] {
             let live = liveReference(for: side, arm: arm)
             let reference = lockedReference[side] ?? live
             let height = Double((reference.shoulderY - arm.wrist.y) / reference.ruler)
@@ -82,7 +82,7 @@ final class ShoulderPressAnalyzer: ExerciseAnalyzing {
             formSamples[side] = .init(height: height, elbowAngle: elbowAngle, zone: zone, confirmed: trackers[side]?.confirmed)
             rulers.append(reference.ruler)
             updateLock(for: side, zone: zone, live: live, at: time)
-            analysis.thresholds[side] = thresholds(for: side, shoulderX: arm.shoulder.x, live: live)
+            analysis.thresholds[side] = thresholds(for: side, shoulderX: arm.shoulder.x, otherShoulderX: other.shoulder.x, live: live)
         }
         lastThresholds = analysis.thresholds
 
@@ -156,8 +156,15 @@ final class ShoulderPressAnalyzer: ExerciseAnalyzing {
         }
     }
 
-    private func thresholds(for side: BodySide, shoulderX: CGFloat, live: Reference) -> ArmThresholds {
+    /// Each line spans from just inside the shoulder to past the elbow: where the wrist travels.
+    private func thresholds(for side: BodySide, shoulderX: CGFloat, otherShoulderX: CGFloat, live: Reference) -> ArmThresholds {
         let reference = lockedReference[side] ?? live
+        let outward: CGFloat = shoulderX >= otherShoulderX ? 1 : -1
+        func line(heightAbove height: Double, label: String) -> ThresholdLine {
+            let y = reference.shoulderY - CGFloat(height) * reference.ruler
+            return ThresholdLine(from: CGPoint(x: shoulderX - outward * 0.1 * reference.ruler, y: y),
+                                 to: CGPoint(x: shoulderX + outward * 0.8 * reference.ruler, y: y), label: label)
+        }
         let confirmed: RepCheckpoint?
         switch trackers[side]?.confirmed {
         case .bottom: confirmed = .start
@@ -165,10 +172,8 @@ final class ShoulderPressAnalyzer: ExerciseAnalyzing {
         default: confirmed = nil
         }
         return ArmThresholds(
-            shoulder: CGPoint(x: shoulderX, y: reference.shoulderY),
-            ruler: reference.ruler,
-            startY: reference.shoulderY - CGFloat(configuration.bottomMaxHeight) * reference.ruler,
-            topY: reference.shoulderY - CGFloat(configuration.topMinHeight) * reference.ruler,
+            startLine: line(heightAbove: configuration.bottomMaxHeight, label: "Start ↓"),
+            topLine: line(heightAbove: configuration.topMinHeight, label: "Top ↑"),
             isLocked: lockedReference[side] != nil,
             confirmed: confirmed
         )
