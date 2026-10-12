@@ -24,4 +24,11 @@ struct NearArmSelector {
         side = choice.0
         return (choice.0, choice.1, switched)
     }
+
+    /// Tracks `newSide` without a complete arm, for example when its hand starts hidden. Returns whether
+    /// tracking switched.
+    mutating func follow(_ newSide: BodySide) -> Bool {
+        defer { side = newSide }
+        return newSide != side
+    }
 }

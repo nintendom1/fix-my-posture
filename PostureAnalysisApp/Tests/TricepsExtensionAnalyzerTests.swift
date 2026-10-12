@@ -61,6 +61,20 @@ final class TricepsExtensionAnalyzerTests: XCTestCase {
         XCTAssertEqual(result.reps, 3, "Form never affects counting.")
     }
 
+    @MainActor
+    func testHandsHiddenBehindTheHeadStillCount() {
+        // The hand drops out of view whenever the forearm folds below horizontal behind the head.
+        let result = run(motion, hideHand: { $0.forearmElevation > 185 })
+        XCTAssertEqual(result.reps, 3)
+        XCTAssertTrue(result.forms.allSatisfy { $0.flags.isEmpty }, "\(result.forms)")
+    }
+
+    @MainActor
+    func testHandHiddenOverheadIsNeverTakenForTheStart() {
+        let result = run(motion, hideHand: { $0.forearmElevation < 100 })
+        XCTAssertEqual(result.reps, 0, "Without seeing the top, nothing counts.")
+    }
+
     func testSideOnFramingAcceptsEitherArmAndAsksToStandSideOn() {
         var evaluator = FramingEvaluator(requiredJoints: definition.requiredJoints, anyOfRequiredJoints: definition.anyOfRequiredJoints,
                                          headroomArmLengths: nil, cameraView: .side)
@@ -69,6 +83,9 @@ final class TricepsExtensionAnalyzerTests: XCTestCase {
                                                      .rightHip: CGPoint(x: 540, y: 1100)]
         _ = evaluator.evaluate(frame(rightArmOnly, at: 0))
         XCTAssertTrue(evaluator.evaluate(frame(rightArmOnly, at: 0.7)).isReliable, "Either arm is enough from the side.")
+        var handHidden = rightArmOnly
+        handHidden[.rightWrist] = nil
+        XCTAssertTrue(evaluator.evaluate(frame(handHidden, at: 0.9)).isReliable, "A hand behind the head doesn't lose tracking.")
 
         var empty = FramingEvaluator(requiredJoints: definition.requiredJoints, anyOfRequiredJoints: definition.anyOfRequiredJoints,
                                      headroomArmLengths: nil, cameraView: .side)
@@ -105,7 +122,8 @@ final class TricepsExtensionAnalyzerTests: XCTestCase {
     @MainActor
     private func run(_ motion: ArmMotion, scale: CGFloat = 1, upperArm: CGFloat = 1, forearm: CGFloat = 1,
                      mirrored: Bool = false, rightArm: Bool = false,
-                     upperArmTilt: (TimeInterval) -> Double = { _ in 0 }) -> Run {
+                     upperArmTilt: (TimeInterval) -> Double = { _ in 0 },
+                     hideHand: (ArmAngles) -> Bool = { _ in false }) -> Run {
         let analyzer = TricepsExtensionAnalyzer(epoch: 1)
         var result = Run()
         for index in 0..<(Int(motion.duration * 10) * 3) {
@@ -119,6 +137,7 @@ final class TricepsExtensionAnalyzerTests: XCTestCase {
                 joints[.leftElbow] = arm.elbow
                 joints[.leftWrist] = arm.wrist
             }
+            if hideHand(angles) { joints[.leftWrist] = nil }
             if rightArm {
                 for side in [(LandmarkType.leftShoulder, LandmarkType.rightShoulder), (.leftElbow, .rightElbow),
                              (.leftWrist, .rightWrist), (.leftHip, .rightHip), (.leftKnee, .rightKnee), (.leftAnkle, .rightAnkle)] {
