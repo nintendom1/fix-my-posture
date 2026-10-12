@@ -8,6 +8,7 @@ struct ExerciseGuideView: View {
     let isSpeaking: Bool
     let onReadAloud: () -> Void
     let onStopReading: () -> Void
+    let onShowVoiceCommands: () -> Void
     let onDone: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -45,6 +46,7 @@ struct ExerciseGuideView: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
+                    voiceCommandsRow
                     Text("The coach counts reps from the camera's view of your arms. It doesn't judge form or safety.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -138,6 +140,19 @@ struct ExerciseGuideView: View {
                 .accessibilityElement(children: .combine)
             }
         }
+    }
+
+    private var voiceCommandsRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Voice commands: say \u{201C}what can I say\u{201D} anytime.", systemImage: "mic")
+                .font(.subheadline)
+            Button("Show Voice Commands", action: onShowVoiceCommands)
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("exerciseGuideVoiceCommandsButton")
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.secondary.opacity(0.1)))
     }
 
     private var demonstrationLabel: String {

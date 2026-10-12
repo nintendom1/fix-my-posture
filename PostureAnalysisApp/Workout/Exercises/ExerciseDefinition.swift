@@ -49,6 +49,9 @@ struct ExerciseDefinition: Identifiable {
     let countsArmsIndependently: Bool
     /// Spoken when the exercise is selected.
     let setupLine: String
+    /// Lowercase names a user might say to select this exercise. They feed the voice parser and the
+    /// recognizer's contextual hints.
+    let voiceAliases: [String]
     let guide: ExerciseGuide
     let makeAnalyzer: (_ epoch: Int) -> ExerciseAnalyzing
 

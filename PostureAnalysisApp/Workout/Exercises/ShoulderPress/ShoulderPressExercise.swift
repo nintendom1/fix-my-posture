@@ -68,6 +68,7 @@ enum ShoulderPressExercise {
             headroomArmLengths: 1.05,
             countsArmsIndependently: false,
             setupLine: "Dumbbell shoulder press, two sets of 8 to 10. Face the phone and hold a dumbbell in each hand just above your shoulders.",
+            voiceAliases: ["dumbbell shoulder press", "shoulder press", "shoulder presses", "dumbbell press", "overhead press"],
             guide: guide,
             makeAnalyzer: { epoch in ShoulderPressAnalyzer(epoch: epoch, configuration: configuration) }
         )

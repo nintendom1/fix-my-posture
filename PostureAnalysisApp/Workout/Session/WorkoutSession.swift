@@ -34,7 +34,15 @@ enum WorkoutCommand: Equatable {
     case repCount
     case whichSet
     case repeatLast
+    /// Opens the Voice Commands help.
     case help
+    /// Closes the Voice Commands help; the workout itself is unaffected.
+    case closeHelp
+    /// Silences the coach's spoken lines.
+    case muteCoach
+    case unmuteCoach
+    /// Stops listening; turning it back on is touch-only, since a muted microphone can't hear.
+    case muteMicrophone
     case endWorkout
 }
 
@@ -136,6 +144,24 @@ struct WorkoutSession {
     var currentSetNumber: Int {
         guard let exercise else { return 1 }
         return min(completedSets(for: exercise.id) + 1, exercise.sets)
+    }
+
+    /// 0...1 while the start position is being held toward an automatic start; nil when no hold is
+    /// being timed. Counts only from entering ready, or from the end of rest.
+    func startHoldProgress(at now: TimeInterval) -> Double? {
+        let phaseStart: TimeInterval
+        switch phase {
+        case .ready:
+            guard let readySince else { return nil }
+            phaseStart = readySince
+        case .resting:
+            guard let restEndsAt, now >= restEndsAt else { return nil }
+            phaseStart = restEndsAt
+        default:
+            return nil
+        }
+        guard framing.isReliable, let held = startPositionSince else { return nil }
+        return max(0, min(1, (now - max(held, phaseStart)) / Self.startHoldDuration))
     }
 
     func restRemaining(at now: TimeInterval) -> TimeInterval? {
@@ -263,6 +289,12 @@ struct WorkoutSession {
             return [.repeatLastInstruction]
         case .help:
             return [.speak(Utterance(text: helpText, isInstruction: false))]
+        case .closeHelp, .muteCoach:
+            return []
+        case .unmuteCoach:
+            return [.speak(Utterance(text: "Coach voice on.", isInstruction: false))]
+        case .muteMicrophone:
+            return [.speak(Utterance(text: "Microphone off. Tap the microphone to turn it back on.", isInstruction: false))]
         case .endWorkout:
             return endWorkout()
         }
@@ -431,7 +463,7 @@ struct WorkoutSession {
             lastGuidanceSpokenAt = now
             return [.speak(Utterance(text: guidance.spokenText))]
         case .ready:
-            guard let readySince, heldStartPosition(since: readySince, at: now) else { return [] }
+            guard startHoldProgress(at: now) == 1 else { return [] }
             return beginSet(at: now)
         case .exercising:
             guard !framing.isReliable, !trackingLossAnnounced, let lostAt = trackingLostAt,
@@ -441,7 +473,7 @@ struct WorkoutSession {
             return [.speak(Utterance(text: "I can't see you. \(guidance)"))]
         case .resting:
             guard let restEndsAt, now >= restEndsAt else { return [] }
-            if heldStartPosition(since: restEndsAt, at: now) { return beginSet(at: now) }
+            if startHoldProgress(at: now) == 1 { return beginSet(at: now) }
             guard !restDoneAnnounced else { return [] }
             restDoneAnnounced = true
             return [.speak(Utterance(text: "Rest is up. \(startPrompt) or \(prompt("start").lowercased()) for set \(currentSetNumber)."))]
@@ -451,12 +483,6 @@ struct WorkoutSession {
     }
 
     // MARK: - Helpers
-
-    /// The start position has been held long enough, counting only from `phaseStart`.
-    private func heldStartPosition(since phaseStart: TimeInterval, at now: TimeInterval) -> Bool {
-        guard framing.isReliable, let held = startPositionSince else { return false }
-        return now - max(held, phaseStart) >= Self.startHoldDuration
-    }
 
     private var startPrompt: String {
         exercise?.guide.startPositionInstruction ?? "Get into the start position"
@@ -536,7 +562,22 @@ struct WorkoutSession {
         }
     }
 
+    /// The full list is on screen, so the spoken version stays short.
     private var helpText: String {
-        "You can say start, pause, resume, restart set, next set, how many reps, which set, repeat that, change exercise, or end workout."
+        "Here's everything you can say. Try start, pause, or how many reps. Say close when you're done."
+    }
+
+    /// A few commands that make sense right now, for the top of the Voice Commands help.
+    var suggestedCommands: [WorkoutCommand] {
+        switch phase {
+        case .choosingExercise, .changingExercise:
+            return exercises.map { .selectExercise($0.id) } + (phase == .choosingExercise ? [] : [.cancel])
+        case .framing, .ready: return [.start, .repeatLast]
+        case .exercising: return [.pause, .repCount, .nextSet, .restartSet]
+        case .paused: return [.resume, .restartSet, .nextSet]
+        case .resting: return [.start, .whichSet]
+        case .exerciseComplete: return exercises.count > 1 ? [.changeExercise, .endWorkout] : [.endWorkout]
+        case .ended: return []
+        }
     }
 }

@@ -15,9 +15,15 @@ struct WorkoutHUDView: View {
     let now: TimeInterval
     let readings: [BodySide: ArmReading]
     let isPhoneTilted: Bool
+    let micStatus: WorkoutVoiceController.Status
+    let heardPhrase: String?
     @Binding var showMeasurements: Bool
     let onClose: () -> Void
     let onShowGuide: () -> Void
+    let isCoachMuted: Bool
+    let onMicrophoneTap: () -> Void
+    let onToggleCoachVoice: () -> Void
+    let onShowVoiceCommands: () -> Void
     let onCommand: (WorkoutCommand) -> Void
 
     @ScaledMetric(relativeTo: .largeTitle) private var repSize: CGFloat = 64
@@ -39,7 +45,19 @@ struct WorkoutHUDView: View {
                         .clipShape(Capsule())
                         .accessibilityLabel("Phone tilted. Stand it upright for accurate counts.")
                 }
+                if let heardPhrase {
+                    Label("Heard: \u{201C}\(heardPhrase)\u{201D}", systemImage: "waveform")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(.black.opacity(0.6))
+                        .clipShape(Capsule())
+                        .transition(.opacity)
+                        .accessibilityLabel("Heard \(heardPhrase)")
+                }
             }
+            .animation(.easeInOut(duration: 0.2), value: heardPhrase)
             .background(GeometryReader { proxy in
                 Color.clear.preference(key: WorkoutHUDRects.self, value: [proxy.frame(in: .named(WorkoutCoachView.coordinateSpace))])
             })
@@ -72,6 +90,9 @@ struct WorkoutHUDView: View {
                     HStack(spacing: 4) {
                         Text(session.exercise?.displayName ?? "Workout Coach")
                             .font(.headline)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.85)
+                            .multilineTextAlignment(.center)
                         if session.exercise != nil {
                             Image(systemName: "info.circle")
                                 .font(.subheadline)
@@ -96,9 +117,10 @@ struct WorkoutHUDView: View {
 
             Spacer(minLength: 8)
 
-            // Balances the close button so the title stays centered.
-            Color.clear
-                .frame(width: 32, height: 32)
+            HStack(spacing: 8) {
+                MicrophoneStatusView(status: micStatus, onTap: onMicrophoneTap, onShowCommands: onShowVoiceCommands)
+                CoachVoiceButton(isMuted: isCoachMuted, action: onToggleCoachVoice)
+            }
         }
         .padding(.horizontal)
         .padding(.top, 4)
@@ -108,7 +130,12 @@ struct WorkoutHUDView: View {
         switch session.phase {
         case .choosingExercise, .changingExercise: return "Choose an exercise"
         case .framing: return session.framing.guidance?.shortText ?? "Hold still"
-        case .ready: return session.exercise.map { "\($0.guide.startPositionInstruction) to begin" } ?? "Ready"
+        case .ready:
+            // With voice available, alternate every few seconds with a pointer to the commands.
+            if micStatus.isUsable, Int(now / Self.hintAlternation) % 2 == 1 {
+                return "Say \u{201C}what can I say\u{201D} for commands"
+            }
+            return session.exercise.map { "\($0.guide.startPositionInstruction) to begin" } ?? "Ready"
         case .exercising:
             return session.isCounting ? "Counting" : (session.framing.guidance?.shortText ?? FramingGuidance.stepIntoView.shortText)
         case .paused: return "Paused"
@@ -202,6 +229,9 @@ struct WorkoutHUDView: View {
                     Label("How to Do It", systemImage: "questionmark.circle")
                 }
                 .disabled(session.exercise == nil)
+                Button(action: onShowVoiceCommands) {
+                    Label("Voice Commands", systemImage: "text.bubble")
+                }
                 Toggle(isOn: $showMeasurements) {
                     Label("Show Measurements", systemImage: "ruler")
                 }
@@ -305,6 +335,9 @@ struct WorkoutHUDView: View {
     private func accessibilitySummary(_ exercise: ExerciseDefinition) -> String {
         "\(session.repCount) reps of \(exercise.targetLabel). \(setLabel(exercise))."
     }
+
+    /// Seconds each ready-status message shows before alternating.
+    static let hintAlternation: TimeInterval = 4
 
     static func format(_ seconds: TimeInterval) -> String {
         let total = Int(seconds.rounded(.up))
