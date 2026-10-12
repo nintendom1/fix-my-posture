@@ -20,9 +20,12 @@ extension CoachingCueID {
 ///   in the image plane, so its longest recent length is a full-length ruler at any distance and for any
 ///   proportions. Folded behind the head reads about −0.7; straight overhead about 1.0.
 /// - The elbow angle (2D) pairs with `s` so a forearm that's merely tilted back doesn't count as the top.
+/// - Folded behind the head, the hands often disappear from view. While the near arm's elbow stays raised
+///   after lowering, a hidden hand counts as being at the start, so tracking and counting carry on.
 struct TricepsExtensionConfiguration {
-    /// Start: hands lowered behind the head, elbow bent.
-    var bottomMaxRatio: Double = -0.4
+    /// Start: hands lowered behind the head, elbow bent. Set just below horizontal so the start registers
+    /// before the hands are hidden.
+    var bottomMaxRatio: Double = -0.25
     var bottomMaxElbowAngle: Double = 100
     /// Top: arm straight overhead.
     var topMinRatio: Double = 0.75
@@ -30,7 +33,13 @@ struct TricepsExtensionConfiguration {
     var confirmationSamples = 2
     var minimumRepDuration: TimeInterval = 0.8
     var maximumSampleGap: TimeInterval = 0.28
-    var minimumJointConfidence: Double = 0.4
+    /// The live floor; hands behind the head are tracked with low confidence.
+    var minimumJointConfidence: Double = 0.3
+    /// A hidden hand counts as folded behind the head only if it was last seen below this height (on its
+    /// way down, not overhead)…
+    var hiddenHandMaxRatio: Double = 0.5
+    /// …and the elbow is raised at least this many upper-arm lengths above the shoulder.
+    var raisedElbowMinRise: Double = 0.5
     var rulerWindow = 10
     var elbowSmoothing: CGFloat = 0.4
     var referenceTimeout: TimeInterval = 6
@@ -44,7 +53,7 @@ struct TricepsExtensionConfiguration {
     /// reaching the start.
     var returnDip: Double = 0.5
     /// "Lower with control": the wrist took less than this from the Top line to the Start line. The demo's
-    /// 1.5 s lowering reads 0.57 s; 0.3 s is a lowering faster than about 0.8 s.
+    /// 1.5 s lowering reads 0.49 s; 0.3 s is a lowering faster than about 0.9 s.
     var minimumDescentTime: TimeInterval = 0.3
     /// "Keep your elbows pointing up": the upper arm tipped this many degrees from where it pointed at the
     /// start of the set.
@@ -76,7 +85,7 @@ enum TricepsExtensionExercise {
             ],
             headroomArmLengths: 1.05,
             countsArmsIndependently: false,
-            setupLine: "Band triceps extension, two sets of 10. Stand side-on to the phone with the band under your feet and your hands behind your head.",
+            setupLine: "Band triceps extension, two sets of 10. Stand side-on to the phone with one end of the band under your feet, and hold the other end with both hands behind your head.",
             voiceAliases: ["band triceps extension", "triceps extension", "triceps extensions", "tricep extension",
                            "tricep extensions", "overhead triceps", "triceps"],
             guide: guide,
@@ -89,7 +98,8 @@ enum TricepsExtensionExercise {
             // Around the near shoulder: up one arm length overhead, and forward and back past the hands.
             motionEnvelope: MotionEnvelope(above: 1.05, below: 0.2, outward: 0.6),
             cameraView: .side,
-            anyOfRequiredJoints: [[.leftShoulder, .leftElbow, .leftWrist], [.rightShoulder, .rightElbow, .rightWrist]],
+            // The hands can hide behind the head at the start, so a shoulder and elbow are enough.
+            anyOfRequiredJoints: [[.leftShoulder, .leftElbow], [.rightShoulder, .rightElbow]],
             equipment: .band,
             makeAnalyzer: { epoch in TricepsExtensionAnalyzer(epoch: epoch, configuration: configuration) }
         )
@@ -98,7 +108,7 @@ enum TricepsExtensionExercise {
     private static var coachingCues: [CoachingCue] {
         let arms: Set<LandmarkType> = [.leftElbow, .rightElbow, .leftWrist, .rightWrist]
         return [
-            .corrective(.tricepsFullExtension, "Straighten your arms fully.", trigger: .perRep, priority: 50, joints: arms),
+            .corrective(.tricepsFullExtension, "Straighten both arms fully.", trigger: .perRep, priority: 50, joints: arms),
             .corrective(.tricepsLowerBehindHead, "Lower behind your head.", trigger: .perRep, priority: 40, joints: arms),
             .corrective(.tricepsControlledLowering, "Lower with control.", trigger: .perRep, priority: 30, joints: arms),
             .corrective(.tricepsElbowsUp, "Keep your elbows pointing up.", trigger: .continuous, priority: 20,
@@ -114,16 +124,16 @@ enum TricepsExtensionExercise {
         return ExerciseGuide(
             summary: "2 sets × 10 reps · Resistance band · Stand side-on",
             steps: [
-                GuideStep(title: "Start", detail: "Stand side-on to the phone with the band under your feet. Hold it behind your head with your elbows pointing up."),
-                GuideStep(title: "Extend", detail: "Straighten your arms overhead, keeping your elbows pointing up."),
-                GuideStep(title: "Lower", detail: "Bend your elbows to lower your hands behind your head with control. That's one rep.")
+                GuideStep(title: "Start", detail: "Stand side-on to the phone with one end of the band under your feet. Hold the other end with both hands behind your head, elbows pointing up."),
+                GuideStep(title: "Extend", detail: "Straighten both arms overhead, keeping your elbows pointing up."),
+                GuideStep(title: "Lower", detail: "Bend both elbows to lower your hands behind your head with control. That's one rep.")
             ],
             tip: "Standing side-on lets the phone see your arm the whole time; either side works.",
-            walkthrough: "This is the band triceps extension. Stand side-on to the phone with the band under your feet. "
-                + "Hold the band behind your head, with your elbows pointing up. "
-                + "Straighten your arms overhead, keeping your elbows pointing up. "
-                + "Then bend your elbows to lower your hands behind your head, with control. That's one rep.",
-            startPositionInstruction: "Hold the band behind your head, elbows up",
+            walkthrough: "This is the band triceps extension. Stand side-on to the phone with one end of the band under your feet. "
+                + "Hold the other end with both hands behind your head, with your elbows pointing up. "
+                + "Straighten both arms overhead, keeping your elbows pointing up. "
+                + "Then bend both elbows to lower your hands behind your head, with control. That's one rep.",
+            startPositionInstruction: "Hold the band behind your head with both hands",
             motion: ArmMotion(keyframes: [
                 ArmKeyframe(angles: start, moveDuration: 0, holdDuration: 1.0, stepIndex: 0),
                 ArmKeyframe(angles: top, moveDuration: 1.0, holdDuration: 0.4, stepIndex: 1),
