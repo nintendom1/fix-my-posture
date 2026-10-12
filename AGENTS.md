@@ -20,8 +20,8 @@ PostureAnalysisApp/
 ├── Views/               # SwiftUI views (ContentView, HistoryView, LandmarkOverlayView, AssessmentDetailView, DeveloperDebugView)
 │   └── Workout/         # WorkoutCoachView, WorkoutHUDView, WorkoutJointOverlayView, ExerciseGuideView, WorkoutGuideOverlayView (ghost & per-arm thresholds), HoldProgressRingView, MicrophoneStatusView, VoiceCommandsHelpView, WorkoutTipView (coaching tips), WorkoutSelectionView (exercise list & in-camera chooser), ExerciseCompleteCard
 ├── Workout/             # Workout Coach (Beta)
-│   ├── Exercises/       # ExerciseCatalog, ExerciseDefinition, ExerciseAnalyzing, ExerciseGuide; one folder per exercise (ShoulderPress/, HammerCurl/, TricepsExtension/, AirSquat/)
-│   ├── Analysis/        # PoseFrame, ArmGeometry, HysteresisPhaseTracker, FramingEvaluator, LandmarkSmoother
+│   ├── Exercises/       # ExerciseCatalog, ExerciseDefinition, ExerciseAnalyzing, ExerciseGuide; one folder per exercise (ShoulderPress/, HammerCurl/, TricepsExtension/, AirSquat/, DumbbellRow/)
+│   ├── Analysis/        # PoseFrame, ArmGeometry, HysteresisPhaseTracker, FramingEvaluator, LandmarkSmoother, NearArmSelector
 │   ├── Session/         # WorkoutSession (pure reducer) & WorkoutCoachModel (main-actor orchestrator)
 │   ├── Coaching/        # CoachingCue, CoachingCueScheduler (pure), WorkoutTipLayout & MotionEnvelope (pure tip placement)
 │   └── Camera/          # PoseFrameSource protocol, WorkoutCameraController, PhoneTiltMonitor
