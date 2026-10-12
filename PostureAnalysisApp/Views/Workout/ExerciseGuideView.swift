@@ -80,7 +80,7 @@ struct ExerciseGuideView: View {
     private func animatedDemonstration(_ sample: ArmMotionSample) -> some View {
         VStack(spacing: 6) {
             ExerciseDemoFigureView(angles: sample.angles, forearmPlane: guide.motion.forearmPlane, cameraView: exercise.cameraView,
-                                   holdsDumbbells: guide.motion.holdsDumbbells)
+                                   holdsDumbbells: guide.motion.holdsDumbbells, legs: sample.legs)
                 .frame(maxWidth: .infinity)
                 .frame(height: 240)
             Text(guide.steps.indices.contains(sample.stepIndex) ? guide.steps[sample.stepIndex].title : "")
@@ -95,21 +95,21 @@ struct ExerciseGuideView: View {
     /// Reduce Motion: the start and top positions side by side.
     private var staticDemonstration: some View {
         HStack(alignment: .center, spacing: 8) {
-            labeledFigure(guide.motion.startAngles, title: guide.steps.first?.title ?? "Start")
+            labeledFigure(guide.motion.startAngles, legs: guide.motion.startLegs, title: guide.steps.first?.title ?? "Start")
             Image(systemName: "arrow.right")
                 .font(.title2)
                 .foregroundStyle(.secondary)
-            labeledFigure(guide.motion.topAngles, title: "Top")
+            labeledFigure(guide.motion.topAngles, legs: guide.motion.topLegs, title: "Top")
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(demonstrationLabel)
     }
 
-    private func labeledFigure(_ angles: ArmAngles, title: String) -> some View {
+    private func labeledFigure(_ angles: ArmAngles, legs: LegPose, title: String) -> some View {
         VStack(spacing: 4) {
             ExerciseDemoFigureView(angles: angles, forearmPlane: guide.motion.forearmPlane, cameraView: exercise.cameraView,
-                                   holdsDumbbells: guide.motion.holdsDumbbells)
+                                   holdsDumbbells: guide.motion.holdsDumbbells, legs: legs)
                 .frame(height: 200)
             Text(title)
                 .font(.headline)

@@ -70,6 +70,9 @@ struct ExerciseDefinition: Identifiable {
     var cameraView: ExerciseCameraView = .front
     /// When not empty, tracking also needs one of these sets fully visible, such as either arm from the side.
     var anyOfRequiredJoints: [Set<LandmarkType>] = []
+    /// Holding the start position for a moment begins a set. Off when the start position is just standing,
+    /// so a set never starts by accident; "start" and the Start button always work.
+    var startsByHolding = true
     let makeAnalyzer: (_ epoch: Int) -> ExerciseAnalyzing
 
     var focusJoints: Set<LandmarkType> {

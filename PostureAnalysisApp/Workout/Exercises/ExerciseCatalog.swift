@@ -5,7 +5,8 @@ enum ExerciseCatalog {
     static let all: [ExerciseDefinition] = [
         ShoulderPressExercise.definition(),
         HammerCurlExercise.definition(),
-        TricepsExtensionExercise.definition()
+        TricepsExtensionExercise.definition(),
+        AirSquatExercise.definition()
     ]
 
     static func definition(for id: ExerciseID) -> ExerciseDefinition? {

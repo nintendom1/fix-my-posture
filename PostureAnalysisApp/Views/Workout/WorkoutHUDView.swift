@@ -139,7 +139,9 @@ struct WorkoutHUDView: View {
             if micStatus.isUsable, Int(now / Self.hintAlternation) % 2 == 1 {
                 return "Say \u{201C}what can I say\u{201D} for commands"
             }
-            return session.exercise.map { "\($0.guide.startPositionInstruction) to begin" } ?? "Ready"
+            guard let exercise = session.exercise else { return "Ready" }
+            guard exercise.startsByHolding else { return micStatus.isUsable ? "Say \u{201C}start\u{201D} to begin" : "Tap Start to begin" }
+            return "\(exercise.guide.startPositionInstruction) to begin"
         case .exercising:
             return session.isCounting ? "Counting" : (session.framing.guidance?.shortText ?? FramingGuidance.stepIntoView.shortText)
         case .paused: return "Paused"

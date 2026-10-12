@@ -203,7 +203,7 @@ struct WorkoutSession {
         case .repCompleted(let rep):
             return repCompleted(rep, at: now)
         case .startPositionChanged(let held):
-            startPositionSince = held ? (startPositionSince ?? now) : nil
+            startPositionSince = held && (exercise?.startsByHolding ?? true) ? (startPositionSince ?? now) : nil
             return []
         case .phoneTiltChanged(let tilted):
             // Advisory only: counting continues, and the warning never blocks a set.
@@ -398,7 +398,7 @@ struct WorkoutSession {
         } else {
             phase = .framing
         }
-        let line = "Round \(record.round) of \(exercise.spokenName). \(startPrompt) to start, or \(prompt("start").lowercased())."
+        let line = "Round \(record.round) of \(exercise.spokenName). \(beginPrompt)."
         return newAnalyzer() + clearFeedback() + [.speak(Utterance(text: line))]
     }
 
@@ -475,7 +475,7 @@ struct WorkoutSession {
             // Framing near a threshold can flicker; announce readiness once per interval.
             if let last = lastReadyAnnouncedAt, now - last < Self.guidanceRepeatInterval { return [] }
             lastReadyAnnouncedAt = now
-            return [.speak(Utterance(text: "Looks good. \(startPrompt) to start, or \(prompt("start").lowercased())."))]
+            return [.speak(Utterance(text: "Looks good. \(beginPrompt)."))]
         case .ready where !status.isReliable || status.guidance != nil:
             phase = .framing
             return []
@@ -532,13 +532,20 @@ struct WorkoutSession {
             if startHoldProgress(at: now) == 1 { return beginSet(at: now) }
             guard !restDoneAnnounced else { return [] }
             restDoneAnnounced = true
-            return [.speak(Utterance(text: "Rest is up. \(startPrompt) or \(prompt("start").lowercased()) for set \(currentSetNumber)."))]
+            let begin = exercise?.startsByHolding ?? true ? "\(startPrompt) or \(prompt("start").lowercased())" : prompt("start")
+            return [.speak(Utterance(text: "Rest is up. \(begin) for set \(currentSetNumber)."))]
         default:
             return []
         }
     }
 
     // MARK: - Helpers
+
+    /// How to begin a set: hold the start position or say start, or just say start.
+    private var beginPrompt: String {
+        guard exercise?.startsByHolding ?? true else { return "\(prompt("start")) when you're ready" }
+        return "\(startPrompt) to start, or \(prompt("start").lowercased())"
+    }
 
     private var startPrompt: String {
         exercise?.guide.startPositionInstruction ?? "Get into the start position"

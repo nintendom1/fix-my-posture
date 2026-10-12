@@ -115,6 +115,9 @@
 		A10000012B00000000000108 /* TricepsExtensionExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000108 /* TricepsExtensionExercise.swift */; };
 		A10000012B00000000000109 /* TricepsExtensionAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000109 /* TricepsExtensionAnalyzer.swift */; };
 		A10000012B00000000000110 /* TricepsExtensionAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000110 /* TricepsExtensionAnalyzerTests.swift */; };
+		A10000012B00000000000112 /* AirSquatExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000112 /* AirSquatExercise.swift */; };
+		A10000012B00000000000113 /* AirSquatAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000113 /* AirSquatAnalyzer.swift */; };
+		A10000012B00000000000114 /* AirSquatAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000114 /* AirSquatAnalyzerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -238,6 +241,9 @@
 		B10000012B00000000000108 /* TricepsExtensionExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TricepsExtensionExercise.swift; sourceTree = "<group>"; };
 		B10000012B00000000000109 /* TricepsExtensionAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TricepsExtensionAnalyzer.swift; sourceTree = "<group>"; };
 		B10000012B00000000000110 /* TricepsExtensionAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TricepsExtensionAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000112 /* AirSquatExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirSquatExercise.swift; sourceTree = "<group>"; };
+		B10000012B00000000000113 /* AirSquatAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirSquatAnalyzer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000114 /* AirSquatAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirSquatAnalyzerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -407,6 +413,7 @@
 				B10000012B00000000000099 /* WorkoutTipLayoutTests.swift */,
 				B10000012B00000000000103 /* HammerCurlAnalyzerTests.swift */,
 				B10000012B00000000000110 /* TricepsExtensionAnalyzerTests.swift */,
+				B10000012B00000000000114 /* AirSquatAnalyzerTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -442,6 +449,7 @@
 				B10000012B00000000000074 /* ExerciseGuide.swift */,
 				H10000012B00000000000022 /* HammerCurl */,
 				H10000012B00000000000023 /* TricepsExtension */,
+				H10000012B00000000000024 /* AirSquat */,
 			);
 			path = Exercises;
 			sourceTree = "<group>";
@@ -548,6 +556,15 @@
 				B10000012B00000000000109 /* TricepsExtensionAnalyzer.swift */,
 			);
 			path = TricepsExtension;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000024 /* AirSquat */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000112 /* AirSquatExercise.swift */,
+				B10000012B00000000000113 /* AirSquatAnalyzer.swift */,
+			);
+			path = AirSquat;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -722,6 +739,8 @@
 				A10000012B00000000000106 /* ExerciseCompleteCard.swift in Sources */,
 				A10000012B00000000000108 /* TricepsExtensionExercise.swift in Sources */,
 				A10000012B00000000000109 /* TricepsExtensionAnalyzer.swift in Sources */,
+				A10000012B00000000000112 /* AirSquatExercise.swift in Sources */,
+				A10000012B00000000000113 /* AirSquatAnalyzer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -744,6 +763,7 @@
 				A10000012B00000000000099 /* WorkoutTipLayoutTests.swift in TestSources */,
 				A10000012B00000000000103 /* HammerCurlAnalyzerTests.swift in TestSources */,
 				A10000012B00000000000110 /* TricepsExtensionAnalyzerTests.swift in TestSources */,
+				A10000012B00000000000114 /* AirSquatAnalyzerTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

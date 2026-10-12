@@ -44,6 +44,7 @@ struct ExerciseDemoFigureView: View {
     var forearmPlane: MotionPlane = .frontal
     var cameraView: ExerciseCameraView = .front
     var holdsDumbbells = true
+    var legs: LegPose = .standing
     var tint: Color = Color(red: 0.62, green: 0.42, blue: 0.95)
 
     /// Figure coordinates in pixels, origin top-left.
@@ -68,7 +69,7 @@ struct ExerciseDemoFigureView: View {
         .leftAnkle: CGPoint(x: 150, y: 460)
     ]
 
-    static func pose(for angles: ArmAngles, forearmPlane: MotionPlane = .frontal,
+    static func pose(for angles: ArmAngles, legs: LegPose = .standing, forearmPlane: MotionPlane = .frontal,
                      cameraView: ExerciseCameraView = .front) -> ReferencePose {
         if cameraView == .side {
             var joints = sideFigureJoints
@@ -81,7 +82,7 @@ struct ExerciseDemoFigureView: View {
             }
             return ReferencePose(jointLocations: joints)
         }
-        var joints = figureJoints
+        var joints = lowered(figureJoints, by: legs)
         for side in BodySide.allCases {
             let other: BodySide = side == .left ? .right : .left
             guard let shoulder = figureJoints[side.shoulder], let otherShoulder = figureJoints[other.shoulder] else { continue }
@@ -93,8 +94,28 @@ struct ExerciseDemoFigureView: View {
         return ReferencePose(jointLocations: joints)
     }
 
+    /// Front view lowering into a squat: the upper body drops with the hips, the knees push out and dip
+    /// slightly, and the feet stay planted.
+    static func lowered(_ joints: [LandmarkType: CGPoint], by legs: LegPose) -> [LandmarkType: CGPoint] {
+        guard legs != .standing, let hip = joints[.leftHip], let knee = joints[.leftKnee],
+              let otherHip = joints[.rightHip] else { return joints }
+        var result = joints
+        let drop = CGFloat(legs.hipDrop) * ArmGeometry.distance(hip, knee)
+        for joint in [LandmarkType.nose, .neck, .leftShoulder, .rightShoulder, .leftHip, .rightHip] {
+            result[joint]?.y += drop
+        }
+        let halfWidth = abs(hip.x - otherHip.x) / 2
+        let center = (hip.x + otherHip.x) / 2
+        for side in BodySide.allCases {
+            guard let point = result[side.knee] else { continue }
+            let outward: CGFloat = point.x >= center ? 1 : -1
+            result[side.knee] = CGPoint(x: point.x + outward * CGFloat(legs.kneeSpread) * halfWidth, y: point.y + drop * 0.1)
+        }
+        return result
+    }
+
     var body: some View {
-        let pose = Self.pose(for: angles, forearmPlane: forearmPlane, cameraView: cameraView)
+        let pose = Self.pose(for: angles, legs: legs, forearmPlane: forearmPlane, cameraView: cameraView)
         ZStack {
             AlignmentReferenceOverlayView(referencePose: pose, imageSize: Self.canvasSize, containerSize: Self.canvasSize,
                                           style: .silhouette, strokeColor: tint, fillColor: tint.opacity(0.5))
