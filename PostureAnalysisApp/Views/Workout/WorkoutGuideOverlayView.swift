@@ -28,6 +28,19 @@ struct WorkoutGhostOverlayView: View {
         guard imageSize.width > 0, imageSize.height > 0 else { return }
         let fit = CoordinateConverter.aspectFitRect(for: imageSize, in: size)
         guard fit.width > 0 else { return }
+        if cameraView == .floor {
+            var context = context
+            context.clip(to: Path(fit))
+            let scale = fit.width / imageSize.width
+            let arms = (upper: metrics.upperArm * scale, fore: metrics.forearm * scale)
+            if reduceMotion {
+                drawFloorArms(in: context, size: size, arms: arms, angles: motion.topAngles, opacity: 0.3)
+                drawFloorArms(in: context, size: size, arms: arms, angles: motion.startAngles, opacity: 0.6)
+            } else {
+                drawFloorArms(in: context, size: size, arms: arms, angles: motion.sample(at: time).angles, opacity: 0.6)
+            }
+            return
+        }
         if motion.animatesLegs {
             var context = context
             context.clip(to: Path(fit))
@@ -70,6 +83,41 @@ struct WorkoutGhostOverlayView: View {
             guard let side = overlay.nearSide, let joint = overlay.joints[side.shoulder] else { return [] }
             let shoulder = point(joint)
             return [(shoulder, overlay.facing(from: shoulder, containerSize: containerSize) ?? 1)]
+        case .floor:
+            // Floor exercises anchor on the hands instead; see `drawFloorArms`.
+            return []
+        }
+    }
+
+    /// Ghost arms rising from the user's own planted hands, showing where the shoulders go.
+    private func drawFloorArms(in context: GraphicsContext, size: CGSize, arms: (upper: CGFloat, fore: CGFloat),
+                               angles: ArmAngles, opacity: Double) {
+        func point(_ type: LandmarkType) -> CGPoint? {
+            guard let joint = overlay.joints[type], !joint.isStale else { return nil }
+            return CoordinateConverter.normalizedToContainer(normalized: joint.location, imageSize: overlay.imageSize, containerSize: size)
+        }
+        var shoulders: [CGPoint] = []
+        for side in BodySide.allCases {
+            let other: BodySide = side == .left ? .right : .left
+            guard let wrist = point(side.wrist), let otherWrist = point(other.wrist) else { continue }
+            // Lay the arm out from the hand: the shoulder sits where the arm reaches back up.
+            let outward: CGFloat = wrist.x >= otherWrist.x ? 1 : -1
+            let arm = ArmMotion.place(shoulder: .zero, outward: outward, upperArm: arms.upper, forearm: arms.fore, angles: angles)
+            let shoulder = CGPoint(x: wrist.x - arm.wrist.x, y: wrist.y - arm.wrist.y)
+            let elbow = CGPoint(x: shoulder.x + arm.elbow.x, y: shoulder.y + arm.elbow.y)
+            var path = Path()
+            path.move(to: wrist)
+            path.addLine(to: elbow)
+            path.addLine(to: shoulder)
+            context.stroke(path, with: .color(Self.ghostColor.opacity(opacity)),
+                           style: StrokeStyle(lineWidth: max(8, arms.fore * 0.16), lineCap: .round, lineJoin: .round))
+            shoulders.append(shoulder)
+        }
+        if shoulders.count == 2 {
+            var line = Path()
+            line.move(to: shoulders[0])
+            line.addLine(to: shoulders[1])
+            context.stroke(line, with: .color(Self.ghostColor.opacity(opacity)), style: StrokeStyle(lineWidth: 8, lineCap: .round))
         }
     }
 

@@ -122,6 +122,9 @@
 		A10000012B00000000000117 /* DumbbellRowExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000117 /* DumbbellRowExercise.swift */; };
 		A10000012B00000000000118 /* DumbbellRowAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000118 /* DumbbellRowAnalyzer.swift */; };
 		A10000012B00000000000119 /* DumbbellRowAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000119 /* DumbbellRowAnalyzerTests.swift */; };
+		A10000012B00000000000121 /* PushUpExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000121 /* PushUpExercise.swift */; };
+		A10000012B00000000000122 /* PushUpAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000122 /* PushUpAnalyzer.swift */; };
+		A10000012B00000000000123 /* PushUpAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000123 /* PushUpAnalyzerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -252,6 +255,9 @@
 		B10000012B00000000000117 /* DumbbellRowExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DumbbellRowExercise.swift; sourceTree = "<group>"; };
 		B10000012B00000000000118 /* DumbbellRowAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DumbbellRowAnalyzer.swift; sourceTree = "<group>"; };
 		B10000012B00000000000119 /* DumbbellRowAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DumbbellRowAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000121 /* PushUpExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushUpExercise.swift; sourceTree = "<group>"; };
+		B10000012B00000000000122 /* PushUpAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushUpAnalyzer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000123 /* PushUpAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushUpAnalyzerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -423,6 +429,7 @@
 				B10000012B00000000000110 /* TricepsExtensionAnalyzerTests.swift */,
 				B10000012B00000000000114 /* AirSquatAnalyzerTests.swift */,
 				B10000012B00000000000119 /* DumbbellRowAnalyzerTests.swift */,
+				B10000012B00000000000123 /* PushUpAnalyzerTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -460,6 +467,7 @@
 				H10000012B00000000000023 /* TricepsExtension */,
 				H10000012B00000000000024 /* AirSquat */,
 				H10000012B00000000000025 /* DumbbellRow */,
+				H10000012B00000000000026 /* PushUp */,
 			);
 			path = Exercises;
 			sourceTree = "<group>";
@@ -585,6 +593,15 @@
 				B10000012B00000000000118 /* DumbbellRowAnalyzer.swift */,
 			);
 			path = DumbbellRow;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000026 /* PushUp */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000121 /* PushUpExercise.swift */,
+				B10000012B00000000000122 /* PushUpAnalyzer.swift */,
+			);
+			path = PushUp;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -764,6 +781,8 @@
 				A10000012B00000000000116 /* NearArmSelector.swift in Sources */,
 				A10000012B00000000000117 /* DumbbellRowExercise.swift in Sources */,
 				A10000012B00000000000118 /* DumbbellRowAnalyzer.swift in Sources */,
+				A10000012B00000000000121 /* PushUpExercise.swift in Sources */,
+				A10000012B00000000000122 /* PushUpAnalyzer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -788,6 +807,7 @@
 				A10000012B00000000000110 /* TricepsExtensionAnalyzerTests.swift in TestSources */,
 				A10000012B00000000000114 /* AirSquatAnalyzerTests.swift in TestSources */,
 				A10000012B00000000000119 /* DumbbellRowAnalyzerTests.swift in TestSources */,
+				A10000012B00000000000123 /* PushUpAnalyzerTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

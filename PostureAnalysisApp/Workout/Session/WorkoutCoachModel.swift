@@ -479,6 +479,11 @@ final class WorkoutCoachModel: ObservableObject {
     }
 
     private func updatePhoneTilt(at now: TimeInterval) {
+        guard session.exercise?.warnsAboutTilt ?? true else {
+            tiltDetector.reset()
+            setPhoneTilted(false)
+            return
+        }
         setPhoneTilted(tiltDetector.update(pitchDegrees: tiltMonitor?.latestTilt?.pitchDegrees, at: now))
     }
 

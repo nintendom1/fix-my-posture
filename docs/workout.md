@@ -1,6 +1,6 @@
 # Workout Coach (Beta)
 
-Open **Workout Coach (Beta)** from the main menu and pick an exercise from the list. The first time you pick each exercise, a short guide shows and describes it. Then prop the phone up in portrait, step back so the front camera can see both arms and your shoulders with room overhead, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10) hammer curls (2 sets of 10), an overhead band triceps extension filmed side-on (2 sets of 10), air squats with the whole body in view (2 sets of 15), and one-arm dumbbell rows filmed side-on (2 sets of 8–10 each arm), announces the target range and set completion, gives occasional form tips, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
+Open **Workout Coach (Beta)** from the main menu and pick an exercise from the list. The first time you pick each exercise, a short guide shows and describes it. Then prop the phone up in portrait, step back so the front camera can see both arms and your shoulders with room overhead, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10) hammer curls (2 sets of 10), an overhead band triceps extension filmed side-on (2 sets of 10), air squats with the whole body in view (2 sets of 15), one-arm dumbbell rows filmed side-on (2 sets of 8–10 each arm), and push-ups with the phone on the floor (2 sets of 10), announces the target range and set completion, gives occasional form tips, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
 
 Rep counts, framing checks, and form tips are geometric heuristics from a 2D camera. They are not medical, injury, or performance assessments.
 
@@ -136,6 +136,20 @@ The row is filmed from the side, with the rowing arm nearer the phone, bent forw
   - The HUD shows "Set 1 of 2 · Left arm". Each arm's reps are recorded as their own entry ("Set 1 L", "Set 1 R").
 - Validation: the guide's bent-over demonstration (torso pitched 50°, `ArmMotion.torsoPitch`) reads −1.00 hanging and −0.17 pulled. It counts exactly one rep per loop facing either way, with either arm, at ½×/2×, and with either segment ±15%.
 
+## Push-up rep rule
+
+Push-ups are filmed by a phone lying on the floor a step in front of the hands, tilted up to face the head (`ExerciseCameraView.floor`). The hands sit near the bottom of the frame and the shoulders rise and fall above them. Thresholds live in `PushUpConfiguration`.
+
+- Signal: `h` = how far the shoulders sit above the planted hands, in arm lengths (upper arm + forearm), averaged over both arms, plus the average 2D elbow angle. The arms stand roughly upright in the image, so the longest recent arm length, locked at the top, is a full ruler at any distance.
+- Up (the start) when `h ≥ 0.8` and the elbows are at least 150°. Down (the counted end) when `h ≤ 0.5` and the elbows are at most 110°. A rep is up → down → up within at least 0.8 s. The lines are drawn across the shoulders as **Up ↑** and **Down ↓**.
+- Validation: the guide's floor-view demonstration reads 1.00 at 180° up and 0.42 at 50° down, whatever the arm proportions. It counts exactly one rep per loop at ½×/2×, mirrored, and with either segment ±15%.
+- **Floor-view support**:
+  - The guide figure plants its hands on a floor line, with the shoulders above them by the arm pose.
+  - The ghost arms rise from your own hands to show where your shoulders go.
+  - Framing asks you to "Get into a plank facing the phone".
+  - The tilt warning is off (`ExerciseDefinition.warnsAboutTilt = false`), since the phone leans back on purpose.
+  - Holding the plank with straight arms for a second starts the set.
+
 ## Form coaching
 
 While counting, the coach watches how each rep is done and offers a short tip now and then. Corrective cues are spoken and shown as a tip; reminders are only shown. Cues describe movement relative to the user's own set. They never mention grip, wrist rotation, dumbbell orientation, or injury, and they never make medical claims.
@@ -178,6 +192,13 @@ One-arm row (drafted wording, for review):
 - "Keep your back still." (20, continuous): the shoulder-to-hip line tipped more than 15° from the start of the set. Needs the hip.
 
 Reminders: "Squeeze your shoulder blade.", "Keep your neck neutral.", "Brace your core."
+
+Push-up (drafted wording, for review):
+- "Go a little lower." (50): an attempt that dropped at least 0.2 but missed the Down line.
+- "Push all the way up." (40): after the bottom, rose at least 0.2 and went down again without straightening.
+- "Lower with control." (30): Up line to Down line in under 0.2 s. The demo's 1.5 s lowering reads 0.43 s.
+
+Reminders: "Brace your core.", "Hands under your shoulders.", "Breathe out as you push."
 
 Curl reminders: "Elbows stay close.", "Lower slowly.", "Stand tall." The curl's motion envelope runs from the shoulders down past the hanging dumbbells, and out past them to the sides. Its "Last rep" line shows each arm's last top and hanging heights, plus the live flare and sway drift.
 
@@ -272,6 +293,7 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
 - `TricepsExtensionAnalyzerTests` run the side-view demonstration facing either way, with either arm, at ½×/2× scale and with either segment ±15%. They also check that a half extension asks to straighten, a fast lowering asks for control, extending again from midway asks to lower behind the head, and tipped elbows raise their signal. Hands hidden behind the head still count, while a hand hidden overhead never counts as the start. Side-on framing accepts either arm, keeps tracking with the hand hidden, and asks you to stand side-on.
 - `AirSquatAnalyzerTests` run the squat demonstration at ½×/2× scale and with thigh or shin ±15%. They also check that a shallow squat asks to go deeper, squatting again without standing asks to stand up, caving knees and a forward lean raise their signals only at depth, and the lean check needs shoulders.
 - `DumbbellRowAnalyzerTests` run the bent-over side demonstration facing either way, with either arm, at ½×/2× and with either segment ±15%. They also check that a half pull asks to pull higher, a fast lowering asks for control, pulling again from midway asks to lower all the way, and a tipping back raises its signal only with the hip visible.
+- `PushUpAnalyzerTests` run the floor-view demonstration at ½×/2×, mirrored, and with either segment ±15%. They also check that a shallow push-up asks to go lower, a fast lowering asks for control, and going back down without straightening asks to push all the way up.
 - `CoachingCueSchedulerTests` check the 0.5 s hold, 2 of the last 3 attempts, the 10 s cooldown and 4 s gap, replacement by priority only upward, waiting while the coach speaks, and reminders at set start and after 25 s quiet.
 - `WorkoutTipLayoutTests` check the preferred slot, keeping a still-valid slot, speak-only when nothing fits, and that press tips at typical and close distances never touch the arms, body, envelope, or HUD.
 - `WorkoutSessionTests` drive the reducer:
@@ -386,6 +408,11 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Turn around; the ghost turns with you, and the right arm's set starts the same way. After both arms, rest starts.
     - Half pulls get "Pull your elbow up past your back."
     - The summary and completion card list "Set 1 L", "Set 1 R", and so on.
-34. Afterward, confirm realtime posture correction still works.
+34. Push-ups:
+    - Lay the phone on the floor a step in front of your hands, propped to lean back, and get into a plank facing it. No tilt warning appears.
+    - The ghost arms rise from your hands. Holding the plank fills the Hold ring.
+    - Ten push-ups to the Down line count exactly 10. Shallow ones get "Go a little lower."
+    - Dropping fast gets "Lower with control."
+35. Afterward, confirm realtime posture correction still works.
 
 These checks remain manual; a passing simulator run does not imply they were performed.

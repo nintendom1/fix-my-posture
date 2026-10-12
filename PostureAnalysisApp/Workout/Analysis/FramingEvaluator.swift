@@ -11,6 +11,8 @@ enum FramingGuidance: String, Equatable {
     case stepIntoViewSideOn
     case stepBackSideOn
     case stepBackFullBody
+    case stepIntoViewFloor
+    case stepBackFloor
 
     var spokenText: String {
         switch self {
@@ -19,6 +21,8 @@ enum FramingGuidance: String, Equatable {
         case .stepIntoViewSideOn: return "Step into view, standing side-on to the phone."
         case .stepBackSideOn: return "Step back until your arm and head are in view."
         case .stepBackFullBody: return "Step back until your whole body is in view, head to feet."
+        case .stepIntoViewFloor: return "Get into a plank facing the phone."
+        case .stepBackFloor: return "Move the phone back until your arms and shoulders are in view."
         case .moreHeadroom: return "Step back a little more so there's room above your hands."
         case .moveLeft: return "Move a little to your left."
         case .moveRight: return "Move a little to your right."
@@ -32,6 +36,8 @@ enum FramingGuidance: String, Equatable {
         case .stepIntoViewSideOn: return "Step into view, side-on"
         case .stepBackSideOn: return "Step back: show your arm"
         case .stepBackFullBody: return "Step back: show your whole body"
+        case .stepIntoViewFloor: return "Get into a plank facing the phone"
+        case .stepBackFloor: return "Move the phone back: show your arms"
         case .moreHeadroom: return "Step back: leave room overhead"
         case .moveLeft: return "Move a little to your left"
         case .moveRight: return "Move a little to your right"
@@ -112,9 +118,13 @@ struct FramingEvaluator {
         let confidence = configuration.minimumConfidence
         let visible = frame.pose.landmarks.values.filter { $0.confidence >= confidence }
         let sideOn = cameraView == .side
-        guard visible.count >= configuration.minimumBodyJoints else { return sideOn ? .stepIntoViewSideOn : .stepIntoView }
+        let floor = cameraView == .floor
+        guard visible.count >= configuration.minimumBodyJoints else {
+            return sideOn ? .stepIntoViewSideOn : (floor ? .stepIntoViewFloor : .stepIntoView)
+        }
         guard requiredPresent else {
             if sideOn { return .stepBackSideOn }
+            if floor { return .stepBackFloor }
             return requiredJoints.contains(.leftAnkle) || requiredJoints.contains(.rightAnkle) ? .stepBackFullBody : .stepBack
         }
 
