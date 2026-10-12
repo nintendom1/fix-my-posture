@@ -70,7 +70,7 @@ The press is filmed from the front, using pixel geometry and an independent hyst
 - Start when `h ≤ 0.6`, elbow ≤ 115°, and the forearm points up (wrist above elbow). Top when `h ≥ 0.8` and elbow ≥ 140°. For a straight arm `h` is the sine of its elevation, so the top needs a straight arm at least about 53° above horizontal and side raises don't count. Each checkpoint needs 2 consecutive 10 Hz samples. Samples between the thresholds never change the confirmed checkpoint.
 - Locked reference: while an arm sits at the start, its smoothed shoulder height and ruler are refreshed. Once the arm leaves the start, they're locked until it returns, so shoulders lifting during the press don't move the target. Stepping closer or farther between reps re-measures at the next start. A lock held longer than 6 s is dropped, and so are locks after a tracking gap.
 - History: the first prototype measured `h` in torso lengths (shoulder midpoint to hip midpoint), with thresholds of 0.25 and 0.55. The standard start never registered as the bottom, and the torso ruler depended on hip detection and drifted with the shoulders. It was retuned and then replaced by the arm ruler.
-- Self-checks (simulated, at 10 Hz): the guide's own demonstration reads `h` 0.38 / 82° at the start and 0.96 / 164° at the top, and counts exactly one rep per loop. Readings are identical at ½×, 2×, and 3× scale. Long-upper-arm, long-forearm, and short-arm proportions all count every rep, as does a pose with no hips. With the shoulders lifting 15% of an arm length at the top, the locked Top line doesn't move.
+- The guide's own demonstration reads `h` 0.38 / 82° at the start and 0.96 / 164° at the top. `ShoulderPressAnalyzerTests` checks this rule end to end (see [Automated validation](#automated-validation)).
 - A rep counts when both arms reach the top within one cycle and both return to the bottom, and the cycle took at least 0.8 s.
 - A gap longer than 0.28 s between complete samples (two dropped samples at the 100–133 ms cadence) invalidates the cycle, so a fresh start is required. Movement done out of view never counts. Pausing or losing tracking has the same effect.
 - The set announces "You're in the target range" at 8 and completes automatically at 10. Other reps are not spoken.
@@ -87,6 +87,24 @@ The press is filmed from the front, using pixel geometry and an independent hyst
 - `SpeechCoach` keeps a short utterance queue: at most 2 pending lines, older ones dropped. It remembers the last instruction for "repeat that". Delegate callbacks (start, finish, cancel) advance the queue. A watchdog stops any utterance that runs past its estimated duration + 5 s.
 - `WorkoutAudioSession` uses `.playback` with `.mixWithOthers`, so music keeps playing. Before speaking, it adds `.duckOthers` and activates. When the queue drains, `endDucking()` deactivates with `.notifyOthersOnDeactivation` and restores the non-ducking category. It retries briefly if deactivation reports busy.
 - `endDucking()` is idempotent and runs on every exit path: speech finished or cancelled, the watchdog, activation errors, interruptions, backgrounding, leaving the screen, and ending the workout. If the app crashes, iOS releases its audio session, which restores other audio.
+
+## Automated validation
+
+`./scripts/validate.sh` runs these alongside the existing suite. They use pure types only, with no camera, speech, or motion hardware.
+
+- `ShoulderPressAnalyzerTests` sample the guide's own demonstration (`ExerciseDemoFigureView.pose` driven by `ArmMotion`) at 10 Hz:
+  - one rep per loop;
+  - identical readings at ½× and 2× scale;
+  - counting with no hips in view;
+  - no count for a half press;
+  - a locked Top threshold that stays put while the shoulders lift mid-press.
+- `WorkoutSessionTests` drive the reducer:
+  - holding the start position for 1 s auto-starts the set;
+  - rest is never skipped before its timer ends;
+  - stale-epoch reps are ignored;
+  - the target range is announced at 8 and the set completes at 10;
+  - the tilt warning is rate-limited.
+- `PhoneTiltDetectorTests` check the 1 s settle time, the 15°/10° hysteresis, and that missing motion data never warns.
 
 ## Future options
 

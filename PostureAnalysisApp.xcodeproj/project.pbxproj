@@ -85,6 +85,9 @@
 		A10000012B00000000000076 /* ExerciseDemoFigureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000076 /* ExerciseDemoFigureView.swift */; };
 		A10000012B00000000000077 /* WorkoutGuideOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000077 /* WorkoutGuideOverlayView.swift */; };
 		A10000012B00000000000078 /* PhoneTiltMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000078 /* PhoneTiltMonitor.swift */; };
+		A10000012B00000000000079 /* ShoulderPressAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000079 /* ShoulderPressAnalyzerTests.swift */; };
+		A10000012B00000000000080 /* WorkoutSessionTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000080 /* WorkoutSessionTests.swift */; };
+		A10000012B00000000000081 /* PhoneTiltDetectorTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000081 /* PhoneTiltDetectorTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -178,6 +181,9 @@
 		B10000012B00000000000076 /* ExerciseDemoFigureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseDemoFigureView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000077 /* WorkoutGuideOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutGuideOverlayView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000078 /* PhoneTiltMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneTiltMonitor.swift; sourceTree = "<group>"; };
+		B10000012B00000000000079 /* ShoulderPressAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShoulderPressAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000080 /* WorkoutSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000081 /* PhoneTiltDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneTiltDetectorTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -338,6 +344,9 @@
 				B10000012B00000000000048 /* MeasurementPresentationTests.swift */,
 				B10000012B00000000000045 /* PostureCalloutLayoutTests.swift */,
 				B10000012B00000000000053 /* HorizonTests.swift */,
+				B10000012B00000000000079 /* ShoulderPressAnalyzerTests.swift */,
+				B10000012B00000000000080 /* WorkoutSessionTests.swift */,
+				B10000012B00000000000081 /* PhoneTiltDetectorTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -600,6 +609,9 @@
 				A10000012B00000000000048 /* MeasurementPresentationTests.swift in TestSources */,
 				A10000012B00000000000045 /* PostureCalloutLayoutTests.swift in TestSources */,
 				A10000012B00000000000053 /* HorizonTests.swift in TestSources */,
+				A10000012B00000000000079 /* ShoulderPressAnalyzerTests.swift in TestSources */,
+				A10000012B00000000000080 /* WorkoutSessionTests.swift in TestSources */,
+				A10000012B00000000000081 /* PhoneTiltDetectorTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
