@@ -23,17 +23,21 @@ enum RepCheckpoint: Hashable {
     case top
 }
 
-/// Where one arm's checkpoints sit, in unmirrored image pixels (y grows downward).
-/// These are the analyzer's actual thresholds, so drawing them shows exactly what counts.
+/// A short horizontal segment the wrist (or other tracked point) must pass, in unmirrored image
+/// pixels (y grows downward), with the label drawn beside it.
+struct ThresholdLine: Equatable {
+    var from: CGPoint
+    var to: CGPoint
+    var label: String
+
+    var y: CGFloat { from.y }
+}
+
+/// Where one arm's checkpoints sit. These are the analyzer's actual thresholds, so drawing them shows
+/// exactly what counts. "Top" is the counted end of the movement, which isn't always the highest point.
 struct ArmThresholds: Equatable {
-    /// The reference shoulder; locked while the arm is away from the start.
-    let shoulder: CGPoint
-    /// Arm length used as the ruler.
-    let ruler: CGFloat
-    /// The wrist must be below this to be at the start.
-    let startY: CGFloat
-    /// The wrist must be above this to be at the top.
-    let topY: CGFloat
+    let startLine: ThresholdLine
+    let topLine: ThresholdLine
     /// The reference was locked at the start position and is held until the arm returns.
     let isLocked: Bool
     /// The checkpoint this arm last confirmed.
@@ -41,6 +45,10 @@ struct ArmThresholds: Equatable {
 
     /// The checkpoint the arm is heading toward.
     var next: RepCheckpoint { confirmed == .start ? .top : .start }
+
+    func line(_ checkpoint: RepCheckpoint) -> ThresholdLine {
+        checkpoint == .start ? startLine : topLine
+    }
 }
 
 /// One frame of analyzer output.

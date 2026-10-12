@@ -282,7 +282,7 @@ public struct ContentView: View {
                 RealtimeCorrectionView()
             }
             .fullScreenCover(isPresented: $showWorkoutCoach) {
-                WorkoutCoachView()
+                WorkoutSelectionView()
             }
             .sheet(isPresented: $showCamera) {
                 CameraPickerView { capturedImage, isCamera, reading in

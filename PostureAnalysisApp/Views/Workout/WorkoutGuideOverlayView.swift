@@ -47,7 +47,8 @@ struct WorkoutGhostOverlayView: View {
     private func drawArms(in context: GraphicsContext, shoulders: [CGPoint], arms: (upper: CGFloat, fore: CGFloat),
                           angles: ArmAngles, opacity: Double) {
         for (shoulder, other) in [(shoulders[0], shoulders[1]), (shoulders[1], shoulders[0])] {
-            let arm = ArmMotion.place(shoulder: shoulder, otherShoulder: other, upperArm: arms.upper, forearm: arms.fore, angles: angles)
+            let arm = ArmMotion.place(shoulder: shoulder, otherShoulder: other, upperArm: arms.upper, forearm: arms.fore,
+                                      angles: angles, forearmPlane: motion.forearmPlane)
             var path = Path()
             path.move(to: shoulder)
             path.addLine(to: arm.elbow)
@@ -77,7 +78,6 @@ struct RepThresholdOverlayView: View {
         guard imageSize.width > 0, imageSize.height > 0 else { return }
         let fit = CoordinateConverter.aspectFitRect(for: imageSize, in: size)
         guard fit.width > 0 else { return }
-        let scale = fit.width / imageSize.width
         // Thresholds are unmirrored image pixels; the preview is a mirrored selfie.
         func display(_ point: CGPoint) -> CGPoint {
             CoordinateConverter.normalizedToContainer(
@@ -87,36 +87,28 @@ struct RepThresholdOverlayView: View {
         var context = context
         context.clip(to: Path(fit))
 
+        // Labels go on the segments furthest right on screen, at their outer end, clear of the body.
+        let labeled = thresholds.max { lhs, rhs in
+            display(lhs.value.startLine.from).x + display(lhs.value.startLine.to).x
+                < display(rhs.value.startLine.from).x + display(rhs.value.startLine.to).x
+        }?.key
         for (side, arm) in thresholds {
-            let opposite: BodySide = side == .left ? .right : .left
-            let shoulder = display(arm.shoulder)
-            let outward: CGFloat
-            if let other = thresholds[opposite] {
-                outward = shoulder.x >= display(other.shoulder).x ? 1 : -1
-            } else {
-                // Mirrored, the user's left arm appears on the left of the screen.
-                outward = side == .left ? -1 : 1
-            }
-            // Span from just inside the shoulder to past the elbow: where the wrist travels.
-            let ruler = arm.ruler * scale
-            let inner = shoulder.x - outward * 0.1 * ruler
-            let outer = shoulder.x + outward * 0.8 * ruler
             for checkpoint in [RepCheckpoint.start, .top] {
-                let y = display(CGPoint(x: arm.shoulder.x, y: checkpoint == .start ? arm.startY : arm.topY)).y
-                drawSegment(in: context, from: inner, to: outer, y: y, checkpoint: checkpoint, arm: arm,
-                            labeled: outward > 0, fit: fit)
+                let line = arm.line(checkpoint)
+                drawSegment(in: context, from: display(line.from), to: display(line.to), checkpoint: checkpoint, arm: arm,
+                            label: side == labeled ? line.label : nil, fit: fit)
             }
         }
     }
 
-    private func drawSegment(in context: GraphicsContext, from inner: CGFloat, to outer: CGFloat, y: CGFloat,
-                             checkpoint: RepCheckpoint, arm: ArmThresholds, labeled: Bool, fit: CGRect) {
+    private func drawSegment(in context: GraphicsContext, from start: CGPoint, to end: CGPoint,
+                             checkpoint: RepCheckpoint, arm: ArmThresholds, label: String?, fit: CGRect) {
         let color = checkpoint == .top ? WorkoutJointOverlayView.endPositionColor : WorkoutJointOverlayView.trackedColor
         let reached = arm.confirmed == checkpoint
         let isNext = arm.next == checkpoint
         var path = Path()
-        path.move(to: CGPoint(x: inner, y: y))
-        path.addLine(to: CGPoint(x: outer, y: y))
+        path.move(to: start)
+        path.addLine(to: end)
         let style = reached
             ? StrokeStyle(lineWidth: 4, lineCap: .round)
             : StrokeStyle(lineWidth: isNext ? 3 : 2, lineCap: .round, dash: [10, 6])
@@ -124,10 +116,9 @@ struct RepThresholdOverlayView: View {
         context.stroke(path, with: .color(.black.opacity(0.5 * opacity)),
                        style: StrokeStyle(lineWidth: style.lineWidth + 2, lineCap: .round, dash: style.dash))
         context.stroke(path, with: .color(color.opacity(opacity)), style: style)
-        guard labeled else { return }
-        let label = checkpoint == .top ? "Top ↑" : "Start ↓"
-        let anchorX = min(max(outer, inner), fit.maxX - 4)
+        guard let label else { return }
+        let anchor = start.x > end.x ? start : end
         context.draw(Text(label).font(.caption.bold()).foregroundColor(color.opacity(opacity)),
-                     at: CGPoint(x: anchorX, y: y - 3), anchor: .bottomTrailing)
+                     at: CGPoint(x: min(anchor.x, fit.maxX - 4), y: anchor.y - 3), anchor: .bottomTrailing)
     }
 }

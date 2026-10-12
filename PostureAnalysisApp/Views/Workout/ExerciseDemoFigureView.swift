@@ -41,6 +41,7 @@ enum DumbbellDrawing {
 /// The body reuses the posture reference silhouette renderer.
 struct ExerciseDemoFigureView: View {
     let angles: ArmAngles
+    var forearmPlane: MotionPlane = .frontal
     var tint: Color = Color(red: 0.62, green: 0.42, blue: 0.95)
 
     /// Figure coordinates in pixels, origin top-left.
@@ -56,13 +57,13 @@ struct ExerciseDemoFigureView: View {
         .leftAnkle: CGPoint(x: 186, y: 460), .rightAnkle: CGPoint(x: 114, y: 460)
     ]
 
-    static func pose(for angles: ArmAngles) -> ReferencePose {
+    static func pose(for angles: ArmAngles, forearmPlane: MotionPlane = .frontal) -> ReferencePose {
         var joints = figureJoints
         for side in BodySide.allCases {
             let other: BodySide = side == .left ? .right : .left
             guard let shoulder = figureJoints[side.shoulder], let otherShoulder = figureJoints[other.shoulder] else { continue }
             let arm = ArmMotion.place(shoulder: shoulder, otherShoulder: otherShoulder,
-                                      upperArm: upperArm, forearm: forearm, angles: angles)
+                                      upperArm: upperArm, forearm: forearm, angles: angles, forearmPlane: forearmPlane)
             joints[side.elbow] = arm.elbow
             joints[side.wrist] = arm.wrist
         }
@@ -70,7 +71,7 @@ struct ExerciseDemoFigureView: View {
     }
 
     var body: some View {
-        let pose = Self.pose(for: angles)
+        let pose = Self.pose(for: angles, forearmPlane: forearmPlane)
         ZStack {
             AlignmentReferenceOverlayView(referencePose: pose, imageSize: Self.canvasSize, containerSize: Self.canvasSize,
                                           style: .silhouette, strokeColor: tint, fillColor: tint.opacity(0.5))

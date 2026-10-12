@@ -122,6 +122,38 @@ final class WorkoutSessionTests: XCTestCase {
         XCTAssertEqual(tips(session.handle(.formObserved(leaning), at: 9.1)).map(\.cue.id), [.pressTorsoCentered])
     }
 
+    func testSwitchingMidSetKeepsFinishedSetsAndRestartsTheSetInProgress() {
+        let curl = HammerCurlExercise.definition()
+        let reliable = FramingStatus(isReliable: true, guidance: nil)
+        var session = WorkoutSession(exercises: [press, curl], initialExercise: press.id)
+        _ = session.handle(.opened, at: 0)
+        _ = session.handle(.framingChanged(reliable), at: 1)
+        _ = session.handle(.command(.start), at: 2)
+        for time in 3...5 { _ = session.handle(.repCompleted(rep(epoch: session.analyzerEpoch)), at: Double(time)) }
+        _ = session.handle(.command(.nextSet), at: 6)
+        _ = session.handle(.command(.start), at: 7)
+        _ = session.handle(.repCompleted(rep(epoch: session.analyzerEpoch)), at: 8)
+
+        let epoch = session.analyzerEpoch
+        let effects = session.handle(.command(.selectExercise(curl.id)), at: 9)
+        XCTAssertEqual(session.exerciseID, curl.id)
+        XCTAssertEqual(session.repCount, 0, "The set in progress is discarded.")
+        XCTAssertTrue(effects.contains(.clearFeedback), "Tips and highlights clear.")
+        XCTAssertGreaterThan(session.analyzerEpoch, epoch, "A fresh analyzer starts.")
+        XCTAssertEqual(session.progress[press.id]?.setReps, [3], "Finished sets are kept.")
+
+        // Curl arms count separately; the count is what both have done.
+        _ = session.handle(.framingChanged(reliable), at: 10)
+        _ = session.handle(.command(.start), at: 11)
+        _ = session.handle(.repCompleted(RepEvent(epoch: session.analyzerEpoch, timestamp: 0, sides: [.left])), at: 12)
+        XCTAssertEqual(session.repCount, 0)
+        _ = session.handle(.repCompleted(RepEvent(epoch: session.analyzerEpoch, timestamp: 0, sides: [.right])), at: 13)
+        XCTAssertEqual(session.repCount, 1)
+
+        _ = session.handle(.command(.selectExercise(press.id)), at: 14)
+        XCTAssertEqual(session.currentSetNumber, 2, "The press picks up at its next set.")
+    }
+
     /// Opened and reliably framed, waiting in ready at t = 1.
     private func readySession() -> WorkoutSession {
         var session = WorkoutSession(exercises: [press], initialExercise: press.id)
