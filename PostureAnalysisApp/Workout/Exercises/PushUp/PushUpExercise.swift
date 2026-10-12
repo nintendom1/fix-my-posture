@@ -87,6 +87,7 @@ enum PushUpExercise {
             motionEnvelope: MotionEnvelope(above: 0.5, below: 1.1, outward: 0.6),
             cameraView: .floor,
             warnsAboutTilt: false,
+            equipment: .bodyweight,
             makeAnalyzer: { epoch in PushUpAnalyzer(epoch: epoch, configuration: configuration) }
         )
     }

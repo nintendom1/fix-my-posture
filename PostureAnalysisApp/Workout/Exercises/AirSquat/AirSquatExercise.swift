@@ -86,6 +86,7 @@ enum AirSquatExercise {
             // From just above the head down to the feet, a little wider than the shoulders.
             motionEnvelope: MotionEnvelope(above: 0.4, below: 2.4, outward: 0.3),
             startsByHolding: false,
+            equipment: .bodyweight,
             makeAnalyzer: { epoch in AirSquatAnalyzer(epoch: epoch, configuration: configuration) }
         )
     }

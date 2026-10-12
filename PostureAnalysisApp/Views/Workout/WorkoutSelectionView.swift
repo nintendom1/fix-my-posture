@@ -47,6 +47,14 @@ struct WorkoutSelectionView: View {
                     Button("Close") { dismiss() }
                         .accessibilityIdentifier("closeWorkoutSelectionButton")
                 }
+                ToolbarItem(placement: .primaryAction) {
+                    NavigationLink {
+                        WorkoutHistoryView()
+                    } label: {
+                        Label("History", systemImage: "clock.arrow.circlepath")
+                    }
+                    .accessibilityIdentifier("workoutHistoryButton")
+                }
             }
         }
         .fullScreenCover(item: $launch) { launch in

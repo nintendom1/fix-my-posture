@@ -49,6 +49,20 @@ A **Saved Set** is an ordered sequence of exercises, each occurrence with its ow
 - **Changing exercise.** "Change exercise" still opens the chooser, which warns that choosing another exercise leaves the Saved Set and skips the rest of it. Naming an exercise directly mid-set asks you to use "next exercise" or "change exercise" instead.
 - **Completion.** After the last occurrence, the completion card lists each occurrence: its sets and reps, "Skipped" (with any sets done first), or "Not reached". **Another Round** runs the whole Saved Set again, and the end-of-workout summary lists the same.
 
+## Workout history
+
+Ending a workout saves it automatically: End Workout on the completion card, End and then Done, or closing the camera screen after finishing a set. A workout with no finished set saves nothing.
+
+- **Storage.** `WorkoutRecord` (pure Codable, built from the session by `WorkoutRecord(session:startedAt:endedAt:)`) is stored by `WorkoutRecordEntity` (SwiftData, entries as JSON).
+  - The record has the start and end time and, for a Saved Set, its name.
+  - Each entry is one exercise (or one Saved Set occurrence, marked completed or skipped) with its sets: reps, the arm for one-arm exercises, and the weight.
+  - The exercise's name is copied, so history still reads well if the exercise changes.
+- **Weights** (`WorkoutWeight`) are per dumbbell and per set: a value in the unit given (shown as lb or kg), or a band's name for band exercises (`ExerciseDefinition.equipment`). Bodyweight exercises (squats, push-ups) take no weight.
+  - During a workout, the weight in use is recorded with each finished set and carries to the next sets of that exercise until changed. The HUD shows it beside the set count.
+- **History screen.** **History** on the exercise list shows past workouts, newest first. Swipe to delete.
+  - Each workout shows its sets. Tap a set's weight (or **Add weight**) to enter or change it per dumbbell in lb or kg, or name the band.
+  - **Also for the later sets** copies it to the rest of that exercise. **Remove Weight** clears it.
+
 ## Session state machine
 
 Phases: `choosingExercise`, `framing`, `ready`, `exercising`, `paused(user | background | interruption)`, `resting`, `changingExercise(previous)`, `exerciseComplete`, and `ended`.
@@ -308,6 +322,7 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
 - `DumbbellRowAnalyzerTests` run the bent-over side demonstration facing either way, with either arm, at ½×/2× and with either segment ±15%. They also check that a half pull asks to pull higher, a fast lowering asks for control, pulling again from midway asks to lower all the way, and a tipping back raises its signal only with the hip visible.
 - `PushUpAnalyzerTests` run the floor-view demonstration at ½×/2×, mirrored, and with either segment ±15%. They also check that a shallow push-up asks to go lower, a fast lowering asks for control, and going back down without straightening asks to push all the way up.
 - `SavedExerciseSetTests` check that order, ids, and repeated exercises survive storage; that unavailable exercises need attention without being removed; that duplicates get fresh ids; and that remembered targets apply without changing the defaults.
+- `WorkoutHistoryTests` check that weights carry to later sets until changed (and are confirmed out loud), that bodyweight exercises take no weight, that Saved Set occurrences are recorded with their outcome and survive storage, that one-arm sets are labeled by arm, and that a workout with no sets saves nothing.
 - `CoachingCueSchedulerTests` check the 0.5 s hold, 2 of the last 3 attempts, the 10 s cooldown and 4 s gap, replacement by priority only upward, waiting while the coach speaks, and reminders at set start and after 25 s quiet.
 - `WorkoutTipLayoutTests` check the preferred slot, keeping a still-valid slot, speak-only when nothing fits, and that press tips at typical and close distances never touch the arms, body, envelope, or HUD.
 - `WorkoutSessionTests` drive the reducer:
@@ -434,6 +449,11 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Say "next exercise" mid-curl: it skips to the second press, which starts at set 1 of 1.
     - The final card lists the press as completed, curls as skipped, and the last press.
     - On the list, adjust Hammer Curl to 3 × 12, start it, and confirm the set completes at 12. Reset to Default restores 2 × 10.
-36. Afterward, confirm realtime posture correction still works.
+36. History:
+    - Finish two press sets and end the workout. History (on the exercise list) shows it, newest first.
+    - Open it, add 17.5 lb to set 1 with "Also for the later sets", and set 2 shows 17.5 lb too. Change set 2 to 8 kg and remove it again.
+    - Band triceps take a band name, and push-ups and squats show no weight control.
+    - Closing the coach after a finished set (without ending) still saves it. Opening and closing without a set saves nothing. Swipe to delete a workout.
+37. Afterward, confirm realtime posture correction still works.
 
 These checks remain manual; a passing simulator run does not imply they were performed.

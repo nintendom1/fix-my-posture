@@ -192,6 +192,12 @@ struct WorkoutHUDView: View {
                                 .font(.subheadline.monospacedDigit())
                                 .foregroundStyle(rest > 0 ? .yellow : WorkoutJointOverlayView.endPositionColor)
                         }
+                        if let weight = session.currentWeights[exercise.id] {
+                            Label(weight.label, systemImage: exercise.equipment == .band ? "lasso" : "scalemass")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.white.opacity(0.85))
+                                .accessibilityLabel("Weight \(weight.spokenLabel)")
+                        }
                         if session.isRestingBeforeNextExercise {
                             Text("Up next: \(exercise.displayName) · \(exercise.setsAndRepsLabel)")
                                 .font(.caption)

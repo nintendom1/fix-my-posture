@@ -90,6 +90,7 @@ enum TricepsExtensionExercise {
             motionEnvelope: MotionEnvelope(above: 1.05, below: 0.2, outward: 0.6),
             cameraView: .side,
             anyOfRequiredJoints: [[.leftShoulder, .leftElbow, .leftWrist], [.rightShoulder, .rightElbow, .rightWrist]],
+            equipment: .band,
             makeAnalyzer: { epoch in TricepsExtensionAnalyzer(epoch: epoch, configuration: configuration) }
         )
     }
