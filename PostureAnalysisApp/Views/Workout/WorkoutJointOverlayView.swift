@@ -8,6 +8,8 @@ struct WorkoutJointOverlayView: View {
     static let endPositionColor = Color(red: 0.31, green: 0.87, blue: 0.64)
     static let staleColor = Color.gray.opacity(0.7)
     static let referenceColor = Color.white.opacity(0.45)
+    /// Joints a corrective tip refers to. Amber draws attention without signaling danger; never red.
+    static let cueColor = Color(red: 1, green: 0.76, blue: 0.24)
     static let jointRadius: CGFloat = 7
     static let limbWidth: CGFloat = 3
 
@@ -24,8 +26,11 @@ struct WorkoutJointOverlayView: View {
                 path.move(to: point(from))
                 path.addLine(to: point(to))
                 let color: Color
+                let emphasized = overlay.emphasizedJoints.contains(segment.from) && overlay.emphasizedJoints.contains(segment.to)
                 if from.isStale || to.isStale {
                     color = Self.staleColor
+                } else if emphasized {
+                    color = Self.cueColor
                 } else if segment.style == .reference {
                     color = Self.referenceColor
                 } else {
@@ -54,6 +59,7 @@ struct WorkoutJointOverlayView: View {
 
     private func color(for type: LandmarkType, joint: OverlayJoint) -> Color {
         if joint.isStale { return Self.staleColor }
+        if overlay.emphasizedJoints.contains(type) { return Self.cueColor }
         return isAtEndPosition(type) ? Self.endPositionColor : Self.trackedColor
     }
 }

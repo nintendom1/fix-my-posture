@@ -52,6 +52,12 @@ struct ExerciseAnalysis {
     var startPositionHeld = false
     var readings: [BodySide: ArmReading] = [:]
     var thresholds: [BodySide: ArmThresholds] = [:]
+    /// Rep attempts judged for form on this frame, counted or not.
+    var repForms: [RepForm] = []
+    /// Continuous form conditions that hold on this frame.
+    var formSignals: Set<CoachingCueID> = []
+    /// The last attempt's form values, for Show Measurements.
+    var formReadings: [FormReading] = []
 }
 
 /// Exercise-specific rep counting over reliable, unmirrored pixel geometry.

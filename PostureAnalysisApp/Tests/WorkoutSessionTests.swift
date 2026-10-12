@@ -79,6 +79,49 @@ final class WorkoutSessionTests: XCTestCase {
         XCTAssertEqual(spoken(session.handle(.phoneTiltChanged(true), at: 36)).count, 1)
     }
 
+    func testSetStartShowsReminderWithoutSpeakingIt() throws {
+        var session = readySession()
+        let effects = session.handle(.command(.start), at: 2)
+        let tip = try XCTUnwrap(tips(effects).first)
+        XCTAssertEqual(tip.cue.kind, .reminder)
+        XCTAssertFalse(spoken(effects).contains(tip.cue.text), "Reminders are visual only.")
+    }
+
+    func testCorrectiveCueIsSpokenAndShownForCurrentAnalyzerOnly() {
+        var session = readySession()
+        _ = session.handle(.command(.start), at: 2)
+        let flagged = RepForm(timestamp: 0, flags: [.pressFullExtension])
+        let stale = FormObservation(epoch: session.analyzerEpoch - 1, repForms: [flagged, flagged])
+        XCTAssertTrue(session.handle(.formObserved(stale), at: 8).isEmpty)
+
+        _ = session.handle(.formObserved(FormObservation(epoch: session.analyzerEpoch, repForms: [flagged])), at: 9)
+        let effects = session.handle(.formObserved(FormObservation(epoch: session.analyzerEpoch, repForms: [flagged])), at: 10)
+        XCTAssertEqual(tips(effects).map(\.cue.id), [.pressFullExtension])
+        XCTAssertEqual(spoken(effects), ["Press all the way up."])
+    }
+
+    func testRestartingSetForgetsCoachingHistory() {
+        var session = readySession()
+        _ = session.handle(.command(.start), at: 2)
+        let flagged = RepForm(timestamp: 0, flags: [.pressFullExtension])
+        _ = session.handle(.formObserved(FormObservation(epoch: session.analyzerEpoch, repForms: [flagged])), at: 8)
+        _ = session.handle(.command(.restartSet), at: 9)
+        let effects = session.handle(.formObserved(FormObservation(epoch: session.analyzerEpoch, repForms: [flagged])), at: 10)
+        XCTAssertTrue(tips(effects).isEmpty, "One flagged attempt after a restart isn't 2 of the last 3.")
+    }
+
+    func testPausingRestartsTheHoldForContinuousCues() {
+        var session = readySession()
+        _ = session.handle(.command(.start), at: 2)
+        let leaning = FormObservation(epoch: session.analyzerEpoch, signals: [.pressTorsoCentered])
+        _ = session.handle(.formObserved(leaning), at: 8)
+        _ = session.handle(.command(.pause), at: 8.3)
+        _ = session.handle(.command(.resume), at: 8.4)
+        XCTAssertTrue(tips(session.handle(.formObserved(leaning), at: 8.6)).isEmpty, "The hold starts over after a pause.")
+        XCTAssertTrue(tips(session.handle(.formObserved(leaning), at: 9.0)).isEmpty)
+        XCTAssertEqual(tips(session.handle(.formObserved(leaning), at: 9.1)).map(\.cue.id), [.pressTorsoCentered])
+    }
+
     /// Opened and reliably framed, waiting in ready at t = 1.
     private func readySession() -> WorkoutSession {
         var session = WorkoutSession(exercises: [press], initialExercise: press.id)
@@ -90,6 +133,13 @@ final class WorkoutSessionTests: XCTestCase {
 
     private func rep(epoch: Int) -> RepEvent {
         RepEvent(epoch: epoch, timestamp: 0, sides: [.left, .right])
+    }
+
+    private func tips(_ effects: [WorkoutEffect]) -> [CoachingTip] {
+        effects.compactMap { effect in
+            if case .showTip(let tip) = effect { return tip }
+            return nil
+        }
     }
 
     private func spoken(_ effects: [WorkoutEffect]) -> [String] {

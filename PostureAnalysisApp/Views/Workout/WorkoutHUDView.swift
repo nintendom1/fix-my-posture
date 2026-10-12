@@ -14,6 +14,8 @@ struct WorkoutHUDView: View {
     let session: WorkoutSession
     let now: TimeInterval
     let readings: [BodySide: ArmReading]
+    /// The last rep's form values, shown with the measurements for tuning cue thresholds.
+    let formReadings: [FormReading]
     let isPhoneTilted: Bool
     let micStatus: WorkoutVoiceController.Status
     let heardPhrase: String?
@@ -252,13 +254,21 @@ struct WorkoutHUDView: View {
         }
     }
 
-    /// Live signals per arm, for checking the counting thresholds on device.
+    /// Live signals per arm, for checking the counting thresholds on device, and the last rep's form
+    /// values for checking the coaching thresholds.
     private var measurementsRow: some View {
-        HStack(spacing: 14) {
-            ForEach(BodySide.allCases, id: \.self) { side in
-                measurement(for: side)
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 14) {
+                ForEach(BodySide.allCases, id: \.self) { side in
+                    measurement(for: side)
+                }
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
+            if !formReadings.isEmpty {
+                Text("Last rep: " + formReadings.map { "\($0.label) \($0.value)" }.joined(separator: " · "))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
         }
         .font(.caption.monospacedDigit())
         .foregroundStyle(.white.opacity(0.85))

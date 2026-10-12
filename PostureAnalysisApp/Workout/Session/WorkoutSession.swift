@@ -72,6 +72,10 @@ enum WorkoutEvent: Equatable {
     case interruptionEnded
     /// Voice control availability changes how prompts are worded.
     case voiceControlChanged(Bool)
+    /// Form output from the analyzer, on every frame while counting.
+    case formObserved(FormObservation)
+    /// Corrective cues wait for the coach to finish speaking, so a tip and its spoken line match.
+    case coachSpeakingChanged(Bool)
 }
 
 enum WorkoutEffect: Equatable {
@@ -82,6 +86,8 @@ enum WorkoutEffect: Equatable {
     case setCounting(Bool)
     case clearFeedback
     case stopCaptureAndVoice
+    /// Show a coaching tip; corrective tips are also spoken through `.speak`.
+    case showTip(CoachingTip)
 }
 
 struct ExerciseProgress: Equatable {
@@ -112,6 +118,9 @@ struct WorkoutSession {
     private var startPositionSince: TimeInterval?
     private var readySince: TimeInterval?
     private var lastTiltWarningAt: TimeInterval?
+    private var coaching: CoachingCueScheduler
+    private var isCoachSpeaking = false
+    private var lastTipID = 0
 
     /// Guidance must hold this long before it is spoken.
     static let guidanceSettleTime: TimeInterval = 1.0
@@ -129,6 +138,7 @@ struct WorkoutSession {
         let initial = initialExercise.flatMap { id in exercises.contains { $0.id == id } ? id : nil }
         exerciseID = initial
         phase = initial == nil ? .choosingExercise : .framing
+        coaching = Self.scheduler(for: initial.flatMap { id in exercises.first { $0.id == id } })
     }
 
     var exercise: ExerciseDefinition? {
@@ -202,6 +212,12 @@ struct WorkoutSession {
         case .voiceControlChanged(let active):
             voiceControlActive = active
             return []
+        case .formObserved(let observation):
+            guard observation.epoch == analyzerEpoch, phase == .exercising, isCounting else { return [] }
+            return tipEffects(coaching.update(observation, speaking: isCoachSpeaking, at: now))
+        case .coachSpeakingChanged(let speaking):
+            isCoachSpeaking = speaking
+            return []
         }
     }
 
@@ -244,7 +260,7 @@ struct WorkoutSession {
             switch phase {
             case .exercising, .paused:
                 sideReps = [.left: 0, .right: 0]
-                return newAnalyzer() + [.clearFeedback, .speak(Utterance(text: "Set restarted. Counting from zero."))]
+                return newAnalyzer() + clearFeedback() + [.speak(Utterance(text: "Set restarted. Counting from zero."))]
             default:
                 return hint("No set is in progress.")
             }
@@ -319,7 +335,8 @@ struct WorkoutSession {
         trackingLostAt = framing.isReliable ? nil : now
         trackingLossAnnounced = false
         let line = "Set \(currentSetNumber) of \(exercise.sets). Go."
-        return newAnalyzer() + [.clearFeedback] + setCounting(framing.isReliable) + [.speak(Utterance(text: line))]
+        let effects = newAnalyzer() + clearFeedback() + setCounting(framing.isReliable) + [.speak(Utterance(text: line))]
+        return effects + tipEffects(coaching.beginSet(at: now))
     }
 
     private mutating func resumeSet(at now: TimeInterval) -> [WorkoutEffect] {
@@ -337,7 +354,7 @@ struct WorkoutSession {
         progress[exercise.id, default: ExerciseProgress()].setReps.append(reps)
         sideReps = [.left: 0, .right: 0]
         let finished = completedSets(for: exercise.id)
-        var effects = setCounting(false) + newAnalyzer() + [.clearFeedback]
+        var effects = setCounting(false) + newAnalyzer() + clearFeedback()
         if finished >= exercise.sets {
             phase = .exerciseComplete
             restEndsAt = nil
@@ -360,7 +377,8 @@ struct WorkoutSession {
         framing = .lost
         guidanceChangedAt = nil
         lastSpokenGuidance = nil
-        var effects = setCounting(false) + newAnalyzer() + [.clearFeedback]
+        var effects = setCounting(false) + newAnalyzer() + clearFeedback()
+        coaching = Self.scheduler(for: next)
         if completedSets(for: id) >= next.sets {
             phase = .exerciseComplete
             effects.append(.speak(Utterance(text: "\(next.displayName) is already done. \(completePrompt)")))
@@ -403,7 +421,7 @@ struct WorkoutSession {
         sideReps = [.left: 0, .right: 0]
         phase = .ended
         restEndsAt = nil
-        return setCounting(false) + [.clearFeedback,
+        return setCounting(false) + clearFeedback() + [
             .speak(Utterance(text: "Workout ended. Nice work.", interrupts: true)),
             .stopCaptureAndVoice]
     }
@@ -466,11 +484,14 @@ struct WorkoutSession {
             guard startHoldProgress(at: now) == 1 else { return [] }
             return beginSet(at: now)
         case .exercising:
-            guard !framing.isReliable, !trackingLossAnnounced, let lostAt = trackingLostAt,
-                  now - lostAt >= Self.trackingLossGrace else { return [] }
-            trackingLossAnnounced = true
-            let guidance = framing.guidance?.spokenText ?? FramingGuidance.stepIntoView.spokenText
-            return [.speak(Utterance(text: "I can't see you. \(guidance)"))]
+            if !framing.isReliable, !trackingLossAnnounced, let lostAt = trackingLostAt,
+               now - lostAt >= Self.trackingLossGrace {
+                trackingLossAnnounced = true
+                let guidance = framing.guidance?.spokenText ?? FramingGuidance.stepIntoView.spokenText
+                return [.speak(Utterance(text: "I can't see you. \(guidance)"))]
+            }
+            // Reminders come due on the clock rather than on a frame.
+            return isCounting ? tipEffects(coaching.tick(speaking: isCoachSpeaking, at: now)) : []
         case .resting:
             guard let restEndsAt, now >= restEndsAt else { return [] }
             if startHoldProgress(at: now) == 1 { return beginSet(at: now) }
@@ -501,7 +522,26 @@ struct WorkoutSession {
     private mutating func setCounting(_ counting: Bool) -> [WorkoutEffect] {
         guard counting != isCounting else { return [] }
         isCounting = counting
+        if !counting { coaching.stopCounting() }
         return [.setCounting(counting)]
+    }
+
+    /// Clears end-position highlights and any tip, and forgets the set's coaching history.
+    private mutating func clearFeedback() -> [WorkoutEffect] {
+        coaching.reset()
+        return [.clearFeedback]
+    }
+
+    /// A corrective cue is shown and spoken; a reminder is only shown.
+    private mutating func tipEffects(_ cue: CoachingCue?) -> [WorkoutEffect] {
+        guard let cue else { return [] }
+        lastTipID += 1
+        let tip = WorkoutEffect.showTip(CoachingTip(id: lastTipID, cue: cue))
+        return cue.kind == .corrective ? [tip, .speak(Utterance(text: cue.text))] : [tip]
+    }
+
+    private static func scheduler(for exercise: ExerciseDefinition?) -> CoachingCueScheduler {
+        CoachingCueScheduler(cues: exercise?.coachingCues ?? [], reminders: exercise?.reminders ?? [])
     }
 
     private func hint(_ text: String) -> [WorkoutEffect] {

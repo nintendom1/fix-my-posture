@@ -18,15 +18,16 @@ PostureAnalysisApp/
 ├── ImageImport/         # PhotoValidator & ViewClassifier
 ├── Persistence/         # SwiftData entities (AssessmentEntity), ImageStore, BaselineComparisonEngine
 ├── Views/               # SwiftUI views (ContentView, HistoryView, LandmarkOverlayView, AssessmentDetailView, DeveloperDebugView)
-│   └── Workout/         # WorkoutCoachView, WorkoutHUDView, WorkoutJointOverlayView, ExerciseGuideView, WorkoutGuideOverlayView (ghost & per-arm thresholds), HoldProgressRingView, MicrophoneStatusView, VoiceCommandsHelpView
+│   └── Workout/         # WorkoutCoachView, WorkoutHUDView, WorkoutJointOverlayView, ExerciseGuideView, WorkoutGuideOverlayView (ghost & per-arm thresholds), HoldProgressRingView, MicrophoneStatusView, VoiceCommandsHelpView, WorkoutTipView (coaching tips)
 ├── Workout/             # Workout Coach (Beta)
 │   ├── Exercises/       # ExerciseCatalog, ExerciseDefinition, ExerciseAnalyzing, ExerciseGuide; one folder per exercise
 │   ├── Analysis/        # PoseFrame, ArmGeometry, HysteresisPhaseTracker, FramingEvaluator, LandmarkSmoother
 │   ├── Session/         # WorkoutSession (pure reducer) & WorkoutCoachModel (main-actor orchestrator)
+│   ├── Coaching/        # CoachingCue, CoachingCueScheduler (pure), WorkoutTipLayout & MotionEnvelope (pure tip placement)
 │   └── Camera/          # PoseFrameSource protocol, WorkoutCameraController, PhoneTiltMonitor
 ├── Voice/               # SpeechCoach & WorkoutAudioSession (speech, ducking); VoiceCommandParser, VoiceCommandHelp, OnDeviceSpeechRecognizer, WorkoutVoiceController, VoicePermissions (hands-free commands)
 ├── LandmarkEditing/     # LandmarkEditingView (manual point repositioning)
-├── Utilities/           # CoordinateConverter (aspect-correct image pixel transform), PortraitCameraSession
+├── Utilities/           # CoordinateConverter (aspect-correct image pixel transform), PortraitCameraSession, ProtectedBodyGeometry (body areas overlays avoid)
 └── Tests/               # GeometryTests XCTest suite
 ```
 
@@ -36,6 +37,10 @@ PostureAnalysisApp/
 2. **Decoupled Pose Estimator**: All Apple Vision code MUST remain inside `AppleVisionPoseEstimator`. Domain models use estimator-agnostic `BodyPose` and `Landmark`.
 3. **Stable Measurement Identity**: Every metric must maintain a stable `MeasurementID` string key (e.g. `front.shoulder_line_angle`) separate from user-facing display names.
 4. **Non-Diagnostic Framing**: Avoid medical claims (e.g., scoliosis). Measurements are geometric observations relative to baseline.
+
+## Adding a Workout Exercise
+
+Every new Workout Coach exercise ships with full guidance (guide, ghost demo, threshold lines, hold ring, coaching cues, docs, and checklist items) even when a request only names the exercise. Follow the *Adding an exercise* checklist in `docs/workout.md`.
 
 ## Useful Validation & Build Commands
 
