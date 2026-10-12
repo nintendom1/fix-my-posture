@@ -7,6 +7,7 @@ struct WorkoutCoachView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var model: WorkoutCoachModel
     @AppStorage("workoutCoach.showMeasurements") private var showMeasurements = false
     @State private var showGuide = false
@@ -32,7 +33,8 @@ struct WorkoutCoachView: View {
                 workoutContent
             }
 
-            if model.session.phase == .ended {
+            // Ending from the completion card exits directly; it already showed the results.
+            if model.session.phase == .ended, !model.session.endedAfterCompletion {
                 WorkoutSummaryView(session: model.session, onDone: close)
             }
         }
@@ -52,6 +54,9 @@ struct WorkoutCoachView: View {
         }
         .onChange(of: model.session.exerciseID) { _, _ in
             presentGuideIfUnseen()
+        }
+        .onChange(of: model.session.phase) { _, phase in
+            if phase == .ended, model.session.endedAfterCompletion { close() }
         }
         .sheet(isPresented: $showGuide, onDismiss: guideDismissed) {
             if let exercise = model.session.exercise {
@@ -140,6 +145,14 @@ struct WorkoutCoachView: View {
                     onCommand: { model.send($0) }
                 )
 
+                if model.session.phase == .exerciseComplete {
+                    ExerciseCompleteCard(session: model.session,
+                                         onAnotherRound: { model.send(.anotherRound) },
+                                         onChooseExercise: { model.send(.changeExercise) },
+                                         onEndWorkout: { model.send(.endWorkout) })
+                        .transition(.opacity)
+                }
+
                 if case .changingExercise = model.session.phase {
                     ExerciseChooserOverlay(session: model.session, voiceActive: model.session.voiceControlActive,
                                            onSelect: { model.send(.selectExercise($0)) },
@@ -148,6 +161,7 @@ struct WorkoutCoachView: View {
             }
             .coordinateSpace(name: Self.coordinateSpace)
             .onPreferenceChange(WorkoutHUDRects.self) { hudRects = $0 }
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: model.session.phase == .exerciseComplete)
         }
     }
 

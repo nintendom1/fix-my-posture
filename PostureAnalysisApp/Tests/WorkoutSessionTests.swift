@@ -154,6 +154,35 @@ final class WorkoutSessionTests: XCTestCase {
         XCTAssertEqual(session.currentSetNumber, 2, "The press picks up at its next set.")
     }
 
+    func testLastSetOffersAnotherRoundAndEndingThereSkipsTheSummary() {
+        var session = readySession()
+        _ = session.handle(.command(.start), at: 2)
+        _ = session.handle(.command(.nextSet), at: 3)
+        _ = session.handle(.command(.nextSet), at: 4)
+        let effects = session.handle(.command(.nextSet), at: 5)
+        XCTAssertEqual(session.phase, .exerciseComplete)
+        XCTAssertTrue(spoken(effects).last?.hasSuffix("Tap Another Round or End Workout.") ?? false, "Names the real buttons.")
+        XCTAssertEqual(session.suggestedCommands, [.anotherRound, .endWorkout])
+
+        _ = session.handle(.command(.anotherRound), at: 6)
+        XCTAssertEqual(session.phase, .ready, "Framing is still good, so the next round is ready to start.")
+        XCTAssertEqual(session.currentSetNumber, 1)
+        XCTAssertEqual(session.progress[press.id]?.setReps.count, 2, "Earlier rounds are kept for the summary.")
+        XCTAssertEqual(session.progress[press.id]?.round, 2)
+
+        _ = session.handle(.command(.start), at: 7)
+        _ = session.handle(.command(.endWorkout), at: 8)
+        XCTAssertFalse(session.endedAfterCompletion, "Ending mid-set still shows the summary.")
+
+        var finished = readySession()
+        _ = finished.handle(.command(.start), at: 2)
+        _ = finished.handle(.command(.nextSet), at: 3)
+        _ = finished.handle(.command(.nextSet), at: 4)
+        _ = finished.handle(.command(.nextSet), at: 5)
+        _ = finished.handle(.command(.endWorkout), at: 6)
+        XCTAssertTrue(finished.endedAfterCompletion, "The card already showed the results.")
+    }
+
     /// Opened and reliably framed, waiting in ready at t = 1.
     private func readySession() -> WorkoutSession {
         var session = WorkoutSession(exercises: [press], initialExercise: press.id)

@@ -44,6 +44,7 @@ extension VoiceCommandAlias {
                        "end this set", "end the set"], .nextSet, destructive: true)
             + aliases(["change exercise", "change exercises", "switch exercise", "switch exercises",
                        "different exercise"], .changeExercise, destructive: true)
+            + aliases(["another round", "one more round", "next round", "go again"], .anotherRound)
             + aliases(["cancel", "never mind", "nevermind"], .cancel)
             + aliases(["how many reps", "how many", "rep count", "what's my count"], .repCount)
             + aliases(["which set", "what set", "what set am I on", "which set am I on"], .whichSet)

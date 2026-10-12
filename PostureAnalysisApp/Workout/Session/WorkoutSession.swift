@@ -30,6 +30,8 @@ enum WorkoutCommand: Equatable {
     case nextSet
     case changeExercise
     case selectExercise(ExerciseID)
+    /// After the last set, does the exercise again from set 1.
+    case anotherRound
     case cancel
     case repCount
     case whichSet
@@ -91,8 +93,15 @@ enum WorkoutEffect: Equatable {
 }
 
 struct ExerciseProgress: Equatable {
-    /// Reps recorded for each finished set, in order.
+    /// Reps recorded for each finished set, in order, across every round.
     var setReps: [Int] = []
+    /// Index in `setReps` where the current round began.
+    var roundStart = 0
+    /// One-based round number.
+    var round = 1
+
+    /// Reps for each finished set of the current round.
+    var roundSetReps: [Int] { Array(setReps.dropFirst(roundStart)) }
 }
 
 /// Pure workout state machine. Every input is an event with a time; every side effect is returned.
@@ -107,6 +116,8 @@ struct WorkoutSession {
     private(set) var analyzerEpoch = 0
     private(set) var restEndsAt: TimeInterval?
     private(set) var voiceControlActive = false
+    /// The workout was ended from the completion card, which already showed the results.
+    private(set) var endedAfterCompletion = false
 
     private var guidanceChangedAt: TimeInterval?
     private var lastSpokenGuidance: FramingGuidance?
@@ -148,7 +159,8 @@ struct WorkoutSession {
     /// Reps both arms have completed in the current set.
     var repCount: Int { min(sideReps[.left] ?? 0, sideReps[.right] ?? 0) }
 
-    func completedSets(for id: ExerciseID) -> Int { progress[id]?.setReps.count ?? 0 }
+    /// Finished sets in the current round.
+    func completedSets(for id: ExerciseID) -> Int { progress[id]?.roundSetReps.count ?? 0 }
 
     /// One-based number of the set in progress or up next.
     var currentSetNumber: Int {
@@ -297,6 +309,9 @@ struct WorkoutSession {
         case .cancel:
             if case .changingExercise(let previous) = phase { return returnFromChange(to: previous, at: now) }
             return []
+        case .anotherRound:
+            guard phase == .exerciseComplete else { return hint("Another round is available after the last set.") }
+            return startAnotherRound(at: now)
         case .repCount:
             return [.speak(Utterance(text: repCountReply, isInstruction: false))]
         case .whichSet:
@@ -368,6 +383,25 @@ struct WorkoutSession {
         return effects
     }
 
+    /// The same exercise again from set 1. Earlier rounds stay in the progress for the summary.
+    private mutating func startAnotherRound(at now: TimeInterval) -> [WorkoutEffect] {
+        guard let exercise else { return [] }
+        var record = progress[exercise.id, default: ExerciseProgress()]
+        record.roundStart = record.setReps.count
+        record.round += 1
+        progress[exercise.id] = record
+        restEndsAt = nil
+        // Framing doesn't change on its own here, so go straight to ready when it's already good.
+        if framing.isReliable, framing.guidance == nil {
+            phase = .ready
+            readySince = now
+        } else {
+            phase = .framing
+        }
+        let line = "Round \(record.round) of \(exercise.spokenName). \(startPrompt) to start, or \(prompt("start").lowercased())."
+        return newAnalyzer() + clearFeedback() + [.speak(Utterance(text: line))]
+    }
+
     private mutating func switchExercise(to id: ExerciseID) -> [WorkoutEffect] {
         guard let next = exercises.first(where: { $0.id == id }) else { return [] }
         // An in-progress set is discarded; finished sets stay with their exercise.
@@ -415,6 +449,7 @@ struct WorkoutSession {
     }
 
     private mutating func endWorkout() -> [WorkoutEffect] {
+        endedAfterCompletion = phase == .exerciseComplete
         if let exercise, phase == .exercising || isPaused, repCount > 0 {
             progress[exercise.id, default: ExerciseProgress()].setReps.append(repCount)
         }
@@ -563,13 +598,13 @@ struct WorkoutSession {
         return voiceControlActive ? "Say \(list)." : "Choose \(list) from the exercise menu."
     }
 
+    /// Names the completion card's buttons, or their spoken equivalents.
     private var completePrompt: String {
-        let remaining = exercises.filter { completedSets(for: $0.id) < $0.sets }
-        guard !remaining.isEmpty else { return voiceControlActive ? "Say end workout to finish." : "Tap End to finish." }
-        let names = remaining.map(\.spokenName).joined(separator: " or ")
-        return voiceControlActive
-            ? "Say \(names), or end workout."
-            : "Choose \(names) from the exercise menu, or tap End."
+        let others = exercises.count > 1
+        if voiceControlActive {
+            return others ? "Say another round, change exercise, or end workout." : "Say another round or end workout."
+        }
+        return others ? "Tap Another Round, Choose Exercise, or End Workout." : "Tap Another Round or End Workout."
     }
 
     private var repCountReply: String {
@@ -616,7 +651,7 @@ struct WorkoutSession {
         case .exercising: return [.pause, .repCount, .nextSet, .restartSet]
         case .paused: return [.resume, .restartSet, .nextSet]
         case .resting: return [.start, .whichSet]
-        case .exerciseComplete: return exercises.count > 1 ? [.changeExercise, .endWorkout] : [.endWorkout]
+        case .exerciseComplete: return [.anotherRound] + (exercises.count > 1 ? [.changeExercise] : []) + [.endWorkout]
         case .ended: return []
         }
     }
