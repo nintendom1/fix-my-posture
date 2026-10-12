@@ -10,6 +10,7 @@ enum FramingGuidance: String, Equatable {
     case moveRight
     case stepIntoViewSideOn
     case stepBackSideOn
+    case stepBackFullBody
 
     var spokenText: String {
         switch self {
@@ -17,6 +18,7 @@ enum FramingGuidance: String, Equatable {
         case .stepBack: return "Step back until both arms and shoulders are in view."
         case .stepIntoViewSideOn: return "Step into view, standing side-on to the phone."
         case .stepBackSideOn: return "Step back until your arm and head are in view."
+        case .stepBackFullBody: return "Step back until your whole body is in view, head to feet."
         case .moreHeadroom: return "Step back a little more so there's room above your hands."
         case .moveLeft: return "Move a little to your left."
         case .moveRight: return "Move a little to your right."
@@ -29,6 +31,7 @@ enum FramingGuidance: String, Equatable {
         case .stepBack: return "Step back: show both arms"
         case .stepIntoViewSideOn: return "Step into view, side-on"
         case .stepBackSideOn: return "Step back: show your arm"
+        case .stepBackFullBody: return "Step back: show your whole body"
         case .moreHeadroom: return "Step back: leave room overhead"
         case .moveLeft: return "Move a little to your left"
         case .moveRight: return "Move a little to your right"
@@ -110,7 +113,10 @@ struct FramingEvaluator {
         let visible = frame.pose.landmarks.values.filter { $0.confidence >= confidence }
         let sideOn = cameraView == .side
         guard visible.count >= configuration.minimumBodyJoints else { return sideOn ? .stepIntoViewSideOn : .stepIntoView }
-        guard requiredPresent else { return sideOn ? .stepBackSideOn : .stepBack }
+        guard requiredPresent else {
+            if sideOn { return .stepBackSideOn }
+            return requiredJoints.contains(.leftAnkle) || requiredJoints.contains(.rightAnkle) ? .stepBackFullBody : .stepBack
+        }
 
         if let headroomArmLengths {
             let arms = BodySide.allCases.compactMap { ArmGeometry.arm($0, in: frame, minimumConfidence: confidence) }

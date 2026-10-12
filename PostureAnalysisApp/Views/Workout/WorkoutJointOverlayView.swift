@@ -53,7 +53,9 @@ struct WorkoutJointOverlayView: View {
     }
 
     private func isAtEndPosition(_ joint: LandmarkType) -> Bool {
-        guard let side = BodySide.side(of: joint), side.armJoints.contains(joint) else { return false }
+        // Only joints of the moving limbs turn green, never the reference lines' joints.
+        guard let side = BodySide.side(of: joint),
+              overlay.segments.contains(where: { $0.style == .limb && ($0.from == joint || $0.to == joint) }) else { return false }
         return overlay.endPositionSides.contains(side)
     }
 

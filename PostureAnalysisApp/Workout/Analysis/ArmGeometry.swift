@@ -11,11 +11,14 @@ enum BodySide: String, CaseIterable, Hashable {
     var elbow: LandmarkType { self == .left ? .leftElbow : .rightElbow }
     var wrist: LandmarkType { self == .left ? .leftWrist : .rightWrist }
     var hip: LandmarkType { self == .left ? .leftHip : .rightHip }
+    var knee: LandmarkType { self == .left ? .leftKnee : .rightKnee }
+    var ankle: LandmarkType { self == .left ? .leftAnkle : .rightAnkle }
     var armJoints: [LandmarkType] { [shoulder, elbow, wrist] }
+    var legJoints: [LandmarkType] { [hip, knee, ankle] }
     var shortLabel: String { self == .left ? "L" : "R" }
 
     static func side(of joint: LandmarkType) -> BodySide? {
-        allCases.first { $0.armJoints.contains(joint) || $0.hip == joint }
+        allCases.first { $0.armJoints.contains(joint) || $0.legJoints.contains(joint) }
     }
 }
 

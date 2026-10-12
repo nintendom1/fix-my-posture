@@ -28,6 +28,17 @@ struct WorkoutGhostOverlayView: View {
         guard imageSize.width > 0, imageSize.height > 0 else { return }
         let fit = CoordinateConverter.aspectFitRect(for: imageSize, in: size)
         guard fit.width > 0 else { return }
+        if motion.animatesLegs {
+            var context = context
+            context.clip(to: Path(fit))
+            if reduceMotion {
+                drawLegs(in: context, size: size, legs: motion.topLegs, opacity: 0.3)
+                drawLegs(in: context, size: size, legs: motion.startLegs, opacity: 0.6)
+            } else {
+                drawLegs(in: context, size: size, legs: motion.sample(at: time).legs, opacity: 0.6)
+            }
+            return
+        }
         let anchors = Self.anchors(overlay: overlay, cameraView: cameraView, containerSize: size)
         guard !anchors.isEmpty else { return }
         let scale = fit.width / imageSize.width
@@ -59,6 +70,47 @@ struct WorkoutGhostOverlayView: View {
             guard let side = overlay.nearSide, let joint = overlay.joints[side.shoulder] else { return [] }
             let shoulder = point(joint)
             return [(shoulder, overlay.facing(from: shoulder, containerSize: containerSize) ?? 1)]
+        }
+    }
+
+    /// Ghost thighs and shins standing on the user's own ankles, scaled to their leg length, showing how
+    /// low the demonstration goes.
+    private func drawLegs(in context: GraphicsContext, size: CGSize, legs: LegPose, opacity: Double) {
+        func point(_ type: LandmarkType) -> CGPoint? {
+            guard let joint = overlay.joints[type], !joint.isStale else { return nil }
+            return CoordinateConverter.normalizedToContainer(normalized: joint.location, imageSize: overlay.imageSize, containerSize: size)
+        }
+        let standing = ExerciseDemoFigureView.figureJoints
+        let lowered = ExerciseDemoFigureView.lowered(standing, by: legs)
+        var hips: [CGPoint] = []
+        for side in BodySide.allCases {
+            let other: BodySide = side == .left ? .right : .left
+            guard let ankle = point(side.ankle), let knee = point(side.knee), let hip = point(side.hip),
+                  let otherAnkle = point(other.ankle),
+                  let figureAnkle = standing[side.ankle], let figureKnee = standing[side.knee], let figureHip = standing[side.hip],
+                  let loweredKnee = lowered[side.knee], let loweredHip = lowered[side.hip] else { continue }
+            let figureLength = ArmGeometry.distance(figureAnkle, figureKnee) + ArmGeometry.distance(figureKnee, figureHip)
+            guard figureLength > 0 else { continue }
+            let scale = (ArmGeometry.distance(ankle, knee) + ArmGeometry.distance(knee, hip)) / figureLength
+            // The figure's left leg is on its larger-x side; match whichever way the user's leg points.
+            let flip: CGFloat = (side == .left ? 1 : -1) * (ankle.x >= otherAnkle.x ? 1 : -1)
+            func place(_ figurePoint: CGPoint) -> CGPoint {
+                CGPoint(x: ankle.x + (figurePoint.x - figureAnkle.x) * scale * flip, y: ankle.y + (figurePoint.y - figureAnkle.y) * scale)
+            }
+            let ghostHip = place(loweredHip)
+            var path = Path()
+            path.move(to: ankle)
+            path.addLine(to: place(loweredKnee))
+            path.addLine(to: ghostHip)
+            context.stroke(path, with: .color(Self.ghostColor.opacity(opacity)),
+                           style: StrokeStyle(lineWidth: 10, lineCap: .round, lineJoin: .round))
+            hips.append(ghostHip)
+        }
+        if hips.count == 2 {
+            var line = Path()
+            line.move(to: hips[0])
+            line.addLine(to: hips[1])
+            context.stroke(line, with: .color(Self.ghostColor.opacity(opacity)), style: StrokeStyle(lineWidth: 10, lineCap: .round))
         }
     }
 

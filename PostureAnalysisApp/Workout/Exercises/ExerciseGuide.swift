@@ -8,7 +8,17 @@ struct ArmAngles: Equatable {
     var forearmElevation: Double
 }
 
-/// One pose in a looping arm demonstration.
+/// How far a front-view figure has lowered into a squat.
+struct LegPose: Equatable {
+    /// Hip drop in standing thigh lengths: 0 standing, about 0.9 at thighs-parallel.
+    var hipDrop: Double = 0
+    /// Knees pushed outward, as a fraction of half the hip width.
+    var kneeSpread: Double = 0
+
+    static let standing = LegPose()
+}
+
+/// One pose in a looping demonstration.
 struct ArmKeyframe {
     var angles: ArmAngles
     /// Time to move here from the previous keyframe; zero jumps.
@@ -16,11 +26,13 @@ struct ArmKeyframe {
     var holdDuration: TimeInterval
     /// Guide step shown while moving to and holding this keyframe.
     var stepIndex: Int
+    var legs: LegPose = .standing
 }
 
 struct ArmMotionSample: Equatable {
     var angles: ArmAngles
     var stepIndex: Int
+    var legs: LegPose = .standing
 }
 
 /// The plane a forearm moves in, as seen by a front-facing camera.
@@ -45,18 +57,28 @@ struct ArmMotion {
 
     var startAngles: ArmAngles { keyframes.first?.angles ?? ArmAngles(upperArmElevation: 0, forearmElevation: 90) }
 
-    /// The pose furthest from the start: the other end of the rep.
-    var topAngles: ArmAngles {
-        let start = startAngles
-        func distance(_ angles: ArmAngles) -> Double {
-            abs(angles.upperArmElevation - start.upperArmElevation) + abs(angles.forearmElevation - start.forearmElevation)
+    var startLegs: LegPose { keyframes.first?.legs ?? .standing }
+
+    /// The keyframe furthest from the start: the other end of the rep.
+    private var topKeyframe: ArmKeyframe? {
+        guard let first = keyframes.first else { return nil }
+        func distance(_ keyframe: ArmKeyframe) -> Double {
+            abs(keyframe.angles.upperArmElevation - first.angles.upperArmElevation)
+                + abs(keyframe.angles.forearmElevation - first.angles.forearmElevation)
+                + abs(keyframe.legs.hipDrop - first.legs.hipDrop) * 100
         }
-        return keyframes.max { distance($0.angles) < distance($1.angles) }?.angles ?? start
+        return keyframes.max { distance($0) < distance($1) }
     }
+
+    var topAngles: ArmAngles { topKeyframe?.angles ?? startAngles }
+    var topLegs: LegPose { topKeyframe?.legs ?? startLegs }
+
+    /// The demonstration moves the legs, so the ghost shows legs rather than arms.
+    var animatesLegs: Bool { keyframes.contains { $0.legs != .standing } }
 
     func sample(at time: TimeInterval) -> ArmMotionSample {
         guard let first = keyframes.first, duration > 0 else {
-            return ArmMotionSample(angles: startAngles, stepIndex: keyframes.first?.stepIndex ?? 0)
+            return ArmMotionSample(angles: startAngles, stepIndex: keyframes.first?.stepIndex ?? 0, legs: startLegs)
         }
         let local = time.truncatingRemainder(dividingBy: duration)
         var elapsed = local < 0 ? local + duration : local
@@ -65,16 +87,17 @@ struct ArmMotion {
             if elapsed < keyframe.moveDuration {
                 let progress = Self.smoothstep(elapsed / keyframe.moveDuration)
                 return ArmMotionSample(angles: Self.interpolate(previous.angles, keyframe.angles, progress),
-                                       stepIndex: keyframe.stepIndex)
+                                       stepIndex: keyframe.stepIndex,
+                                       legs: Self.interpolate(previous.legs, keyframe.legs, progress))
             }
             elapsed -= keyframe.moveDuration
             if elapsed < keyframe.holdDuration {
-                return ArmMotionSample(angles: keyframe.angles, stepIndex: keyframe.stepIndex)
+                return ArmMotionSample(angles: keyframe.angles, stepIndex: keyframe.stepIndex, legs: keyframe.legs)
             }
             elapsed -= keyframe.holdDuration
             previous = keyframe
         }
-        return ArmMotionSample(angles: previous.angles, stepIndex: previous.stepIndex)
+        return ArmMotionSample(angles: previous.angles, stepIndex: previous.stepIndex, legs: previous.legs)
     }
 
     /// Elbow and wrist for one arm in y-down coordinates. Outward is away from the other shoulder, so the
@@ -100,6 +123,10 @@ struct ArmMotion {
     private static func smoothstep(_ value: Double) -> Double {
         let t = max(0, min(1, value))
         return t * t * (3 - 2 * t)
+    }
+
+    private static func interpolate(_ a: LegPose, _ b: LegPose, _ t: Double) -> LegPose {
+        LegPose(hipDrop: a.hipDrop + (b.hipDrop - a.hipDrop) * t, kneeSpread: a.kneeSpread + (b.kneeSpread - a.kneeSpread) * t)
     }
 
     private static func interpolate(_ a: ArmAngles, _ b: ArmAngles, _ t: Double) -> ArmAngles {
