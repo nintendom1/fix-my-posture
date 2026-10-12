@@ -110,7 +110,8 @@ final class WorkoutCoachModel: ObservableObject {
 
     convenience init(initialExercise: ExerciseID? = nil, plan: WorkoutPlan? = nil) {
         let audio = WorkoutAudioSession()
-        let exercises = ExerciseCatalog.all
+        // Sets and reps the user adjusted on the list apply here; Saved Sets bring their own.
+        let exercises = ExerciseTargetStore.applying(to: ExerciseCatalog.all)
         let voice = WorkoutVoiceController(recognizer: OnDeviceSpeechRecognizer(),
                                            parser: VoiceCommandParser(exercises: exercises),
                                            permissions: SystemVoicePermissions(), audio: audio)

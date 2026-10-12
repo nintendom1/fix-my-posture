@@ -33,11 +33,30 @@ The guide and the live overlay share one description of the movement. `ExerciseG
 
 Analysis always uses the original unmirrored pixel geometry. Only the overlay is mirrored for the selfie preview, then smoothed. Overlay and preview share aspect-fit bounds through `CoordinateConverter`.
 
+## Saved Sets
+
+A **Saved Set** is an ordered sequence of exercises, each occurrence with its own sets and reps, for example "Upper Body: Floor Press 2 × 10, Row 2 × 10 each arm, Shoulder Press 2 × 8–10". In the app, "set" still means a group of reps within an exercise.
+
+- **Storage.** `SavedExerciseSet` and `SavedExerciseSetItem` are pure Codable types. Each item has its own UUID, so the same exercise can appear more than once. Items store the exercise by stable `ExerciseID`, not its name. `SavedExerciseSetEntity` (SwiftData, in the app's model container) stores the items as JSON, which keeps their order, so Saved Sets survive restarts. If an exercise is no longer available, the set shows "Needs attention" and runs the rest; nothing is removed silently.
+- **List.** Saved Sets show their exercise count and a ✎ edit button. **Create Saved Set** opens the editor.
+- **Editor** (`SavedSetEditorView`): name; add, remove, and drag to reorder exercises; steppers for each occurrence's sets and rep range; Save, Duplicate ("<name> Copy" with fresh ids), and Delete with confirmation. These overrides apply only in that Saved Set, for that workout.
+- **Running one.** The session follows a `WorkoutPlan`, where each occurrence overrides the exercise's sets and reps (`ExerciseDefinition.withTarget`).
+  - The HUD shows "Exercise 3 of 5".
+  - Finishing an occurrence's last set records it as completed and starts the normal rest with the next exercise already selected: "Shoulder press complete. Up next: hammer curl, 2 sets of 10. Rest up." The HUD shows "Up next: Hammer Curl · 2 sets × 10 reps".
+  - When rest ends, the next exercise's setup and framing begin. Counting waits for "start", Start, or holding its start position. The first time an exercise appears, its guide opens.
+  - An exercise that appears again later counts its own sets.
+- **Skipping.** **Skip to Next Exercise** (in the ☰ menu) or saying "next exercise", "skip exercise", or "skip this exercise" (destructive, so it must be said on its own) moves to the next occurrence. Any sets finished there are kept, and the occurrence is recorded as skipped rather than completed.
+- **Changing exercise.** "Change exercise" still opens the chooser, which warns that choosing another exercise leaves the Saved Set and skips the rest of it. Naming an exercise directly mid-set asks you to use "next exercise" or "change exercise" instead.
+- **Completion.** After the last occurrence, the completion card lists each occurrence: its sets and reps, "Skipped" (with any sets done first), or "Not reached". **Another Round** runs the whole Saved Set again, and the end-of-workout summary lists the same.
+
 ## Session state machine
 
 Phases: `choosingExercise`, `framing`, `ready`, `exercising`, `paused(user | background | interruption)`, `resting`, `changingExercise(previous)`, `exerciseComplete`, and `ended`.
 
-- **Entry.** Opening the coach shows `WorkoutSelectionView`, a list of every exercise with its sets × reps, before the camera starts. Picking one opens the camera with that exercise in `framing`. Closing the camera screen returns to the list. `choosingExercise` remains only for a session started without an exercise.
+- **Entry.** Opening the coach shows `WorkoutSelectionView` before the camera starts, with an **All | Saved Sets | Exercises** filter.
+  - Picking an exercise opens the camera with that exercise in `framing`.
+  - Tapping its sets × reps adjusts them, remembered per exercise on this phone (`ExerciseTargetStore`, with Reset to Default; the built-in definition never changes).
+  - Closing the camera screen returns to the list. `choosingExercise` remains only for a session started without an exercise.
 - **Completion.** When the last set of an exercise finishes, a card fades in over the camera (instantly with Reduce Motion). It shows "<Exercise> complete", this round's reps per set and in total, and anything else done in the workout. Its buttons are **Another Round**, **Choose Exercise** (shown when there are other exercises), and **End Workout**. The coach says the same choices: "Say another round, change exercise, or end workout", or "Tap Another Round, Choose Exercise, or End Workout" without voice.
 - **Changing exercise.** Saying "change exercise" enters `changingExercise` and shows an exercise chooser over the camera, with each exercise's sets and how many are done. Pick one by voice or tap, or cancel to return to where you were. The ☰ menu lists the exercises too, with a checkmark on the current one. Picking another one mid-set asks "Discard this set's N reps?" when the set has reps.
 
@@ -288,6 +307,7 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
 - `AirSquatAnalyzerTests` run the squat demonstration at ½×/2× scale and with thigh or shin ±15%. They also check that a shallow squat asks to go deeper, squatting again without standing asks to stand up, caving knees and a forward lean raise their signals only at depth, and the lean check needs shoulders.
 - `DumbbellRowAnalyzerTests` run the bent-over side demonstration facing either way, with either arm, at ½×/2× and with either segment ±15%. They also check that a half pull asks to pull higher, a fast lowering asks for control, pulling again from midway asks to lower all the way, and a tipping back raises its signal only with the hip visible.
 - `PushUpAnalyzerTests` run the floor-view demonstration at ½×/2×, mirrored, and with either segment ±15%. They also check that a shallow push-up asks to go lower, a fast lowering asks for control, and going back down without straightening asks to push all the way up.
+- `SavedExerciseSetTests` check that order, ids, and repeated exercises survive storage; that unavailable exercises need attention without being removed; that duplicates get fresh ids; and that remembered targets apply without changing the defaults.
 - `CoachingCueSchedulerTests` check the 0.5 s hold, 2 of the last 3 attempts, the 10 s cooldown and 4 s gap, replacement by priority only upward, waiting while the coach speaks, and reminders at set start and after 25 s quiet.
 - `WorkoutTipLayoutTests` check the preferred slot, keeping a still-valid slot, speak-only when nothing fits, and that press tips at typical and close distances never touch the arms, body, envelope, or HUD.
 - `WorkoutSessionTests` drive the reducer:
@@ -303,6 +323,7 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
   - restarting a set forgets its coaching history, and pausing restarts a continuous cue's hold;
   - the last set offers another round (earlier rounds kept), and ending from the completion card skips the summary;
   - one-arm-at-a-time sets switch arms without rest, then rest after both, recording an entry per arm;
+  - a Saved Set rests, then selects the next exercise without counting; skipping records skipped occurrences; a repeated exercise counts its own sets; and switching away needs the chooser;
   - switching mid-set keeps finished sets, restarts the set in progress, clears feedback, and starts a fresh analyzer; curl arms count separately, and the count is what both arms have done.
 - `VoiceCommandParserTests` cover fillers, longest-phrase matching, the whole-utterance rule for destructive commands, prefix ambiguity, exercise names, and opening and closing help by voice. They also check that every recognized phrase appears exactly once in the Voice Commands help.
 - `PhoneTiltDetectorTests` check the 1 s settle time, the 15°/10° hysteresis, and that missing motion data never warns.
@@ -406,6 +427,13 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - The ghost arms rise from your hands. Holding the plank fills the Hold ring.
     - Ten push-ups to the Down line count exactly 10. Shallow ones get "Go a little lower."
     - Dropping fast gets "Lower with control."
-35. Afterward, confirm realtime posture correction still works.
+35. Saved Sets:
+    - Create "Upper Body" with shoulder press 2 × 8–10, hammer curl 2 × 10, and shoulder press again 1 × 12. Reorder by dragging, save, quit the app, and reopen: it's still there in order. Duplicate it and delete the copy.
+    - Start it: the HUD shows "Exercise 1 of 3".
+    - After the last press set, rest begins with "Up next: Hammer Curl"; when rest ends, curls are set up, and nothing counts until you start.
+    - Say "next exercise" mid-curl: it skips to the second press, which starts at set 1 of 1.
+    - The final card lists the press as completed, curls as skipped, and the last press.
+    - On the list, adjust Hammer Curl to 3 × 12, start it, and confirm the set completes at 12. Reset to Default restores 2 × 10.
+36. Afterward, confirm realtime posture correction still works.
 
 These checks remain manual; a passing simulator run does not imply they were performed.
