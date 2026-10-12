@@ -99,7 +99,13 @@ Hammer curls are filmed from the front. Each arm counts on its own with its own 
 The overhead triceps extension is filmed from the side, because from the front the hands hide behind the head at the start. Stand side-on to the phone, facing either way. The arm nearer the phone is tracked: the most confident complete arm, kept until the other is clearly more confident (by 0.2). Both arms move with one band, so each rep counts for both. Thresholds live in `TricepsExtensionConfiguration`.
 
 - Signal: `s` = the wrist's height above its elbow in forearm lengths, plus the 2D elbow angle. From the side, the forearm swings in the image plane, so its longest length over the last second is a full ruler at any distance and for any proportions.
-- Start when `s ≤ −0.4` and the elbow is at most 100° (hands lowered behind the head). Top when `s ≥ 0.75` and the elbow is at least 140° (straight overhead). The elbow height and ruler are locked at the start, as with curls.
+- Start when `s ≤ −0.25` and the elbow is at most 100° (hands lowered just below horizontal behind the head, so the start registers before they're hidden). Top when `s ≥ 0.75` and the elbow is at least 140° (straight overhead). The elbow height and ruler are locked at the start, as with curls.
+- **Hands hidden behind the head.** Folded behind the head, the hands often drop out of view.
+  - Framing needs only a shoulder and elbow (`anyOfRequiredJoints`), so tracking stays reliable.
+  - While the tracked arm's elbow stays raised (at least half an upper arm above the shoulder) and the hand was last seen on its way down (below 0.5), a hidden hand counts as folded at the start. The same applies before any hand has been seen, so holding the start with hidden hands still starts the set.
+  - A hand last seen overhead is never taken for the start.
+  - Joints count down to the live 0.3 confidence floor, since hands behind the head track with low confidence.
+  - Device feedback on #20 prompted this change.
 - A rep is Start → Top → Start within at least 0.8 s.
 - Validation: the guide's side-view demonstration reads −0.71 at 40° and 1.00 at 177°. It counts exactly one rep per loop facing either way, with either arm, at ½× and 2× scale, and with either arm segment ±15%.
 - **Side-view support**:
@@ -143,7 +149,7 @@ Hammer curls (`HammerCurlFormMonitor`) judge each arm's attempts separately. An 
 | "Keep your elbows by your sides." (20, continuous) | An elbow's sideways distance from its shoulder grows by more than 0.25 shoulder widths compared with the start of the set. | 0 |
 | "Keep your body still." (10, continuous) | The shoulder midpoint moves more than 0.35 upper-arm lengths relative to the hip midpoint compared with the start of the set. Skipped while hips aren't visible. | 0 |
 
-Triceps extension (drafted wording, for review): "Straighten your arms fully." (50: Top missed or peak elbow under 155°), "Lower behind your head." (40: extended again after dipping 0.5 without reaching the Start), "Lower with control." (30: Top line to Start line in under 0.3 s; the demo's 1.5 s lowering reads 0.57 s), "Keep your elbows pointing up." (20, continuous: the upper arm tips more than 25° from where it pointed at the start of the set). Reminders: "Keep your ribs down.", "Elbows close to your head.", "Breathe out as you extend."
+Triceps extension (drafted wording, for review): "Straighten both arms fully." (50: Top missed or peak elbow under 155°), "Lower behind your head." (40: extended again after dipping 0.5 without reaching the Start), "Lower with control." (30: Top line to Start line in under 0.3 s; the demo's 1.5 s lowering reads 0.49 s), "Keep your elbows pointing up." (20, continuous: the upper arm tips more than 25° from where it pointed at the start of the set). Reminders: "Keep your ribs down.", "Elbows close to your head.", "Breathe out as you extend."
 
 Air squat (drafted wording, for review):
 - "Squat a little deeper." (50): an attempt that dropped at least 0.3 but never reached the Squat line.
@@ -243,7 +249,7 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
   - curling again from midway counts once and asks to straighten;
   - a half curl doesn't count and asks to curl all the way up;
   - flared elbows and sway raise their signals, and sway needs hips.
-- `TricepsExtensionAnalyzerTests` run the side-view demonstration facing either way, with either arm, at ½×/2× scale and with either segment ±15%. They also check that a half extension asks to straighten, a fast lowering asks for control, extending again from midway asks to lower behind the head, and tipped elbows raise their signal. Side-on framing accepts either arm and asks you to stand side-on.
+- `TricepsExtensionAnalyzerTests` run the side-view demonstration facing either way, with either arm, at ½×/2× scale and with either segment ±15%. They also check that a half extension asks to straighten, a fast lowering asks for control, extending again from midway asks to lower behind the head, and tipped elbows raise their signal. Hands hidden behind the head still count, while a hand hidden overhead never counts as the start. Side-on framing accepts either arm, keeps tracking with the hand hidden, and asks you to stand side-on.
 - `AirSquatAnalyzerTests` run the squat demonstration at ½×/2× scale and with thigh or shin ±15%. They also check that a shallow squat asks to go deeper, squatting again without standing asks to stand up, caving knees and a forward lean raise their signals only at depth, and the lean check needs shoulders.
 - `CoachingCueSchedulerTests` check the 0.5 s hold, 2 of the last 3 attempts, the 10 s cooldown and 4 s gap, replacement by priority only upward, waiting while the coach speaks, and reminders at set start and after 25 s quiet.
 - `WorkoutTipLayoutTests` check the preferred slot, keeping a still-valid slot, speak-only when nothing fits, and that press tips at typical and close distances never touch the arms, body, envelope, or HUD.
@@ -343,7 +349,8 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - The ghost arm appears on your nearer shoulder, facing your way, with no dumbbells.
     - Holding your hands behind your head fills the Hold ring. Ten extensions count exactly 10.
     - Turn to face the other way between sets: tracking follows the nearer arm.
-    - Half extensions get "Straighten your arms fully."
+    - Folding your hands fully behind your head (where the camera can't see them) still counts. The coach doesn't say it can't see you, and the next rep starts.
+    - Half extensions get "Straighten both arms fully."
     - Letting the elbows drift forward gets "Keep your elbows pointing up."
 32. Air squats:
     - Step back until framing stops asking to see your whole body. Standing still doesn't start the set; the status says to say "start".
