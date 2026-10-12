@@ -70,8 +70,33 @@ struct ExerciseDemoFigureView: View {
         .leftAnkle: CGPoint(x: 150, y: 460)
     ]
 
+    /// Hands planted on the floor in the floor view; the shoulders hang above them by the arm pose.
+    static let floorHands: [BodySide: CGPoint] = [.left: CGPoint(x: 196, y: 430), .right: CGPoint(x: 104, y: 430)]
+
+    /// Seen from a phone on the floor facing the head: hands planted, shoulders above them by the arm
+    /// pose, head above the shoulders, and the hips just beyond them as the body recedes.
+    static func floorPose(for angles: ArmAngles) -> ReferencePose {
+        var joints: [LandmarkType: CGPoint] = [:]
+        for side in BodySide.allCases {
+            guard let hand = floorHands[side] else { continue }
+            let arm = ArmMotion.place(shoulder: .zero, outward: side == .left ? 1 : -1, upperArm: upperArm, forearm: forearm, angles: angles)
+            let shoulder = CGPoint(x: hand.x - arm.wrist.x, y: hand.y - arm.wrist.y)
+            joints[side.shoulder] = shoulder
+            joints[side.elbow] = CGPoint(x: shoulder.x + arm.elbow.x, y: shoulder.y + arm.elbow.y)
+            joints[side.wrist] = hand
+        }
+        if let left = joints[.leftShoulder], let right = joints[.rightShoulder] {
+            let middle = ArmGeometry.midpoint(left, right)
+            joints[.nose] = CGPoint(x: middle.x, y: middle.y - 34)
+            joints[.leftHip] = CGPoint(x: middle.x + 26, y: middle.y - 16)
+            joints[.rightHip] = CGPoint(x: middle.x - 26, y: middle.y - 16)
+        }
+        return ReferencePose(jointLocations: joints)
+    }
+
     static func pose(for angles: ArmAngles, legs: LegPose = .standing, forearmPlane: MotionPlane = .frontal,
                      cameraView: ExerciseCameraView = .front, torsoPitch: Double = 0) -> ReferencePose {
+        if cameraView == .floor { return floorPose(for: angles) }
         if cameraView == .side {
             var joints = sideFigureJoints
             // Lean forward from the hips: the head and shoulder swing toward the way the figure faces.
@@ -137,6 +162,12 @@ struct ExerciseDemoFigureView: View {
                 let scale = fit.width / Self.canvasSize.width
                 func map(_ point: CGPoint) -> CGPoint {
                     CGPoint(x: fit.minX + point.x * scale, y: fit.minY + point.y * scale)
+                }
+                if cameraView == .floor {
+                    var floorLine = Path()
+                    floorLine.move(to: map(CGPoint(x: 20, y: 436)))
+                    floorLine.addLine(to: map(CGPoint(x: 280, y: 436)))
+                    context.stroke(floorLine, with: .color(tint.opacity(0.6)), lineWidth: 2)
                 }
                 for side in BodySide.allCases {
                     guard let elbow = pose.jointLocations[side.elbow], let wrist = pose.jointLocations[side.wrist] else { continue }

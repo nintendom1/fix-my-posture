@@ -31,6 +31,9 @@ enum ExerciseCameraView: Equatable {
     case front
     /// Side-on to the phone; the arm nearer the phone is tracked.
     case side
+    /// The phone lies on the floor facing the head, as for push-ups: hands planted near the bottom of the
+    /// frame, shoulders rising and falling above them.
+    case floor
 }
 
 /// Everything the coach needs to run one exercise. Register new exercises in `ExerciseCatalog.all`.
@@ -76,6 +79,8 @@ struct ExerciseDefinition: Identifiable {
     /// Each set is done one arm at a time: left, then right, then rest. Each arm's half is recorded as its
     /// own entry in the set history.
     var perSide = false
+    /// False when the phone deliberately leans back, as on the floor for push-ups.
+    var warnsAboutTilt = true
 
     /// Recorded entries that make up the full exercise.
     var setEntries: Int { perSide ? sets * 2 : sets }
