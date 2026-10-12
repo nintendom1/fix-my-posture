@@ -17,7 +17,7 @@ PostureAnalysisApp/
 ├── PostureAnalysis/    # PostureAnalyzer geometry calculation engine
 ├── ImageImport/         # PhotoValidator & ViewClassifier
 ├── Persistence/         # SwiftData entities (AssessmentEntity, SavedExerciseSetEntity, WorkoutRecordEntity), Saved Set, exercise-target & workout-history models, ImageStore, BaselineComparisonEngine
-├── Views/               # SwiftUI views (ContentView, HistoryView, LandmarkOverlayView, AssessmentDetailView, DeveloperDebugView)
+├── Views/               # SwiftUI views (ContentView, HistoryView, LandmarkOverlayView, AssessmentDetailView, DeveloperDebugView, AcknowledgementsView)
 │   └── Workout/         # WorkoutCoachView, WorkoutHUDView, WorkoutJointOverlayView, ExerciseGuideView, WorkoutGuideOverlayView (ghost & per-arm thresholds), HoldProgressRingView, MicrophoneStatusView, VoiceCommandsHelpView, WorkoutTipView (coaching tips), WorkoutSelectionView (Saved Sets & exercise list, in-camera chooser), SavedSetEditorView, WorkoutHistoryView (history & weight editing), ExerciseCompleteCard
 ├── Workout/             # Workout Coach (Beta)
 │   ├── Exercises/       # ExerciseCatalog, ExerciseDefinition, ExerciseAnalyzing, ExerciseGuide; one folder per exercise (ShoulderPress/, HammerCurl/, TricepsExtension/, AirSquat/, DumbbellRow/, PushUp/)
@@ -28,7 +28,9 @@ PostureAnalysisApp/
 ├── Voice/               # SpeechCoach & WorkoutAudioSession (speech, ducking); VoiceCommandParser, VoiceCommandHelp, OnDeviceSpeechRecognizer, WorkoutVoiceController, VoicePermissions (hands-free commands)
 ├── LandmarkEditing/     # LandmarkEditingView (manual point repositioning)
 ├── Utilities/           # CoordinateConverter (aspect-correct image pixel transform), PortraitCameraSession, ProtectedBodyGeometry (body areas overlays avoid)
+├── Assets.xcassets/     # AppIcon (exported from Design/AppIcon; don't edit the PNG by hand)
 └── Tests/               # GeometryTests XCTest suite
+Design/AppIcon/          # App icon SVG source, export script, Tabler license (see THIRD_PARTY_NOTICES.md)
 ```
 
 ## Critical Invariants
@@ -70,3 +72,4 @@ Every new Workout Coach exercise ships with full guidance (guide, ghost demo, th
 - Photo Validation: `docs/validation.md`
 - Developer Diagnostics: `docs/debugging.md`
 - Workout Coach (Beta): `docs/workout.md`
+- App icon source & export: `Design/AppIcon/README.md`

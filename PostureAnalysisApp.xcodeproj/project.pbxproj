@@ -134,6 +134,8 @@
 		A10000012B00000000000132 /* WorkoutHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000132 /* WorkoutHistoryView.swift */; };
 		A10000012B00000000000133 /* WorkoutHistoryTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000133 /* WorkoutHistoryTests.swift */; };
 		A10000012B00000000000135 /* WeightPhraseParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000135 /* WeightPhraseParser.swift */; };
+		A10000012B00000000000136 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000136 /* Assets.xcassets */; };
+		A10000012B00000000000137 /* AcknowledgementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000137 /* AcknowledgementsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -276,6 +278,8 @@
 		B10000012B00000000000132 /* WorkoutHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistoryView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000133 /* WorkoutHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistoryTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000135 /* WeightPhraseParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightPhraseParser.swift; sourceTree = "<group>"; };
+		B10000012B00000000000136 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B10000012B00000000000137 /* AcknowledgementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcknowledgementsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -319,6 +323,7 @@
 				H10000012B00000000000010 /* Tests */,
 				H10000012B00000000000013 /* Workout */,
 				H10000012B00000000000019 /* Voice */,
+				B10000012B00000000000136 /* Assets.xcassets */,
 			);
 			path = PostureAnalysisApp;
 			sourceTree = "<group>";
@@ -402,6 +407,7 @@
 				B10000012B00000000000044 /* PostureCalloutOverlayView.swift */,
 				B10000012B00000000000047 /* AlignmentTargetOverlayView.swift */,
 				B10000012B00000000000052 /* HorizonOverlayView.swift */,
+				B10000012B00000000000137 /* AcknowledgementsView.swift */,
 				H10000012B00000000000020 /* Workout */,
 			);
 			path = Views;
@@ -640,6 +646,7 @@
 			buildPhases = (
 				J10000012B00000000000001 /* Sources */,
 				G10000012B00000000000001 /* Frameworks */,
+				N10000012B00000000000001 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -704,6 +711,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		N10000012B00000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000012B00000000000136 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		J10000012B00000000000001 /* Sources */ = {
@@ -817,6 +835,7 @@
 				A10000012B00000000000131 /* WorkoutHistory.swift in Sources */,
 				A10000012B00000000000132 /* WorkoutHistoryView.swift in Sources */,
 				A10000012B00000000000135 /* WeightPhraseParser.swift in Sources */,
+				A10000012B00000000000137 /* AcknowledgementsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -932,11 +951,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				MARKETING_VERSION = 1.0;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Fix My Posture";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Use the camera for standing photos, live posture alignment, and workout rep counting. All analysis stays on your device.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Listen for workout voice commands such as \"pause\" and \"next set\". Speech is recognized on this iPhone and never recorded or sent.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Recognize workout voice commands on this iPhone. Audio never leaves your device.";
@@ -959,11 +978,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				MARKETING_VERSION = 1.0;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Fix My Posture";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Use the camera for standing photos, live posture alignment, and workout rep counting. All analysis stays on your device.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Listen for workout voice commands such as \"pause\" and \"next set\". Speech is recognized on this iPhone and never recorded or sent.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Recognize workout voice commands on this iPhone. Audio never leaves your device.";

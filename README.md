@@ -126,6 +126,13 @@ branch, you can also start it from **Actions > Gitleaks > Run workflow** on GitH
 It requires no Gitleaks license secret. Secret scanning runs separately from
 `./scripts/validate.sh`, which builds the app and runs simulator tests.
 
+## App Icon & Third-Party Notices
+
+The app icon is exported from a hand-written SVG in `Design/AppIcon/`; see
+[Design/AppIcon/README.md](Design/AppIcon/README.md) to change or re-export it. Its glyph is a
+modified Tabler Icons `body-scan` (MIT). The license is in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and in the app under **gear → Acknowledgements**.
+
 ## Known Limitations & Design Boundary
 
 - **Non-Diagnostic**: The app produces objective geometric metrics and is not a medical device or diagnostic tool for spinal/musculoskeletal disorders.
