@@ -19,6 +19,8 @@ final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
     private var cycle: Cycle = .awaitingBottom
     private var lastThresholds: [BodySide: ArmThresholds] = [:]
     private var formMonitor: TricepsExtensionFormMonitor
+    /// The last measured height and elbow angle, for judging a hidden hand.
+    private var lastSeen: (ratio: Double, elbowAngle: Double)?
 
     private enum Cycle {
         case awaitingBottom
@@ -28,6 +30,14 @@ final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
     private struct Reference {
         var elbowY: CGFloat
         var ruler: CGFloat
+    }
+
+    /// The tracked arm on one frame. `arm` is nil when the hand is hidden behind the head.
+    private struct Observation {
+        let side: BodySide
+        let shoulder: CGPoint
+        let elbow: CGPoint
+        let arm: ArmPoints?
     }
 
     /// The other arm must be this much more confident before tracking switches to it.
@@ -42,11 +52,12 @@ final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
 
     func process(_ frame: PoseFrame, counting: Bool) -> ExerciseAnalysis {
         var analysis = ExerciseAnalysis()
-        guard let (side, arm) = nearArm(in: frame) else {
+        guard let observation = observe(frame) else {
             analysis.thresholds = lastThresholds
             analysis.formReadings = formMonitor.readings
             return analysis
         }
+        let side = observation.side
         if side != trackedSide {
             startTracking(side)
         }
@@ -56,22 +67,36 @@ final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
         }
         lastSample = time
 
-        let live = liveReference(arm)
+        let live: Reference
+        let ratio: Double
+        let elbowAngle: Double
+        if let arm = observation.arm {
+            live = liveReference(arm)
+            ratio = Double(((locked ?? live).elbowY - arm.wrist.y) / (locked ?? live).ruler)
+            elbowAngle = arm.elbowAngle
+            lastSeen = (ratio, elbowAngle)
+        } else {
+            // The hand is hidden behind the head: hold it at the start, folded, until it reappears. Before the
+            // forearm has been measured, a typical forearm (about 0.89 of the upper arm) stands in as the ruler.
+            let estimate = ArmGeometry.distance(observation.shoulder, observation.elbow) * 0.89
+            live = Reference(elbowY: smoothedElbowY ?? observation.elbow.y, ruler: max(recentForearms.max() ?? estimate, 1))
+            ratio = min(lastSeen?.ratio ?? configuration.bottomMaxRatio, configuration.bottomMaxRatio - 0.1)
+            elbowAngle = min(lastSeen?.elbowAngle ?? configuration.bottomMaxElbowAngle, configuration.bottomMaxElbowAngle)
+        }
         let reference = locked ?? live
-        let ratio = Double((reference.elbowY - arm.wrist.y) / reference.ruler)
-        let elbowAngle = arm.elbowAngle
         let zone = classify(ratio: ratio, elbowAngle: elbowAngle)
         let newlyConfirmed = tracker.update(zone)
         updateLock(zone: zone, live: live, at: time)
 
         analysis.readings[side] = ArmReading(signal: ratio, elbowAngle: elbowAngle, zone: zone)
-        lastThresholds = [side: makeThresholds(elbowX: arm.elbow.x, reference: reference)]
+        lastThresholds = [side: makeThresholds(elbowX: observation.elbow.x, reference: reference)]
         analysis.thresholds = lastThresholds
         analysis.endPositionSides = tracker.confirmed == .top ? [side] : []
         analysis.startPositionHeld = tracker.confirmed == .bottom
 
         let form = formMonitor.update(at: time, sample: .init(ratio: ratio, elbowAngle: elbowAngle, zone: zone,
-                                                              confirmed: tracker.confirmed, tilt: upperArmTilt(arm)),
+                                                              confirmed: tracker.confirmed,
+                                                              tilt: upperArmTilt(shoulder: observation.shoulder, elbow: observation.elbow)),
                                       counting: counting)
         analysis.repForms = form.repForms
         analysis.formSignals = form.signals
@@ -101,6 +126,30 @@ final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
 
     // MARK: - Tracking
 
+    /// The tracked arm, followed through a hidden hand while its elbow stays raised; otherwise the arm
+    /// nearer the phone. Starting with the hands already behind the head, a raised elbow is enough.
+    private func observe(_ frame: PoseFrame) -> Observation? {
+        if let side = trackedSide, let hidden = hiddenHand(side, in: frame) { return hidden }
+        if let (side, arm) = nearArm(in: frame) {
+            return Observation(side: side, shoulder: arm.shoulder, elbow: arm.elbow, arm: arm)
+        }
+        guard trackedSide == nil else { return nil }
+        return BodySide.allCases.compactMap { hiddenHand($0, in: frame) }.first
+    }
+
+    /// The arm with its hand out of view but folded behind the head: the elbow is still raised, and the hand
+    /// was last seen on its way down rather than overhead (or hasn't been seen yet).
+    private func hiddenHand(_ side: BodySide, in frame: PoseFrame) -> Observation? {
+        let confidence = configuration.minimumJointConfidence
+        guard ArmGeometry.arm(side, in: frame, minimumConfidence: confidence) == nil,
+              let shoulder = frame.point(side.shoulder, minimumConfidence: confidence),
+              let elbow = frame.point(side.elbow, minimumConfidence: confidence) else { return nil }
+        if let lastSeen, lastSeen.ratio >= configuration.hiddenHandMaxRatio { return nil }
+        let upperArm = ArmGeometry.distance(shoulder, elbow)
+        guard upperArm > 1, Double((shoulder.y - elbow.y) / upperArm) >= configuration.raisedElbowMinRise else { return nil }
+        return Observation(side: side, shoulder: shoulder, elbow: elbow, arm: nil)
+    }
+
     /// The arm nearer the phone: the most confident complete arm, keeping the current one unless the other
     /// is clearly more confident.
     private func nearArm(in frame: PoseFrame) -> (BodySide, ArmPoints)? {
@@ -118,6 +167,7 @@ final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
 
     private func startTracking(_ side: BodySide) {
         trackedSide = side
+        lastSeen = nil
         tracker.reset()
         cycle = .awaitingBottom
         recentForearms = []
@@ -127,6 +177,8 @@ final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
         formMonitor.invalidate()
     }
 
+    /// A tracking gap. `lastSeen` is kept: where the hand was last seen still says whether a hidden hand
+    /// is behind the head or overhead.
     private func invalidate() {
         tracker.reset()
         cycle = .awaitingBottom
@@ -186,8 +238,8 @@ final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
     }
 
     /// The upper arm's angle from straight up, in degrees.
-    private func upperArmTilt(_ arm: ArmPoints) -> Double {
-        Double(atan2(arm.elbow.x - arm.shoulder.x, arm.shoulder.y - arm.elbow.y)) * 180 / .pi
+    private func upperArmTilt(shoulder: CGPoint, elbow: CGPoint) -> Double {
+        Double(atan2(elbow.x - shoulder.x, shoulder.y - elbow.y)) * 180 / .pi
     }
 }
 
