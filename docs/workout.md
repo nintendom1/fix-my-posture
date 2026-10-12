@@ -1,12 +1,12 @@
 # Workout Coach (Beta)
 
-Open **Workout Coach (Beta)** from the main menu. The first time, a short guide shows and describes the dumbbell shoulder press. Then prop the phone up in portrait, step back so the front camera can see both arms and your shoulders with room overhead, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10), announces the target range and set completion, and keeps the screen awake while it is open.
+Open **Workout Coach (Beta)** from the main menu. The first time, a short guide shows and describes the dumbbell shoulder press. Then prop the phone up in portrait, step back so the front camera can see both arms and your shoulders with room overhead, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10), announces the target range and set completion, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
 
 Rep counts and framing checks are geometric heuristics from a 2D camera. They are not medical, injury, or performance assessments.
 
 ## Privacy
 
-Everything runs on device. Apple Vision estimates the pose and `AVSpeechSynthesizer` speaks. Frames are processed in memory at 10 Hz and never recorded, saved, or transmitted. The workout has no networking or analytics.
+Everything runs on device. Apple Vision estimates the pose, `AVSpeechSynthesizer` speaks, and the Speech framework recognizes commands with `requiresOnDeviceRecognition`. Frames and microphone audio are processed in memory and never recorded, saved, or transmitted. The workout has no networking or analytics.
 
 ## Architecture
 
@@ -24,7 +24,8 @@ The guide and the live overlay share one description of the movement. `ExerciseG
 - **First-time guide.** The guide sheet opens automatically the first time each exercise is shown, and before the camera starts, so the permission prompt never covers it. An animated front-view figure with two dumbbells (drawn with the posture `AlignmentReferenceOverlayView` silhouette) loops start → press → lower, and the matching step is highlighted. **Start Workout** (or swiping the sheet down) goes straight to setup. **Read Aloud** speaks the steps through `SpeechCoach`, so other audio is ducked and restored. With Reduce Motion, the start and top positions are shown side by side. The guide is remembered per exercise (`workoutCoach.guideSeen.<id>`), so returning users skip it.
 - **On demand.** Tapping the exercise title in the HUD, or **How to Do It** in the exercise menu, reopens the guide. Like realtime Details, it stops capture while open. An active set pauses, and stays paused after **Back to Workout**.
 - **Ghost demo.** While ready, translucent violet ghost arms with dumbbells loop the same motion. They're anchored to the user's smoothed shoulder dots and scaled to their smoothed, measured arm segments (typical proportions are used until measured). The status line reads "Hold the dumbbells just above your shoulders to begin".
-- **Auto-start.** While ready, holding the start position (both arms confirmed at the bottom) for 1 s begins the set with "Set 1 of 2. Go." After a rest, this works only once the rest timer has ended. The Start button always works.
+- **Auto-start.** While ready, holding the start position (both arms confirmed at the bottom) for 1 s begins the set with "Set 1 of 2. Go." After a rest, this works only once the rest timer has ended. Saying "start" or tapping Start always works.
+- **Hold ring.** While a hold is being timed, a ring labeled "Hold" fills over the second (`WorkoutSession.startHoldProgress`). It floats beside the body at chest height, just outside the widest visible joint on whichever side has more room, and is separate from the HUD. Letting go hides it. The set starts on the frame where the ring fills.
 - **Threshold lines.** During a set, each arm gets a short **Start ↓** and **Top ↑** segment, drawn from the analyzer's own per-arm thresholds, so the user sees exactly what counts. A rep begins and ends at Start and turns around at Top. The checkpoint an arm is heading toward is bright and dashed, the other is dim, and a segment turns solid once that arm reaches it (cyan for Start, green for Top). The heights are locked at the start position for each rep (see the rep rule), so the segments hold still while you press.
 - **Phone tilt.** `CoreMotionTiltMonitor` reads the phone's forward/back lean from gravity at 10 Hz while the camera runs. A lean of more than 15° for 1 s shows "Phone tilted: stand it upright" under the title and speaks a warning (at most every 30 s); it clears below 10°. A leaning phone squashes or stretches heights unevenly, more so up close. The warning is advisory and never blocks a set.
 - **Show Measurements.** This exercise-menu toggle is off by default and remembered. It shows each arm's live height ratio, elbow angle, and zone (↓ bottom, ↑ top, ◌ between), for tuning thresholds on device.
@@ -47,7 +48,7 @@ Tracking reliability is a separate input. While exercising and unreliable, count
 | Exercise menu | Selecting another exercise discards an in-progress set (finished sets are kept per exercise) and clears the analyzer, smoothing, and feedback. |
 | End | Asks for confirmation when tapped. Then stops the camera, restores other audio, and shows a summary with a Done button. |
 
-Backgrounding the app or locking the phone pauses an active set with the matching reason and stops the camera. On return the set stays paused, and the coach says "Paused. Tap Resume when ready." Camera and audio-session interruptions pause the same way.
+Backgrounding the app or locking the phone pauses an active set with the matching reason and stops the camera and microphone. On return the set stays paused, and the coach says "Paused. Say resume when ready." (or "Tap Resume" without voice control). Camera and audio-session interruptions pause the same way.
 
 Stale events are dropped. Every analyzer instance carries an epoch, and the session ignores reps from replaced analyzers. Camera events carry a generation, so results from an old capture start are discarded.
 
@@ -85,8 +86,39 @@ The press is filmed from the front, using pixel geometry and an independent hyst
 ## Speech and audio
 
 - `SpeechCoach` keeps a short utterance queue: at most 2 pending lines, older ones dropped. It remembers the last instruction for "repeat that". Delegate callbacks (start, finish, cancel) advance the queue. A watchdog stops any utterance that runs past its estimated duration + 5 s.
-- `WorkoutAudioSession` uses `.playback` with `.mixWithOthers`, so music keeps playing. Before speaking, it adds `.duckOthers` and activates. When the queue drains, `endDucking()` deactivates with `.notifyOthersOnDeactivation` and restores the non-ducking category. It retries briefly if deactivation reports busy.
+- `WorkoutAudioSession` mixes with other audio, so music keeps playing. With voice control it uses `.playAndRecord` with `.mixWithOthers`, `.defaultToSpeaker`, and `.allowBluetoothA2DP` (Bluetooth headphones keep high-quality music while the built-in mic listens), and stays active between utterances. Without it, `.playback` with `.mixWithOthers`.
+- Ducking only takes effect when the session activates, and other audio only returns when it deactivates. So before speaking, listening stops, the session is cycled with `.duckOthers`, and the coach speaks. When the queue drains, `endDucking()` deactivates with `.notifyOthersOnDeactivation`, restores the non-ducking category, and re-activates for listening. It retries briefly if deactivation reports busy.
 - `endDucking()` is idempotent and runs on every exit path: speech finished or cancelled, the watchdog, activation errors, interruptions, backgrounding, leaving the screen, and ending the workout. If the app crashes, iOS releases its audio session, which restores other audio.
+
+## Voice control
+
+The microphone and speech-recognition prompts follow the camera prompt, in that order. Without voice, the touch controls keep working and prompts say "Tap" instead of "Say".
+
+- **Commands.** Start ("begin", "let's go"). Pause ("stop", "hold on", "wait"; "stop workout" also pauses). Resume ("continue", "keep going"). Start over ("restart set", "reset set"). Next set ("finish set", "end set"). Change exercise ("switch exercise"), or name one ("switch to shoulder press", "dumbbell press instead"; aliases come from `ExerciseDefinition.voiceAliases`). Cancel ("never mind"). How many reps. Which set. Repeat that ("say that again"). Voice commands ("what can I say", "help", "show commands"). Close ("done", "go back"). Mute ("mute coach", "be quiet") and unmute ("talk to me") the coach. Stop listening ("mute microphone"). End workout ("finish workout", "quit workout").
+- **Parsing.** `VoiceCommandParser` lowercases and strips punctuation and apostrophes, then takes the longest known phrase (the most recent on ties). Destructive commands (end workout, restart set, next set, change or select exercise) count only when they're nearly the whole utterance: at most 2 extra words, not counting fillers such as "please", "okay", "coach", and "let's". A match that could still become a different command ("start" → "start over") waits for a final result or for the transcript to settle for 0.6 s; anything else runs immediately.
+- **Listening.** `OnDeviceSpeechRecognizer` uses `SFSpeechRecognizer` for the current locale if it's English, or en-US otherwise. It requires on-device support; without it the microphone shows unavailable and touch controls remain. Requests set `requiresOnDeviceRecognition`, partial results, `contextualStrings` from the parser's vocabulary, and no punctuation. Tasks restart after every command and final result, after 1.2 s of unchanged transcript (so old words can't combine with new ones), and every 50 s. Errors back off 0.5–4 s; after 5 in a row, voice reports unavailable until the microphone is tapped.
+- **Half-duplex.** `WorkoutVoiceController` stops recognition, discarding any partial transcript, before the coach speaks, and resumes once the speech queue drains. The coach never hears itself.
+- **Sound and microphone.** Two stable toggles sit at the top right; their icons never swap. Both settings are remembered between workouts (`workoutCoach.micMuted`, `workoutCoach.coachMuted`).
+  - **🎙 Microphone.** Green while listening. The same mic, dimmed, while the coach speaks; listening resumes afterward. A red disc when muted, gray when paused by the system, and orange when it needs permission or is unavailable.
+    - Tap to mute or unmute, or to retry after a system pause. In a problem state, tapping opens Voice Commands, with Open Settings or Try Again.
+    - Long-press for **Voice Commands** and **Mute/Unmute Microphone**.
+    - Say "stop listening" to mute it (said on its own). Unmuting is touch-only, since a muted microphone can't hear.
+    - While it's muted, nothing listens, no permission is requested, and prompts say "Tap".
+  - **🔊 Coach voice.** Tap to mute or unmute; a red disc shows it's muted. Muting cuts the current line.
+    - By voice: "mute" or "be quiet" (said on its own) to mute, and "unmute" or "talk to me" to unmute. Unmuting replies "Coach voice on." The coach can't hear while it's talking, so mute by voice between lines, or tap anytime.
+    - A muted coach is fully silent: no announcements, replies, or tips, and no music ducking. The guide's Read Aloud still plays, because it's an explicit tap.
+- **Heard chip.** A "Heard: …" chip confirms each recognized command for 1.5 s.
+- **Voice Commands help.** A full-height sheet with large type, readable from across the room. It opens by voice ("what can I say", "help", "voice commands"), from **Voice Commands** in the ☰ menu, or by tapping the microphone.
+  - **Content:** `VoiceCommandHelp` generates every command from the parser's alias table, grouped as Sets, Exercises, Info, and Finish. Each shows its main phrase, a short description, and its alternates, and destructive commands are marked "Say it on its own". Because the list comes from the same table the parser uses, it always matches what's recognized.
+  - **Header:** a "Right now" section shows the commands that fit the current phase (`WorkoutSession.suggestedCommands`). The header also shows the microphone state, with Open Settings or Try Again when needed, and live set progress.
+  - **Toggles:** the header repeats both sound toggles, and shows an Unmute Microphone banner while muted.
+  - **Behavior:** the workout keeps counting behind the sheet. "Close", "done", "go back", or "cancel" dismiss it. Info and sound commands (how many reps, which set, repeat that, mute, unmute) keep it open. Any command that changes the workout closes it and then runs. Opened by voice, the coach also says, "Here's everything you can say. Try start, pause, or how many reps. Say close when you're done."
+- **Discovery.**
+  - The first time voice works on this install, the coach says once after its intro: "Say 'what can I say' anytime to see voice commands" (`workoutCoach.voiceTipSpoken`).
+  - While ready, the status line alternates every 4 s with "Say 'what can I say' for commands".
+  - The how-to guide has a voice-commands row with a **Show Voice Commands** button.
+- **Interruptions.** Calls and Siri pause the workout, stop listening, and restore other audio. Voice resumes when the system says to; the workout stays paused. Headphone route changes reinstall the microphone tap. A media-services reset rebuilds the audio engine.
+- **Limits.** English only. Recognition can mishear in noisy rooms or with music from the phone's speaker; headphones help. Non-destructive commands such as "pause" are recognized anywhere in a sentence.
 
 ## Automated validation
 
@@ -103,7 +135,10 @@ The press is filmed from the front, using pixel geometry and an independent hyst
   - rest is never skipped before its timer ends;
   - stale-epoch reps are ignored;
   - the target range is announced at 8 and the set completes at 10;
-  - the tilt warning is rate-limited.
+  - the tilt warning is rate-limited;
+  - the hold ring's progress fills over 1 s and disappears when you let go;
+  - the "Right now" suggestions follow the phase.
+- `VoiceCommandParserTests` cover fillers, longest-phrase matching, the whole-utterance rule for destructive commands, prefix ambiguity, exercise names, and opening and closing help by voice. They also check that every recognized phrase appears exactly once in the Voice Commands help.
 - `PhoneTiltDetectorTests` check the 1 s settle time, the 15°/10° hysteresis, and that missing motion data never warns.
 
 ## Future options
@@ -117,13 +152,35 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
 
 1. On a fresh install (deleting the app resets the guide), opening the coach shows the guide before any permission prompt. Read Aloud lowers your music and then restores it. Start Workout leads to the camera. Reopening the coach skips the guide. The ⓘ title reopens it, and doing so mid-set pauses the set.
 2. Grant camera access and follow the framing guidance. Verify the headroom prompt when standing too close, and the left/right prompts.
-3. When ready, the violet ghost arms line up with your shoulders and roughly match your arm length. Holding the dumbbells just above your shoulders for about 1 s starts the set. During rest it never starts before the timer ends.
+3. When ready, the violet ghost arms line up with your shoulders and roughly match your arm length. Holding the dumbbells just above your shoulders shows the Hold ring beside you, filling over about 1 s, and then starts the set. Letting go early hides the ring. During rest it never starts before the timer ends.
 4. Turn on Show Measurements. At the start position, each arm should read below 0.6 and 115° (↓). At the top, above 0.8 and 140° (↑). Do the same press close to the phone and far from it: the readings should be about the same. Each arm's Start segment turns solid at the start, and its Top segment turns solid green only once the wrist passes it with the arm nearly straight. The segments shouldn't drift while you press.
 5. Lean the phone back more than 15°: after about a second, the tilt warning appears and is spoken. Stand it upright and the warning clears.
 6. Do 10 presses and check that the count is exactly 10, with no double counts when pausing near either threshold. A half press must not count, and neither must a rep finished after stepping out of view mid-rep.
 7. Background the app or lock the phone mid-set. The set must be paused on return, with no added reps. Then resume.
 8. Leave the screen idle for longer than the auto-lock interval and confirm it never locks.
 9. With Spotify or Music playing, the music must lower only while the coach speaks and must never stay lowered, including after ending the workout or closing the screen mid-sentence.
-10. Afterward, confirm realtime posture correction still works.
+10. Voice, for a whole set without touching the phone: allow the microphone and speech prompts (they follow the camera prompt). Then say "start", "how many reps", "pause", "resume", "next set", and "end workout". Each one shows a "Heard" chip.
+11. The coach never reacts to its own speech, and "stop" pauses rather than ending. Chatting in sentences such as "I might end workout later today" doesn't end the workout.
+12. Turn on airplane mode: voice commands still work, because recognition is on-device.
+13. Deny the microphone or speech permission. The microphone shows "permission needed", tapping it offers Settings, and the buttons still work. Grant it in Settings and return.
+14. During a set, take a phone call or invoke Siri. The set pauses and music isn't left lowered. Afterward voice resumes, and saying "resume" continues the set.
+15. With AirPods playing music, voice commands still work and the music stays in the headphones.
+16. Voice Commands help:
+    - Mid-set, say "what can I say". The sheet opens, the coach explains it, and reps keep counting; the header's count updates.
+    - "How many reps" answers with the sheet still open. "Close" dismisses it. Reopen it and say "pause": it closes and the set pauses.
+    - It also opens from **Voice Commands** in the ☰ menu and by long-pressing the microphone.
+    - With the microphone or speech permission denied, the sheet shows Open Settings.
+17. On a fresh install:
+    - the coach says the "what can I say" tip once after its intro, and not on later opens;
+    - while ready, the status line alternates with the commands hint;
+    - the guide's **Show Voice Commands** button closes the guide and opens the help.
+18. Sound and microphone:
+    - While the coach speaks, 🎙 stays a microphone (dimmed).
+    - Tap 🔊 mid-sentence: speech stops and music returns to full volume immediately. Nothing more is spoken until you tap 🔊 again or say "unmute", which replies "Coach voice on."
+    - Say "mute" between lines to mute the coach by voice.
+    - Tap 🎙 while it's listening: it turns red, and prompts switch to "Tap". Tap again to resume listening.
+    - Say "stop listening": the mic mutes. Long-press 🎙 and choose Voice Commands.
+    - Close and reopen the coach: both mutes are remembered, and a muted mic doesn't start listening (no orange recording dot).
+19. Afterward, confirm realtime posture correction still works.
 
 These checks remain manual; a passing simulator run does not imply they were performed.

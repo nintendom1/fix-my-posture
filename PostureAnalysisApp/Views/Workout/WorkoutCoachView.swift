@@ -10,6 +10,8 @@ struct WorkoutCoachView: View {
     @StateObject private var model = WorkoutCoachModel()
     @AppStorage("workoutCoach.showMeasurements") private var showMeasurements = false
     @State private var showGuide = false
+    /// Open the Voice Commands help once the guide finishes dismissing.
+    @State private var showVoiceCommandsAfterGuide = false
 
     var body: some View {
         ZStack {
@@ -53,10 +55,29 @@ struct WorkoutCoachView: View {
                     isSpeaking: model.isCoachSpeaking,
                     onReadAloud: { model.readGuideAloud() },
                     onStopReading: { model.stopSpeaking() },
+                    onShowVoiceCommands: {
+                        showVoiceCommandsAfterGuide = true
+                        showGuide = false
+                    },
                     onDone: { showGuide = false }
                 )
                 .presentationDetents([.large])
             }
+        }
+        .sheet(isPresented: Binding(get: { model.isHelpPresented }, set: { model.setHelpPresented($0) })) {
+            VoiceCommandsHelpView(
+                sections: VoiceCommandHelp.sections(exercises: model.exercises),
+                suggestions: VoiceCommandHelp.entries(for: model.session.suggestedCommands, exercises: model.exercises),
+                micStatus: model.micStatus,
+                isMicMuted: model.isMicMuted,
+                isCoachMuted: model.isCoachMuted,
+                onSetMicMuted: { model.setMicMuted($0) },
+                onSetCoachMuted: { model.setCoachMuted($0) },
+                progressLine: progressLine,
+                onRetry: { model.retryVoice() },
+                onDone: { model.setHelpPresented(false) }
+            )
+            .presentationDetents([.large])
         }
     }
 
@@ -86,6 +107,10 @@ struct WorkoutCoachView: View {
                 if let overlay = model.overlay {
                     WorkoutJointOverlayView(overlay: overlay)
                         .frame(width: geo.size.width, height: geo.size.height)
+                    if model.startHoldProgress() != nil {
+                        HoldProgressRingView(overlay: overlay, progress: { model.startHoldProgress() })
+                            .frame(width: geo.size.width, height: geo.size.height)
+                    }
                 }
 
                 WorkoutHUDView(
@@ -93,9 +118,15 @@ struct WorkoutCoachView: View {
                     now: model.now,
                     readings: model.armReadings,
                     isPhoneTilted: model.isPhoneTilted,
+                    micStatus: model.micStatus,
+                    heardPhrase: model.heardPhrase,
                     showMeasurements: $showMeasurements,
                     onClose: close,
                     onShowGuide: presentGuide,
+                    isCoachMuted: model.isCoachMuted,
+                    onMicrophoneTap: { model.microphoneTapped() },
+                    onToggleCoachVoice: { model.setCoachMuted(!model.isCoachMuted) },
+                    onShowVoiceCommands: { model.setHelpPresented(true) },
                     onCommand: { model.send($0) }
                 )
             }
@@ -124,6 +155,24 @@ struct WorkoutCoachView: View {
     private func guideDismissed() {
         if let id = model.session.exerciseID { WorkoutGuidePreferences.markSeen(id) }
         model.setGuidePresented(false)
+        if showVoiceCommandsAfterGuide {
+            showVoiceCommandsAfterGuide = false
+            model.setHelpPresented(true)
+        }
+    }
+
+    /// Live set progress for the help header, since counting continues behind it.
+    private var progressLine: String? {
+        let session = model.session
+        guard let exercise = session.exercise else { return nil }
+        switch session.phase {
+        case .exercising, .paused:
+            return "Set \(session.currentSetNumber) of \(exercise.sets) \u{00B7} \(session.repCount) reps"
+        case .resting:
+            return session.restRemaining(at: model.now).map { "Resting \u{00B7} \(WorkoutHUDView.format($0))" }
+        default:
+            return nil
+        }
     }
 
     // MARK: - Unauthorized & Failure

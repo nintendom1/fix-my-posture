@@ -49,6 +49,15 @@ final class WorkoutCoachModel: ObservableObject {
     @Published private(set) var isCoachSpeaking = false
     /// The camera has run and the coach has introduced the workout.
     @Published private(set) var hasOpened = false
+    @Published private(set) var micStatus: WorkoutVoiceController.Status = .off
+    /// The phrase behind the most recent voice command, shown briefly as a "Heard" chip.
+    @Published private(set) var heardPhrase: String?
+    /// The Voice Commands help is open. Capture and listening continue behind it.
+    @Published private(set) var isHelpPresented = false
+    /// The coach says nothing at all, so other audio is never ducked. Remembered between workouts.
+    @Published private(set) var isCoachMuted: Bool
+    /// The microphone stays off until the user turns it back on. Remembered between workouts.
+    @Published private(set) var isMicMuted: Bool
 
     var captureSession: AVCaptureSession { camera.session }
     var exercises: [ExerciseDefinition] { session.exercises }
@@ -58,6 +67,8 @@ final class WorkoutCoachModel: ObservableObject {
     private let speech: SpeechCoaching
     private let audio: WorkoutAudioSession?
     private let tiltMonitor: PhoneTiltMonitoring?
+    private let voice: WorkoutVoiceController?
+    private let defaults: UserDefaults
     private let clock: () -> TimeInterval
 
     private var analyzer: ExerciseAnalyzing?
@@ -74,30 +85,53 @@ final class WorkoutCoachModel: ObservableObject {
     private var isApplicationActive = false
     private var isRequestingPermission = false
     private var tickTimer: Timer?
+    private var heardGeneration = 0
 
     static let tickInterval: TimeInterval = 0.5
+    static let heardChipDuration: TimeInterval = 1.5
+    /// Spoken once per install, after the intro, when voice first works.
+    static let voiceTipKey = "workoutCoach.voiceTipSpoken"
+    static let voiceTip = "Say \u{201C}what can I say\u{201D} anytime to see voice commands."
+    static let coachMutedKey = "workoutCoach.coachMuted"
+    static let micMutedKey = "workoutCoach.micMuted"
 
     convenience init() {
         let audio = WorkoutAudioSession()
+        let exercises = ExerciseCatalog.all
+        let voice = WorkoutVoiceController(recognizer: OnDeviceSpeechRecognizer(),
+                                           parser: VoiceCommandParser(exercises: exercises),
+                                           permissions: SystemVoicePermissions(), audio: audio)
         self.init(camera: WorkoutCameraController(), permission: SystemCameraPermission(),
                   speech: SpeechCoach(audio: audio), audio: audio, tiltMonitor: CoreMotionTiltMonitor(),
-                  exercises: ExerciseCatalog.all, initialExercise: ExerciseCatalog.all.first?.id)
+                  voice: voice, exercises: exercises, initialExercise: exercises.first?.id)
     }
 
     init(camera: PoseFrameSource, permission: RealtimeCameraPermission, speech: SpeechCoaching,
-         audio: WorkoutAudioSession?, tiltMonitor: PhoneTiltMonitoring?,
-         exercises: [ExerciseDefinition], initialExercise: ExerciseID?,
+         audio: WorkoutAudioSession?, tiltMonitor: PhoneTiltMonitoring?, voice: WorkoutVoiceController?,
+         exercises: [ExerciseDefinition], initialExercise: ExerciseID?, defaults: UserDefaults = .standard,
          clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
         self.camera = camera
         self.permission = permission
         self.speech = speech
         self.audio = audio
         self.tiltMonitor = tiltMonitor
+        self.voice = voice
+        self.defaults = defaults
         self.clock = clock
+        isCoachMuted = defaults.bool(forKey: Self.coachMutedKey)
+        isMicMuted = defaults.bool(forKey: Self.micMutedKey)
         session = WorkoutSession(exercises: exercises, initialExercise: initialExercise)
         now = clock()
         audio?.onEvent = { [weak self] event in self?.handleAudio(event) }
-        speech.onActivityChanged = { [weak self] speaking in self?.isCoachSpeaking = speaking }
+        speech.onActivityChanged = { [weak self] speaking in
+            self?.isCoachSpeaking = speaking
+            self?.voice?.setCoachSpeaking(speaking)
+        }
+        voice?.onCommand = { [weak self] command in self?.send(command) }
+        voice?.onHeard = { [weak self] phrase in self?.showHeard(phrase) }
+        voice?.onStatusChanged = { [weak self] status in self?.voiceStatusChanged(status) }
+        // A remembered muted microphone never starts listening or asks for permission.
+        if isMicMuted { voice?.setMuted(true) }
     }
 
     // MARK: - Lifecycle
@@ -136,7 +170,29 @@ final class WorkoutCoachModel: ObservableObject {
     }
 
     func send(_ command: WorkoutCommand) {
+        switch command {
+        case .help:
+            isHelpPresented = true
+        case .repCount, .whichSet, .repeatLast:
+            // Info keeps the help open so the list stays visible.
+            break
+        // Sound changes apply before the reducer, so confirmations follow the new state.
+        case .muteCoach:
+            setCoachMuted(true)
+        case .unmuteCoach:
+            setCoachMuted(false)
+        case .muteMicrophone:
+            setMicMuted(true)
+        default:
+            // Close, cancel, and anything that changes the workout show the workout again.
+            isHelpPresented = false
+        }
         apply(session.handle(.command(command), at: clock()))
+    }
+
+    /// Touch path for the Voice Commands help; opening it this way doesn't speak.
+    func setHelpPresented(_ presented: Bool) {
+        isHelpPresented = presented
     }
 
     // MARK: - Guide
@@ -152,6 +208,53 @@ final class WorkoutCoachModel: ObservableObject {
             speech.stopAll()
             startCaptureIfPossible()
         }
+    }
+
+    /// Retries voice after a failure or an interruption that didn't resume on its own.
+    func retryVoice() {
+        guard canCapture, !isMicMuted else { return }
+        voice?.retry()
+    }
+
+    // MARK: - Sound
+
+    func setCoachMuted(_ muted: Bool) {
+        guard muted != isCoachMuted else { return }
+        isCoachMuted = muted
+        defaults.set(muted, forKey: Self.coachMutedKey)
+        if muted {
+            // Cut the current line now; this also restores any ducked audio.
+            speech.stopAll()
+        } else {
+            // After the current command, so "Coach voice on." comes first.
+            DispatchQueue.main.async { [weak self] in
+                MainActor.assumeIsolated { self?.speakVoiceTipIfNeeded() }
+            }
+        }
+    }
+
+    func setMicMuted(_ muted: Bool) {
+        guard muted != isMicMuted else { return }
+        isMicMuted = muted
+        defaults.set(muted, forKey: Self.micMutedKey)
+        voice?.setMuted(muted)
+        if !muted, canCapture { voice?.enable() }
+    }
+
+    /// Mutes or unmutes, retries after a system pause, or opens help to fix permission or failures.
+    func microphoneTapped() {
+        switch micStatus {
+        case .muted: setMicMuted(false)
+        case .listening, .coachSpeaking: setMicMuted(true)
+        case .paused, .off: retryVoice()
+        case .needsPermission, .unavailable: isHelpPresented = true
+        case .requestingPermission: break
+        }
+    }
+
+    /// 0...1 while holding the start position toward an automatic start.
+    func startHoldProgress() -> Double? {
+        session.startHoldProgress(at: clock())
     }
 
     func readGuideAloud() {
@@ -193,6 +296,8 @@ final class WorkoutCoachModel: ObservableObject {
         cameraStatus = .starting
         resetTracking()
         tiltMonitor?.start()
+        // After camera permission, so the microphone and speech prompts follow it in order.
+        if !isMicMuted { voice?.enable() }
         camera.start(generation: generation) { [weak self] token, event in
             guard let self, self.canCapture, token == self.generation else { return }
             self.handle(event)
@@ -202,6 +307,8 @@ final class WorkoutCoachModel: ObservableObject {
     private func stopCapture() {
         generation = UUID()
         camera.stop()
+        // Paused rather than off, so prompts spoken on return still say "Say resume".
+        voice?.disable(status: .paused)
         tiltMonitor?.stop()
         tiltDetector.reset()
         setPhoneTilted(false)
@@ -219,6 +326,7 @@ final class WorkoutCoachModel: ObservableObject {
             if !hasOpened {
                 hasOpened = true
                 apply(session.handle(.opened, at: clock()))
+                speakVoiceTipIfNeeded()
             } else if wasInterrupted {
                 apply(session.handle(.interruptionEnded, at: clock()))
             }
@@ -260,6 +368,9 @@ final class WorkoutCoachModel: ObservableObject {
             if armReadings != analysis.readings { armReadings = analysis.readings }
             if armThresholds != analysis.thresholds { armThresholds = analysis.thresholds }
             setStartPositionHeld(analysis.startPositionHeld)
+            // Start as soon as the hold completes rather than waiting for the next tick.
+            let time = clock()
+            if session.startHoldProgress(at: time) == 1 { apply(session.handle(.tick, at: time)) }
             for rep in analysis.repEvents {
                 apply(session.handle(.repCompleted(rep), at: clock()))
             }
@@ -345,9 +456,9 @@ final class WorkoutCoachModel: ObservableObject {
         for effect in effects {
             switch effect {
             case .speak(let utterance):
-                speech.speak(utterance)
+                if !isCoachMuted { speech.speak(utterance) }
             case .repeatLastInstruction:
-                speech.repeatLastInstruction()
+                if !isCoachMuted { speech.repeatLastInstruction() }
             case .resetAnalyzer(let epoch):
                 guard let exercise = session.exercise else {
                     analyzer = nil
@@ -390,12 +501,47 @@ final class WorkoutCoachModel: ObservableObject {
     private func handleAudio(_ event: WorkoutAudioSession.Event) {
         switch event {
         case .interruptionBegan:
+            // Calls and Siri: pause, stop listening, and let other audio return.
+            voice?.disable(status: .paused)
             speech.stopAll()
             apply(session.handle(.interruptionBegan, at: clock()))
-        case .interruptionEnded:
+        case .interruptionEnded(let shouldResume):
+            // The workout stays paused; voice resumes only when the system says so.
+            if shouldResume, canCapture, !isMicMuted { voice?.enable() }
             apply(session.handle(.interruptionEnded, at: clock()))
         case .mediaServicesReset:
             speech.stopAll()
+            voice?.handleAudioEvent(event)
+        case .routeChanged, .reactivated:
+            voice?.handleAudioEvent(event)
+        }
+    }
+
+    private func voiceStatusChanged(_ status: WorkoutVoiceController.Status) {
+        let wasUsable = micStatus.isUsable
+        micStatus = status
+        if status.isUsable != wasUsable {
+            apply(session.handle(.voiceControlChanged(status.isUsable), at: clock()))
+        }
+        speakVoiceTipIfNeeded()
+    }
+
+    /// Once per install, after the intro and once voice works, mention the help command.
+    private func speakVoiceTipIfNeeded() {
+        guard hasOpened, micStatus.isUsable, !isCoachMuted, !defaults.bool(forKey: Self.voiceTipKey) else { return }
+        defaults.set(true, forKey: Self.voiceTipKey)
+        speech.speak(Utterance(text: Self.voiceTip, isInstruction: false))
+    }
+
+    private func showHeard(_ phrase: String) {
+        heardGeneration += 1
+        let generation = heardGeneration
+        heardPhrase = phrase
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.heardChipDuration) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.heardGeneration == generation else { return }
+                self.heardPhrase = nil
+            }
         }
     }
 }

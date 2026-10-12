@@ -16,6 +16,23 @@ final class WorkoutSessionTests: XCTestCase {
         XCTAssertTrue(spoken(effects).contains("Set 1 of 2. Go."))
     }
 
+    func testStartHoldProgressFillsOverOneSecond() {
+        var session = readySession()
+        XCTAssertNil(session.startHoldProgress(at: 2))
+        _ = session.handle(.startPositionChanged(true), at: 2)
+        XCTAssertEqual(session.startHoldProgress(at: 2.5) ?? -1, 0.5, accuracy: 0.001)
+        _ = session.handle(.startPositionChanged(false), at: 2.6)
+        XCTAssertNil(session.startHoldProgress(at: 2.7), "Letting go hides the ring.")
+    }
+
+    func testSuggestedCommandsFollowThePhase() {
+        var session = readySession()
+        XCTAssertTrue(session.suggestedCommands.contains(.start))
+        _ = session.handle(.command(.start), at: 2)
+        XCTAssertTrue(session.suggestedCommands.contains(.pause))
+        XCTAssertFalse(session.suggestedCommands.contains(.start))
+    }
+
     func testRestWaitsForTimerBeforeAutoStart() {
         var session = readySession()
         _ = session.handle(.command(.start), at: 2)
