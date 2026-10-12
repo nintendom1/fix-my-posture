@@ -31,6 +31,8 @@ struct WorkoutHUDView: View {
     @ScaledMetric(relativeTo: .largeTitle) private var repSize: CGFloat = 64
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var confirmingEnd = false
+    /// An exercise picked from the menu mid-set, waiting for confirmation that the set's reps can go.
+    @State private var pendingExercise: ExerciseDefinition?
     @State private var repPulse = false
 
     var body: some View {
@@ -224,7 +226,13 @@ struct WorkoutHUDView: View {
             Menu {
                 Section("Exercise") {
                     ForEach(session.exercises) { exercise in
-                        Button(exercise.displayName) { onCommand(.selectExercise(exercise.id)) }
+                        Button { requestExercise(exercise) } label: {
+                            if exercise.id == session.exerciseID {
+                                Label(exercise.displayName, systemImage: "checkmark")
+                            } else {
+                                Text(exercise.displayName)
+                            }
+                        }
                     }
                 }
                 Button(action: onShowGuide) {
@@ -252,6 +260,28 @@ struct WorkoutHUDView: View {
                 Button("Keep Going", role: .cancel) {}
             }
         }
+        .confirmationDialog(switchTitle, isPresented: Binding(get: { pendingExercise != nil },
+                                                              set: { if !$0 { pendingExercise = nil } }),
+                            titleVisibility: .visible) {
+            if let exercise = pendingExercise {
+                Button("Switch to \(exercise.displayName)", role: .destructive) { onCommand(.selectExercise(exercise.id)) }
+            }
+            Button("Keep Going", role: .cancel) {}
+        }
+    }
+
+    /// Switching mid-set discards that set's reps, so confirm when there are any.
+    private func requestExercise(_ exercise: ExerciseDefinition) {
+        if exercise.id != session.exerciseID, isSetInProgress, session.sideReps.values.contains(where: { $0 > 0 }) {
+            pendingExercise = exercise
+        } else {
+            onCommand(.selectExercise(exercise.id))
+        }
+    }
+
+    private var switchTitle: String {
+        let reps = max(session.sideReps[.left] ?? 0, session.sideReps[.right] ?? 0)
+        return "Discard this set's \(reps == 1 ? "1 rep" : "\(reps) reps")?"
     }
 
     /// Live signals per arm, for checking the counting thresholds on device, and the last rep's form

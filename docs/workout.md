@@ -1,6 +1,6 @@
 # Workout Coach (Beta)
 
-Open **Workout Coach (Beta)** from the main menu. The first time, a short guide shows and describes the dumbbell shoulder press. Then prop the phone up in portrait, step back so the front camera can see both arms and your shoulders with room overhead, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10) and hammer curls (2 sets of 10), announces the target range and set completion, gives occasional form tips, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
+Open **Workout Coach (Beta)** from the main menu and pick an exercise from the list. The first time you pick each exercise, a short guide shows and describes it. Then prop the phone up in portrait, step back so the front camera can see both arms and your shoulders with room overhead, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10) and hammer curls (2 sets of 10), announces the target range and set completion, gives occasional form tips, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
 
 Rep counts, framing checks, and form tips are geometric heuristics from a 2D camera. They are not medical, injury, or performance assessments.
 
@@ -35,7 +35,10 @@ Analysis always uses the original unmirrored pixel geometry. Only the overlay is
 
 ## Session state machine
 
-Phases: `choosingExercise`, `framing`, `ready`, `exercising`, `paused(user | background | interruption)`, `resting`, `changingExercise(previous)`, `exerciseComplete`, and `ended`. With one exercise, the coach opens in `framing` with shoulder press selected.
+Phases: `choosingExercise`, `framing`, `ready`, `exercising`, `paused(user | background | interruption)`, `resting`, `changingExercise(previous)`, `exerciseComplete`, and `ended`.
+
+- **Entry.** Opening the coach shows `WorkoutSelectionView`, a list of every exercise with its sets × reps, before the camera starts. Picking one opens the camera with that exercise in `framing`. Closing the camera screen returns to the list. `choosingExercise` remains only for a session started without an exercise.
+- **Changing exercise.** Saying "change exercise" enters `changingExercise` and shows an exercise chooser over the camera, with each exercise's sets and how many are done. Pick one by voice or tap, or cancel to return to where you were. The ☰ menu lists the exercises too, with a checkmark on the current one. Picking another one mid-set asks "Discard this set's N reps?" when the set has reps.
 
 Tracking reliability is a separate input. While exercising and unreliable, counting is suspended without changing phase. Framing guidance is spoken once per loss, and counting resumes automatically.
 
@@ -46,7 +49,7 @@ Tracking reliability is a separate input. While exercising and unreliable, count
 | Resume | Acts only from paused. Harmless while exercising. |
 | Restart set | Resets the current set's reps and starts a fresh analyzer. Nothing else changes. |
 | Next set | While exercising or paused, completes the set and rests. From resting, starts the next set. After the last set, the exercise is complete. |
-| Exercise menu | Selecting another exercise discards an in-progress set (finished sets are kept per exercise) and clears the analyzer, smoothing, and feedback, including any tip and the coaching history. |
+| Exercise menu / change exercise | Selecting another exercise discards an in-progress set (finished sets are kept per exercise; returning picks up at the next set) and clears the analyzer, smoothing, threshold lines, readings, and feedback, including any tip and the coaching history. The first time an exercise is chosen, its guide opens. |
 | End | Asks for confirmation when tapped. Then stops the camera, restores other audio, and shows a summary with a Done button. |
 
 Backgrounding the app or locking the phone pauses an active set with the matching reason and stops the camera and microphone. On return the set stays paused, and the coach says "Paused. Say resume when ready." (or "Tap Resume" without voice control). Camera and audio-session interruptions pause the same way.
@@ -216,7 +219,8 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
   - the "Right now" suggestions follow the phase;
   - set start shows a reminder tip without speaking it;
   - a corrective cue is spoken and shown, and only for the current analyzer;
-  - restarting a set forgets its coaching history, and pausing restarts a continuous cue's hold.
+  - restarting a set forgets its coaching history, and pausing restarts a continuous cue's hold;
+  - switching mid-set keeps finished sets, restarts the set in progress, clears feedback, and starts a fresh analyzer; curl arms count separately, and the count is what both arms have done.
 - `VoiceCommandParserTests` cover fillers, longest-phrase matching, the whole-utterance rule for destructive commands, prefix ambiguity, exercise names, and opening and closing help by voice. They also check that every recognized phrase appears exactly once in the Voice Commands help.
 - `PhoneTiltDetectorTests` check the 1 s settle time, the 15°/10° hysteresis, and that missing motion data never warns.
 
@@ -286,6 +290,10 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
 23. Mute the coach: tips still appear, silently. With Reduce Motion on, tips appear and disappear without fading.
 24. Voice commands keep working mid-set while cues are spoken. Saying "repeat that" right after a cue repeats it.
 25. Restarting the set, finishing it, or switching exercise clears the tip and the amber joints immediately.
-26. Afterward, confirm realtime posture correction still works.
+26. Exercise list: opening the coach shows the list (shoulder press 2 × 8–10, hammer curl 2 × 10) before any camera prompt. Picking hammer curls the first time opens its guide; Close on the camera screen returns to the list.
+27. Hammer curls, simultaneous: with both arms hanging straight, the Hold ring fills and the set starts. Curl both arms together 10 times; the count reaches 10 and the set completes. The HUD shows "L · R" counts, and each arm's Start line sits below its elbow and its Top line above it, with labels clear of the arms.
+28. Hammer curls, alternating: curl left, then right, and so on. The count goes up once both arms have done a rep ("L 3 · R 2" shows 2). Curling one arm up again from halfway, without hanging straight, doesn't count; after two of those, "Straighten at the bottom." plays. Half curls get "Curl all the way up."
+29. Switching mid-set: during a press set with a few reps, choose Hammer Curl from ☰. It asks to discard the reps; confirm, and the curl guide (first time) or setup line follows, with no leftover tip, amber joints, or press lines. Say "change exercise", then "cancel": you're back where you were. Switch back to the press: it resumes at its next set.
+30. Afterward, confirm realtime posture correction still works.
 
 These checks remain manual; a passing simulator run does not imply they were performed.

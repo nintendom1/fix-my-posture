@@ -104,7 +104,7 @@ final class WorkoutCoachModel: ObservableObject {
     static let coachMutedKey = "workoutCoach.coachMuted"
     static let micMutedKey = "workoutCoach.micMuted"
 
-    convenience init() {
+    convenience init(initialExercise: ExerciseID? = nil) {
         let audio = WorkoutAudioSession()
         let exercises = ExerciseCatalog.all
         let voice = WorkoutVoiceController(recognizer: OnDeviceSpeechRecognizer(),
@@ -112,7 +112,7 @@ final class WorkoutCoachModel: ObservableObject {
                                            permissions: SystemVoicePermissions(), audio: audio)
         self.init(camera: WorkoutCameraController(), permission: SystemCameraPermission(),
                   speech: SpeechCoach(audio: audio), audio: audio, tiltMonitor: CoreMotionTiltMonitor(),
-                  voice: voice, exercises: exercises, initialExercise: exercises.first?.id)
+                  voice: voice, exercises: exercises, initialExercise: initialExercise ?? exercises.first?.id)
     }
 
     init(camera: PoseFrameSource, permission: RealtimeCameraPermission, speech: SpeechCoaching,
@@ -469,6 +469,10 @@ final class WorkoutCoachModel: ObservableObject {
         framingEvaluator = FramingEvaluator(requiredJoints: exercise.requiredJoints,
                                             headroomArmLengths: exercise.headroomArmLengths)
         framingExerciseID = exercise.id
+        // The previous exercise's lines and readings must not linger after a switch.
+        armReadings = [:]
+        armThresholds = [:]
+        formReadings = []
         lastFramingStatus = nil
         smoother.reset()
     }

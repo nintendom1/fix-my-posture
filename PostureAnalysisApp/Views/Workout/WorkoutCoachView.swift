@@ -7,13 +7,17 @@ struct WorkoutCoachView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
-    @StateObject private var model = WorkoutCoachModel()
+    @StateObject private var model: WorkoutCoachModel
     @AppStorage("workoutCoach.showMeasurements") private var showMeasurements = false
     @State private var showGuide = false
     /// Open the Voice Commands help once the guide finishes dismissing.
     @State private var showVoiceCommandsAfterGuide = false
     /// Top and bottom HUD frames, which tips keep clear of.
     @State private var hudRects: [CGRect] = []
+
+    init(initialExercise: ExerciseID? = nil) {
+        _model = StateObject(wrappedValue: WorkoutCoachModel(initialExercise: initialExercise))
+    }
 
     var body: some View {
         ZStack {
@@ -135,6 +139,12 @@ struct WorkoutCoachView: View {
                     onShowVoiceCommands: { model.setHelpPresented(true) },
                     onCommand: { model.send($0) }
                 )
+
+                if case .changingExercise = model.session.phase {
+                    ExerciseChooserOverlay(session: model.session, voiceActive: model.session.voiceControlActive,
+                                           onSelect: { model.send(.selectExercise($0)) },
+                                           onCancel: { model.send(.cancel) })
+                }
             }
             .coordinateSpace(name: Self.coordinateSpace)
             .onPreferenceChange(WorkoutHUDRects.self) { hudRects = $0 }

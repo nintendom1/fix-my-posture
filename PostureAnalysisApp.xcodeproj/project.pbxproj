@@ -110,6 +110,7 @@
 		A10000012B00000000000101 /* HammerCurlAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000101 /* HammerCurlAnalyzer.swift */; };
 		A10000012B00000000000102 /* HammerCurlFormMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000102 /* HammerCurlFormMonitor.swift */; };
 		A10000012B00000000000103 /* HammerCurlAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000103 /* HammerCurlAnalyzerTests.swift */; };
+		A10000012B00000000000104 /* WorkoutSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000104 /* WorkoutSelectionView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -228,6 +229,7 @@
 		B10000012B00000000000101 /* HammerCurlAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HammerCurlAnalyzer.swift; sourceTree = "<group>"; };
 		B10000012B00000000000102 /* HammerCurlFormMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HammerCurlFormMonitor.swift; sourceTree = "<group>"; };
 		B10000012B00000000000103 /* HammerCurlAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HammerCurlAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000104 /* WorkoutSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSelectionView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -503,6 +505,7 @@
 				B10000012B00000000000088 /* HoldProgressRingView.swift */,
 				B10000012B00000000000091 /* VoiceCommandsHelpView.swift */,
 				B10000012B00000000000097 /* WorkoutTipView.swift */,
+				B10000012B00000000000104 /* WorkoutSelectionView.swift */,
 			);
 			path = Workout;
 			sourceTree = "<group>";
@@ -695,6 +698,7 @@
 				A10000012B00000000000100 /* HammerCurlExercise.swift in Sources */,
 				A10000012B00000000000101 /* HammerCurlAnalyzer.swift in Sources */,
 				A10000012B00000000000102 /* HammerCurlFormMonitor.swift in Sources */,
+				A10000012B00000000000104 /* WorkoutSelectionView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
