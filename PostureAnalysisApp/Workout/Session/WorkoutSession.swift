@@ -159,13 +159,25 @@ struct WorkoutSession {
     /// Reps both arms have completed in the current set.
     var repCount: Int { min(sideReps[.left] ?? 0, sideReps[.right] ?? 0) }
 
-    /// Finished sets in the current round.
+    /// Finished set entries in the current round (one per arm for one-arm-at-a-time exercises).
     func completedSets(for id: ExerciseID) -> Int { progress[id]?.roundSetReps.count ?? 0 }
+
+    /// Whole sets finished in the current round; a one-arm set counts once both arms are done.
+    func setsDone(for exercise: ExerciseDefinition) -> Int {
+        let entries = completedSets(for: exercise.id)
+        return exercise.perSide ? entries / 2 : entries
+    }
 
     /// One-based number of the set in progress or up next.
     var currentSetNumber: Int {
         guard let exercise else { return 1 }
-        return min(completedSets(for: exercise.id) + 1, exercise.sets)
+        return min(setsDone(for: exercise) + 1, exercise.sets)
+    }
+
+    /// The arm in progress or up next, for exercises done one arm at a time.
+    var currentSide: BodySide? {
+        guard let exercise, exercise.perSide else { return nil }
+        return completedSets(for: exercise.id) % 2 == 0 ? .left : .right
     }
 
     /// 0...1 while the start position is being held toward an automatic start; nil when no hold is
@@ -370,10 +382,27 @@ struct WorkoutSession {
         sideReps = [.left: 0, .right: 0]
         let finished = completedSets(for: exercise.id)
         var effects = setCounting(false) + newAnalyzer() + clearFeedback()
-        if finished >= exercise.sets {
+        let done = exercise.perSide ? (finished % 2 == 1 ? "Left arm done" : "Right arm done") : "Set \(finished) done"
+        if finished >= exercise.setEntries {
             phase = .exerciseComplete
             restEndsAt = nil
-            effects.append(.speak(Utterance(text: "Set \(finished) done, \(repPhrase(reps)). \(exercise.displayName) complete. \(completePrompt)")))
+            effects.append(.speak(Utterance(text: "\(done), \(repPhrase(reps)). \(exercise.displayName) complete. \(completePrompt)")))
+        } else if exercise.perSide, finished % 2 == 1 {
+            // Halfway through a one-arm set: switch arms without resting.
+            restEndsAt = nil
+            if framing.isReliable, framing.guidance == nil {
+                phase = .ready
+                readySince = now
+            } else {
+                phase = .framing
+            }
+            effects.append(.speak(Utterance(text: "\(done), \(repPhrase(reps)). Switch to your right arm. \(beginPrompt).")))
+        } else if exercise.perSide {
+            let set = finished / 2
+            phase = .resting
+            restEndsAt = now + TimeInterval(exercise.restSeconds)
+            restDoneAnnounced = false
+            effects.append(.speak(Utterance(text: "\(done), \(repPhrase(reps)). Set \(set) done. Rest up. I'll tell you when it's time for set \(set + 1).")))
         } else {
             phase = .resting
             restEndsAt = now + TimeInterval(exercise.restSeconds)
@@ -413,7 +442,7 @@ struct WorkoutSession {
         lastSpokenGuidance = nil
         var effects = setCounting(false) + newAnalyzer() + clearFeedback()
         coaching = Self.scheduler(for: next)
-        if completedSets(for: id) >= next.sets {
+        if completedSets(for: id) >= next.setEntries {
             phase = .exerciseComplete
             effects.append(.speak(Utterance(text: "\(next.displayName) is already done. \(completePrompt)")))
         } else {
@@ -633,14 +662,15 @@ struct WorkoutSession {
 
     private var setReply: String {
         guard let exercise else { return "No exercise selected yet." }
-        let finished = completedSets(for: exercise.id)
+        let finished = setsDone(for: exercise)
+        let arm = currentSide.map { $0 == .left ? " Left arm." : " Right arm." } ?? ""
         switch phase {
         case .resting:
             return "Set \(finished) of \(exercise.sets) done. Set \(finished + 1) is next."
         case .exerciseComplete:
             return "All \(exercise.sets) sets of \(exercise.spokenName) are done."
         default:
-            return "Set \(currentSetNumber) of \(exercise.sets)."
+            return "Set \(currentSetNumber) of \(exercise.sets).\(arm)"
         }
     }
 

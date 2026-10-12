@@ -6,7 +6,8 @@ enum ExerciseCatalog {
         ShoulderPressExercise.definition(),
         HammerCurlExercise.definition(),
         TricepsExtensionExercise.definition(),
-        AirSquatExercise.definition()
+        AirSquatExercise.definition(),
+        DumbbellRowExercise.definition()
     ]
 
     static func definition(for id: ExerciseID) -> ExerciseDefinition? {

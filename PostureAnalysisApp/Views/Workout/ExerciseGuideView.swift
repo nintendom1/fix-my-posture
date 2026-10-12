@@ -80,7 +80,7 @@ struct ExerciseGuideView: View {
     private func animatedDemonstration(_ sample: ArmMotionSample) -> some View {
         VStack(spacing: 6) {
             ExerciseDemoFigureView(angles: sample.angles, forearmPlane: guide.motion.forearmPlane, cameraView: exercise.cameraView,
-                                   holdsDumbbells: guide.motion.holdsDumbbells, legs: sample.legs)
+                                   holdsDumbbells: guide.motion.holdsDumbbells, legs: sample.legs, torsoPitch: guide.motion.torsoPitch)
                 .frame(maxWidth: .infinity)
                 .frame(height: 240)
             Text(guide.steps.indices.contains(sample.stepIndex) ? guide.steps[sample.stepIndex].title : "")
@@ -109,7 +109,7 @@ struct ExerciseGuideView: View {
     private func labeledFigure(_ angles: ArmAngles, legs: LegPose, title: String) -> some View {
         VStack(spacing: 4) {
             ExerciseDemoFigureView(angles: angles, forearmPlane: guide.motion.forearmPlane, cameraView: exercise.cameraView,
-                                   holdsDumbbells: guide.motion.holdsDumbbells, legs: legs)
+                                   holdsDumbbells: guide.motion.holdsDumbbells, legs: legs, torsoPitch: guide.motion.torsoPitch)
                 .frame(height: 200)
             Text(title)
                 .font(.headline)

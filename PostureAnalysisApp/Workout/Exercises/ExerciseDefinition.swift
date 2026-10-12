@@ -73,6 +73,17 @@ struct ExerciseDefinition: Identifiable {
     /// Holding the start position for a moment begins a set. Off when the start position is just standing,
     /// so a set never starts by accident; "start" and the Start button always work.
     var startsByHolding = true
+    /// Each set is done one arm at a time: left, then right, then rest. Each arm's half is recorded as its
+    /// own entry in the set history.
+    var perSide = false
+
+    /// Recorded entries that make up the full exercise.
+    var setEntries: Int { perSide ? sets * 2 : sets }
+
+    /// "Set 2" or, one arm at a time, "Set 2 L".
+    func setLabel(entry index: Int) -> String {
+        perSide ? "Set \(index / 2 + 1) \(index % 2 == 0 ? "L" : "R")" : "Set \(index + 1)"
+    }
     let makeAnalyzer: (_ epoch: Int) -> ExerciseAnalyzing
 
     var focusJoints: Set<LandmarkType> {

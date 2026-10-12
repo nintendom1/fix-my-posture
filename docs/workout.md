@@ -1,6 +1,6 @@
 # Workout Coach (Beta)
 
-Open **Workout Coach (Beta)** from the main menu and pick an exercise from the list. The first time you pick each exercise, a short guide shows and describes it. Then prop the phone up in portrait, step back so the front camera can see both arms and your shoulders with room overhead, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10) hammer curls (2 sets of 10), an overhead band triceps extension filmed side-on (2 sets of 10), and air squats with the whole body in view (2 sets of 15), announces the target range and set completion, gives occasional form tips, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
+Open **Workout Coach (Beta)** from the main menu and pick an exercise from the list. The first time you pick each exercise, a short guide shows and describes it. Then prop the phone up in portrait, step back so the front camera can see both arms and your shoulders with room overhead, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10) hammer curls (2 sets of 10), an overhead band triceps extension filmed side-on (2 sets of 10), air squats with the whole body in view (2 sets of 15), and one-arm dumbbell rows filmed side-on (2 sets of 8–10 each arm), announces the target range and set completion, gives occasional form tips, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
 
 Rep counts, framing checks, and form tips are geometric heuristics from a 2D camera. They are not medical, injury, or performance assessments.
 
@@ -124,6 +124,18 @@ Air squats are filmed from the front with the whole body in view (hips, knees, a
 - **No hold-to-start** (`ExerciseDefinition.startsByHolding = false`): standing is the start position, so holding it would start sets by accident. Say "start" or tap Start. The status line and prompts say so.
 - **Lower-body demonstrations**: keyframes carry a `LegPose` (hip drop and knee spread). The guide figure squats, and the ghost draws legs standing on your own ankles, scaled to your leg length, showing how low to go. Leg joints turn green at the counted squat, since only joints of the moving limbs turn green.
 
+## One-arm dumbbell row rep rule
+
+The row is filmed from the side, with the rowing arm nearer the phone, bent forward with the other hand on a bench. The arm nearer the phone is tracked (`NearArmSelector`, shared with the triceps extension). Thresholds live in `DumbbellRowConfiguration`.
+
+- Signal: `e` = the elbow's height above its shoulder in upper-arm lengths, plus the 2D elbow angle. Hanging straight reads about −1, and pulled up past the back about −0.2. The upper arm swings in the image plane, so its longest recent length is a full ruler.
+- Start when `e ≤ −0.85` and the elbow is at least 150° (hanging straight). Top when `e ≥ −0.35`. The shoulder height and ruler are locked while the arm hangs. A rep needs at least 0.8 s.
+- **One arm at a time** (`ExerciseDefinition.perSide`):
+  - Each set is the left arm, then the right, then rest.
+  - After the left arm the coach says "Left arm done, N reps. Switch to your right arm." There's no rest timer: hold the start position or say "start". Turn around so the right arm is nearer the phone; the ghost follows the way you face.
+  - The HUD shows "Set 1 of 2 · Left arm". Each arm's reps are recorded as their own entry ("Set 1 L", "Set 1 R").
+- Validation: the guide's bent-over demonstration (torso pitched 50°, `ArmMotion.torsoPitch`) reads −1.00 hanging and −0.17 pulled. It counts exactly one rep per loop facing either way, with either arm, at ½×/2×, and with either segment ±15%.
+
 ## Form coaching
 
 While counting, the coach watches how each rep is done and offers a short tip now and then. Corrective cues are spoken and shown as a tip; reminders are only shown. Cues describe movement relative to the user's own set. They never mention grip, wrist rotation, dumbbell orientation, or injury, and they never make medical claims.
@@ -158,6 +170,14 @@ Air squat (drafted wording, for review):
 - "Keep your chest up." (10, continuous, while squatting below 0.6): the shoulders-to-hips height shrank below 75% of standing, which is a forward lean seen from the front. Needs shoulders.
 
 Reminders: "Weight in your heels.", "Brace your core.", "Breathe in on the way down."
+
+One-arm row (drafted wording, for review):
+- "Pull your elbow up past your back." (50): an attempt that rose at least 0.3 but missed the Top.
+- "Lower all the way down." (40): after the Top, dipped at least 0.35 and pulled again without hanging straight.
+- "Lower with control." (30): Top line to Start line in under 0.25 s. The demo's 1.5 s lowering reads about 0.5 s.
+- "Keep your back still." (20, continuous): the shoulder-to-hip line tipped more than 15° from the start of the set. Needs the hip.
+
+Reminders: "Squeeze your shoulder blade.", "Keep your neck neutral.", "Brace your core."
 
 Curl reminders: "Elbows stay close.", "Lower slowly.", "Stand tall." The curl's motion envelope runs from the shoulders down past the hanging dumbbells, and out past them to the sides. Its "Last rep" line shows each arm's last top and hanging heights, plus the live flare and sway drift.
 
@@ -251,6 +271,7 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
   - flared elbows and sway raise their signals, and sway needs hips.
 - `TricepsExtensionAnalyzerTests` run the side-view demonstration facing either way, with either arm, at ½×/2× scale and with either segment ±15%. They also check that a half extension asks to straighten, a fast lowering asks for control, extending again from midway asks to lower behind the head, and tipped elbows raise their signal. Hands hidden behind the head still count, while a hand hidden overhead never counts as the start. Side-on framing accepts either arm, keeps tracking with the hand hidden, and asks you to stand side-on.
 - `AirSquatAnalyzerTests` run the squat demonstration at ½×/2× scale and with thigh or shin ±15%. They also check that a shallow squat asks to go deeper, squatting again without standing asks to stand up, caving knees and a forward lean raise their signals only at depth, and the lean check needs shoulders.
+- `DumbbellRowAnalyzerTests` run the bent-over side demonstration facing either way, with either arm, at ½×/2× and with either segment ±15%. They also check that a half pull asks to pull higher, a fast lowering asks for control, pulling again from midway asks to lower all the way, and a tipping back raises its signal only with the hip visible.
 - `CoachingCueSchedulerTests` check the 0.5 s hold, 2 of the last 3 attempts, the 10 s cooldown and 4 s gap, replacement by priority only upward, waiting while the coach speaks, and reminders at set start and after 25 s quiet.
 - `WorkoutTipLayoutTests` check the preferred slot, keeping a still-valid slot, speak-only when nothing fits, and that press tips at typical and close distances never touch the arms, body, envelope, or HUD.
 - `WorkoutSessionTests` drive the reducer:
@@ -265,6 +286,7 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
   - a corrective cue is spoken and shown, and only for the current analyzer;
   - restarting a set forgets its coaching history, and pausing restarts a continuous cue's hold;
   - the last set offers another round (earlier rounds kept), and ending from the completion card skips the summary;
+  - one-arm-at-a-time sets switch arms without rest, then rest after both, recording an entry per arm;
   - switching mid-set keeps finished sets, restarts the set in progress, clears feedback, and starts a fresh analyzer; curl arms count separately, and the count is what both arms have done.
 - `VoiceCommandParserTests` cover fillers, longest-phrase matching, the whole-utterance rule for destructive commands, prefix ambiguity, exercise names, and opening and closing help by voice. They also check that every recognized phrase appears exactly once in the Voice Commands help.
 - `PhoneTiltDetectorTests` check the 1 s settle time, the 15°/10° hysteresis, and that missing motion data never warns.
@@ -358,6 +380,12 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Fifteen squats to thighs-level count exactly 15, and half squats don't count ("Squat a little deeper.").
     - Squatting again from halfway gets "Stand all the way up."
     - Letting the knees cave in gets "Keep your knees in line with your toes."
-33. Afterward, confirm realtime posture correction still works.
+33. One-arm row:
+    - Stand side-on with your left arm nearer the phone, bent forward with a hand on a bench. Holding the dumbbell straight down fills the Hold ring and starts "Set 1 of 2 · Left arm".
+    - Row 8–10; at 10 (or "next set") the coach says to switch to your right arm, with no rest timer.
+    - Turn around; the ghost turns with you, and the right arm's set starts the same way. After both arms, rest starts.
+    - Half pulls get "Pull your elbow up past your back."
+    - The summary and completion card list "Set 1 L", "Set 1 R", and so on.
+34. Afterward, confirm realtime posture correction still works.
 
 These checks remain manual; a passing simulator run does not imply they were performed.

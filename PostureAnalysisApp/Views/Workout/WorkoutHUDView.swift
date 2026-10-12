@@ -367,10 +367,11 @@ struct WorkoutHUDView: View {
     }
 
     private func setLabel(_ exercise: ExerciseDefinition) -> String {
+        let arm = session.currentSide.map { $0 == .left ? " · Left arm" : " · Right arm" } ?? ""
         switch session.phase {
-        case .resting: return "Next: set \(session.currentSetNumber) of \(exercise.sets)"
+        case .resting: return "Next: set \(session.currentSetNumber) of \(exercise.sets)\(arm)"
         case .exerciseComplete: return "All \(exercise.sets) sets done"
-        default: return "Set \(session.currentSetNumber) of \(exercise.sets)"
+        default: return "Set \(session.currentSetNumber) of \(exercise.sets)\(arm)"
         }
     }
 

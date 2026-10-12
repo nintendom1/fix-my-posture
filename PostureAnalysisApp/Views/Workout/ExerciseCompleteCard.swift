@@ -25,7 +25,7 @@ struct ExerciseCompleteCard: View {
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
-                    Text(sets.enumerated().map { "Set \($0.offset + 1): \($0.element)" }.joined(separator: " · "))
+                    Text(sets.enumerated().map { "\(exercise.setLabel(entry: $0.offset)): \($0.element)" }.joined(separator: " · "))
                         .font(.headline.monospacedDigit())
                     Text("\(sets.reduce(0, +)) reps")
                         .font(.subheadline.monospacedDigit())
@@ -63,11 +63,12 @@ struct ExerciseCompleteCard: View {
     /// Everything finished in this workout, when more than this exercise's round.
     private var workoutLine: String? {
         let finished = session.exercises.compactMap { exercise -> (String, Int)? in
-            let sets = session.progress[exercise.id]?.setReps.count ?? 0
+            let entries = session.progress[exercise.id]?.setReps.count ?? 0
+            let sets = exercise.perSide ? entries / 2 : entries
             return sets > 0 ? (exercise.displayName, sets) : nil
         }
         let total = finished.map(\.1).reduce(0, +)
-        guard let current = session.exercise, total > session.completedSets(for: current.id) else { return nil }
+        guard let current = session.exercise, total > session.setsDone(for: current) else { return nil }
         return "This workout: " + finished.map { "\($0.0) \($0.1 == 1 ? "1 set" : "\($0.1) sets")" }.joined(separator: " · ")
     }
 

@@ -118,6 +118,10 @@
 		A10000012B00000000000112 /* AirSquatExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000112 /* AirSquatExercise.swift */; };
 		A10000012B00000000000113 /* AirSquatAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000113 /* AirSquatAnalyzer.swift */; };
 		A10000012B00000000000114 /* AirSquatAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000114 /* AirSquatAnalyzerTests.swift */; };
+		A10000012B00000000000116 /* NearArmSelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000116 /* NearArmSelector.swift */; };
+		A10000012B00000000000117 /* DumbbellRowExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000117 /* DumbbellRowExercise.swift */; };
+		A10000012B00000000000118 /* DumbbellRowAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000118 /* DumbbellRowAnalyzer.swift */; };
+		A10000012B00000000000119 /* DumbbellRowAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000119 /* DumbbellRowAnalyzerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -244,6 +248,10 @@
 		B10000012B00000000000112 /* AirSquatExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirSquatExercise.swift; sourceTree = "<group>"; };
 		B10000012B00000000000113 /* AirSquatAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirSquatAnalyzer.swift; sourceTree = "<group>"; };
 		B10000012B00000000000114 /* AirSquatAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirSquatAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000116 /* NearArmSelector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearArmSelector.swift; sourceTree = "<group>"; };
+		B10000012B00000000000117 /* DumbbellRowExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DumbbellRowExercise.swift; sourceTree = "<group>"; };
+		B10000012B00000000000118 /* DumbbellRowAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DumbbellRowAnalyzer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000119 /* DumbbellRowAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DumbbellRowAnalyzerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -414,6 +422,7 @@
 				B10000012B00000000000103 /* HammerCurlAnalyzerTests.swift */,
 				B10000012B00000000000110 /* TricepsExtensionAnalyzerTests.swift */,
 				B10000012B00000000000114 /* AirSquatAnalyzerTests.swift */,
+				B10000012B00000000000119 /* DumbbellRowAnalyzerTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -450,6 +459,7 @@
 				H10000012B00000000000022 /* HammerCurl */,
 				H10000012B00000000000023 /* TricepsExtension */,
 				H10000012B00000000000024 /* AirSquat */,
+				H10000012B00000000000025 /* DumbbellRow */,
 			);
 			path = Exercises;
 			sourceTree = "<group>";
@@ -472,6 +482,7 @@
 				B10000012B00000000000062 /* HysteresisPhaseTracker.swift */,
 				B10000012B00000000000063 /* FramingEvaluator.swift */,
 				B10000012B00000000000064 /* LandmarkSmoother.swift */,
+				B10000012B00000000000116 /* NearArmSelector.swift */,
 			);
 			path = Analysis;
 			sourceTree = "<group>";
@@ -565,6 +576,15 @@
 				B10000012B00000000000113 /* AirSquatAnalyzer.swift */,
 			);
 			path = AirSquat;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000025 /* DumbbellRow */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000117 /* DumbbellRowExercise.swift */,
+				B10000012B00000000000118 /* DumbbellRowAnalyzer.swift */,
+			);
+			path = DumbbellRow;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -741,6 +761,9 @@
 				A10000012B00000000000109 /* TricepsExtensionAnalyzer.swift in Sources */,
 				A10000012B00000000000112 /* AirSquatExercise.swift in Sources */,
 				A10000012B00000000000113 /* AirSquatAnalyzer.swift in Sources */,
+				A10000012B00000000000116 /* NearArmSelector.swift in Sources */,
+				A10000012B00000000000117 /* DumbbellRowExercise.swift in Sources */,
+				A10000012B00000000000118 /* DumbbellRowAnalyzer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -764,6 +787,7 @@
 				A10000012B00000000000103 /* HammerCurlAnalyzerTests.swift in TestSources */,
 				A10000012B00000000000110 /* TricepsExtensionAnalyzerTests.swift in TestSources */,
 				A10000012B00000000000114 /* AirSquatAnalyzerTests.swift in TestSources */,
+				A10000012B00000000000119 /* DumbbellRowAnalyzerTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

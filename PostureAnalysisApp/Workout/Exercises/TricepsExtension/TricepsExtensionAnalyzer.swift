@@ -9,7 +9,7 @@ import Foundation
 final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
     let epoch: Int
     private let configuration: TricepsExtensionConfiguration
-    private var trackedSide: BodySide?
+    private var nearArm = NearArmSelector()
     private var tracker: HysteresisPhaseTracker
     private var lastSample: TimeInterval?
     private var recentForearms: [CGFloat] = []
@@ -38,10 +38,9 @@ final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
         let shoulder: CGPoint
         let elbow: CGPoint
         let arm: ArmPoints?
+        /// Tracking just moved to this arm.
+        let switched: Bool
     }
-
-    /// The other arm must be this much more confident before tracking switches to it.
-    static let switchMargin = 0.2
 
     init(epoch: Int, configuration: TricepsExtensionConfiguration = .standard) {
         self.epoch = epoch
@@ -58,9 +57,7 @@ final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
             return analysis
         }
         let side = observation.side
-        if side != trackedSide {
-            startTracking(side)
-        }
+        if observation.switched { startTracking() }
         let time = frame.timestamp
         if let last = lastSample, time - last > configuration.maximumSampleGap {
             invalidate()
@@ -129,17 +126,21 @@ final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
     /// The tracked arm, followed through a hidden hand while its elbow stays raised; otherwise the arm
     /// nearer the phone. Starting with the hands already behind the head, a raised elbow is enough.
     private func observe(_ frame: PoseFrame) -> Observation? {
-        if let side = trackedSide, let hidden = hiddenHand(side, in: frame) { return hidden }
-        if let (side, arm) = nearArm(in: frame) {
-            return Observation(side: side, shoulder: arm.shoulder, elbow: arm.elbow, arm: arm)
+        if let side = nearArm.side, let hidden = hiddenHand(side, in: frame) {
+            return Observation(side: side, shoulder: hidden.shoulder, elbow: hidden.elbow, arm: nil, switched: false)
         }
-        guard trackedSide == nil else { return nil }
-        return BodySide.allCases.compactMap { hiddenHand($0, in: frame) }.first
+        if let (side, arm, switched) = nearArm.select(in: frame, minimumConfidence: configuration.minimumJointConfidence) {
+            return Observation(side: side, shoulder: arm.shoulder, elbow: arm.elbow, arm: arm, switched: switched)
+        }
+        guard nearArm.side == nil,
+              let (side, hidden) = BodySide.allCases.lazy.compactMap({ side in self.hiddenHand(side, in: frame).map { (side, $0) } }).first
+        else { return nil }
+        return Observation(side: side, shoulder: hidden.shoulder, elbow: hidden.elbow, arm: nil, switched: nearArm.follow(side))
     }
 
-    /// The arm with its hand out of view but folded behind the head: the elbow is still raised, and the hand
-    /// was last seen on its way down rather than overhead (or hasn't been seen yet).
-    private func hiddenHand(_ side: BodySide, in frame: PoseFrame) -> Observation? {
+    /// The shoulder and elbow of an arm whose hand is out of view but folded behind the head: the elbow is
+    /// still raised, and the hand was last seen on its way down rather than overhead (or hasn't been seen yet).
+    private func hiddenHand(_ side: BodySide, in frame: PoseFrame) -> (shoulder: CGPoint, elbow: CGPoint)? {
         let confidence = configuration.minimumJointConfidence
         guard ArmGeometry.arm(side, in: frame, minimumConfidence: confidence) == nil,
               let shoulder = frame.point(side.shoulder, minimumConfidence: confidence),
@@ -147,26 +148,11 @@ final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
         if let lastSeen, lastSeen.ratio >= configuration.hiddenHandMaxRatio { return nil }
         let upperArm = ArmGeometry.distance(shoulder, elbow)
         guard upperArm > 1, Double((shoulder.y - elbow.y) / upperArm) >= configuration.raisedElbowMinRise else { return nil }
-        return Observation(side: side, shoulder: shoulder, elbow: elbow, arm: nil)
+        return (shoulder, elbow)
     }
 
-    /// The arm nearer the phone: the most confident complete arm, keeping the current one unless the other
-    /// is clearly more confident.
-    private func nearArm(in frame: PoseFrame) -> (BodySide, ArmPoints)? {
-        let candidates = BodySide.allCases.compactMap { side -> (BodySide, ArmPoints, Double)? in
-            guard let arm = ArmGeometry.arm(side, in: frame, minimumConfidence: configuration.minimumJointConfidence) else { return nil }
-            let confidence = side.armJoints.compactMap { frame.pose[$0]?.confidence }.min() ?? 0
-            return (side, arm, confidence)
-        }
-        guard let best = candidates.max(by: { $0.2 < $1.2 }) else { return nil }
-        if let current = candidates.first(where: { $0.0 == trackedSide }), best.2 - current.2 < Self.switchMargin {
-            return (current.0, current.1)
-        }
-        return (best.0, best.1)
-    }
-
-    private func startTracking(_ side: BodySide) {
-        trackedSide = side
+    /// Tracking moved to another arm: its history doesn't carry over.
+    private func startTracking() {
         lastSeen = nil
         tracker.reset()
         cycle = .awaitingBottom

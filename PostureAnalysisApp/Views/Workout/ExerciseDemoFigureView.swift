@@ -45,6 +45,7 @@ struct ExerciseDemoFigureView: View {
     var cameraView: ExerciseCameraView = .front
     var holdsDumbbells = true
     var legs: LegPose = .standing
+    var torsoPitch: Double = 0
     var tint: Color = Color(red: 0.62, green: 0.42, blue: 0.95)
 
     /// Figure coordinates in pixels, origin top-left.
@@ -70,9 +71,20 @@ struct ExerciseDemoFigureView: View {
     ]
 
     static func pose(for angles: ArmAngles, legs: LegPose = .standing, forearmPlane: MotionPlane = .frontal,
-                     cameraView: ExerciseCameraView = .front) -> ReferencePose {
+                     cameraView: ExerciseCameraView = .front, torsoPitch: Double = 0) -> ReferencePose {
         if cameraView == .side {
             var joints = sideFigureJoints
+            // Lean forward from the hips: the head and shoulder swing toward the way the figure faces.
+            if torsoPitch != 0, let hip = joints[.leftHip] {
+                let radians = torsoPitch * .pi / 180
+                for joint in [LandmarkType.nose, .leftShoulder] {
+                    guard let point = joints[joint] else { continue }
+                    let dx = point.x - hip.x
+                    let dy = point.y - hip.y
+                    joints[joint] = CGPoint(x: hip.x + dx * CGFloat(cos(radians)) - dy * CGFloat(sin(radians)),
+                                            y: hip.y + dx * CGFloat(sin(radians)) + dy * CGFloat(cos(radians)))
+                }
+            }
             if let shoulder = joints[.leftShoulder] {
                 // Outward is the direction the figure faces.
                 let arm = ArmMotion.place(shoulder: shoulder, outward: 1, upperArm: upperArm, forearm: forearm,
@@ -115,7 +127,7 @@ struct ExerciseDemoFigureView: View {
     }
 
     var body: some View {
-        let pose = Self.pose(for: angles, legs: legs, forearmPlane: forearmPlane, cameraView: cameraView)
+        let pose = Self.pose(for: angles, legs: legs, forearmPlane: forearmPlane, cameraView: cameraView, torsoPitch: torsoPitch)
         ZStack {
             AlignmentReferenceOverlayView(referencePose: pose, imageSize: Self.canvasSize, containerSize: Self.canvasSize,
                                           style: .silhouette, strokeColor: tint, fillColor: tint.opacity(0.5))
