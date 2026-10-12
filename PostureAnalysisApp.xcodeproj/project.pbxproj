@@ -125,6 +125,7 @@
 		A10000012B00000000000121 /* PushUpExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000121 /* PushUpExercise.swift */; };
 		A10000012B00000000000122 /* PushUpAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000122 /* PushUpAnalyzer.swift */; };
 		A10000012B00000000000123 /* PushUpAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000123 /* PushUpAnalyzerTests.swift */; };
+		A10000012B00000000000125 /* WorkoutPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000125 /* WorkoutPlan.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -258,6 +259,7 @@
 		B10000012B00000000000121 /* PushUpExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushUpExercise.swift; sourceTree = "<group>"; };
 		B10000012B00000000000122 /* PushUpAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushUpAnalyzer.swift; sourceTree = "<group>"; };
 		B10000012B00000000000123 /* PushUpAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushUpAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000125 /* WorkoutPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutPlan.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -500,6 +502,7 @@
 			children = (
 				B10000012B00000000000065 /* WorkoutSession.swift */,
 				B10000012B00000000000066 /* WorkoutCoachModel.swift */,
+				B10000012B00000000000125 /* WorkoutPlan.swift */,
 			);
 			path = Session;
 			sourceTree = "<group>";
@@ -783,6 +786,7 @@
 				A10000012B00000000000118 /* DumbbellRowAnalyzer.swift in Sources */,
 				A10000012B00000000000121 /* PushUpExercise.swift in Sources */,
 				A10000012B00000000000122 /* PushUpAnalyzer.swift in Sources */,
+				A10000012B00000000000125 /* WorkoutPlan.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

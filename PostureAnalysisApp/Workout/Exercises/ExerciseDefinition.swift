@@ -43,12 +43,12 @@ struct ExerciseDefinition: Identifiable {
     let displayName: String
     /// Lower case, for spoken sentences.
     let spokenName: String
-    let sets: Int
-    let targetReps: ClosedRange<Int>
+    var sets: Int
+    var targetReps: ClosedRange<Int>
     /// The set completes automatically at this count.
-    let autoCompleteReps: Int
+    var autoCompleteReps: Int
     /// Announced once when reached, before auto-completion.
-    let targetRangeAnnouncementReps: Int?
+    var targetRangeAnnouncementReps: Int?
     let restSeconds: Int
     /// Joints that must be visible for reliable tracking.
     let requiredJoints: Set<LandmarkType>

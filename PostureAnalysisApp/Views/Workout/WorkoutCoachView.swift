@@ -16,8 +16,8 @@ struct WorkoutCoachView: View {
     /// Top and bottom HUD frames, which tips keep clear of.
     @State private var hudRects: [CGRect] = []
 
-    init(initialExercise: ExerciseID? = nil) {
-        _model = StateObject(wrappedValue: WorkoutCoachModel(initialExercise: initialExercise))
+    init(initialExercise: ExerciseID? = nil, plan: WorkoutPlan? = nil) {
+        _model = StateObject(wrappedValue: WorkoutCoachModel(initialExercise: initialExercise, plan: plan))
     }
 
     var body: some View {

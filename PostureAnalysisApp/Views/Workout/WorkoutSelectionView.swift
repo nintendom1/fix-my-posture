@@ -80,6 +80,12 @@ struct ExerciseChooserOverlay: View {
         VStack(spacing: 12) {
             Text("Choose an exercise")
                 .font(.title3.bold())
+            if let plan = session.plan, session.isFollowingPlan {
+                Text("Choosing another exercise leaves \(plan.name); the rest of it is skipped. Cancel to stay in it.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
             ForEach(session.exercises) { exercise in
                 Button { onSelect(exercise.id) } label: {
                     HStack {

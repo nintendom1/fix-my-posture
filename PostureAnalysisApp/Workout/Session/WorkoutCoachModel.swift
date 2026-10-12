@@ -108,7 +108,7 @@ final class WorkoutCoachModel: ObservableObject {
     static let coachMutedKey = "workoutCoach.coachMuted"
     static let micMutedKey = "workoutCoach.micMuted"
 
-    convenience init(initialExercise: ExerciseID? = nil) {
+    convenience init(initialExercise: ExerciseID? = nil, plan: WorkoutPlan? = nil) {
         let audio = WorkoutAudioSession()
         let exercises = ExerciseCatalog.all
         let voice = WorkoutVoiceController(recognizer: OnDeviceSpeechRecognizer(),
@@ -116,12 +116,12 @@ final class WorkoutCoachModel: ObservableObject {
                                            permissions: SystemVoicePermissions(), audio: audio)
         self.init(camera: WorkoutCameraController(), permission: SystemCameraPermission(),
                   speech: SpeechCoach(audio: audio), audio: audio, tiltMonitor: CoreMotionTiltMonitor(),
-                  voice: voice, exercises: exercises, initialExercise: initialExercise ?? exercises.first?.id)
+                  voice: voice, exercises: exercises, initialExercise: initialExercise ?? exercises.first?.id, plan: plan)
     }
 
     init(camera: PoseFrameSource, permission: RealtimeCameraPermission, speech: SpeechCoaching,
          audio: WorkoutAudioSession?, tiltMonitor: PhoneTiltMonitoring?, voice: WorkoutVoiceController?,
-         exercises: [ExerciseDefinition], initialExercise: ExerciseID?, defaults: UserDefaults = .standard,
+         exercises: [ExerciseDefinition], initialExercise: ExerciseID?, plan: WorkoutPlan? = nil, defaults: UserDefaults = .standard,
          clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
         self.camera = camera
         self.permission = permission
@@ -133,7 +133,7 @@ final class WorkoutCoachModel: ObservableObject {
         self.clock = clock
         isCoachMuted = defaults.bool(forKey: Self.coachMutedKey)
         isMicMuted = defaults.bool(forKey: Self.micMutedKey)
-        session = WorkoutSession(exercises: exercises, initialExercise: initialExercise)
+        session = WorkoutSession(exercises: exercises, initialExercise: initialExercise, plan: plan)
         now = clock()
         audio?.onEvent = { [weak self] event in self?.handleAudio(event) }
         speech.onActivityChanged = { [weak self] speaking in

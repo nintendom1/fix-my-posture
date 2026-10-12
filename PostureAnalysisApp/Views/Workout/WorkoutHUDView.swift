@@ -192,6 +192,16 @@ struct WorkoutHUDView: View {
                                 .font(.subheadline.monospacedDigit())
                                 .foregroundStyle(rest > 0 ? .yellow : WorkoutJointOverlayView.endPositionColor)
                         }
+                        if session.isRestingBeforeNextExercise {
+                            Text("Up next: \(exercise.displayName) · \(exercise.setsAndRepsLabel)")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.85))
+                                .multilineTextAlignment(.trailing)
+                        } else if let position = session.planPositionLabel {
+                            Text(position)
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.85))
+                        }
                         if exercise.countsArmsIndependently {
                             Text("L \(session.sideReps[.left] ?? 0) · R \(session.sideReps[.right] ?? 0)")
                                 .font(.caption.monospacedDigit())
@@ -226,13 +236,25 @@ struct WorkoutHUDView: View {
                 onCommand(.nextSet)
             }
             Menu {
-                Section("Exercise") {
-                    ForEach(session.exercises) { exercise in
-                        Button { requestExercise(exercise) } label: {
-                            if exercise.id == session.exerciseID {
-                                Label(exercise.displayName, systemImage: "checkmark")
-                            } else {
-                                Text(exercise.displayName)
+                if let plan = session.plan, session.isFollowingPlan {
+                    // In a Saved Set, skip ahead in order, or leave it through the chooser, which explains.
+                    Section(plan.name) {
+                        Button { onCommand(.nextExercise) } label: {
+                            Label("Skip to Next Exercise", systemImage: "forward.fill")
+                        }
+                        Button { onCommand(.changeExercise) } label: {
+                            Label("Change Exercise\u{2026}", systemImage: "list.bullet")
+                        }
+                    }
+                } else {
+                    Section("Exercise") {
+                        ForEach(session.exercises) { exercise in
+                            Button { requestExercise(exercise) } label: {
+                                if exercise.id == session.exerciseID {
+                                    Label(exercise.displayName, systemImage: "checkmark")
+                                } else {
+                                    Text(exercise.displayName)
+                                }
                             }
                         }
                     }

@@ -40,7 +40,8 @@ enum VoiceCommandHelp {
                 (.restartSet, "Restarts the current set from zero."),
                 (.nextSet, "Finishes this set and starts rest, or starts the next set after rest.")
             ])),
-            Section(title: "Exercises", entries: entries([(.changeExercise, "Asks which exercise to switch to.")])
+            Section(title: "Exercises", entries: entries([(.changeExercise, "Asks which exercise to switch to."),
+                                                         (.nextExercise, "In a Saved Set, skips to the next exercise.")])
                 + exerciseEntries
                 + entries([(.cancel, "Backs out of changing exercise, or closes this list.")])),
             Section(title: "Info", entries: entries([
