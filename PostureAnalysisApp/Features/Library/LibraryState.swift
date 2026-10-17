@@ -19,52 +19,36 @@ struct LibraryExerciseGroup: Equatable, Identifiable {
     var id: String { title }
 }
 
-enum LibraryFilter: String, CaseIterable, Equatable, Identifiable {
-    case all
-    case upperBody
-    case lowerBody
-    case bodyweight
-    case dumbbells
+struct LibraryEmptyState: Equatable {
+    let title: String
+    let message: String
+    let actionTitle: String
 
-    var id: Self { self }
-
-    var title: String {
-        switch self {
-        case .all: return "All"
-        case .upperBody: return "Upper body"
-        case .lowerBody: return "Lower body"
-        case .bodyweight: return "Bodyweight"
-        case .dumbbells: return "Dumbbells"
-        }
-    }
-
-    var anchorWidth: CGFloat {
-        switch self {
-        case .all: return 48
-        case .upperBody: return 105.5
-        case .lowerBody: return 106
-        case .bodyweight: return 108.5
-        case .dumbbells: return 101
-        }
-    }
+    static let noMatches = LibraryEmptyState(
+        title: "No exercises match",
+        message: "Try a different search or clear your filters.",
+        actionTitle: "Clear filters"
+    )
 }
 
 struct LibraryState: Equatable {
     var groups: [LibraryExerciseGroup]
-    var selectedFilter: LibraryFilter
+    var selectedFilter: ExerciseFilterChip
+    var query: String
     let searchPlaceholder: String
-    let isSearchEnabled: Bool
+
+    var emptyState: LibraryEmptyState? { groups.isEmpty ? .noMatches : nil }
 
     init(
         groups: [LibraryExerciseGroup] = [],
-        selectedFilter: LibraryFilter = .all,
-        searchPlaceholder: String = "Search exercises",
-        isSearchEnabled: Bool = false
+        selectedFilter: ExerciseFilterChip = .all,
+        query: String = "",
+        searchPlaceholder: String = "Search exercises"
     ) {
         self.groups = groups
         self.selectedFilter = selectedFilter
+        self.query = query
         self.searchPlaceholder = searchPlaceholder
-        self.isSearchEnabled = isSearchEnabled
     }
 }
 
@@ -72,4 +56,7 @@ enum LibraryIntent: Equatable {
     case appeared
     case back
     case exerciseSelected(ExerciseID)
+    case filterSelected(ExerciseFilterChip)
+    case queryChanged(String)
+    case clearFilters
 }

@@ -169,6 +169,20 @@ final class RoutineEditorViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.state.pickerSort, .fewestReps)
     }
 
+    func testPickerSearchUsesExerciseFilterForEquipmentAndMultipleTokens() {
+        let viewModel = makeViewModel()
+        viewModel.send(.presentPicker)
+
+        viewModel.send(.pickerSearchChanged("  triceps band  "))
+
+        XCTAssertEqual(viewModel.state.pickerSearchText, "  triceps band  ")
+        XCTAssertEqual(viewModel.state.pickerExercises.map(\.exerciseID), [.tricepsExtension])
+        XCTAssertEqual(viewModel.state.pickerSort, .inRoutine)
+
+        viewModel.send(.pickerSearchChanged("unlisted movement"))
+        XCTAssertTrue(viewModel.state.pickerExercises.isEmpty)
+    }
+
     private func makeViewModel(
         id: UUID? = nil,
         repository: RoutineEditorTestRepository? = nil,

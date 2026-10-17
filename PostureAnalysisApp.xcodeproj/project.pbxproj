@@ -288,6 +288,8 @@
 		A10000012B00000000000297 /* SettingsSubpages.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000297 /* SettingsSubpages.swift */; };
 		A10000012B00000000000298 /* SettingsRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000298 /* SettingsRow.swift */; };
 		A10000012B00000000000299 /* SettingsFixtures.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000299 /* SettingsFixtures.swift */; };
+		A10000012B00000000000300 /* ExerciseFilterTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000300 /* ExerciseFilterTests.swift */; };
+		A10000012B00000000000301 /* ExerciseFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000301 /* ExerciseFilter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -584,6 +586,8 @@
 		B10000012B00000000000297 /* SettingsSubpages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSubpages.swift; sourceTree = "<group>"; };
 		B10000012B00000000000298 /* SettingsRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRow.swift; sourceTree = "<group>"; };
 		B10000012B00000000000299 /* SettingsFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFixtures.swift; sourceTree = "<group>"; };
+		B10000012B00000000000300 /* ExerciseFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseFilterTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000301 /* ExerciseFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseFilter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -803,6 +807,7 @@
 				B10000012B00000000000282 /* PostureHomeViewModelTests.swift */,
 				B10000012B00000000000283 /* AssessmentViewModelTests.swift */,
 				B10000012B00000000000294 /* SettingsViewModelTests.swift */,
+				B10000012B00000000000300 /* ExerciseFilterTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -843,6 +848,7 @@
 				H10000012B00000000000025 /* DumbbellRow */,
 				H10000012B00000000000026 /* PushUp */,
 				B10000012B00000000000187 /* ExercisePresentation.swift */,
+				B10000012B00000000000301 /* ExerciseFilter.swift */,
 			);
 			path = Exercises;
 			sourceTree = "<group>";
@@ -1590,6 +1596,7 @@
 				A10000012B00000000000296 /* SettingsScreen.swift in Sources */,
 				A10000012B00000000000297 /* SettingsSubpages.swift in Sources */,
 				A10000012B00000000000298 /* SettingsRow.swift in Sources */,
+				A10000012B00000000000301 /* ExerciseFilter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1671,6 +1678,7 @@
 				A10000012B00000000000285 /* AssessmentFixtures.swift in TestSources */,
 				A10000012B00000000000294 /* SettingsViewModelTests.swift in TestSources */,
 				A10000012B00000000000299 /* SettingsFixtures.swift in TestSources */,
+				A10000012B00000000000300 /* ExerciseFilterTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
