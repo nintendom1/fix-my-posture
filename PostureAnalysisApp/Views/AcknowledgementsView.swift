@@ -5,6 +5,7 @@ import SwiftUI
 /// Keep this text in sync with THIRD_PARTY_NOTICES.md.
 struct AcknowledgementsView: View {
     @Environment(\.dismiss) private var dismiss
+    var wrapsInNavigationStack = true
 
     private static let tablerURL = "https://github.com/tabler/tabler-icons"
 
@@ -33,7 +34,16 @@ struct AcknowledgementsView: View {
         """
 
     var body: some View {
-        NavigationStack {
+        Group {
+            if wrapsInNavigationStack {
+                NavigationStack { content }
+            } else {
+                content
+            }
+        }
+    }
+
+    private var content: some View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Tabler Icons")
@@ -62,6 +72,5 @@ struct AcknowledgementsView: View {
                         .accessibilityIdentifier("acknowledgementsDoneButton")
                 }
             }
-        }
     }
 }

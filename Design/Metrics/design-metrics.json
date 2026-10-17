@@ -2416,6 +2416,13 @@
           "height": 53,
           "kind": "box"
         },
+        "settings.reminders.value": {
+          "x": 304.5,
+          "y": 581,
+          "width": 23.5,
+          "height": 17.5,
+          "kind": "text"
+        },
         "settings.cameraPostureGroup": {
           "x": 24,
           "y": 634,

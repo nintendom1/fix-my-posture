@@ -37,6 +37,7 @@ enum PreferenceKey {
     /// New Phase 4 settings use the settings. namespace.
     static let restPolicy = "settings.restPolicy"
     static let weightUnit = "settings.weightUnit"
+    static let tiltWarningsEnabled = "settings.tiltWarningsEnabled"
 
     /// New workout flow choices use the train. namespace.
     static let startByHolding = "train.startByHolding"
@@ -62,6 +63,7 @@ protocol AppPreferencesStoring: AnyObject {
     var weightUnit: PreferredWeightUnit { get set }
     var startByHolding: Bool { get set }
     var upNextOverride: UUID? { get set }
+    var tiltWarningsEnabled: Bool { get set }
 }
 
 /// UserDefaults-backed preferences. Existing keys and value formats are retained for upgrade compatibility.
@@ -153,6 +155,11 @@ final class UserDefaultsPreferences: AppPreferencesStoring {
         set { defaults.set(newValue, forKey: PreferenceKey.startByHolding) }
     }
 
+    var tiltWarningsEnabled: Bool {
+        get { defaults.object(forKey: PreferenceKey.tiltWarningsEnabled) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: PreferenceKey.tiltWarningsEnabled) }
+    }
+
     var upNextOverride: UUID? {
         get { defaults.string(forKey: PreferenceKey.upNextOverride).flatMap(UUID.init(uuidString:)) }
         set {
@@ -187,6 +194,7 @@ final class InMemoryPreferences: AppPreferencesStoring {
     var weightUnit: PreferredWeightUnit = .lb
     var startByHolding = true
     var upNextOverride: UUID?
+    var tiltWarningsEnabled = true
 
     func guideSeen(for exerciseID: String) -> Bool {
         seenGuides.contains(exerciseID)

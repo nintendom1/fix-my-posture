@@ -112,7 +112,7 @@ The native `TabView` order is Train, Routines, Progress, Posture. Each tab owns 
 | `progress`, `history` | Progress stack | Progress opens Workout History; Train's History control opens the same route |
 | `posture`, `postureHistory`, `assessment(id)` | Posture stack | Posture home and saved assessment history/details |
 | `livePostureCheck`, `photoAssessment(view)` | Posture flow | Existing realtime and camera/library flows in the Posture home |
-| `settings` | Full-screen over Train | Train gear; temporary screen has camera tilt, acknowledgements, diagnostics guidance, and Done |
+| `settings` | Full-screen over Train | Train gear; SettingsScreen groups coach, workout, camera and posture, and about preferences. Done dismisses the cover. |
 | `workout(exerciseID?, routineID?)`, `workoutComplete` | Full-screen camera / completion | Train exercise or Saved Set; the camera remains full screen |
 
 Workout history and posture assessment history are distinct: `.history` is workout history with weight editing under Progress, while `.postureHistory` is the saved assessment list with baseline selection under Posture. The report's Developer Diagnostics button and assessment landmark editor remain in the Posture assessment flow. The legacy screen styling is retained in this phase.

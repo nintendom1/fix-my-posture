@@ -217,16 +217,13 @@ public struct RealtimeCorrectionView: View {
                                 .foregroundColor(.white)
                                 .accessibilityIdentifier("realtimeCalloutToggle")
 
-                            Menu {
-                                Toggle("Camera tilt compensation", isOn: $cameraTiltCompensationEnabled)
-                                Toggle("Horizon line", isOn: $showHorizonLine)
-                                Toggle("Alignment targets", isOn: $showTargets)
-                                Picker("Feedback refresh", selection: $feedbackRate) {
-                                    ForEach([2, 5, 10], id: \.self) { rate in Text("\(rate) per second").tag(rate) }
-                                }
-                            } label: { Image(systemName: "gearshape.fill") }
-                            .accessibilityLabel("Feedback settings")
-                            .tint(.white)
+                            Button { showTargets.toggle() } label: {
+                                Image(material: showTargets ? "visibility" : "visibility_off")
+                                    .foregroundStyle(.white)
+                                    .frame(minWidth: 44, minHeight: 44)
+                            }
+                            .accessibilityLabel("Alignment targets")
+                            .accessibilityIdentifier("realtimeTargetsToggle")
 
                             Picker("View", selection: $selectedView) {
                                 ForEach([PostureView.front, .leftSide, .rightSide]) { v in

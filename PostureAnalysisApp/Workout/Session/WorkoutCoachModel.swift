@@ -509,9 +509,16 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
 
     private func tick() {
         now = clock.now
-        if let event = framePipeline.processTiltSample(pitchDegrees: tiltMonitor?.latestTilt?.pitchDegrees, at: now) {
-            if case .phoneTiltChanged(let tilted) = event { isPhoneTilted = tilted }
-            apply(session.handle(event, at: now))
+        if preferences.tiltWarningsEnabled {
+            if let event = framePipeline.processTiltSample(pitchDegrees: tiltMonitor?.latestTilt?.pitchDegrees, at: now) {
+                if case .phoneTiltChanged(let tilted) = event { isPhoneTilted = tilted }
+                apply(session.handle(event, at: now))
+            }
+        } else {
+            isPhoneTilted = false
+            if let event = framePipeline.resetTilt() {
+                apply(session.handle(event, at: now))
+            }
         }
         apply(session.handle(.tick, at: now))
     }

@@ -238,6 +238,7 @@ export const anchors = {
   "settings.weightUnits": text("Weight units", "box", { closest: 'div[style*="min-height: 52px"]' }),
     "settings.startByHolding": text("Start by holding position", "box", { closest: 'div[style*="min-height: 52px"]' }),
     "settings.reminders": text("Workout reminders", "box", { closest: 'div[style*="min-height: 52px"]' }),
+    "settings.reminders.value": text("Off"),
   "settings.cameraPostureGroup": text("Camera & Posture"),
   "settings.cameraFraming": text("Camera & framing", "box", { closest: 'div[style*="min-height: 52px"]' }),
   "settings.tiltWarnings": text("Tilt warnings", "box", { closest: 'div[style*="min-height: 52px"]' }),
