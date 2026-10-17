@@ -7,6 +7,16 @@ final class DesignMetricsTests: XCTestCase {
             "statusBar": "The iOS status bar belongs to the snapshot window, outside TrainHomeScreen.",
             "train.hero.lastDone": "Phase 4.4 adds routine rotation and last-done history; this phase reserves its space.",
             "tabbar": "The native TabView owns the tab bar; TrainHomeScreen does not lay it out."
+        ],
+        "routines": [
+            "statusBar": "The iOS status bar belongs to the snapshot window, outside RoutinesScreen.",
+            "tabbar": "The native TabView owns the tab bar; RoutinesScreen does not lay it out."
+        ],
+        "routine": [
+            "statusBar": "The iOS status bar belongs to the snapshot window, outside RoutineDetailScreen.",
+            "routine.summary": "Phase 4.4 adds duration estimates; the detail summary omits the about X min segment.",
+            "routine.actions.remind": "Reminder scheduling is deferred, so the Remind me action is hidden.",
+            "tabbar": "The native TabView owns the tab bar; RoutineDetailScreen does not lay it out."
         ]
     ]
 
@@ -18,6 +28,18 @@ final class DesignMetricsTests: XCTestCase {
         XCTAssertEqual(result.hostFrameInWindow, CGRect(origin: .zero, size: DesignWindow.fixedSize))
         XCTAssertEqual(result.window.windowScene?.activationState, .foregroundActive)
         try assertAnchors(frameId: "train", actual: result.snapshotMeasuredAnchors)
+    }
+
+    @MainActor
+    func testRoutinesFrame() throws {
+        let result = try SnapshotHost.render(RoutinesFixtures.designTabView, frameId: "routines", testCase: self)
+        try assertAnchors(frameId: "routines", actual: result.snapshotMeasuredAnchors)
+    }
+
+    @MainActor
+    func testRoutineDetailFrame() throws {
+        let result = try SnapshotHost.render(RoutineDetailFixtures.designTabView, frameId: "routine", testCase: self)
+        try assertAnchors(frameId: "routine", actual: result.snapshotMeasuredAnchors)
     }
 
     @MainActor

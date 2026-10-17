@@ -1,25 +1,18 @@
-import SwiftData
 import SwiftUI
 
-/// Legacy Saved Set editor list and exercise library list.
+/// Exercise library list. The in-camera chooser remains a separate overlay below.
 struct WorkoutSelectionView: View {
-    enum Mode: Equatable {
-        case routines
-        case library
-    }
+    enum Mode: Equatable { case library }
 
-    @Environment(\.appRepositories) private var appRepositories
     @Environment(\.appRouter) private var appRouter
     @Environment(\.exerciseCatalog) private var exerciseCatalog
     @Environment(\.preferences) private var preferences
-    @Query(sort: \SavedExerciseSetEntity.createdAt) private var savedSets: [SavedExerciseSetEntity]
-    @State private var editing: SavedSetEditing?
     @State private var adjusting: ExerciseDefinition?
     /// Bumped after sets or reps are adjusted, so rows re-read the remembered targets.
     @State private var targetsVersion = 0
     let mode: Mode
 
-    init(mode: Mode = .routines) {
+    init(mode: Mode = .library) {
         self.mode = mode
     }
 
@@ -33,71 +26,12 @@ struct WorkoutSelectionView: View {
 
     var body: some View {
         List {
-            if mode == .routines { savedSetsSection }
-            if mode == .library { exercisesSection }
+            exercisesSection
         }
-        .navigationTitle(mode == .library ? "Exercises" : "Saved Sets")
-        .sheet(item: $editing) { editing in
-            SavedSetEditorView(set: editing.savedSet, isNew: editing.isNew, catalog: catalog,
-                               onSave: save, onDelete: delete, onDuplicate: duplicate)
-        }
+        .navigationTitle("Exercises")
         .sheet(item: $adjusting) { exercise in
             ExerciseTargetEditor(exercise: exercise, preferences: preferences) { targetsVersion += 1 }
                 .presentationDetents([.medium])
-        }
-    }
-
-    private var savedSetsSection: some View {
-        Section {
-            ForEach(savedSets) { entity in
-                let set = entity.value
-                let missing = set.missingItems(in: catalog)
-                HStack {
-                    Button {
-                        appRouter?.open(.workout(exerciseID: nil, routineID: set.id))
-                    } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(set.name)
-                                .font(.headline)
-                            Text(set.items.count == 1 ? "1 exercise" : "\(set.items.count) exercises")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            if !missing.isEmpty {
-                                Label("Needs attention: \(missing.count == 1 ? "an exercise is" : "some exercises are") unavailable",
-                                      systemImage: "exclamationmark.triangle.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(.orange)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(set.plan(in: catalog).items.isEmpty)
-                    Button {
-                        editing = SavedSetEditing(savedSet: set, isNew: false)
-                    } label: {
-                        Image(systemName: "pencil")
-                            .font(.body.weight(.semibold))
-                            .frame(width: 36, height: 36)
-                    }
-                    .buttonStyle(.borderless)
-                    .accessibilityLabel("Edit \(set.name)")
-                }
-                .accessibilityIdentifier("savedSet_\(set.id.uuidString)")
-            }
-            Button {
-                editing = SavedSetEditing(savedSet: SavedExerciseSet(name: "New Saved Set", items: []), isNew: true)
-            } label: {
-                Label("Create Saved Set", systemImage: "plus")
-            }
-            .accessibilityIdentifier("createSavedSetButton")
-        } header: {
-            Text("Saved Sets")
-        } footer: {
-            if savedSets.isEmpty {
-                Text("A Saved Set runs several exercises in order, each with its own sets and reps.")
-            }
         }
     }
 
@@ -136,23 +70,6 @@ struct WorkoutSelectionView: View {
         }
     }
 
-    private func save(_ set: SavedExerciseSet) {
-        try? appRepositories?.routines.save(set)
-    }
-
-    private func delete(_ set: SavedExerciseSet) {
-        try? appRepositories?.routines.delete(id: set.id)
-    }
-
-    private func duplicate(_ set: SavedExerciseSet) {
-        _ = try? appRepositories?.routines.duplicate(set)
-    }
-}
-
-private struct SavedSetEditing: Identifiable {
-    let savedSet: SavedExerciseSet
-    let isNew: Bool
-    var id: UUID { savedSet.id }
 }
 
 /// An exercise's name and its sets × reps target.

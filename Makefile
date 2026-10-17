@@ -26,6 +26,8 @@ design-snapshots:
 		-parallel-testing-enabled NO \
 		-only-testing:PostureAnalysisAppTests/DesignHarnessTests \
 		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testTrainFrame \
+		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testRoutinesFrame \
+		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testRoutineDetailFrame \
 		CODE_SIGNING_ALLOWED=NO
 
 design-diff:
