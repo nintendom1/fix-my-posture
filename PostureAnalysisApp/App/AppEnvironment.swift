@@ -15,6 +15,7 @@ final class AppEnvironment {
     let trainHomeViewModel: TrainHomeViewModel
     let routinesViewModel: RoutinesViewModel
     let libraryViewModel: LibraryViewModel
+    let progressViewModel: ProgressViewModel
     let persistenceError: String?
 
     init(inMemory: Bool = false) {
@@ -50,6 +51,11 @@ final class AppEnvironment {
                 preferences: preferences,
                 router: router
             )
+            progressViewModel = ProgressViewModel(
+                workoutHistory: repositories.workoutHistory,
+                assessments: repositories.assessments,
+                router: router
+            )
             persistenceError = nil
         } catch {
             modelContainer = nil
@@ -75,6 +81,11 @@ final class AppEnvironment {
                 workoutHistory: nil,
                 exerciseCatalog: exerciseCatalog,
                 preferences: preferences,
+                router: router
+            )
+            progressViewModel = ProgressViewModel(
+                workoutHistory: nil,
+                assessments: nil,
                 router: router
             )
             persistenceError = error.localizedDescription
@@ -107,6 +118,10 @@ final class AppEnvironment {
             preferences: preferences,
             router: router
         )
+    }
+
+    func makeHistoryViewModel() -> HistoryViewModel {
+        HistoryViewModel(repository: repositories?.workoutHistory, exerciseCatalog: exerciseCatalog)
     }
 }
 
