@@ -66,6 +66,14 @@ final class DesignMetricsTests: XCTestCase {
         ],
         "complete": [
             "statusBar": "The iOS status bar belongs to the snapshot window, outside WorkoutCompleteScreen."
+        ],
+        "progress": [
+            "statusBar": "The iOS status bar belongs to the snapshot window, outside ProgressScreen.",
+            "tabbar": "The native TabView owns the tab bar; ProgressScreen does not lay it out."
+        ],
+        "history": [
+            "statusBar": "The iOS status bar belongs to the snapshot window, outside HistoryScreen.",
+            "tabbar": "The native TabView owns the tab bar; HistoryScreen does not lay it out."
         ]
     ]
 
@@ -146,6 +154,18 @@ final class DesignMetricsTests: XCTestCase {
     func testWorkoutCompleteFrame() throws {
         let result = try SnapshotHost.render(WorkoutCompleteFixtures.screen(), frameId: "complete", testCase: self)
         try assertAnchors(frameId: "complete", actual: result.snapshotMeasuredAnchors)
+    }
+
+    @MainActor
+    func testProgressFrame() throws {
+        let result = try SnapshotHost.render(ProgressFixtures.designTabView(), frameId: "progress", testCase: self)
+        try assertAnchors(frameId: "progress", actual: result.snapshotMeasuredAnchors)
+    }
+
+    @MainActor
+    func testHistoryFrame() throws {
+        let result = try SnapshotHost.render(HistoryFixtures.designTabView(), frameId: "history", testCase: self)
+        try assertAnchors(frameId: "history", actual: result.snapshotMeasuredAnchors)
     }
 
     @MainActor

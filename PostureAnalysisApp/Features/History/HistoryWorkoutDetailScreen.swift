@@ -1,65 +1,16 @@
-import SwiftData
 import SwiftUI
 
-/// Saved workouts, newest first. Swipe to delete; open one to add or change its weights.
-struct WorkoutHistoryView: View {
-    @Environment(\.appRepositories) private var appRepositories
-    @Query(sort: \WorkoutRecordEntity.startedAt, order: .reverse) private var records: [WorkoutRecordEntity]
-    var exerciseCatalog: any ExerciseCatalogProviding = LiveExerciseCatalog()
-
-    var body: some View {
-        List {
-            if records.isEmpty {
-                Text("Workouts you finish are saved here with their sets, reps, and weights.")
-                    .foregroundStyle(.secondary)
-            }
-            ForEach(records) { entity in
-                NavigationLink {
-                    WorkoutRecordDetailView(entity: entity, exerciseCatalog: exerciseCatalog)
-                } label: {
-                    WorkoutRecordRow(record: entity.value)
-                }
-            }
-            .onDelete { offsets in
-                guard let appRepositories else { return }
-                for index in offsets { try? appRepositories.workoutHistory.delete(id: records[index].id) }
-            }
-        }
-        .navigationTitle("History")
-    }
-}
-
-private struct WorkoutRecordRow: View {
-    let record: WorkoutRecord
-
-    var body: some View {
-        let sets = record.entries.map(\.sets.count).reduce(0, +)
-        VStack(alignment: .leading, spacing: 2) {
-            Text(record.startedAt, format: .dateTime.weekday(.abbreviated).month().day().hour().minute())
-                .font(.headline)
-            Text(record.planName ?? record.entries.map(\.name).joined(separator: ", "))
-                .font(.subheadline)
-                .lineLimit(2)
-            Text("\(sets == 1 ? "1 set" : "\(sets) sets") · \(record.totalReps) reps")
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
-/// One saved workout. Each set's weight can be added, changed, or removed.
-struct WorkoutRecordDetailView: View {
-    @Environment(\.appRepositories) private var appRepositories
-    let entity: WorkoutRecordEntity
-    let exerciseCatalog: any ExerciseCatalogProviding
+struct HistoryWorkoutDetailScreen: View {
     @State private var record: WorkoutRecord
     @State private var editing: WeightEditTarget?
 
-    init(entity: WorkoutRecordEntity, exerciseCatalog: any ExerciseCatalogProviding = LiveExerciseCatalog()) {
-        self.entity = entity
-        self.exerciseCatalog = exerciseCatalog
-        _record = State(initialValue: entity.value)
+    let viewModel: HistoryViewModel
+
+    private let palette = ColorTokens.palette()
+
+    init(record: WorkoutRecord, viewModel: HistoryViewModel) {
+        _record = State(initialValue: record)
+        self.viewModel = viewModel
     }
 
     var body: some View {
@@ -73,40 +24,61 @@ struct WorkoutRecordDetailView: View {
                 }
             }
             ForEach(record.entries) { entry in
-                let equipment = exerciseCatalog.exercise(entry.exerciseID)?.equipment ?? .dumbbells
+                let equipment = viewModel.exerciseCatalog.exercise(entry.exerciseID)?.equipment ?? .dumbbells
                 Section {
                     ForEach(Array(entry.sets.enumerated()), id: \.offset) { index, set in
-                        HStack {
+                        HStack(spacing: 10) {
                             Text("Set \(setNumber(index, in: entry))\(set.side.map { " \($0)" } ?? "")")
-                            Spacer()
+                                .font(.system(size: 15, weight: .heavy, design: .rounded))
+                                .foregroundStyle(palette.textPrimary)
+                            Spacer(minLength: 8)
                             Text(set.reps == 1 ? "1 rep" : "\(set.reps) reps")
+                                .font(.system(size: 13, weight: .bold, design: .rounded))
                                 .monospacedDigit()
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(palette.textMuted)
                             if equipment != .bodyweight {
                                 Button(set.weight?.label ?? "Add weight") {
                                     editing = WeightEditTarget(entryID: entry.id, setIndex: index, equipment: equipment)
                                 }
+                                .font(.system(size: 14, weight: .heavy, design: .rounded))
+                                .foregroundStyle(palette.tabActive)
                                 .buttonStyle(.borderless)
                                 .frame(minWidth: 96, alignment: .trailing)
                             }
                         }
+                        .listRowBackground(Color.white.opacity(0.035))
                     }
                 } header: {
                     Text(entry.name + outcomeLabel(entry.outcome))
+                        .font(.system(size: 14, weight: .black, design: .rounded))
+                        .foregroundStyle(palette.textSecondary)
                 }
             }
         }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(palette.backgroundPrimary)
         .navigationTitle("Workout")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(Color(hex: 0x0E0B16, alpha: 0.9), for: .navigationBar)
         .sheet(item: $editing) { target in
             WeightEditorView(weight: weight(at: target), equipment: target.equipment) { weight, applyToLater in
-                update(target, weight: weight, applyToLater: applyToLater)
+                if let updated = viewModel.updateWeight(
+                    recordID: record.id,
+                    entryID: target.entryID,
+                    setIndex: target.setIndex,
+                    weight: weight,
+                    applyToLater: applyToLater
+                ) {
+                    record = updated
+                }
             }
             .presentationDetents([.medium])
         }
+        .environment(\.colorScheme, .dark)
     }
 
-    /// One-arm exercises record each arm as its own entry; both share a set number.
     private func setNumber(_ index: Int, in entry: WorkoutRecordEntry) -> Int {
         entry.sets.first?.side == nil ? index + 1 : index / 2 + 1
     }
@@ -123,26 +95,18 @@ struct WorkoutRecordDetailView: View {
             entry.sets.indices.contains(target.setIndex) ? entry.sets[target.setIndex].weight : nil
         }
     }
-
-    private func update(_ target: WeightEditTarget, weight: WorkoutWeight?, applyToLater: Bool) {
-        guard let entryIndex = record.entries.firstIndex(where: { $0.id == target.entryID }) else { return }
-        let sets = record.entries[entryIndex].sets.indices
-        for index in sets where index == target.setIndex || (applyToLater && index > target.setIndex) {
-            record.entries[entryIndex].sets[index].weight = weight
-        }
-        try? appRepositories?.workoutHistory.updateWeights(for: record)
-    }
 }
 
 private struct WeightEditTarget: Identifiable {
     let entryID: UUID
     let setIndex: Int
     let equipment: ExerciseEquipment
+
     var id: String { "\(entryID)-\(setIndex)" }
 }
 
-/// Enters a weight per dumbbell (pounds or kilograms) or a band's name, optionally for the later sets too.
-struct WeightEditorView: View {
+/// Enters a mass or band name for this set, optionally applying it to later sets of the exercise.
+private struct WeightEditorView: View {
     let equipment: ExerciseEquipment
     let onSave: (WorkoutWeight?, Bool) -> Void
 
@@ -216,6 +180,7 @@ struct WeightEditorView: View {
                     .disabled(newWeight == nil)
                 }
             }
+            .environment(\.colorScheme, .dark)
         }
     }
 }

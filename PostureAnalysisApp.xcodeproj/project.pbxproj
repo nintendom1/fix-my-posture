@@ -128,7 +128,6 @@
 		A10000012B00000000000128 /* SavedExerciseSetTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000128 /* SavedExerciseSetTests.swift */; };
 		A10000012B00000000000130 /* WorkoutWeight.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000130 /* WorkoutWeight.swift */; };
 		A10000012B00000000000131 /* WorkoutHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000131 /* WorkoutHistory.swift */; };
-		A10000012B00000000000132 /* WorkoutHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000132 /* WorkoutHistoryView.swift */; };
 		A10000012B00000000000133 /* WorkoutHistoryTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000133 /* WorkoutHistoryTests.swift */; };
 		A10000012B00000000000135 /* WeightPhraseParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000135 /* WeightPhraseParser.swift */; };
 		A10000012B00000000000136 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000136 /* Assets.xcassets */; };
@@ -259,6 +258,19 @@
 		A10000012B00000000000265 /* WorkoutCompleteViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000265 /* WorkoutCompleteViewModel.swift */; };
 		A10000012B00000000000266 /* WorkoutCompleteScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000266 /* WorkoutCompleteScreen.swift */; };
 		A10000012B00000000000267 /* WorkoutCompleteFixtures.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000267 /* WorkoutCompleteFixtures.swift */; };
+		A10000012B00000000000268 /* WeeklyStatsTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000268 /* WeeklyStatsTests.swift */; };
+		A10000012B00000000000269 /* HistoryWeekGroupingTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000269 /* HistoryWeekGroupingTests.swift */; };
+		A10000012B00000000000270 /* ProgressHistoryViewModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000270 /* ProgressHistoryViewModelTests.swift */; };
+		A10000012B00000000000271 /* WeeklyStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000271 /* WeeklyStats.swift */; };
+		A10000012B00000000000272 /* HistoryWeekGrouping.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000272 /* HistoryWeekGrouping.swift */; };
+		A10000012B00000000000273 /* ProgressState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000273 /* ProgressState.swift */; };
+		A10000012B00000000000274 /* ProgressViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000274 /* ProgressViewModel.swift */; };
+		A10000012B00000000000275 /* HistoryState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000275 /* HistoryState.swift */; };
+		A10000012B00000000000276 /* HistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000276 /* HistoryViewModel.swift */; };
+		A10000012B00000000000277 /* ProgressScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000277 /* ProgressScreen.swift */; };
+		A10000012B00000000000278 /* HistoryScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000278 /* HistoryScreen.swift */; };
+		A10000012B00000000000279 /* HistoryWorkoutDetailScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000279 /* HistoryWorkoutDetailScreen.swift */; };
+		A10000012B00000000000280 /* ProgressHistoryFixtures.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000280 /* ProgressHistoryFixtures.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -395,7 +407,6 @@
 		B10000012B00000000000128 /* SavedExerciseSetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedExerciseSetTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000130 /* WorkoutWeight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutWeight.swift; sourceTree = "<group>"; };
 		B10000012B00000000000131 /* WorkoutHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistory.swift; sourceTree = "<group>"; };
-		B10000012B00000000000132 /* WorkoutHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistoryView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000133 /* WorkoutHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistoryTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000135 /* WeightPhraseParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightPhraseParser.swift; sourceTree = "<group>"; };
 		B10000012B00000000000136 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -526,6 +537,19 @@
 		B10000012B00000000000265 /* WorkoutCompleteViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCompleteViewModel.swift; sourceTree = "<group>"; };
 		B10000012B00000000000266 /* WorkoutCompleteScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCompleteScreen.swift; sourceTree = "<group>"; };
 		B10000012B00000000000267 /* WorkoutCompleteFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCompleteFixtures.swift; sourceTree = "<group>"; };
+		B10000012B00000000000268 /* WeeklyStatsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyStatsTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000269 /* HistoryWeekGroupingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryWeekGroupingTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000270 /* ProgressHistoryViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressHistoryViewModelTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000271 /* WeeklyStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyStats.swift; sourceTree = "<group>"; };
+		B10000012B00000000000272 /* HistoryWeekGrouping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryWeekGrouping.swift; sourceTree = "<group>"; };
+		B10000012B00000000000273 /* ProgressState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressState.swift; sourceTree = "<group>"; };
+		B10000012B00000000000274 /* ProgressViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressViewModel.swift; sourceTree = "<group>"; };
+		B10000012B00000000000275 /* HistoryState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryState.swift; sourceTree = "<group>"; };
+		B10000012B00000000000276 /* HistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewModel.swift; sourceTree = "<group>"; };
+		B10000012B00000000000277 /* ProgressScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressScreen.swift; sourceTree = "<group>"; };
+		B10000012B00000000000278 /* HistoryScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryScreen.swift; sourceTree = "<group>"; };
+		B10000012B00000000000279 /* HistoryWorkoutDetailScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryWorkoutDetailScreen.swift; sourceTree = "<group>"; };
+		B10000012B00000000000280 /* ProgressHistoryFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressHistoryFixtures.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -740,6 +764,9 @@
 				B10000012B00000000000260 /* WorkoutCompletionStatsTests.swift */,
 				B10000012B00000000000261 /* WorkoutCompleteViewModelTests.swift */,
 				B10000012B00000000000262 /* WorkoutJointOverlayColorTests.swift */,
+				B10000012B00000000000268 /* WeeklyStatsTests.swift */,
+				B10000012B00000000000269 /* HistoryWeekGroupingTests.swift */,
+				B10000012B00000000000270 /* ProgressHistoryViewModelTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -865,7 +892,6 @@
 				B10000012B00000000000097 /* WorkoutTipView.swift */,
 				B10000012B00000000000104 /* WorkoutSelectionView.swift */,
 				B10000012B00000000000106 /* ExerciseCompleteCard.swift */,
-				B10000012B00000000000132 /* WorkoutHistoryView.swift */,
 				B10000012B00000000000077 /* WorkoutGhostOverlayView.swift */,
 				B10000012B00000000000156 /* RepThresholdOverlayView.swift */,
 				B10000012B00000000000236 /* ExerciseTargetEditor.swift */,
@@ -971,6 +997,7 @@
 				B10000012B00000000000247 /* ExerciseDetailFixtures.swift */,
 				B10000012B00000000000258 /* WorkoutCameraFixtures.swift */,
 				B10000012B00000000000267 /* WorkoutCompleteFixtures.swift */,
+				B10000012B00000000000280 /* ProgressHistoryFixtures.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -983,6 +1010,8 @@
 				B10000012B00000000000166 /* WorkoutOverlayState.swift */,
 				B10000012B00000000000167 /* GuideMetrics.swift */,
 				B10000012B00000000000263 /* WorkoutCompletionStats.swift */,
+				B10000012B00000000000271 /* WeeklyStats.swift */,
+				B10000012B00000000000272 /* HistoryWeekGrouping.swift */,
 			);
 			path = Presentation;
 			sourceTree = "<group>";
@@ -1080,6 +1109,8 @@
 				H10000012B00000000000043 /* ExerciseDetail */,
 				H10000012B00000000000044 /* WorkoutCamera */,
 				H10000012B00000000000045 /* WorkoutComplete */,
+				H10000012B00000000000046 /* Progress */,
+				H10000012B00000000000047 /* History */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -1156,6 +1187,27 @@
 				B10000012B00000000000266 /* WorkoutCompleteScreen.swift */,
 			);
 			path = WorkoutComplete;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000046 /* Progress */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000273 /* ProgressState.swift */,
+				B10000012B00000000000274 /* ProgressViewModel.swift */,
+				B10000012B00000000000277 /* ProgressScreen.swift */,
+			);
+			path = Progress;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000047 /* History */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000275 /* HistoryState.swift */,
+				B10000012B00000000000276 /* HistoryViewModel.swift */,
+				B10000012B00000000000278 /* HistoryScreen.swift */,
+				B10000012B00000000000279 /* HistoryWorkoutDetailScreen.swift */,
+			);
+			path = History;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1348,7 +1400,6 @@
 				A10000012B00000000000126 /* SavedExerciseSet.swift in Sources */,
 				A10000012B00000000000130 /* WorkoutWeight.swift in Sources */,
 				A10000012B00000000000131 /* WorkoutHistory.swift in Sources */,
-				A10000012B00000000000132 /* WorkoutHistoryView.swift in Sources */,
 				A10000012B00000000000135 /* WeightPhraseParser.swift in Sources */,
 				A10000012B00000000000137 /* AcknowledgementsView.swift in Sources */,
 				A10000012B00000000000143 /* DesignAnchor.swift in Sources */,
@@ -1437,6 +1488,15 @@
 				A10000012B00000000000264 /* WorkoutCompleteState.swift in Sources */,
 				A10000012B00000000000265 /* WorkoutCompleteViewModel.swift in Sources */,
 				A10000012B00000000000266 /* WorkoutCompleteScreen.swift in Sources */,
+				A10000012B00000000000271 /* WeeklyStats.swift in Sources */,
+				A10000012B00000000000272 /* HistoryWeekGrouping.swift in Sources */,
+				A10000012B00000000000273 /* ProgressState.swift in Sources */,
+				A10000012B00000000000274 /* ProgressViewModel.swift in Sources */,
+				A10000012B00000000000275 /* HistoryState.swift in Sources */,
+				A10000012B00000000000276 /* HistoryViewModel.swift in Sources */,
+				A10000012B00000000000277 /* ProgressScreen.swift in Sources */,
+				A10000012B00000000000278 /* HistoryScreen.swift in Sources */,
+				A10000012B00000000000279 /* HistoryWorkoutDetailScreen.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1507,6 +1567,10 @@
 				A10000012B00000000000261 /* WorkoutCompleteViewModelTests.swift in TestSources */,
 				A10000012B00000000000262 /* WorkoutJointOverlayColorTests.swift in TestSources */,
 				A10000012B00000000000267 /* WorkoutCompleteFixtures.swift in TestSources */,
+				A10000012B00000000000268 /* WeeklyStatsTests.swift in TestSources */,
+				A10000012B00000000000269 /* HistoryWeekGroupingTests.swift in TestSources */,
+				A10000012B00000000000270 /* ProgressHistoryViewModelTests.swift in TestSources */,
+				A10000012B00000000000280 /* ProgressHistoryFixtures.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

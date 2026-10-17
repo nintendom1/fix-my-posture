@@ -51,7 +51,7 @@ struct AppShellView: View {
                     send: environment.routinesViewModel.send
                 )
             case .progress:
-                ProgressTabRootView()
+                ProgressRouteView(viewModel: environment.progressViewModel)
             case .posture:
                 ContentView()
             }
@@ -84,9 +84,9 @@ struct AppShellView: View {
         case .workoutComplete:
             Text("Workout complete")
         case .progress:
-            ProgressTabRootView()
+            ProgressRouteView(viewModel: environment.progressViewModel)
         case .history:
-            WorkoutHistoryView(exerciseCatalog: environment.exerciseCatalog)
+            HistoryRouteView(viewModel: environment.makeHistoryViewModel())
         case .posture:
             ContentView()
         case .postureHistory:
@@ -151,18 +151,27 @@ struct AppShellView: View {
     }
 }
 
-private struct ProgressTabRootView: View {
+private struct ProgressRouteView: View {
+    @State private var viewModel: ProgressViewModel
+
+    init(viewModel: ProgressViewModel) {
+        _viewModel = State(initialValue: viewModel)
+    }
+
     var body: some View {
-        List {
-            Section {
-                NavigationLink(value: AppRoute.history) {
-                    Label("Workout History", systemImage: "clock.arrow.circlepath")
-                }
-            } footer: {
-                Text("Completed workouts, sets, reps, and weight entries are saved on this device.")
-            }
-        }
-        .navigationTitle("Progress")
+        ProgressScreen(viewModel: viewModel)
+    }
+}
+
+private struct HistoryRouteView: View {
+    @State private var viewModel: HistoryViewModel
+
+    init(viewModel: HistoryViewModel) {
+        _viewModel = State(initialValue: viewModel)
+    }
+
+    var body: some View {
+        HistoryScreen(viewModel: viewModel)
     }
 }
 
