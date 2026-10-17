@@ -127,16 +127,20 @@ struct WorkoutCoachView: View {
                 if let overlay = model.overlay {
                     WorkoutJointOverlayView(overlay: overlay)
                         .frame(width: geo.size.width, height: geo.size.height)
+                        .opacity(model.hud.visual.primary == .lost ? 0.2 : 1)
                     if model.startHoldProgress() != nil {
                         HoldProgressRingView(overlay: overlay, progress: { model.startHoldProgress() })
                             .frame(width: geo.size.width, height: geo.size.height)
                     }
                 }
 
-                WorkoutTipOverlayView(tip: model.activeTip, protectedRects: tipProtectedRects(in: geo.size), hudRects: hudRects)
+                WorkoutTipOverlayView(tip: model.activeTip,
+                                      protectedRects: tipProtectedRects(in: geo.size),
+                                      hudRects: hudRects,
+                                      borderTint: model.hud.visual.primary == .tip ? ColorTokens.palette().warning : nil)
                     .frame(width: geo.size.width, height: geo.size.height)
 
-                WorkoutHUDView(state: model.hud, send: sendHUDIntent)
+                WorkoutCameraScreen(state: model.hud, onIntent: sendHUDIntent)
 
                 if model.hud.visual.showsCompletionCard {
                     ExerciseCompleteCard(session: model.session,

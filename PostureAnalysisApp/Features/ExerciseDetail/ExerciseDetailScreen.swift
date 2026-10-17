@@ -40,9 +40,9 @@ struct ExerciseDetailScreen: View {
                     exercise: exercise,
                     hasStarted: false,
                     isSpeaking: false,
-                    onReadAloud: {},
-                    onStopReading: {},
-                    onShowVoiceCommands: {},
+                    onReadAloud: nil,
+                    onStopReading: nil,
+                    onShowVoiceCommands: nil,
                     onDone: { send(.startFromGuide) }
                 )
                 .presentationDetents([.large])

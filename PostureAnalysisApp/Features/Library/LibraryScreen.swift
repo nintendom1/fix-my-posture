@@ -137,25 +137,14 @@ struct LibraryScreen: View {
             .clipShape(RoundedRectangle(cornerRadius: Metrics.Radius.thumbnail, style: .continuous))
 
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    Text(exercise.name)
-                        .font(.system(size: 16, weight: .black, design: .rounded))
-                        .foregroundStyle(ColorTokens.palette().textPrimary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                    Spacer(minLength: 0)
-                    Image(material: "chevron_right")
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color(hex: 0x6C6578))
-                }
-                .frame(height: 19)
+                Text(exercise.name)
+                    .font(.system(size: 16, weight: .black, design: .rounded))
+                    .foregroundStyle(ColorTokens.palette().textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .frame(height: 19, alignment: .leading)
 
-                HStack(spacing: 4) {
-                    Text(exercise.target)
-                    if let weight = exercise.weight {
-                        Text("· \(weight)")
-                    }
-                }
+                Text(exercise.muscles)
                 .font(.system(size: 13, weight: .bold, design: .rounded))
                 .foregroundStyle(ColorTokens.palette().textSecondary)
                 .lineLimit(1)
@@ -169,6 +158,10 @@ struct LibraryScreen: View {
                 .frame(height: 16, alignment: .leading)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            Image(material: "chevron_right")
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundStyle(Color(hex: 0x6C6578))
         }
         .padding(10)
         .frame(maxWidth: .infinity)

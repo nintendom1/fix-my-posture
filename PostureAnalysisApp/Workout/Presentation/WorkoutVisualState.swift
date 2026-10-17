@@ -4,6 +4,13 @@ import Foundation
 struct WorkoutVisualTip: Equatable {
     let id: Int
     let kind: CoachingCue.Kind
+    let text: String?
+
+    init(id: Int, kind: CoachingCue.Kind, text: String? = nil) {
+        self.id = id
+        self.kind = kind
+        self.text = text
+    }
 }
 
 /// Inputs needed to derive the workout camera's semantic visual state.

@@ -42,6 +42,27 @@ final class DesignMetricsTests: XCTestCase {
             "statusBar": "The iOS status bar belongs to the snapshot window, outside ExerciseDetailScreen.",
             "exercise.favorite": "The favourite heart is deferred.",
             "tabbar": "The native TabView owns the tab bar; ExerciseDetailScreen does not lay it out."
+        ],
+        "camera-ready": [
+            "statusBar": "The iOS status bar belongs to the snapshot window, outside WorkoutCameraScreen."
+        ],
+        "camera-active": [
+            "statusBar": "The iOS status bar belongs to the snapshot window, outside WorkoutCameraScreen."
+        ],
+        "camera-paused": [
+            "statusBar": "The iOS status bar belongs to the snapshot window, outside WorkoutCameraScreen."
+        ],
+        "camera-tip": [
+            "statusBar": "The iOS status bar belongs to the snapshot window, outside WorkoutCameraScreen."
+        ],
+        "camera-rest-coach-muted": [
+            "statusBar": "The iOS status bar belongs to the snapshot window, outside WorkoutCameraScreen."
+        ],
+        "camera-lost-mic-off": [
+            "statusBar": "The iOS status bar belongs to the snapshot window, outside WorkoutCameraScreen."
+        ],
+        "camera-tilt": [
+            "statusBar": "The iOS status bar belongs to the snapshot window, outside WorkoutCameraScreen."
         ]
     ]
 
@@ -96,6 +117,27 @@ final class DesignMetricsTests: XCTestCase {
         let result = try SnapshotHost.render(ExerciseDetailFixtures.designTabView, frameId: "exercise", testCase: self)
         try assertAnchors(frameId: "exercise", actual: result.snapshotMeasuredAnchors)
     }
+
+    @MainActor
+    func testWorkoutCameraReadyFrame() throws { try assertCameraFrame("camera-ready") }
+
+    @MainActor
+    func testWorkoutCameraActiveFrame() throws { try assertCameraFrame("camera-active") }
+
+    @MainActor
+    func testWorkoutCameraPausedFrame() throws { try assertCameraFrame("camera-paused") }
+
+    @MainActor
+    func testWorkoutCameraTipFrame() throws { try assertCameraFrame("camera-tip") }
+
+    @MainActor
+    func testWorkoutCameraRestCoachMutedFrame() throws { try assertCameraFrame("camera-rest-coach-muted") }
+
+    @MainActor
+    func testWorkoutCameraLostMicOffFrame() throws { try assertCameraFrame("camera-lost-mic-off") }
+
+    @MainActor
+    func testWorkoutCameraTiltFrame() throws { try assertCameraFrame("camera-tilt") }
 
     @MainActor
     func testTrainScrolledBy200KeepsCompactHeaderAndSettingsReachable() throws {
@@ -185,5 +227,13 @@ final class DesignMetricsTests: XCTestCase {
             XCTAssertEqual(rect.width, CGFloat(expected.width), accuracy: tolerance, "\(frameId).\(name).width", file: file, line: line)
             XCTAssertEqual(rect.height, CGFloat(expected.height), accuracy: tolerance, "\(frameId).\(name).height", file: file, line: line)
         }
+    }
+
+    @MainActor
+    private func assertCameraFrame(_ frameID: String) throws {
+        let result = try SnapshotHost.render(WorkoutCameraFixtures.screen(frameID: frameID),
+                                             frameId: frameID,
+                                             testCase: self)
+        try assertAnchors(frameId: frameID, actual: result.snapshotMeasuredAnchors)
     }
 }

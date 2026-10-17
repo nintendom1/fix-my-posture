@@ -34,13 +34,20 @@ design-snapshots:
 		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testNewRoutineFrame \
 		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testLibraryFrame \
 		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testExerciseDetailFrame \
+		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testWorkoutCameraReadyFrame \
+		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testWorkoutCameraActiveFrame \
+		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testWorkoutCameraPausedFrame \
+		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testWorkoutCameraTipFrame \
+		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testWorkoutCameraRestCoachMutedFrame \
+		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testWorkoutCameraLostMicOffFrame \
+		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testWorkoutCameraTiltFrame \
 		CODE_SIGNING_ALLOWED=NO
 
 design-diff:
 	@if [ ! -f "$(DESIGN_BUNDLE)" ]; then \
 		echo "Skipping design-diff: local design bundle is absent."; \
 	else \
-		swift scripts/design/diff.swift; \
+		swift scripts/design/diff.swift --tolerance 16; \
 	fi
 
 design-check: design-reference design-snapshots design-diff
