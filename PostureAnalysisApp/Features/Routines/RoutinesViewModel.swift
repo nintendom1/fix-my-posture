@@ -13,17 +13,29 @@ final class RoutinesViewModel: RoutinesViewModeling {
     private(set) var state = RoutinesState(routines: [])
 
     private let routines: (any RoutineRepository)?
+    private let workoutHistory: (any WorkoutHistoryRepository)?
     private let exerciseCatalog: any ExerciseCatalogProviding
+    private let preferences: any AppPreferencesStoring
     private let router: AppRouter
+    private let now: () -> Date
+    private let calendar: Calendar
 
     init(
         routines: (any RoutineRepository)?,
+        workoutHistory: (any WorkoutHistoryRepository)?,
         exerciseCatalog: any ExerciseCatalogProviding,
-        router: AppRouter
+        preferences: any AppPreferencesStoring,
+        router: AppRouter,
+        now: @escaping () -> Date = Date.init,
+        calendar: Calendar = .current
     ) {
         self.routines = routines
+        self.workoutHistory = workoutHistory
         self.exerciseCatalog = exerciseCatalog
+        self.preferences = preferences
         self.router = router
+        self.now = now
+        self.calendar = calendar
         refresh()
     }
 
@@ -65,14 +77,15 @@ final class RoutinesViewModel: RoutinesViewModeling {
 
     private func refresh() {
         let savedSets = (try? routines?.list()) ?? []
-        state.routines = savedSets.map(makePresentation(for:))
+        let records = (try? workoutHistory?.list()) ?? []
+        state.routines = savedSets.map { makePresentation(for: $0, records: records) }
         if let pendingID = state.deleteConfirmationRoutineID,
            !state.routines.contains(where: { $0.id == pendingID }) {
             state.deleteConfirmationRoutineID = nil
         }
     }
 
-    private func makePresentation(for set: SavedExerciseSet) -> RoutineCardPresentation {
+    private func makePresentation(for set: SavedExerciseSet, records: [WorkoutRecord]) -> RoutineCardPresentation {
         let itemCount = set.items.count
         let setCount = set.items.reduce(0) { $0 + $1.setCount }
         let exerciseText = itemCount == 1 ? "1 exercise" : "\(itemCount) exercises"
@@ -87,11 +100,20 @@ final class RoutinesViewModel: RoutinesViewModeling {
         let exerciseNames = set.items.map { item in
             exerciseCatalog.exercise(item.exerciseID)?.presentation.shortName ?? item.exerciseID.rawValue
         }
+        let lastDoneLabel = RoutineRotation.lastDone(routine: set, records: records).map {
+            LastDoneFormatter.routineLabel(for: $0, now: now(), calendar: calendar)
+        }
+        let estimatedMinutes = RoutineEstimator.minutes(
+            for: set,
+            exercises: exerciseCatalog.all,
+            restPolicy: preferences.restPolicy
+        )
 
         return RoutineCardPresentation(
             id: set.id,
             name: set.name,
-            summary: "\(exerciseText) · \(setText)",
+            summary: "\(exerciseText) · \(setText) · about \(estimatedMinutes) min",
+            lastDoneLabel: lastDoneLabel,
             exerciseNames: exerciseNames,
             theme: theme,
             canStart: !set.plan(in: exerciseCatalog.all).items.isEmpty

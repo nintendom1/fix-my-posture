@@ -16,20 +16,29 @@ final class RoutineDetailViewModel: RoutineDetailViewModeling {
     private let routines: (any RoutineRepository)?
     private let workoutHistory: (any WorkoutHistoryRepository)?
     private let exerciseCatalog: any ExerciseCatalogProviding
+    private let preferences: any AppPreferencesStoring
     private let router: AppRouter
+    private let now: () -> Date
+    private let calendar: Calendar
 
     init(
         id: UUID,
         routines: (any RoutineRepository)?,
         workoutHistory: (any WorkoutHistoryRepository)?,
         exerciseCatalog: any ExerciseCatalogProviding,
-        router: AppRouter
+        preferences: any AppPreferencesStoring,
+        router: AppRouter,
+        now: @escaping () -> Date = Date.init,
+        calendar: Calendar = .current
     ) {
         self.id = id
         self.routines = routines
         self.workoutHistory = workoutHistory
         self.exerciseCatalog = exerciseCatalog
+        self.preferences = preferences
         self.router = router
+        self.now = now
+        self.calendar = calendar
         refresh()
     }
 
@@ -76,6 +85,15 @@ final class RoutineDetailViewModel: RoutineDetailViewModeling {
         let itemCount = set.items.count
         let exerciseText = itemCount == 1 ? "1 exercise" : "\(itemCount) exercises"
         let setText = setCount == 1 ? "1 set" : "\(setCount) sets"
+        let records = (try? workoutHistory?.list()) ?? []
+        let estimatedMinutes = RoutineEstimator.minutes(
+            for: set,
+            exercises: exerciseCatalog.all,
+            restPolicy: preferences.restPolicy
+        )
+        let lastDoneLabel = RoutineRotation.lastDone(routine: set, records: records).map {
+            LastDoneFormatter.routineLabel(for: $0, now: now(), calendar: calendar)
+        }
         let weights = lastKnownWeights(for: set)
         let steps = set.items.enumerated().compactMap { index, item -> RoutineStepPresentation? in
             guard let exercise = exerciseCatalog.exercise(item.exerciseID) else { return nil }
@@ -101,7 +119,8 @@ final class RoutineDetailViewModel: RoutineDetailViewModeling {
         state.routine = RoutineDetailPresentation(
             id: set.id,
             name: set.name,
-            summary: "\(exerciseText) · \(setText)",
+            summary: "\(exerciseText) · \(setText) · about \(estimatedMinutes) min",
+            lastDoneLabel: lastDoneLabel,
             steps: steps,
             canStart: !set.plan(in: exerciseCatalog.all).items.isEmpty
         )

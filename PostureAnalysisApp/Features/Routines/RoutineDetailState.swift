@@ -20,6 +20,7 @@ struct RoutineDetailPresentation: Equatable, Identifiable {
     let id: UUID
     let name: String
     let summary: String
+    let lastDoneLabel: String?
     let steps: [RoutineStepPresentation]
     let canStart: Bool
 }

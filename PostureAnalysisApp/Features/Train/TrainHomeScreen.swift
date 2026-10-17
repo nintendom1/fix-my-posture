@@ -56,6 +56,9 @@ struct TrainHomeScreen: View {
         .onPreferenceChange(TabRootTitleFramePreferenceKey.self) { tabRootTitleFrame = $0 }
         .animation(motionPolicy == .reduced ? nil : .easeInOut(duration: 0.18), value: isTabRootHeaderCollapsed)
         .toolbar(.hidden, for: .navigationBar)
+        .sheet(isPresented: routinePickerBinding) {
+            routinePickerSheet
+        }
         .onAppear { send(.appeared) }
     }
 
@@ -189,9 +192,19 @@ struct TrainHomeScreen: View {
             .disabled(!routine.canStart)
             .opacity(routine.canStart ? 1 : 0.55)
 
-            Color.clear
-                .frame(height: 16)
-                .designAnchor("train.hero.lastDone")
+            HStack(spacing: 0) {
+                if let lastDoneLabel = routine.lastDoneLabel {
+                    Text("Last done \(lastDoneLabel) · ")
+                        .foregroundStyle(.white.opacity(0.86))
+                }
+                Button("Pick another") { send(.pickAnother) }
+                    .foregroundStyle(.white)
+                    .buttonStyle(.plain)
+            }
+            .font(.system(size: 12, weight: .heavy, design: .rounded))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: 16)
+            .designAnchor("train.hero.lastDone")
         }
         .padding(22)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -202,6 +215,47 @@ struct TrainHomeScreen: View {
                 .offset(x: 60, y: -70)
                 .allowsHitTesting(false)
         }
+    }
+
+    private var routinePickerSheet: some View {
+        NavigationStack {
+            List {
+                ForEach(state.routineChoices, id: \.id) { routine in
+                    Button { send(.selectRoutine(routine.id)) } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(routine.name)
+                                .font(.headline)
+                                .foregroundStyle(ColorTokens.palette().textPrimary)
+                            Text(routine.summaryWithEstimate)
+                                .font(.subheadline)
+                                .foregroundStyle(ColorTokens.palette().textSecondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .listRowBackground(Color.white.opacity(0.06))
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(Color(hex: 0x1A1526))
+            .navigationTitle("Pick another routine")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { send(.dismissRoutinePicker) }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationCornerRadius(28)
+        .presentationBackground(Color(hex: 0x1A1526))
+    }
+
+    private var routinePickerBinding: Binding<Bool> {
+        Binding(
+            get: { state.isRoutinePickerPresented },
+            set: { if !$0 { send(.dismissRoutinePicker) } }
+        )
     }
 
     private var quickStart: some View {

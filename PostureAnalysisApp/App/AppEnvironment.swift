@@ -43,7 +43,9 @@ final class AppEnvironment {
             )
             routinesViewModel = RoutinesViewModel(
                 routines: repositories.routines,
+                workoutHistory: repositories.workoutHistory,
                 exerciseCatalog: exerciseCatalog,
+                preferences: preferences,
                 router: router
             )
             libraryViewModel = LibraryViewModel(
@@ -80,7 +82,9 @@ final class AppEnvironment {
             )
             routinesViewModel = RoutinesViewModel(
                 routines: nil,
+                workoutHistory: nil,
                 exerciseCatalog: exerciseCatalog,
+                preferences: preferences,
                 router: router
             )
             libraryViewModel = LibraryViewModel(
@@ -109,6 +113,7 @@ final class AppEnvironment {
             routines: repositories?.routines,
             workoutHistory: repositories?.workoutHistory,
             exerciseCatalog: exerciseCatalog,
+            preferences: preferences,
             router: router
         )
     }
@@ -118,6 +123,7 @@ final class AppEnvironment {
             id: id,
             routines: repositories?.routines,
             exerciseCatalog: exerciseCatalog,
+            preferences: preferences,
             router: router
         )
     }

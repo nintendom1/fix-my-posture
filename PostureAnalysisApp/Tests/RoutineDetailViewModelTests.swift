@@ -6,11 +6,21 @@ import XCTest
 final class RoutineDetailViewModelTests: XCTestCase {
     private let catalog: any ExerciseCatalogProviding = LiveExerciseCatalog()
 
-    func testSummaryLineOmitsDurationEstimateUntilPhase44() {
+    func testSummaryIncludesDurationAndLastDoneDate() {
         let savedSet = routine(name: "Upper Body", ids: [.shoulderPress, .dumbbellRow, .hammerCurl, .tricepsExtension])
-        let viewModel = makeViewModel(for: savedSet, repository: RoutinesTestRepository(sets: [savedSet]))
+        let endedAt = FixedClock.calendar.date(from: DateComponents(year: 2026, month: 10, day: 14, hour: 12))!
+        let history = RoutinesTestWorkoutHistoryRepository(records: [WorkoutRecord(
+            startedAt: endedAt.addingTimeInterval(-60),
+            endedAt: endedAt,
+            planID: savedSet.id,
+            planName: savedSet.name,
+            entries: []
+        )])
+        let viewModel = makeViewModel(for: savedSet, repository: RoutinesTestRepository(sets: [savedSet]),
+                                      history: history, now: { FixedClock.date })
 
-        XCTAssertEqual(viewModel.state.routine?.summary, "4 exercises · 8 sets")
+        XCTAssertEqual(viewModel.state.routine?.summary, "4 exercises · 8 sets · about 25 min")
+        XCTAssertEqual(viewModel.state.routine?.lastDoneLabel, "Last done Wed, Oct 14")
     }
 
     func testSequenceShowsMostRecentKnownWeightForTheRoutine() {
@@ -111,20 +121,27 @@ final class RoutineDetailViewModelTests: XCTestCase {
         for savedSet: SavedExerciseSet,
         repository: RoutinesTestRepository,
         router: AppRouter? = nil,
-        history: RoutinesTestWorkoutHistoryRepository? = nil
+        history: RoutinesTestWorkoutHistoryRepository? = nil,
+        now: @escaping () -> Date = Date.init
     ) -> RoutineDetailViewModel {
         RoutineDetailViewModel(
             id: savedSet.id,
             routines: repository,
             workoutHistory: history ?? RoutinesTestWorkoutHistoryRepository(),
             exerciseCatalog: catalog,
-            router: router ?? AppRouter(selectedTab: .routines)
+            preferences: InMemoryPreferences(),
+            router: router ?? AppRouter(selectedTab: .routines),
+            now: now,
+            calendar: FixedClock.calendar
         )
     }
 
     private func routine(name: String, ids: [ExerciseID]) -> SavedExerciseSet {
         SavedExerciseSet(name: name, items: ids.map { id in
-            SavedExerciseSetItem(exerciseID: id, setCount: 2, targetRepMinimum: 8, targetRepMaximum: 10)
+            let exercise = catalog.exercise(id)!
+            return SavedExerciseSetItem(exerciseID: id, setCount: 2,
+                                        targetRepMinimum: exercise.targetReps.lowerBound,
+                                        targetRepMaximum: exercise.targetReps.upperBound)
         })
     }
 }

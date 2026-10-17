@@ -5,7 +5,6 @@ final class DesignMetricsTests: XCTestCase {
     private let exemptions: [String: [String: String]] = [
         "train": [
             "statusBar": "The iOS status bar belongs to the snapshot window, outside TrainHomeScreen.",
-            "train.hero.lastDone": "Phase 4.4 adds routine rotation and last-done history; this phase reserves its space.",
             "tabbar": "The native TabView owns the tab bar; TrainHomeScreen does not lay it out."
         ],
         "routines": [
@@ -14,7 +13,6 @@ final class DesignMetricsTests: XCTestCase {
         ],
         "routine": [
             "statusBar": "The iOS status bar belongs to the snapshot window, outside RoutineDetailScreen.",
-            "routine.summary": "Phase 4.4 adds duration estimates; the detail summary omits the about X min segment.",
             "routine.actions.remind": "Remind me deferred.",
             "routine.actions.duplicate": "Remind me deferred.",
             "routine.actions.delete": "Remind me deferred.",
@@ -22,7 +20,6 @@ final class DesignMetricsTests: XCTestCase {
         ],
         "editor": [
             "statusBar": "The iOS status bar belongs to the snapshot window, outside RoutineEditorScreen.",
-            "editor.time": "Phase 4.4 adds routine duration estimates; the editor shows no time estimate.",
             "tabbar": "RoutineEditorScreen hides the native tab bar while the editor is open."
         ],
         "editor-picker": [
@@ -31,7 +28,6 @@ final class DesignMetricsTests: XCTestCase {
         ],
         "editor-new": [
             "statusBar": "The iOS status bar belongs to the snapshot window, outside RoutineEditorScreen.",
-            "editor.time": "Phase 4.4 adds routine duration estimates; the editor shows no time estimate.",
             "tabbar": "RoutineEditorScreen hides the native tab bar while the editor is open."
         ],
         "library": [

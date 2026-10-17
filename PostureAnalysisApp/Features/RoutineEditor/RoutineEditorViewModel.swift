@@ -15,16 +15,19 @@ final class RoutineEditorViewModel: RoutineEditorViewModeling {
     private let id: UUID
     private let routines: (any RoutineRepository)?
     private let exerciseCatalog: any ExerciseCatalogProviding
+    private let preferences: any AppPreferencesStoring
     private let router: AppRouter
 
     init(
         id: UUID?,
         routines: (any RoutineRepository)?,
         exerciseCatalog: any ExerciseCatalogProviding,
+        preferences: any AppPreferencesStoring,
         router: AppRouter
     ) {
         self.routines = routines
         self.exerciseCatalog = exerciseCatalog
+        self.preferences = preferences
         self.router = router
 
         let existing = id.flatMap { targetID in
@@ -40,9 +43,11 @@ final class RoutineEditorViewModel: RoutineEditorViewModeling {
             isNew: existing == nil
         )
         refreshPickerExercises()
+        refreshTimeEstimate()
     }
 
     func send(_ intent: RoutineEditorIntent) {
+        defer { refreshTimeEstimate() }
         switch intent {
         case .nameChanged(let name):
             state.name = name
@@ -171,6 +176,18 @@ final class RoutineEditorViewModel: RoutineEditorViewModeling {
                     targetRepMaximum: $0.maximumReps
                 )
             }
+        )
+    }
+
+    private func refreshTimeEstimate() {
+        guard !state.items.isEmpty else {
+            state.estimatedMinutes = nil
+            return
+        }
+        state.estimatedMinutes = RoutineEstimator.minutes(
+            for: currentDraft(),
+            exercises: exerciseCatalog.all,
+            restPolicy: preferences.restPolicy
         )
     }
 

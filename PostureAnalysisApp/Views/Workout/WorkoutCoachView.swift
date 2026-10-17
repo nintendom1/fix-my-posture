@@ -228,7 +228,8 @@ struct WorkoutCoachView: View {
         historySaved = true
         guard let record = WorkoutRecord(session: model.session, startedAt: startedAt, endedAt: Date()) else { return }
         finishedRecord = record
-        try? appRepositories?.workoutHistory.save(record)
+        guard let history = appRepositories?.workoutHistory else { return }
+        try? WorkoutHistorySaver.save(record, using: history, preferences: preferences)
     }
 
     private func displayCompletionRecord() -> WorkoutRecord {

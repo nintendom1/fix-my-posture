@@ -12,7 +12,7 @@ struct RoutineDetailScreen: View {
 
                 if let routine = state.routine {
                     titleBlock(routine)
-                    Color.clear.frame(height: 18)
+                    Color.clear.frame(height: routine.lastDoneLabel == nil ? 18 : 2)
                     sequence(routine.steps)
                     Color.clear.frame(height: 30)
                     actions
@@ -105,6 +105,15 @@ struct RoutineDetailScreen: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(height: 18, alignment: .leading)
                 .designAnchor("routine.summary")
+
+            if let lastDoneLabel = routine.lastDoneLabel {
+                Text(lastDoneLabel)
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(ColorTokens.palette().textMuted)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: 16, alignment: .leading)
+            }
         }
     }
 

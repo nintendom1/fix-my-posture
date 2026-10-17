@@ -8,12 +8,13 @@ enum RoutineEditorFixtures {
     static let editState = RoutineEditorState(
         name: "Upper Body",
         items: [
-            item("00000000-0000-0000-0000-000000000311", .shoulderPress, sets: 2, min: 8, max: 10, expanded: true),
-            item("00000000-0000-0000-0000-000000000312", .dumbbellRow, sets: 2, min: 8, max: 10),
-            item("00000000-0000-0000-0000-000000000313", .hammerCurl, sets: 2, min: 8, max: 10),
+            item("00000000-0000-0000-0000-000000000311", .shoulderPress, sets: 3, min: 8, max: 10, expanded: true),
+            item("00000000-0000-0000-0000-000000000312", .dumbbellRow, sets: 3, min: 8, max: 10),
+            item("00000000-0000-0000-0000-000000000313", .hammerCurl, sets: 2, min: 10, max: 10),
             item("00000000-0000-0000-0000-000000000314", .tricepsExtension, sets: 2, min: 10, max: 10)
         ],
-        isNew: false
+        isNew: false,
+        estimatedMinutes: 30
     )
 
     static let newState = RoutineEditorState(name: "", isNew: true)

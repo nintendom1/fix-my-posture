@@ -18,6 +18,7 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
     private let preferences: any AppPreferencesStoring
     private let router: AppRouter
     private let now: () -> Date
+    private let calendar: Calendar
 
     private static let quickStartOrder: [ExerciseID] = [
         .shoulderPress, .airSquat, .dumbbellRow, .pushUp
@@ -29,7 +30,8 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
         exerciseCatalog: any ExerciseCatalogProviding,
         preferences: any AppPreferencesStoring,
         router: AppRouter,
-        now: @escaping () -> Date = Date.init
+        now: @escaping () -> Date = Date.init,
+        calendar: Calendar = .current
     ) {
         self.routines = routines
         self.workoutHistory = workoutHistory
@@ -37,9 +39,12 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
         self.preferences = preferences
         self.router = router
         self.now = now
+        self.calendar = calendar
         state = TrainHomeState(
             dateLabel: TrainHomeDateFormatter.label(now()),
             heroRoutine: nil,
+            routineChoices: [],
+            isRoutinePickerPresented: false,
             exercises: [],
             lastWorkout: nil
         )
@@ -53,6 +58,15 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
         case .startRoutine:
             guard let routine = state.heroRoutine, routine.canStart else { return }
             router.open(.workout(exerciseID: nil, routineID: routine.id))
+        case .pickAnother:
+            state.isRoutinePickerPresented = true
+        case .selectRoutine(let id):
+            guard state.routineChoices.contains(where: { $0.id == id }) else { return }
+            preferences.upNextOverride = id
+            state.isRoutinePickerPresented = false
+            refresh()
+        case .dismissRoutinePicker:
+            state.isRoutinePickerPresented = false
         case .startExercise(let id):
             guard exerciseCatalog.exercise(id) != nil else { return }
             router.open(.workout(exerciseID: id, routineID: nil))
@@ -68,23 +82,32 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
     }
 
     private func refresh() {
-        let records = (try? routines?.listWithUpdateDates()) ?? []
-        let mostRecentlyUpdated = records.max { $0.updatedAt < $1.updatedAt }
+        let savedRoutines = (try? routines?.listWithUpdateDates()) ?? []
         let history: [WorkoutRecord]
         if let workoutHistory {
             history = (try? workoutHistory.list()) ?? []
         } else {
             history = []
         }
+        let choices = savedRoutines
+            .map { makeHero(for: $0.set, records: history) }
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        let upNext = RoutineRotation.upNext(
+            routines: savedRoutines,
+            records: history,
+            override: preferences.upNextOverride
+        )
         state = TrainHomeState(
             dateLabel: TrainHomeDateFormatter.label(now()),
-            heroRoutine: mostRecentlyUpdated.map { makeHero(for: $0.set) },
+            heroRoutine: upNext.map { makeHero(for: $0, records: history) },
+            routineChoices: choices,
+            isRoutinePickerPresented: state.isRoutinePickerPresented,
             exercises: makeExerciseTiles(),
             lastWorkout: history.first.map(makeLastWorkout)
         )
     }
 
-    private func makeHero(for set: SavedExerciseSet) -> TrainHomeRoutinePresentation {
+    private func makeHero(for set: SavedExerciseSet, records: [WorkoutRecord]) -> TrainHomeRoutinePresentation {
         let chips = set.items.prefix(3).map { item in
             chipName(for: item.exerciseID)
         } + (set.items.count > 3 ? ["+\(set.items.count - 3)"] : [])
@@ -94,7 +117,14 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
             name: set.name,
             exerciseCount: set.items.count,
             setCount: set.items.reduce(0) { $0 + $1.setCount },
-            estimatedMinutes: nil,
+            estimatedMinutes: RoutineEstimator.minutes(
+                for: set,
+                exercises: exerciseCatalog.all,
+                restPolicy: preferences.restPolicy
+            ),
+            lastDoneLabel: RoutineRotation.lastDone(routine: set, records: records).map {
+                LastDoneFormatter.heroLabel(for: $0, now: now(), calendar: calendar)
+            },
             chips: chips,
             canStart: !set.plan(in: exerciseCatalog.all).items.isEmpty
         )
