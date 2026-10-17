@@ -27,6 +27,9 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
+      <EnvironmentVariables>
+         <EnvironmentVariable key="FMP_SNAPSHOT_DIR" value="$(TEST_RUNNER_FMP_SNAPSHOT_DIR)" isEnabled="YES" />
+      </EnvironmentVariables>
       <Testables>
          <TestableReference
             skipped = "NO">

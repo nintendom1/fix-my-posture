@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "scale": 3,
+  "defaults": [
+    { "x": 0, "y": 0, "width": 390, "height": 54 },
+    { "x": 0, "y": 0, "width": 54, "height": 54 },
+    { "x": 336, "y": 0, "width": 54, "height": 54 },
+    { "x": 0, "y": 790, "width": 54, "height": 54 },
+    { "x": 336, "y": 790, "width": 54, "height": 54 }
+  ],
+  "tabbedFrames": [
+    "train", "routines", "routine", "library", "exercise", "progress", "history", "posture", "assessment"
+  ],
+  "tabBarAnchor": "tabbar",
+  "cameraFrames": [
+    "camera-ready", "camera-active", "camera-paused", "camera-tip", "camera-rest-coach-muted", "camera-lost-mic-off", "camera-tilt"
+  ],
+  "cameraPreview": { "x": 0, "y": 220, "width": 390, "height": 360 },
+  "anchorMasks": {
+    "progress": ["progress.activity", "progress.weight"]
+  }
+}
