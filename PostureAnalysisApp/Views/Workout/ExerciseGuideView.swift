@@ -15,6 +15,7 @@ struct ExerciseGuideView: View {
     @ScaledMetric(relativeTo: .headline) private var badgeSize: CGFloat = 28
 
     private var guide: ExerciseGuide { exercise.guide }
+    private var palette: ColorPalette { ColorTokens.palette() }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -22,10 +23,11 @@ struct ExerciseGuideView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(exercise.displayName)
-                            .font(.title2.bold())
+                            .textStyle(.title2)
+                            .foregroundStyle(palette.textPrimary)
                         Text(guide.summary)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .textStyle(.body)
+                            .foregroundStyle(palette.textSecondary)
                     }
 
                     if reduceMotion {
@@ -43,40 +45,39 @@ struct ExerciseGuideView: View {
 
                     if let tip = guide.tip {
                         Label(tip, systemImage: "lightbulb")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .textStyle(.caption1)
+                            .foregroundStyle(palette.warning)
                     }
                     voiceCommandsRow
                     Text("The coach counts reps from the camera's view of your arms. It doesn't judge form or safety.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .textStyle(.caption1)
+                        .foregroundStyle(palette.textMuted)
                 }
                 .padding(20)
             }
+            .scrollIndicators(.hidden)
+            .background(palette.backgroundPrimary)
 
             VStack(spacing: 10) {
-                Button(action: onDone) {
-                    Text(hasStarted ? "Back to Workout" : "Start Workout")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .buttonStyle(.borderedProminent)
+                PrimaryButton(title: hasStarted ? "Back to Workout" : "Start Workout",
+                              icon: hasStarted ? "arrow.uturn.backward" : "play.fill",
+                              action: onDone)
                 .accessibilityIdentifier("exerciseGuideDoneButton")
 
                 if let readingAction = isSpeaking ? onStopReading : onReadAloud {
-                    Button(action: readingAction) {
-                        Label(isSpeaking ? "Stop Reading" : "Read Aloud",
-                              systemImage: isSpeaking ? "stop.circle" : "speaker.wave.2")
-                            .frame(maxWidth: .infinity, minHeight: 36)
-                    }
-                    .buttonStyle(.bordered)
+                    CapsuleButton(title: isSpeaking ? "Stop Reading" : "Read Aloud",
+                                  icon: isSpeaking ? "stop.fill" : "speaker.wave.2.fill",
+                                  tint: palette.tabActive,
+                                  action: readingAction)
                     .accessibilityIdentifier("exerciseGuideReadAloudButton")
                 }
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
-            .background(.bar)
+            .background(Color(hex: 0x1A1526))
         }
+        .background(palette.backgroundPrimary)
+        .environment(\.colorScheme, .dark)
     }
 
     private func animatedDemonstration(_ sample: ArmMotionSample) -> some View {
@@ -86,8 +87,8 @@ struct ExerciseGuideView: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 240)
             Text(guide.steps.indices.contains(sample.stepIndex) ? guide.steps[sample.stepIndex].title : "")
-                .font(.headline)
-                .foregroundStyle(.secondary)
+                .textStyle(.headline)
+                .foregroundStyle(palette.textSecondary)
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .ignore)
@@ -114,8 +115,8 @@ struct ExerciseGuideView: View {
                                    holdsDumbbells: guide.motion.holdsDumbbells, legs: legs, torsoPitch: guide.motion.torsoPitch)
                 .frame(height: 200)
             Text(title)
-                .font(.headline)
-                .foregroundStyle(.secondary)
+                .textStyle(.headline)
+                .foregroundStyle(palette.textSecondary)
         }
     }
 
@@ -125,22 +126,27 @@ struct ExerciseGuideView: View {
                 let isActive = index == activeIndex
                 HStack(alignment: .top, spacing: 12) {
                     Text("\(index + 1)")
-                        .font(.headline.monospacedDigit())
+                        .textStyle(.headline)
+                        .monospacedDigit()
                         .frame(width: badgeSize, height: badgeSize)
-                        .background(Circle().fill(isActive ? Color.accentColor : Color.secondary.opacity(0.2)))
-                        .foregroundStyle(isActive ? .white : .primary)
+                        .background(Circle().fill(isActive ? palette.brand : Color.white.opacity(0.08)))
+                        .foregroundStyle(isActive ? .white : palette.textPrimary)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(step.title)
-                            .font(.headline)
+                            .textStyle(.headline)
+                            .foregroundStyle(palette.textPrimary)
                         Text(step.detail)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .textStyle(.body)
+                            .foregroundStyle(palette.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 12).fill(isActive ? Color.accentColor.opacity(0.12) : Color.clear))
+                .background(RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(isActive ? palette.brand.opacity(0.14) : palette.backgroundCard))
+                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(isActive ? palette.tabActive.opacity(0.25) : palette.borderCard, lineWidth: 1))
                 .accessibilityElement(children: .combine)
             }
         }
@@ -149,16 +155,20 @@ struct ExerciseGuideView: View {
     private var voiceCommandsRow: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Voice commands: say \u{201C}what can I say\u{201D} anytime.", systemImage: "mic")
-                .font(.subheadline)
+                .textStyle(.body)
+                .foregroundStyle(palette.textPrimary)
             if let onShowVoiceCommands {
                 Button("Show Voice Commands", action: onShowVoiceCommands)
-                    .buttonStyle(.bordered)
+                    .font(.system(size: 14, weight: .heavy, design: .rounded))
+                    .foregroundStyle(palette.tabActive)
                     .accessibilityIdentifier("exerciseGuideVoiceCommandsButton")
             }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.secondary.opacity(0.1)))
+        .background(palette.backgroundCard, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
+            .strokeBorder(palette.borderCard, lineWidth: 1))
     }
 
     private var demonstrationLabel: String {

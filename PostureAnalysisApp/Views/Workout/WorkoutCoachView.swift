@@ -9,6 +9,7 @@ struct WorkoutCoachView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.appRepositories) private var appRepositories
+    @Environment(\.appRouter) private var appRouter
     @Environment(\.preferences) private var preferences
     @State private var model: any WorkoutCoachViewModeling
     /// Open the Voice Commands help once the guide finishes dismissing.
@@ -17,6 +18,8 @@ struct WorkoutCoachView: View {
     @State private var hudRects: [CGRect] = []
     @State private var startedAt = Date()
     @State private var historySaved = false
+    @State private var planCompletionRecord: WorkoutRecord?
+    @State private var finishedRecord: WorkoutRecord?
 
     init(model: any WorkoutCoachViewModeling) {
         _model = State(initialValue: model)
@@ -35,9 +38,13 @@ struct WorkoutCoachView: View {
                 workoutContent
             }
 
-            // Ending from the completion card exits directly; it already showed the results.
+            // A manually ended workout shows its saved record; finishing a plan shows the same
+            // completion screen before the workout is ended.
             if model.session.phase == .ended, !model.session.endedAfterCompletion {
-                WorkoutSummaryView(session: model.session, onDone: close)
+                WorkoutCompleteScreen(
+                    viewModel: WorkoutCompleteViewModel(record: displayCompletionRecord(), router: appRouter),
+                    onDone: close
+                )
             }
         }
         .onAppear {
@@ -58,6 +65,9 @@ struct WorkoutCoachView: View {
             presentGuideIfUnseen()
         }
         .onChange(of: model.session.phase) { _, phase in
+            if phase == .exerciseComplete, model.session.plan != nil, model.session.isFollowingPlan {
+                planCompletionRecord = completionRecord()
+            }
             guard phase == .ended else { return }
             saveHistory()
             if model.session.endedAfterCompletion { close() }
@@ -79,6 +89,9 @@ struct WorkoutCoachView: View {
                     onDone: { routeIntent(.hideGuide) }
                 )
                 .presentationDetents([.large])
+                .presentationCornerRadius(32)
+                .presentationDragIndicator(.hidden)
+                .presentationBackground(Color(hex: 0x1A1526))
             }
         }
         .sheet(isPresented: Binding(get: { model.isHelpPresented },
@@ -97,6 +110,9 @@ struct WorkoutCoachView: View {
                 onDone: { routeIntent(.hideVoiceHelp) }
             )
             .presentationDetents([.large])
+            .presentationCornerRadius(32)
+            .presentationDragIndicator(.hidden)
+            .presentationBackground(Color(hex: 0x1A1526))
         }
     }
 
@@ -125,7 +141,7 @@ struct WorkoutCoachView: View {
                 }
 
                 if let overlay = model.overlay {
-                    WorkoutJointOverlayView(overlay: overlay)
+                WorkoutJointOverlayView(overlay: overlay, visualState: model.hud.visual)
                         .frame(width: geo.size.width, height: geo.size.height)
                         .opacity(model.hud.visual.primary == .lost ? 0.2 : 1)
                     if model.startHoldProgress() != nil {
@@ -143,11 +159,20 @@ struct WorkoutCoachView: View {
                 WorkoutCameraScreen(state: model.hud, onIntent: sendHUDIntent)
 
                 if model.hud.visual.showsCompletionCard {
-                    ExerciseCompleteCard(session: model.session,
-                                         onAnotherRound: { routeIntent(.anotherRound) },
-                                         onChooseExercise: { routeIntent(.changeExercise) },
-                                         onEndWorkout: { routeIntent(.endWorkout) })
+                    if model.session.plan != nil, model.session.isFollowingPlan {
+                        WorkoutCompleteScreen(
+                            viewModel: WorkoutCompleteViewModel(record: planCompletionRecord ?? completionRecord(),
+                                                               router: appRouter),
+                            onDone: { routeIntent(.endWorkout) }
+                        )
                         .transition(.opacity)
+                    } else {
+                        ExerciseCompleteCard(session: model.session,
+                                             onAnotherRound: { routeIntent(.anotherRound) },
+                                             onChooseExercise: { routeIntent(.changeExercise) },
+                                             onEndWorkout: { routeIntent(.endWorkout) })
+                            .transition(.opacity)
+                    }
                 }
 
                 if model.hud.visual.showsExerciseChooser {
@@ -202,7 +227,19 @@ struct WorkoutCoachView: View {
         guard !historySaved else { return }
         historySaved = true
         guard let record = WorkoutRecord(session: model.session, startedAt: startedAt, endedAt: Date()) else { return }
+        finishedRecord = record
         try? appRepositories?.workoutHistory.save(record)
+    }
+
+    private func displayCompletionRecord() -> WorkoutRecord {
+        finishedRecord ?? planCompletionRecord ?? completionRecord()
+    }
+
+    private func completionRecord() -> WorkoutRecord {
+        let endedAt = Date()
+        return WorkoutRecord(session: model.session, startedAt: startedAt, endedAt: endedAt)
+            ?? WorkoutRecord(startedAt: startedAt, endedAt: endedAt,
+                             planName: model.session.plan?.name, entries: [])
     }
 
     // MARK: - Guide
@@ -283,63 +320,5 @@ enum WorkoutGuidePreferences {
 
     static func markSeen(_ id: ExerciseID, preferences: any AppPreferencesStoring) {
         preferences.setGuideSeen(true, for: id.rawValue)
-    }
-}
-
-/// Shown after "end workout": completed sets per exercise.
-private struct WorkoutSummaryView: View {
-    let session: WorkoutSession
-    let onDone: () -> Void
-
-    var body: some View {
-        VStack(spacing: 16) {
-            Text("Workout Summary")
-                .font(.title2.bold())
-            if let plan = session.plan {
-                Text(plan.name)
-                    .font(.headline)
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(Array(plan.items.enumerated()), id: \.element.id) { index, item in
-                        PlanItemSummaryRow(index: index, item: item, record: session.planRecords[item.id],
-                                           exercise: session.exercises.first { $0.id == item.exerciseID })
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            let finished = session.exercises.filter { !(session.progress[$0.id]?.setReps.isEmpty ?? true) }
-            if finished.isEmpty {
-                Text("No sets recorded.")
-                    .foregroundStyle(.secondary)
-            } else {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(finished) { exercise in
-                        let reps = session.progress[exercise.id]?.setReps ?? []
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(exercise.displayName)
-                                .font(.headline)
-                            Text(reps.enumerated().map { "\(exercise.setLabel(entry: $0.offset)): \($0.element)" }.joined(separator: " · "))
-                                .font(.subheadline.monospacedDigit())
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            Text("Rep counts are geometric estimates from the camera, not medical or performance assessments.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            Button(action: onDone) {
-                Text("Done")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .accessibilityIdentifier("workoutSummaryDoneButton")
-        }
-        .padding(20)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .padding(24)
     }
 }

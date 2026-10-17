@@ -14,28 +14,34 @@ struct ExerciseCompleteCard: View {
             let record = session.progress[exercise.id] ?? ExerciseProgress()
             let sets = record.roundSetReps
             VStack(spacing: 12) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 44))
-                    .foregroundStyle(WorkoutJointOverlayView.endPositionColor)
+                Image(material: "check_circle")
+                    .font(.system(size: 32, weight: .black, design: .rounded))
+                    .foregroundStyle(Color(hex: 0x063A26))
+                    .frame(width: 64, height: 64)
+                    .background(GradientTokens.success, in: Circle())
                     .accessibilityHidden(true)
                 Text("\(exercise.displayName) complete")
-                    .font(.title2.bold())
+                    .textStyle(.title2)
+                    .foregroundStyle(ColorTokens.palette().textPrimary)
                     .multilineTextAlignment(.center)
                 VStack(spacing: 4) {
                     if record.round > 1 {
                         Text("Round \(record.round)")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                            .textStyle(.body)
+                            .foregroundStyle(ColorTokens.palette().textMuted)
                     }
                     Text(sets.enumerated().map { "\(exercise.setLabel(entry: $0.offset)): \($0.element)" }.joined(separator: " · "))
-                        .font(.headline.monospacedDigit())
+                        .textStyle(.headline)
+                        .monospacedDigit()
+                        .foregroundStyle(ColorTokens.palette().textPrimary)
                     Text("\(sets.reduce(0, +)) reps")
-                        .font(.subheadline.monospacedDigit())
-                        .foregroundStyle(.secondary)
+                        .textStyle(.body)
+                        .monospacedDigit()
+                        .foregroundStyle(ColorTokens.palette().textSecondary)
                     if let workoutLine {
                         Text(workoutLine)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .textStyle(.caption1)
+                            .foregroundStyle(ColorTokens.palette().textMuted)
                             .multilineTextAlignment(.center)
                     }
                 }
@@ -50,12 +56,15 @@ struct ExerciseCompleteCard: View {
     /// The whole Saved Set: each occurrence completed with its reps, or skipped.
     private func planCard(_ plan: WorkoutPlan) -> some View {
         VStack(spacing: 12) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 44))
-                .foregroundStyle(WorkoutJointOverlayView.endPositionColor)
+            Image(material: "check_circle")
+                .font(.system(size: 32, weight: .black, design: .rounded))
+                .foregroundStyle(Color(hex: 0x063A26))
+                .frame(width: 64, height: 64)
+                .background(GradientTokens.success, in: Circle())
                 .accessibilityHidden(true)
             Text("\(plan.name) complete")
-                .font(.title2.bold())
+                .textStyle(.title2)
+                .foregroundStyle(ColorTokens.palette().textPrimary)
                 .multilineTextAlignment(.center)
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(Array(plan.items.enumerated()), id: \.element.id) { index, item in
@@ -72,13 +81,14 @@ struct ExerciseCompleteCard: View {
 
     private var buttons: some View {
         VStack(spacing: 8) {
-            button("Another Round", systemImage: "arrow.clockwise", prominent: true, action: onAnotherRound)
+            PrimaryButton(title: "Another Round", icon: "arrow.clockwise", action: onAnotherRound)
                 .accessibilityIdentifier("anotherRoundButton")
             if session.exercises.count > 1 {
-                button("Choose Exercise", systemImage: "list.bullet", prominent: false, action: onChooseExercise)
+                secondaryButton("Choose Exercise", systemImage: "list.bullet", action: onChooseExercise)
                     .accessibilityIdentifier("chooseExerciseButton")
             }
-            button("End Workout", systemImage: "flag.checkered", prominent: false, action: onEndWorkout)
+            secondaryButton("End Workout", systemImage: "flag.checkered", tint: ColorTokens.palette().danger,
+                            action: onEndWorkout)
                 .accessibilityIdentifier("completeEndWorkoutButton")
         }
         .padding(.top, 4)
@@ -96,14 +106,18 @@ struct ExerciseCompleteCard: View {
         return "This workout: " + finished.map { "\($0.0) \($0.1 == 1 ? "1 set" : "\($0.1) sets")" }.joined(separator: " · ")
     }
 
-    private func button(_ title: String, systemImage: String, prominent: Bool, action: @escaping () -> Void) -> some View {
+    private func secondaryButton(_ title: String, systemImage: String,
+                                 tint: Color = ColorTokens.palette().textPrimary,
+                                 action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(title, systemImage: systemImage)
-                .font(.headline)
-                .frame(maxWidth: .infinity, minHeight: 36)
+                .font(.system(size: 15, weight: .heavy, design: .rounded))
+                .foregroundStyle(tint)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(Color.white.opacity(0.06), in: Capsule())
+                .overlay(Capsule().strokeBorder(ColorTokens.palette().borderCard, lineWidth: 1))
         }
-        .buttonStyle(prominent ? AnyPrimitiveButtonStyle(.borderedProminent) : AnyPrimitiveButtonStyle(.bordered))
-        .tint(prominent ? .blue : .white)
+        .buttonStyle(.plain)
     }
 }
 
@@ -112,8 +126,9 @@ private struct CardStyle: ViewModifier {
         content
             .padding(20)
             .frame(maxWidth: 360)
-            .background(.regularMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .background(Color(hex: 0x1A1526), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder(ColorTokens.palette().borderCard, lineWidth: 1))
             .padding(24)
             .environment(\.colorScheme, .dark)
     }
@@ -129,11 +144,17 @@ struct PlanItemSummaryRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             Text("\(index + 1). \(exercise?.displayName ?? "Unavailable exercise")")
-                .font(.subheadline.weight(.semibold))
+                .textStyle(.body)
+                .foregroundStyle(ColorTokens.palette().textPrimary)
             Text(detail)
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(record?.outcome == .skipped ? .orange : .secondary)
+                .textStyle(.caption2)
+                .monospacedDigit()
+                .foregroundStyle(record?.outcome == .skipped ? ColorTokens.palette().warning : ColorTokens.palette().textSecondary)
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(ColorTokens.palette().backgroundCard, in: RoundedRectangle(cornerRadius: Metrics.Radius.row, style: .continuous))
     }
 
     private var detail: String {
@@ -145,18 +166,5 @@ struct PlanItemSummaryRow: View {
         case .skipped: return sets.isEmpty ? "Skipped" : "Skipped after \(sets)"
         case nil: return "Not reached"
         }
-    }
-}
-
-/// Lets one call site pick between button styles.
-private struct AnyPrimitiveButtonStyle: PrimitiveButtonStyle {
-    private let make: (Configuration) -> AnyView
-
-    init<S: PrimitiveButtonStyle>(_ style: S) {
-        make = { AnyView(style.makeBody(configuration: $0)) }
-    }
-
-    func makeBody(configuration: Configuration) -> some View {
-        make(configuration)
     }
 }

@@ -251,6 +251,14 @@
 		A10000012B00000000000257 /* EdgeGlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000257 /* EdgeGlow.swift */; };
 		A10000012B00000000000258 /* WorkoutCameraFixtures.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000258 /* WorkoutCameraFixtures.swift */; };
 		A10000012B00000000000259 /* VoiceStatusPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000259 /* VoiceStatusPresentation.swift */; };
+		A10000012B00000000000260 /* WorkoutCompletionStatsTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000260 /* WorkoutCompletionStatsTests.swift */; };
+		A10000012B00000000000261 /* WorkoutCompleteViewModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000261 /* WorkoutCompleteViewModelTests.swift */; };
+		A10000012B00000000000262 /* WorkoutJointOverlayColorTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000262 /* WorkoutJointOverlayColorTests.swift */; };
+		A10000012B00000000000263 /* WorkoutCompletionStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000263 /* WorkoutCompletionStats.swift */; };
+		A10000012B00000000000264 /* WorkoutCompleteState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000264 /* WorkoutCompleteState.swift */; };
+		A10000012B00000000000265 /* WorkoutCompleteViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000265 /* WorkoutCompleteViewModel.swift */; };
+		A10000012B00000000000266 /* WorkoutCompleteScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000266 /* WorkoutCompleteScreen.swift */; };
+		A10000012B00000000000267 /* WorkoutCompleteFixtures.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000267 /* WorkoutCompleteFixtures.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -510,6 +518,14 @@
 		B10000012B00000000000257 /* EdgeGlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EdgeGlow.swift; sourceTree = "<group>"; };
 		B10000012B00000000000258 /* WorkoutCameraFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCameraFixtures.swift; sourceTree = "<group>"; };
 		B10000012B00000000000259 /* VoiceStatusPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceStatusPresentation.swift; sourceTree = "<group>"; };
+		B10000012B00000000000260 /* WorkoutCompletionStatsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCompletionStatsTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000261 /* WorkoutCompleteViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCompleteViewModelTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000262 /* WorkoutJointOverlayColorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutJointOverlayColorTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000263 /* WorkoutCompletionStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCompletionStats.swift; sourceTree = "<group>"; };
+		B10000012B00000000000264 /* WorkoutCompleteState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCompleteState.swift; sourceTree = "<group>"; };
+		B10000012B00000000000265 /* WorkoutCompleteViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCompleteViewModel.swift; sourceTree = "<group>"; };
+		B10000012B00000000000266 /* WorkoutCompleteScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCompleteScreen.swift; sourceTree = "<group>"; };
+		B10000012B00000000000267 /* WorkoutCompleteFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCompleteFixtures.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -721,6 +737,9 @@
 				B10000012B00000000000239 /* ExerciseDetailViewModelTests.swift */,
 				B10000012B00000000000248 /* EdgeToolbarVisibilityTests.swift */,
 				B10000012B00000000000249 /* WorkoutCameraIntentTests.swift */,
+				B10000012B00000000000260 /* WorkoutCompletionStatsTests.swift */,
+				B10000012B00000000000261 /* WorkoutCompleteViewModelTests.swift */,
+				B10000012B00000000000262 /* WorkoutJointOverlayColorTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -951,6 +970,7 @@
 				B10000012B00000000000246 /* LibraryFixtures.swift */,
 				B10000012B00000000000247 /* ExerciseDetailFixtures.swift */,
 				B10000012B00000000000258 /* WorkoutCameraFixtures.swift */,
+				B10000012B00000000000267 /* WorkoutCompleteFixtures.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -962,6 +982,7 @@
 				B10000012B00000000000155 /* WorkoutHUDPresenter.swift */,
 				B10000012B00000000000166 /* WorkoutOverlayState.swift */,
 				B10000012B00000000000167 /* GuideMetrics.swift */,
+				B10000012B00000000000263 /* WorkoutCompletionStats.swift */,
 			);
 			path = Presentation;
 			sourceTree = "<group>";
@@ -1058,6 +1079,7 @@
 				H10000012B00000000000042 /* Library */,
 				H10000012B00000000000043 /* ExerciseDetail */,
 				H10000012B00000000000044 /* WorkoutCamera */,
+				H10000012B00000000000045 /* WorkoutComplete */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -1124,6 +1146,16 @@
 				B10000012B00000000000252 /* WorkoutCameraScreen.swift */,
 			);
 			path = WorkoutCamera;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000045 /* WorkoutComplete */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000264 /* WorkoutCompleteState.swift */,
+				B10000012B00000000000265 /* WorkoutCompleteViewModel.swift */,
+				B10000012B00000000000266 /* WorkoutCompleteScreen.swift */,
+			);
+			path = WorkoutComplete;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1401,6 +1433,10 @@
 				A10000012B00000000000256 /* RepCounter.swift in Sources */,
 				A10000012B00000000000257 /* EdgeGlow.swift in Sources */,
 				A10000012B00000000000259 /* VoiceStatusPresentation.swift in Sources */,
+				A10000012B00000000000263 /* WorkoutCompletionStats.swift in Sources */,
+				A10000012B00000000000264 /* WorkoutCompleteState.swift in Sources */,
+				A10000012B00000000000265 /* WorkoutCompleteViewModel.swift in Sources */,
+				A10000012B00000000000266 /* WorkoutCompleteScreen.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1467,6 +1503,10 @@
 				A10000012B00000000000248 /* EdgeToolbarVisibilityTests.swift in TestSources */,
 				A10000012B00000000000249 /* WorkoutCameraIntentTests.swift in TestSources */,
 				A10000012B00000000000258 /* WorkoutCameraFixtures.swift in TestSources */,
+				A10000012B00000000000260 /* WorkoutCompletionStatsTests.swift in TestSources */,
+				A10000012B00000000000261 /* WorkoutCompleteViewModelTests.swift in TestSources */,
+				A10000012B00000000000262 /* WorkoutJointOverlayColorTests.swift in TestSources */,
+				A10000012B00000000000267 /* WorkoutCompleteFixtures.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

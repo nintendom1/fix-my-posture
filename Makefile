@@ -41,6 +41,7 @@ design-snapshots:
 		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testWorkoutCameraRestCoachMutedFrame \
 		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testWorkoutCameraLostMicOffFrame \
 		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testWorkoutCameraTiltFrame \
+		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testWorkoutCompleteFrame \
 		CODE_SIGNING_ALLOWED=NO
 
 design-diff:
