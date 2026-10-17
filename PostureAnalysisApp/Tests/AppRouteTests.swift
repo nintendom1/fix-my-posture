@@ -15,7 +15,8 @@ final class AppRouteTests: XCTestCase {
             .workout(exerciseID: shoulderPress, routineID: routineID),
             .workoutComplete, .progress, .history, .posture,
             .assessment(id: assessmentID), .livePostureCheck,
-            .photoAssessment(view: .front), .settings, .postureHistory
+            .photoAssessment(view: .front), .capturePosturePhoto(view: .uncertain),
+            .importPosturePhoto(view: .uncertain), .settings, .postureHistory
         ]
 
         for route in routes {
@@ -33,7 +34,9 @@ final class AppRouteTests: XCTestCase {
             (.workoutComplete, .train), (.progress, .progress), (.history, .progress),
             (.posture, .posture), (.assessment(id: assessmentID), .posture),
             (.postureHistory, .posture), (.livePostureCheck, .posture),
-            (.photoAssessment(view: .leftSide), .posture), (.settings, .train)
+            (.photoAssessment(view: .leftSide), .posture),
+            (.capturePosturePhoto(view: .uncertain), .posture),
+            (.importPosturePhoto(view: .uncertain), .posture), (.settings, .train)
         ]
 
         for (route, tab) in expected {
@@ -77,5 +80,15 @@ final class AppRouteTests: XCTestCase {
 
         XCTAssertEqual(router.presentedFullScreenRoute, route)
         XCTAssertEqual(router.selectedTab, .train)
+    }
+
+    func testOpeningLivePostureCheckPresentsFullScreen() {
+        let router = AppRouter()
+
+        router.open(.livePostureCheck)
+
+        XCTAssertEqual(router.presentedFullScreenRoute, .livePostureCheck)
+        XCTAssertEqual(router.selectedTab, .posture)
+        XCTAssertTrue(router.path(for: .posture).isEmpty)
     }
 }

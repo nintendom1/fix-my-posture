@@ -17,6 +17,8 @@ enum AppRoute: Codable, Hashable, Identifiable {
     case assessment(id: UUID)
     case livePostureCheck
     case photoAssessment(view: PostureView)
+    case capturePosturePhoto(view: PostureView)
+    case importPosturePhoto(view: PostureView)
     case settings
 
     var id: String { String(reflecting: self) }
@@ -29,14 +31,15 @@ enum AppRoute: Codable, Hashable, Identifiable {
             return .routines
         case .progress, .history:
             return .progress
-        case .posture, .postureHistory, .assessment, .livePostureCheck, .photoAssessment:
+        case .posture, .postureHistory, .assessment, .livePostureCheck, .photoAssessment,
+             .capturePosturePhoto, .importPosturePhoto:
             return .posture
         }
     }
 
     var isPresentedFullScreen: Bool {
         switch self {
-        case .settings, .workout:
+        case .settings, .workout, .livePostureCheck:
             return true
         default:
             return false

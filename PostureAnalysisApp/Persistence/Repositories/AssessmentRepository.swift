@@ -6,8 +6,15 @@ import SwiftData
 protocol AssessmentRepository {
     func list() throws -> [PostureAssessment]
     func save(_ assessment: PostureAssessment, imageRelativePath: String) throws
+    func update(_ assessment: PostureAssessment) throws
     func setBaseline(id: UUID, isBaseline: Bool) throws
     func delete(id: UUID) throws
+}
+
+extension AssessmentRepository {
+    func update(_ assessment: PostureAssessment) throws {
+        try save(assessment, imageRelativePath: assessment.imageRelativePath)
+    }
 }
 
 @MainActor
@@ -84,6 +91,48 @@ final class SwiftDataAssessmentRepository: AssessmentRepository {
             try context.save()
         } catch {
             PersistenceRepositoryLogging.failed("Set assessment baseline", error: error)
+            throw error
+        }
+    }
+
+    func update(_ assessment: PostureAssessment) throws {
+        do {
+            let descriptor = FetchDescriptor<AssessmentEntity>()
+            guard let entity = try context.fetch(descriptor).first(where: { $0.id == assessment.id }) else { return }
+            entity.date = assessment.date
+            entity.imageRelativePath = assessment.imageRelativePath
+            entity.viewRawValue = assessment.view.rawValue
+            entity.isBaseline = assessment.isBaseline
+            entity.appVersion = assessment.appVersion
+            entity.imageWidth = Double(assessment.pose.imageWidth)
+            entity.imageHeight = Double(assessment.pose.imageHeight)
+            entity.horizonAngle = assessment.horizonContext?.angleDegrees
+            entity.horizonSourceRawValue = assessment.horizonContext?.source.rawValue
+            entity.isHorizonCompensationApplied = assessment.horizonContext?.isCompensationApplied
+            entity.warningsData = (try? JSONEncoder().encode(assessment.warnings)) ?? Data()
+            entity.landmarks.forEach(context.delete)
+            entity.measurements.forEach(context.delete)
+            entity.landmarks = assessment.pose.landmarks.map { type, landmark in
+                LandmarkEntity(typeRawValue: type.rawValue,
+                               normalizedX: landmark.normalizedLocation.x,
+                               normalizedY: landmark.normalizedLocation.y,
+                               imageX: landmark.imageLocation.x,
+                               imageY: landmark.imageLocation.y,
+                               confidence: landmark.confidence,
+                               isManuallyCorrected: landmark.isManuallyCorrected)
+            }
+            entity.measurements = assessment.measurements.map { measurement in
+                MeasurementEntity(measurementIDRawValue: measurement.measurementID.rawValue,
+                                  name: measurement.name,
+                                  value: measurement.value,
+                                  unit: measurement.unit,
+                                  landmarksUsedRaw: measurement.landmarksUsed.map(\.rawValue).joined(separator: ","),
+                                  confidence: measurement.confidence,
+                                  explanation: measurement.explanation)
+            }
+            try context.save()
+        } catch {
+            PersistenceRepositoryLogging.failed("Update assessment", error: error)
             throw error
         }
     }

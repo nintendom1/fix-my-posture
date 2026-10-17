@@ -53,7 +53,10 @@ struct AppShellView: View {
             case .progress:
                 ProgressRouteView(viewModel: environment.progressViewModel)
             case .posture:
-                ContentView()
+                PostureHomeScreen(
+                    state: environment.postureHomeViewModel.state,
+                    send: environment.postureHomeViewModel.send
+                )
             }
         }
     }
@@ -88,15 +91,25 @@ struct AppShellView: View {
         case .history:
             HistoryRouteView(viewModel: environment.makeHistoryViewModel())
         case .posture:
-            ContentView()
+            PostureHomeScreen(
+                state: environment.postureHomeViewModel.state,
+                send: environment.postureHomeViewModel.send
+            )
         case .postureHistory:
-            HistoryView()
+            PostureHistoryScreen(
+                state: environment.postureHomeViewModel.state,
+                send: environment.postureHomeViewModel.send
+            )
         case .assessment(let id):
             AssessmentRouteView(id: id)
         case .livePostureCheck:
             RealtimeCorrectionView()
-        case .photoAssessment:
-            ContentView()
+        case .photoAssessment(let view):
+            PhotoAssessmentFlowScreen(initialView: view)
+        case .capturePosturePhoto(let view):
+            PhotoAssessmentFlowScreen(initialView: view, launchSource: .camera)
+        case .importPosturePhoto(let view):
+            PhotoAssessmentFlowScreen(initialView: view, launchSource: .library)
         case .settings:
             Text("Settings are presented full screen.")
         }
@@ -112,6 +125,8 @@ struct AppShellView: View {
                 exerciseID: exerciseID,
                 routineID: routineID
             ))
+        case .livePostureCheck:
+            RealtimeCorrectionView()
         default:
             EmptyView()
         }

@@ -74,6 +74,15 @@ final class DesignMetricsTests: XCTestCase {
         "history": [
             "statusBar": "The iOS status bar belongs to the snapshot window, outside HistoryScreen.",
             "tabbar": "The native TabView owns the tab bar; HistoryScreen does not lay it out."
+        ],
+        "posture": [
+            "statusBar": "The iOS status bar belongs to the snapshot window, outside PostureHomeScreen.",
+            "tabbar": "The native TabView owns the tab bar; PostureHomeScreen does not lay it out."
+        ],
+        "assessment": [
+            "statusBar": "The iOS status bar belongs to the snapshot window, outside AssessmentScreen.",
+            "tabbar": "The native TabView owns the tab bar; AssessmentScreen does not lay it out.",
+            "assessment.share": "Share is deferred in this phase."
         ]
     ]
 
@@ -166,6 +175,18 @@ final class DesignMetricsTests: XCTestCase {
     func testHistoryFrame() throws {
         let result = try SnapshotHost.render(HistoryFixtures.designTabView(), frameId: "history", testCase: self)
         try assertAnchors(frameId: "history", actual: result.snapshotMeasuredAnchors)
+    }
+
+    @MainActor
+    func testPostureFrame() throws {
+        let result = try SnapshotHost.render(PostureFixtures.designTabView(), frameId: "posture", testCase: self)
+        try assertAnchors(frameId: "posture", actual: result.snapshotMeasuredAnchors)
+    }
+
+    @MainActor
+    func testAssessmentFrame() throws {
+        let result = try SnapshotHost.render(AssessmentFixtures.designTabView(), frameId: "assessment", testCase: self)
+        try assertAnchors(frameId: "assessment", actual: result.snapshotMeasuredAnchors)
     }
 
     @MainActor

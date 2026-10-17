@@ -3,15 +3,13 @@ import SwiftUI
 // MARK: - SwiftUI Previews for Primary Views
 
 #Preview("Content View - Home") {
-    ContentView()
-        .modelContainer(for: [AssessmentEntity.self], inMemory: true)
+    PostureHomeScreen(state: PostureHomeState(assessments: []), send: { _ in })
 }
 
 #Preview("History View - Empty") {
     NavigationStack {
-        HistoryView()
+        PostureHistoryScreen(state: PostureHomeState(assessments: []), send: { _ in })
     }
-    .modelContainer(for: [AssessmentEntity.self], inMemory: true)
 }
 
 #Preview("Assessment Detail View") {
@@ -30,7 +28,7 @@ import SwiftUI
     )
 
     return NavigationStack {
-        AssessmentDetailView(assessment: assessment, image: nil)
+        AssessmentScreen(viewModel: AssessmentViewModel(assessment: assessment, image: nil))
     }
 }
 

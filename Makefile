@@ -44,6 +44,8 @@ design-snapshots:
 		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testWorkoutCompleteFrame \
 		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testProgressFrame \
 		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testHistoryFrame \
+		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testPostureFrame \
+		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testAssessmentFrame \
 		CODE_SIGNING_ALLOWED=NO
 
 design-diff:

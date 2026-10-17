@@ -24,14 +24,12 @@
 		A10000012B00000000000015 /* AssessmentEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000015 /* AssessmentEntity.swift */; };
 		A10000012B00000000000016 /* ImageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000016 /* ImageStore.swift */; };
 		A10000012B00000000000017 /* BaselineComparisonEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000017 /* BaselineComparisonEngine.swift */; };
-		A10000012B00000000000018 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000018 /* ContentView.swift */; };
+		A10000012B00000000000018 /* PhotoAssessmentFlowScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000018 /* PhotoAssessmentFlowScreen.swift */; };
 		A10000012B00000000000019 /* LandmarkOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000019 /* LandmarkOverlayView.swift */; };
 		A10000012B00000000000020 /* DeveloperDebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000020 /* DeveloperDebugView.swift */; };
-		A10000012B00000000000021 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000021 /* HistoryView.swift */; };
 		A10000012B00000000000022 /* LandmarkEditingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000022 /* LandmarkEditingView.swift */; };
 		A10000012B00000000000023 /* GeometryTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000023 /* GeometryTests.swift */; };
 		A10000012B00000000000024 /* CoordinateConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000024 /* CoordinateConverter.swift */; };
-		A10000012B00000000000025 /* AssessmentDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000025 /* AssessmentDetailView.swift */; };
 		A10000012B00000000000026 /* CameraPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000026 /* CameraPickerView.swift */; };
 		A10000012B00000000000027 /* PosturePreviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000027 /* PosturePreviews.swift */; };
 		A10000012B00000000000028 /* ImageNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000028 /* ImageNormalizer.swift */; };
@@ -271,6 +269,19 @@
 		A10000012B00000000000278 /* HistoryScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000278 /* HistoryScreen.swift */; };
 		A10000012B00000000000279 /* HistoryWorkoutDetailScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000279 /* HistoryWorkoutDetailScreen.swift */; };
 		A10000012B00000000000280 /* ProgressHistoryFixtures.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000280 /* ProgressHistoryFixtures.swift */; };
+		A10000012B00000000000281 /* PostureAssessmentServiceTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000281 /* PostureAssessmentServiceTests.swift */; };
+		A10000012B00000000000282 /* PostureHomeViewModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000282 /* PostureHomeViewModelTests.swift */; };
+		A10000012B00000000000283 /* AssessmentViewModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000283 /* AssessmentViewModelTests.swift */; };
+		A10000012B00000000000284 /* PostureFixtures.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000284 /* PostureFixtures.swift */; };
+		A10000012B00000000000285 /* AssessmentFixtures.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000285 /* AssessmentFixtures.swift */; };
+		A10000012B00000000000286 /* PostureAssessmentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000286 /* PostureAssessmentService.swift */; };
+		A10000012B00000000000287 /* PostureHomeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000287 /* PostureHomeState.swift */; };
+		A10000012B00000000000288 /* PostureHomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000288 /* PostureHomeViewModel.swift */; };
+		A10000012B00000000000289 /* PostureHomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000289 /* PostureHomeScreen.swift */; };
+		A10000012B00000000000290 /* AssessmentState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000290 /* AssessmentState.swift */; };
+		A10000012B00000000000291 /* AssessmentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000291 /* AssessmentViewModel.swift */; };
+		A10000012B00000000000292 /* AssessmentScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000292 /* AssessmentScreen.swift */; };
+		A10000012B00000000000293 /* AssessmentRouteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000293 /* AssessmentRouteView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -303,14 +314,12 @@
 		B10000012B00000000000015 /* AssessmentEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssessmentEntity.swift; sourceTree = "<group>"; };
 		B10000012B00000000000016 /* ImageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageStore.swift; sourceTree = "<group>"; };
 		B10000012B00000000000017 /* BaselineComparisonEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaselineComparisonEngine.swift; sourceTree = "<group>"; };
-		B10000012B00000000000018 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000018 /* PhotoAssessmentFlowScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoAssessmentFlowScreen.swift; sourceTree = "<group>"; };
 		B10000012B00000000000019 /* LandmarkOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LandmarkOverlayView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000020 /* DeveloperDebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperDebugView.swift; sourceTree = "<group>"; };
-		B10000012B00000000000021 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000022 /* LandmarkEditingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LandmarkEditingView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000023 /* GeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeometryTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000024 /* CoordinateConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoordinateConverter.swift; sourceTree = "<group>"; };
-		B10000012B00000000000025 /* AssessmentDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssessmentDetailView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000026 /* CameraPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPickerView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000027 /* PosturePreviews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PosturePreviews.swift; sourceTree = "<group>"; };
 		B10000012B00000000000028 /* ImageNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageNormalizer.swift; sourceTree = "<group>"; };
@@ -550,6 +559,19 @@
 		B10000012B00000000000278 /* HistoryScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryScreen.swift; sourceTree = "<group>"; };
 		B10000012B00000000000279 /* HistoryWorkoutDetailScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryWorkoutDetailScreen.swift; sourceTree = "<group>"; };
 		B10000012B00000000000280 /* ProgressHistoryFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressHistoryFixtures.swift; sourceTree = "<group>"; };
+		B10000012B00000000000281 /* PostureAssessmentServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureAssessmentServiceTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000282 /* PostureHomeViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureHomeViewModelTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000283 /* AssessmentViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssessmentViewModelTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000284 /* PostureFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureFixtures.swift; sourceTree = "<group>"; };
+		B10000012B00000000000285 /* AssessmentFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssessmentFixtures.swift; sourceTree = "<group>"; };
+		B10000012B00000000000286 /* PostureAssessmentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureAssessmentService.swift; sourceTree = "<group>"; };
+		B10000012B00000000000287 /* PostureHomeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureHomeState.swift; sourceTree = "<group>"; };
+		B10000012B00000000000288 /* PostureHomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureHomeViewModel.swift; sourceTree = "<group>"; };
+		B10000012B00000000000289 /* PostureHomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureHomeScreen.swift; sourceTree = "<group>"; };
+		B10000012B00000000000290 /* AssessmentState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssessmentState.swift; sourceTree = "<group>"; };
+		B10000012B00000000000291 /* AssessmentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssessmentViewModel.swift; sourceTree = "<group>"; };
+		B10000012B00000000000292 /* AssessmentScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssessmentScreen.swift; sourceTree = "<group>"; };
+		B10000012B00000000000293 /* AssessmentRouteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssessmentRouteView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -638,6 +660,7 @@
 				B10000012B00000000000033 /* ReferencePoseGenerator.swift */,
 				B10000012B00000000000040 /* MeasurementFeedbackEvaluator.swift */,
 				B10000012B00000000000046 /* MeasurementPresentation.swift */,
+				B10000012B00000000000286 /* PostureAssessmentService.swift */,
 			);
 			path = PostureAnalysis;
 			sourceTree = "<group>";
@@ -669,11 +692,8 @@
 		H10000012B00000000000008 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				B10000012B00000000000018 /* ContentView.swift */,
 				B10000012B00000000000019 /* LandmarkOverlayView.swift */,
 				B10000012B00000000000020 /* DeveloperDebugView.swift */,
-				B10000012B00000000000021 /* HistoryView.swift */,
-				B10000012B00000000000025 /* AssessmentDetailView.swift */,
 				B10000012B00000000000026 /* CameraPickerView.swift */,
 				B10000012B00000000000034 /* AlignmentReferenceOverlayView.swift */,
 				B10000012B00000000000035 /* PostureReportView.swift */,
@@ -767,6 +787,9 @@
 				B10000012B00000000000268 /* WeeklyStatsTests.swift */,
 				B10000012B00000000000269 /* HistoryWeekGroupingTests.swift */,
 				B10000012B00000000000270 /* ProgressHistoryViewModelTests.swift */,
+				B10000012B00000000000281 /* PostureAssessmentServiceTests.swift */,
+				B10000012B00000000000282 /* PostureHomeViewModelTests.swift */,
+				B10000012B00000000000283 /* AssessmentViewModelTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -998,6 +1021,8 @@
 				B10000012B00000000000258 /* WorkoutCameraFixtures.swift */,
 				B10000012B00000000000267 /* WorkoutCompleteFixtures.swift */,
 				B10000012B00000000000280 /* ProgressHistoryFixtures.swift */,
+				B10000012B00000000000284 /* PostureFixtures.swift */,
+				B10000012B00000000000285 /* AssessmentFixtures.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -1111,6 +1136,9 @@
 				H10000012B00000000000045 /* WorkoutComplete */,
 				H10000012B00000000000046 /* Progress */,
 				H10000012B00000000000047 /* History */,
+				H10000012B00000000000048 /* PhotoAssessment */,
+				H10000012B00000000000049 /* PostureHome */,
+				H10000012B00000000000050 /* Assessment */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -1208,6 +1236,35 @@
 				B10000012B00000000000279 /* HistoryWorkoutDetailScreen.swift */,
 			);
 			path = History;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000048 /* PhotoAssessment */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000018 /* PhotoAssessmentFlowScreen.swift */,
+			);
+			path = PhotoAssessment;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000049 /* PostureHome */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000287 /* PostureHomeState.swift */,
+				B10000012B00000000000288 /* PostureHomeViewModel.swift */,
+				B10000012B00000000000289 /* PostureHomeScreen.swift */,
+			);
+			path = PostureHome;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000050 /* Assessment */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000290 /* AssessmentState.swift */,
+				B10000012B00000000000291 /* AssessmentViewModel.swift */,
+				B10000012B00000000000292 /* AssessmentScreen.swift */,
+				B10000012B00000000000293 /* AssessmentRouteView.swift */,
+			);
+			path = Assessment;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1318,13 +1375,10 @@
 				A10000012B00000000000015 /* AssessmentEntity.swift in Sources */,
 				A10000012B00000000000016 /* ImageStore.swift in Sources */,
 				A10000012B00000000000017 /* BaselineComparisonEngine.swift in Sources */,
-				A10000012B00000000000018 /* ContentView.swift in Sources */,
 				A10000012B00000000000019 /* LandmarkOverlayView.swift in Sources */,
 				A10000012B00000000000020 /* DeveloperDebugView.swift in Sources */,
-				A10000012B00000000000021 /* HistoryView.swift in Sources */,
 				A10000012B00000000000022 /* LandmarkEditingView.swift in Sources */,
 				A10000012B00000000000024 /* CoordinateConverter.swift in Sources */,
-				A10000012B00000000000025 /* AssessmentDetailView.swift in Sources */,
 				A10000012B00000000000026 /* CameraPickerView.swift in Sources */,
 				A10000012B00000000000028 /* ImageNormalizer.swift in Sources */,
 				A10000012B00000000000029 /* BodyRegion.swift in Sources */,
@@ -1497,6 +1551,15 @@
 				A10000012B00000000000277 /* ProgressScreen.swift in Sources */,
 				A10000012B00000000000278 /* HistoryScreen.swift in Sources */,
 				A10000012B00000000000279 /* HistoryWorkoutDetailScreen.swift in Sources */,
+				A10000012B00000000000018 /* PhotoAssessmentFlowScreen.swift in Sources */,
+				A10000012B00000000000286 /* PostureAssessmentService.swift in Sources */,
+				A10000012B00000000000287 /* PostureHomeState.swift in Sources */,
+				A10000012B00000000000288 /* PostureHomeViewModel.swift in Sources */,
+				A10000012B00000000000289 /* PostureHomeScreen.swift in Sources */,
+				A10000012B00000000000290 /* AssessmentState.swift in Sources */,
+				A10000012B00000000000291 /* AssessmentViewModel.swift in Sources */,
+				A10000012B00000000000292 /* AssessmentScreen.swift in Sources */,
+				A10000012B00000000000293 /* AssessmentRouteView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1571,6 +1634,11 @@
 				A10000012B00000000000269 /* HistoryWeekGroupingTests.swift in TestSources */,
 				A10000012B00000000000270 /* ProgressHistoryViewModelTests.swift in TestSources */,
 				A10000012B00000000000280 /* ProgressHistoryFixtures.swift in TestSources */,
+				A10000012B00000000000281 /* PostureAssessmentServiceTests.swift in TestSources */,
+				A10000012B00000000000282 /* PostureHomeViewModelTests.swift in TestSources */,
+				A10000012B00000000000283 /* AssessmentViewModelTests.swift in TestSources */,
+				A10000012B00000000000284 /* PostureFixtures.swift in TestSources */,
+				A10000012B00000000000285 /* AssessmentFixtures.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

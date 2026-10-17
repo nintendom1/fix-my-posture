@@ -4,6 +4,7 @@ struct ProgressState: Equatable {
     let weeklyStats: WeeklyStats
     let postureAssessmentCount: Int
     let latestAssessmentDate: Date?
+    let showsChartPlaceholders: Bool
 
     var recentWorkouts: [WeeklyStats.RecentWorkout] { weeklyStats.recent }
 
