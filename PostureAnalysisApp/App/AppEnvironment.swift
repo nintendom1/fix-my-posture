@@ -13,6 +13,7 @@ final class AppEnvironment {
     let exerciseCatalog: any ExerciseCatalogProviding
     let workoutCoachFactory: WorkoutCoachFactory
     let trainHomeViewModel: TrainHomeViewModel
+    let routinesViewModel: RoutinesViewModel
     let persistenceError: String?
 
     init(inMemory: Bool = false) {
@@ -37,6 +38,11 @@ final class AppEnvironment {
                 preferences: preferences,
                 router: router
             )
+            routinesViewModel = RoutinesViewModel(
+                routines: repositories.routines,
+                exerciseCatalog: exerciseCatalog,
+                router: router
+            )
             persistenceError = nil
         } catch {
             modelContainer = nil
@@ -53,8 +59,23 @@ final class AppEnvironment {
                 preferences: preferences,
                 router: router
             )
+            routinesViewModel = RoutinesViewModel(
+                routines: nil,
+                exerciseCatalog: exerciseCatalog,
+                router: router
+            )
             persistenceError = error.localizedDescription
         }
+    }
+
+    func makeRoutineDetailViewModel(id: UUID) -> RoutineDetailViewModel {
+        RoutineDetailViewModel(
+            id: id,
+            routines: repositories?.routines,
+            workoutHistory: repositories?.workoutHistory,
+            exerciseCatalog: exerciseCatalog,
+            router: router
+        )
     }
 }
 

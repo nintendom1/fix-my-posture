@@ -46,7 +46,10 @@ struct AppShellView: View {
                     send: environment.trainHomeViewModel.send
                 )
             case .routines:
-                WorkoutSelectionView(mode: .routines)
+                RoutinesScreen(
+                    state: environment.routinesViewModel.state,
+                    send: environment.routinesViewModel.send
+                )
             case .progress:
                 ProgressTabRootView()
             case .posture:
@@ -64,9 +67,12 @@ struct AppShellView: View {
                 send: environment.trainHomeViewModel.send
             )
         case .routines:
-            WorkoutSelectionView(mode: .routines)
+            RoutinesScreen(
+                state: environment.routinesViewModel.state,
+                send: environment.routinesViewModel.send
+            )
         case .routine(let id):
-            RoutineRouteView(id: id)
+            RoutineDetailRouteView(viewModel: environment.makeRoutineDetailViewModel(id: id))
         case .routineEditor(let id):
             RoutineEditorRouteView(id: id)
         case .library:
@@ -187,44 +193,6 @@ private struct ExerciseRouteView: View {
         }
         .navigationTitle(exercise?.displayName ?? "Exercise")
         .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-private struct RoutineRouteView: View {
-    @Environment(\.appRepositories) private var appRepositories
-    @Environment(\.exerciseCatalog) private var exerciseCatalog
-    @Environment(\.appRouter) private var router
-    @State private var routine: SavedExerciseSet?
-    let id: UUID?
-
-    var body: some View {
-        Group {
-            if let routine {
-                List {
-                    Section(routine.name) {
-                        ForEach(routine.items) { item in
-                            Text(exerciseCatalog.exercise(item.exerciseID)?.displayName ?? "Unavailable exercise")
-                                + Text(" · \(item.setsAndRepsLabel)")
-                        }
-                    }
-                    Section {
-                        Button("Edit Saved Set") { router?.open(.routineEditor(id: routine.id)) }
-                        Button("Start Saved Set") {
-                            router?.open(.workout(exerciseID: nil, routineID: routine.id))
-                        }
-                    }
-                }
-            } else {
-                ContentUnavailableView("Saved Set Unavailable", systemImage: "list.number")
-            }
-        }
-        .navigationTitle(routine?.name ?? "Saved Set")
-        .task { loadRoutine() }
-    }
-
-    private func loadRoutine() {
-        guard let id else { return }
-        routine = try? appRepositories?.routines.list().first { $0.id == id }
     }
 }
 

@@ -214,6 +214,15 @@
 		A10000012B00000000000217 /* TrainHomeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000217 /* TrainHomeState.swift */; };
 		A10000012B00000000000218 /* TrainHomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000218 /* TrainHomeViewModel.swift */; };
 		A10000012B00000000000219 /* TrainHomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000219 /* TrainHomeScreen.swift */; };
+		A10000012B00000000000220 /* RoutinesViewModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000220 /* RoutinesViewModelTests.swift */; };
+		A10000012B00000000000221 /* RoutineDetailViewModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000221 /* RoutineDetailViewModelTests.swift */; };
+		A10000012B00000000000222 /* RoutinesFixtures.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000222 /* RoutinesFixtures.swift */; };
+		A10000012B00000000000223 /* RoutinesState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000223 /* RoutinesState.swift */; };
+		A10000012B00000000000224 /* RoutinesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000224 /* RoutinesViewModel.swift */; };
+		A10000012B00000000000225 /* RoutinesScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000225 /* RoutinesScreen.swift */; };
+		A10000012B00000000000226 /* RoutineDetailState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000226 /* RoutineDetailState.swift */; };
+		A10000012B00000000000227 /* RoutineDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000227 /* RoutineDetailViewModel.swift */; };
+		A10000012B00000000000228 /* RoutineDetailScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000228 /* RoutineDetailScreen.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -436,6 +445,15 @@
 		B10000012B00000000000217 /* TrainHomeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainHomeState.swift; sourceTree = "<group>"; };
 		B10000012B00000000000218 /* TrainHomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainHomeViewModel.swift; sourceTree = "<group>"; };
 		B10000012B00000000000219 /* TrainHomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainHomeScreen.swift; sourceTree = "<group>"; };
+		B10000012B00000000000220 /* RoutinesViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutinesViewModelTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000221 /* RoutineDetailViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineDetailViewModelTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000222 /* RoutinesFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutinesFixtures.swift; sourceTree = "<group>"; };
+		B10000012B00000000000223 /* RoutinesState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutinesState.swift; sourceTree = "<group>"; };
+		B10000012B00000000000224 /* RoutinesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutinesViewModel.swift; sourceTree = "<group>"; };
+		B10000012B00000000000225 /* RoutinesScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutinesScreen.swift; sourceTree = "<group>"; };
+		B10000012B00000000000226 /* RoutineDetailState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineDetailState.swift; sourceTree = "<group>"; };
+		B10000012B00000000000227 /* RoutineDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineDetailViewModel.swift; sourceTree = "<group>"; };
+		B10000012B00000000000228 /* RoutineDetailScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineDetailScreen.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -639,6 +657,8 @@
 				B10000012B00000000000206 /* StickyCTALayoutTests.swift */,
 				B10000012B00000000000207 /* AppShellSmokeTests.swift */,
 				B10000012B00000000000215 /* TrainHomeViewModelTests.swift */,
+				B10000012B00000000000220 /* RoutinesViewModelTests.swift */,
+				B10000012B00000000000221 /* RoutineDetailViewModelTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -865,6 +885,7 @@
 				B10000012B00000000000147 /* FixedClock.swift */,
 				H10000012B00000000000031 /* Fakes */,
 				B10000012B00000000000216 /* TrainHomeFixtures.swift */,
+				B10000012B00000000000222 /* RoutinesFixtures.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -961,6 +982,7 @@
 			isa = PBXGroup;
 			children = (
 				H10000012B00000000000039 /* Train */,
+				H10000012B00000000000040 /* Routines */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -973,6 +995,19 @@
 				B10000012B00000000000219 /* TrainHomeScreen.swift */,
 			);
 			path = Train;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000040 /* Routines */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000223 /* RoutinesState.swift */,
+				B10000012B00000000000224 /* RoutinesViewModel.swift */,
+				B10000012B00000000000225 /* RoutinesScreen.swift */,
+				B10000012B00000000000226 /* RoutineDetailState.swift */,
+				B10000012B00000000000227 /* RoutineDetailViewModel.swift */,
+				B10000012B00000000000228 /* RoutineDetailScreen.swift */,
+			);
+			path = Routines;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1226,6 +1261,12 @@
 				A10000012B00000000000217 /* TrainHomeState.swift in Sources */,
 				A10000012B00000000000218 /* TrainHomeViewModel.swift in Sources */,
 				A10000012B00000000000219 /* TrainHomeScreen.swift in Sources */,
+				A10000012B00000000000223 /* RoutinesState.swift in Sources */,
+				A10000012B00000000000224 /* RoutinesViewModel.swift in Sources */,
+				A10000012B00000000000225 /* RoutinesScreen.swift in Sources */,
+				A10000012B00000000000226 /* RoutineDetailState.swift in Sources */,
+				A10000012B00000000000227 /* RoutineDetailViewModel.swift in Sources */,
+				A10000012B00000000000228 /* RoutineDetailScreen.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1279,6 +1320,9 @@
 				A10000012B00000000000207 /* AppShellSmokeTests.swift in TestSources */,
 				A10000012B00000000000215 /* TrainHomeViewModelTests.swift in TestSources */,
 				A10000012B00000000000216 /* TrainHomeFixtures.swift in TestSources */,
+				A10000012B00000000000220 /* RoutinesViewModelTests.swift in TestSources */,
+				A10000012B00000000000221 /* RoutineDetailViewModelTests.swift in TestSources */,
+				A10000012B00000000000222 /* RoutinesFixtures.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

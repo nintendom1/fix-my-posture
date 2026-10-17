@@ -2,12 +2,15 @@ import SwiftUI
 
 extension View {
     /// Reserves the design's sticky button slot above the native tab bar.
-    func stickyCTA<CTA: View>(@ViewBuilder content: () -> CTA) -> some View {
+    func stickyCTA<CTA: View>(
+        bottomSpacing: CGFloat = Metrics.Spacing.medium,
+        @ViewBuilder content: () -> CTA
+    ) -> some View {
         safeAreaInset(edge: .bottom, spacing: 0) {
             content()
                 .frame(height: Metrics.Size.stickyCTA)
                 .padding(.horizontal, Metrics.Spacing.large)
-                .padding(.bottom, Metrics.Spacing.medium)
+                .padding(.bottom, bottomSpacing)
         }
     }
 }
