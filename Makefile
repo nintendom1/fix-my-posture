@@ -17,7 +17,7 @@ design-reference:
 	fi
 
 design-snapshots:
-	@mkdir -p build/design/actual
+	@python3 -c 'import shutil; from pathlib import Path; p = Path("build/design/actual"); shutil.rmtree(p, ignore_errors=True); p.mkdir(parents=True, exist_ok=True)'
 	TEST_RUNNER_FMP_SNAPSHOT_DIR="$(PWD)/build/design/actual" xcodebuild test \
 		-project PostureAnalysisApp.xcodeproj \
 		-scheme PostureAnalysisApp \
@@ -26,8 +26,12 @@ design-snapshots:
 		-parallel-testing-enabled NO \
 		-only-testing:PostureAnalysisAppTests/DesignHarnessTests \
 		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testTrainFrame \
+		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testTrainScrolledBy200KeepsCompactHeaderAndSettingsReachable \
 		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testRoutinesFrame \
 		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testRoutineDetailFrame \
+		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testRoutineEditorFrame \
+		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testRoutineEditorPickerFrame \
+		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testNewRoutineFrame \
 		CODE_SIGNING_ALLOWED=NO
 
 design-diff:

@@ -115,6 +115,7 @@ export const anchors = {
     "editor.save": text("Save"),
     "editor.name": selector("input"),
     "editor.summary": card("4 exercises · 10 sets", 20),
+    "editor.time": text("About 30 min including rest"),
     "editor.row.shoulderPress": card("Shoulder Press"),
     "editor.row.dumbbellRow": card("Dumbbell Row"),
     "editor.row.hammerCurl": card("Hammer Curl"),
@@ -127,7 +128,10 @@ export const anchors = {
     statusBar,
     "editor.title": text("Edit Routine"),
     "picker.sheet": selector('div[style*="inset: 120px 0px 0px"][style*="border-radius: 32px"]'),
-    "picker.title": text("Add Exercise"),
+    "picker.title": selector(
+      'div[style*="inset: 120px 0px 0px"][style*="border-radius: 32px 32px 0px 0px"] > div[style*="height: 52px"] > span[style*="font-size: 17px"]',
+      "text"
+    ),
     "picker.done": text("Done"),
     "picker.search": card("Search exercises", 13),
     "picker.exercise.shoulderPress": text("Shoulder Press", "box", { closest: 'div[style*="border-radius: 18px"]', nth: 1 }),
@@ -142,6 +146,7 @@ export const anchors = {
     "editor.save": text("Save"),
     "editor.name": selector("input"),
     "editor.summary": card("No exercises yet", 20),
+    "editor.time": text("Add exercises to see the time"),
     "editor.emptyState": card("Add your first exercise", 24),
     "editor.addExercise": button("Add Exercise"),
     "editor.helper": text("Weights are logged set by set during the workout, so you can change them as you get stronger. The same exercise can appear more than once."),

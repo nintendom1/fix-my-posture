@@ -15,8 +15,24 @@ final class DesignMetricsTests: XCTestCase {
         "routine": [
             "statusBar": "The iOS status bar belongs to the snapshot window, outside RoutineDetailScreen.",
             "routine.summary": "Phase 4.4 adds duration estimates; the detail summary omits the about X min segment.",
-            "routine.actions.remind": "Reminder scheduling is deferred, so the Remind me action is hidden.",
+            "routine.actions.remind": "Remind me deferred.",
+            "routine.actions.duplicate": "Remind me deferred.",
+            "routine.actions.delete": "Remind me deferred.",
             "tabbar": "The native TabView owns the tab bar; RoutineDetailScreen does not lay it out."
+        ],
+        "editor": [
+            "statusBar": "The iOS status bar belongs to the snapshot window, outside RoutineEditorScreen.",
+            "editor.time": "Phase 4.4 adds routine duration estimates; the editor shows no time estimate.",
+            "tabbar": "RoutineEditorScreen hides the native tab bar while the editor is open."
+        ],
+        "editor-picker": [
+            "statusBar": "The iOS status bar belongs to the snapshot window, outside RoutineEditorScreen.",
+            "tabbar": "The native TabView owns the tab bar; the picker sheet covers the native tab bar."
+        ],
+        "editor-new": [
+            "statusBar": "The iOS status bar belongs to the snapshot window, outside RoutineEditorScreen.",
+            "editor.time": "Phase 4.4 adds routine duration estimates; the editor shows no time estimate.",
+            "tabbar": "RoutineEditorScreen hides the native tab bar while the editor is open."
         ]
     ]
 
@@ -40,6 +56,38 @@ final class DesignMetricsTests: XCTestCase {
     func testRoutineDetailFrame() throws {
         let result = try SnapshotHost.render(RoutineDetailFixtures.designTabView, frameId: "routine", testCase: self)
         try assertAnchors(frameId: "routine", actual: result.snapshotMeasuredAnchors)
+    }
+
+    @MainActor
+    func testRoutineEditorFrame() throws {
+        let result = try SnapshotHost.render(RoutineEditorFixtures.designTabView, frameId: "editor", testCase: self)
+        try assertAnchors(frameId: "editor", actual: result.snapshotMeasuredAnchors)
+    }
+
+    @MainActor
+    func testRoutineEditorPickerFrame() throws {
+        let result = try SnapshotHost.render(RoutineEditorFixtures.pickerSheet, frameId: "editor-picker", testCase: self)
+        try assertAnchors(frameId: "editor-picker", actual: result.snapshotMeasuredAnchors)
+    }
+
+    @MainActor
+    func testNewRoutineFrame() throws {
+        let result = try SnapshotHost.render(RoutineEditorFixtures.newRoutineTabView, frameId: "editor-new", testCase: self)
+        try assertAnchors(frameId: "editor-new", actual: result.snapshotMeasuredAnchors)
+    }
+
+    @MainActor
+    func testTrainScrolledBy200KeepsCompactHeaderAndSettingsReachable() throws {
+        let result = try SnapshotHost.render(TrainHomeFixtures.scrolledTabView, frameId: "train-scrolled", testCase: self)
+        let compactBar = try XCTUnwrap(result.snapshotMeasuredAnchors["train.compactBar"])
+        let settings = try XCTUnwrap(result.snapshotMeasuredAnchors["train.compactBar.settings"])
+        XCTAssertEqual(compactBar.minY, 54, accuracy: 0.5)
+        XCTAssertGreaterThanOrEqual(compactBar.minY, 54)
+        XCTAssertLessThanOrEqual(compactBar.maxY, DesignWindow.fixedSize.height - 86)
+        XCTAssertGreaterThanOrEqual(settings.minX, 0)
+        XCTAssertLessThanOrEqual(settings.maxX, DesignWindow.fixedSize.width)
+        XCTAssertGreaterThanOrEqual(settings.minY, 54)
+        XCTAssertLessThanOrEqual(settings.maxY, DesignWindow.fixedSize.height - 86)
     }
 
     @MainActor

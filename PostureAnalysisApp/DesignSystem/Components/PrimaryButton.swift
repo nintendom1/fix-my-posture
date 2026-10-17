@@ -20,8 +20,8 @@ struct PrimaryButton: View {
 
     let title: String
     var icon: String? = nil
-    var iconFontSize: CGFloat = 24
-    var contentSpacing: CGFloat = Metrics.Spacing.xSmall
+    var iconFontSize: CGFloat = 22
+    var contentSpacing: CGFloat = 6
     var variant: Variant = .gradient
     var size: Size = .standard
     let action: () -> Void

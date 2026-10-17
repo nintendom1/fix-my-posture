@@ -74,7 +74,7 @@ struct AppShellView: View {
         case .routine(let id):
             RoutineDetailRouteView(viewModel: environment.makeRoutineDetailViewModel(id: id))
         case .routineEditor(let id):
-            RoutineEditorRouteView(id: id)
+            RoutineEditorRouteView(viewModel: environment.makeRoutineEditorViewModel(id: id))
         case .library:
             WorkoutSelectionView(mode: .library)
         case .exercise(let id):
@@ -197,38 +197,14 @@ private struct ExerciseRouteView: View {
 }
 
 private struct RoutineEditorRouteView: View {
-    @Environment(\.appRepositories) private var appRepositories
-    @Environment(\.exerciseCatalog) private var exerciseCatalog
-    @State private var routine: SavedExerciseSet?
-    let id: UUID?
+    @State private var viewModel: RoutineEditorViewModel
 
-    init(id: UUID?) {
-        self.id = id
-        _routine = State(initialValue: id == nil ? SavedExerciseSet(name: "New Saved Set", items: []) : nil)
+    init(viewModel: RoutineEditorViewModel) {
+        _viewModel = State(initialValue: viewModel)
     }
 
     var body: some View {
-        Group {
-            if let routine {
-                SavedSetEditorView(
-                    set: routine,
-                    isNew: id == nil,
-                    catalog: exerciseCatalog.all,
-                    onSave: { try? appRepositories?.routines.save($0) },
-                    onDelete: { try? appRepositories?.routines.delete(id: $0.id) },
-                    onDuplicate: { _ = try? appRepositories?.routines.duplicate($0) },
-                    wrapsInNavigationStack: false
-                )
-            } else {
-                ProgressView()
-                    .task { loadRoutine() }
-            }
-        }
-    }
-
-    private func loadRoutine() {
-        guard let id else { return }
-        routine = try? appRepositories?.routines.list().first { $0.id == id }
+        RoutineEditorScreen(state: viewModel.state, send: viewModel.send)
     }
 }
 

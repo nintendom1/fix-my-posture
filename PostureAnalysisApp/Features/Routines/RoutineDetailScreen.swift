@@ -126,10 +126,6 @@ struct RoutineDetailScreen: View {
             )
             .designAnchor("routine.actions.duplicate")
 
-            Color.clear
-                .frame(maxWidth: .infinity)
-                .frame(height: 68)
-
             RoutineActionButton(
                 title: "Delete",
                 icon: "delete",
