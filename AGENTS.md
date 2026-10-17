@@ -18,7 +18,9 @@ PostureAnalysisApp/
 ├── PoseEstimation/      # PoseEstimator protocol & AppleVisionPoseEstimator implementation
 ├── PostureAnalysis/    # PostureAnalyzer geometry calculation engine
 ├── ImageImport/         # PhotoValidator & ViewClassifier
-├── Persistence/         # SwiftData entities (AssessmentEntity, SavedExerciseSetEntity, WorkoutRecordEntity), Saved Set, exercise-target & workout-history models, ImageStore, BaselineComparisonEngine
+├── Persistence/         # Saved Set, exercise-target & workout-history models, ImageStore, BaselineComparisonEngine
+│   ├── Schema/          # Versioned SwiftData models (SchemaV1) and AppMigrationPlan
+│   └── Repositories/    # Assessment, routine, and workout-history repositories; image-store boundary
 ├── Views/               # SwiftUI views (ContentView, HistoryView, LandmarkOverlayView, AssessmentDetailView, DeveloperDebugView, AcknowledgementsView, PosturePreviews)
 │   └── Workout/         # WorkoutCoachView, WorkoutHUDView, WorkoutJointOverlayView, ExerciseGuideView, WorkoutGhostOverlayView, RepThresholdOverlayView, HoldProgressRingView, MicrophoneStatusView, VoiceCommandsHelpView, WorkoutTipView (coaching tips), WorkoutSelectionView (Saved Sets & exercise list, in-camera chooser), SavedSetEditorView, WorkoutHistoryView (history & weight editing), ExerciseCompleteCard
 ├── Workout/             # Workout Coach (Beta)

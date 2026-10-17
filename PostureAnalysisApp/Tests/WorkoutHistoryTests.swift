@@ -30,7 +30,8 @@ final class WorkoutHistoryTests: XCTestCase {
 
     func testSavedSetRecordsEachOccurrenceWithItsOutcome() throws {
         let curl = HammerCurlExercise.definition()
-        let plan = WorkoutPlan(name: "Upper Body", items: [
+        let savedSetID = UUID()
+        let plan = WorkoutPlan(id: savedSetID, name: "Upper Body", items: [
             WorkoutPlanItem(id: UUID(), exerciseID: press.id, sets: 1, targetReps: 2...2),
             WorkoutPlanItem(id: UUID(), exerciseID: curl.id, sets: 1, targetReps: 10...10)
         ])
@@ -45,9 +46,28 @@ final class WorkoutHistoryTests: XCTestCase {
         _ = session.handle(.command(.nextExercise), at: 5)
         let record = try XCTUnwrap(WorkoutRecord(session: session, startedAt: Date(), endedAt: Date()))
         XCTAssertEqual(record.planName, "Upper Body")
+        XCTAssertEqual(record.planID, savedSetID)
         XCTAssertEqual(record.entries.map(\.outcome), [.completed, .skipped])
         XCTAssertEqual(record.entries.first?.sets, [RecordedSet(reps: 2, side: nil, weight: .mass(8, .kilograms))])
-        XCTAssertEqual(WorkoutRecordEntity(record).value, record, "Survives storage.")
+        let entity = WorkoutRecordEntity(record)
+        XCTAssertEqual(entity.planID, savedSetID)
+        XCTAssertEqual(entity.value, record, "Survives storage.")
+    }
+
+    func testNewRecordStoresPlanID() throws {
+        let savedSetID = UUID()
+        let plan = WorkoutPlan(id: savedSetID, name: "Upper Body", items: [
+            WorkoutPlanItem(id: UUID(), exerciseID: press.id, sets: 1, targetReps: 1...1)
+        ])
+        var session = WorkoutSession(exercises: [press], initialExercise: nil, plan: plan)
+        _ = session.handle(.opened, at: 0)
+        _ = session.handle(.framingChanged(reliable), at: 1)
+        _ = session.handle(.command(.start), at: 2)
+        _ = session.handle(.repCompleted(RepEvent(epoch: session.analyzerEpoch, timestamp: 0, sides: [.left, .right])), at: 3)
+
+        let record = try XCTUnwrap(WorkoutRecord(session: session, startedAt: Date(), endedAt: Date()))
+        XCTAssertEqual(record.planID, savedSetID)
+        XCTAssertEqual(WorkoutRecordEntity(record).value.planID, savedSetID)
     }
 
     func testOneArmSetsAreLabeledAndNothingDoneSavesNothing() throws {

@@ -44,7 +44,7 @@ struct SavedExerciseSet: Codable, Hashable, Identifiable {
     }
 
     func plan(in catalog: [ExerciseDefinition]) -> WorkoutPlan {
-        WorkoutPlan(name: name, items: items.compactMap { item in
+        WorkoutPlan(id: id, name: name, items: items.compactMap { item in
             guard catalog.contains(where: { $0.id == item.exerciseID }) else { return nil }
             return WorkoutPlanItem(id: item.id, exerciseID: item.exerciseID, sets: item.setCount, targetReps: item.targetReps)
         })
@@ -56,34 +56,6 @@ struct SavedExerciseSet: Codable, Hashable, Identifiable {
             SavedExerciseSetItem(exerciseID: $0.exerciseID, setCount: $0.setCount, targetRepMinimum: $0.targetRepMinimum,
                                  targetRepMaximum: $0.targetRepMaximum)
         })
-    }
-}
-
-/// SwiftData storage for a Saved Set. The ordered items are stored as JSON, which keeps their order exactly.
-@Model
-final class SavedExerciseSetEntity {
-    @Attribute(.unique) var id: UUID
-    var name: String
-    var itemsData: Data
-    var createdAt: Date
-    var updatedAt: Date
-
-    init(_ set: SavedExerciseSet, now: Date = Date()) {
-        id = set.id
-        name = set.name
-        itemsData = (try? JSONEncoder().encode(set.items)) ?? Data()
-        createdAt = now
-        updatedAt = now
-    }
-
-    var value: SavedExerciseSet {
-        SavedExerciseSet(id: id, name: name, items: (try? JSONDecoder().decode([SavedExerciseSetItem].self, from: itemsData)) ?? [])
-    }
-
-    func update(from set: SavedExerciseSet, now: Date = Date()) {
-        name = set.name
-        itemsData = (try? JSONEncoder().encode(set.items)) ?? Data()
-        updatedAt = now
     }
 }
 

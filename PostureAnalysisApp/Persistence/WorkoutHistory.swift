@@ -29,6 +29,7 @@ struct WorkoutRecord: Codable, Equatable, Identifiable {
     var id = UUID()
     var startedAt: Date
     var endedAt: Date
+    var planID: UUID?
     var planName: String?
     var entries: [WorkoutRecordEntry]
 
@@ -61,41 +62,17 @@ struct WorkoutRecord: Codable, Equatable, Identifiable {
             }
         }
         guard entries.contains(where: { !$0.sets.isEmpty }) else { return nil }
-        self.init(startedAt: startedAt, endedAt: endedAt, planName: session.plan?.name, entries: entries)
+        self.init(startedAt: startedAt, endedAt: endedAt, planID: session.plan?.id,
+                  planName: session.plan?.name, entries: entries)
     }
 
-    init(id: UUID = UUID(), startedAt: Date, endedAt: Date, planName: String?, entries: [WorkoutRecordEntry]) {
+    init(id: UUID = UUID(), startedAt: Date, endedAt: Date, planID: UUID? = nil,
+         planName: String?, entries: [WorkoutRecordEntry]) {
         self.id = id
         self.startedAt = startedAt
         self.endedAt = endedAt
+        self.planID = planID
         self.planName = planName
         self.entries = entries
-    }
-}
-
-/// SwiftData storage for a saved workout; the entries are stored as JSON, which keeps their order.
-@Model
-final class WorkoutRecordEntity {
-    @Attribute(.unique) var id: UUID
-    var startedAt: Date
-    var endedAt: Date
-    var planName: String?
-    var entriesData: Data
-
-    init(_ record: WorkoutRecord) {
-        id = record.id
-        startedAt = record.startedAt
-        endedAt = record.endedAt
-        planName = record.planName
-        entriesData = (try? JSONEncoder().encode(record.entries)) ?? Data()
-    }
-
-    var value: WorkoutRecord {
-        WorkoutRecord(id: id, startedAt: startedAt, endedAt: endedAt, planName: planName,
-                      entries: (try? JSONDecoder().decode([WorkoutRecordEntry].self, from: entriesData)) ?? [])
-    }
-
-    func update(entries: [WorkoutRecordEntry]) {
-        entriesData = (try? JSONEncoder().encode(entries)) ?? Data()
     }
 }

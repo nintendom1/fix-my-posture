@@ -3,7 +3,7 @@ import SwiftData
 import PhotosUI
 
 public struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.appRepositories) private var appRepositories
 
     public var referenceProvider: PostureReferenceProviding = DefaultPostureReferenceProvider()
 
@@ -393,52 +393,13 @@ public struct ContentView: View {
 
     private func saveCurrentAssessment() {
         guard let assessment = currentAssessment, let image = inputImage else { return }
+        guard let appRepositories else {
+            errorMessage = "Failed to save assessment: local storage is unavailable."
+            return
+        }
         do {
-            let relPath = try ImageStore.shared.saveImage(image)
-
-            let entity = AssessmentEntity(
-                id: assessment.id,
-                date: assessment.date,
-                imageRelativePath: relPath,
-                viewRawValue: assessment.view.rawValue,
-                isBaseline: assessment.isBaseline,
-                appVersion: assessment.appVersion,
-                imageWidth: Double(assessment.pose.imageWidth),
-                imageHeight: Double(assessment.pose.imageHeight),
-                horizonAngle: assessment.horizonContext?.angleDegrees,
-                horizonSourceRawValue: assessment.horizonContext?.source.rawValue,
-                isHorizonCompensationApplied: assessment.horizonContext?.isCompensationApplied
-            )
-
-            for (type, lm) in assessment.pose.landmarks {
-                let lmEntity = LandmarkEntity(
-                    typeRawValue: type.rawValue,
-                    normalizedX: lm.normalizedLocation.x,
-                    normalizedY: lm.normalizedLocation.y,
-                    imageX: lm.imageLocation.x,
-                    imageY: lm.imageLocation.y,
-                    confidence: lm.confidence,
-                    isManuallyCorrected: lm.isManuallyCorrected
-                )
-                entity.landmarks.append(lmEntity)
-            }
-
-            for m in assessment.measurements {
-                let mEntity = MeasurementEntity(
-                    measurementIDRawValue: m.measurementID.rawValue,
-                    name: m.name,
-                    value: m.value,
-                    unit: m.unit,
-                    landmarksUsedRaw: m.landmarksUsed.map { $0.rawValue }.joined(separator: ","),
-                    confidence: m.confidence,
-                    explanation: m.explanation
-                )
-                entity.measurements.append(mEntity)
-            }
-
-            modelContext.insert(entity)
-            try modelContext.save()
-
+            let relPath = try appRepositories.images.saveImage(image)
+            try appRepositories.assessments.save(assessment, imageRelativePath: relPath)
             closeCurrentAssessment()
         } catch {
             self.errorMessage = "Failed to save assessment: \(error.localizedDescription)"

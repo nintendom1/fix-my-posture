@@ -8,7 +8,7 @@ struct WorkoutCoachView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.appRepositories) private var appRepositories
     @Environment(\.preferences) private var preferences
     @State private var model: any WorkoutCoachViewModeling
     /// Open the Voice Commands help once the guide finishes dismissing.
@@ -198,8 +198,7 @@ struct WorkoutCoachView: View {
         guard !historySaved else { return }
         historySaved = true
         guard let record = WorkoutRecord(session: model.session, startedAt: startedAt, endedAt: Date()) else { return }
-        modelContext.insert(WorkoutRecordEntity(record))
-        try? modelContext.save()
+        try? appRepositories?.workoutHistory.save(record)
     }
 
     // MARK: - Guide

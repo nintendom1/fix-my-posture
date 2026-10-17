@@ -13,7 +13,7 @@ struct WorkoutSelectionView: View {
     }
 
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.appRepositories) private var appRepositories
     @Environment(\.preferences) private var preferences
     @Query(sort: \SavedExerciseSetEntity.createdAt) private var savedSets: [SavedExerciseSetEntity]
     @State private var filter: Filter = .all
@@ -164,23 +164,15 @@ struct WorkoutSelectionView: View {
     }
 
     private func save(_ set: SavedExerciseSet) {
-        if let entity = savedSets.first(where: { $0.id == set.id }) {
-            entity.update(from: set)
-        } else {
-            modelContext.insert(SavedExerciseSetEntity(set))
-        }
-        try? modelContext.save()
+        try? appRepositories?.routines.save(set)
     }
 
     private func delete(_ set: SavedExerciseSet) {
-        guard let entity = savedSets.first(where: { $0.id == set.id }) else { return }
-        modelContext.delete(entity)
-        try? modelContext.save()
+        try? appRepositories?.routines.delete(id: set.id)
     }
 
     private func duplicate(_ set: SavedExerciseSet) {
-        modelContext.insert(SavedExerciseSetEntity(set.duplicated()))
-        try? modelContext.save()
+        _ = try? appRepositories?.routines.duplicate(set)
     }
 }
 

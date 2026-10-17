@@ -169,6 +169,17 @@
 		A10000012B00000000000172 /* PreferencesStoreTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000172 /* PreferencesStoreTests.swift */; };
 		A10000012B00000000000173 /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000173 /* AppPreferences.swift */; };
 		A10000012B00000000000174 /* PreferencesEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000174 /* PreferencesEnvironment.swift */; };
+		A10000012B00000000000175 /* AppModelContainerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000175 /* AppModelContainerTests.swift */; };
+		A10000012B00000000000176 /* PersistenceRepositoryTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000176 /* PersistenceRepositoryTests.swift */; };
+		A10000012B00000000000177 /* SchemaV1.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000177 /* SchemaV1.swift */; };
+		A10000012B00000000000178 /* AppMigrationPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000178 /* AppMigrationPlan.swift */; };
+		A10000012B00000000000179 /* AppModelContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000179 /* AppModelContainer.swift */; };
+		A10000012B00000000000180 /* RepositoryLogging.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000180 /* RepositoryLogging.swift */; };
+		A10000012B00000000000181 /* WorkoutHistoryRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000181 /* WorkoutHistoryRepository.swift */; };
+		A10000012B00000000000182 /* RoutineRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000182 /* RoutineRepository.swift */; };
+		A10000012B00000000000183 /* AssessmentRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000183 /* AssessmentRepository.swift */; };
+		A10000012B00000000000184 /* ImageStoring.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000184 /* ImageStoring.swift */; };
+		A10000012B00000000000185 /* AppRepositories.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000185 /* AppRepositories.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -346,6 +357,17 @@
 		B10000012B00000000000172 /* PreferencesStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesStoreTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000173 /* AppPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPreferences.swift; sourceTree = "<group>"; };
 		B10000012B00000000000174 /* PreferencesEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesEnvironment.swift; sourceTree = "<group>"; };
+		B10000012B00000000000175 /* AppModelContainerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModelContainerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000176 /* PersistenceRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceRepositoryTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000177 /* SchemaV1.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaV1.swift; sourceTree = "<group>"; };
+		B10000012B00000000000178 /* AppMigrationPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMigrationPlan.swift; sourceTree = "<group>"; };
+		B10000012B00000000000179 /* AppModelContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModelContainer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000180 /* RepositoryLogging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryLogging.swift; sourceTree = "<group>"; };
+		B10000012B00000000000181 /* WorkoutHistoryRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistoryRepository.swift; sourceTree = "<group>"; };
+		B10000012B00000000000182 /* RoutineRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineRepository.swift; sourceTree = "<group>"; };
+		B10000012B00000000000183 /* AssessmentRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssessmentRepository.swift; sourceTree = "<group>"; };
+		B10000012B00000000000184 /* ImageStoring.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageStoring.swift; sourceTree = "<group>"; };
+		B10000012B00000000000185 /* AppRepositories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRepositories.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -453,6 +475,9 @@
 				B10000012B00000000000017 /* BaselineComparisonEngine.swift */,
 				B10000012B00000000000126 /* SavedExerciseSet.swift */,
 				B10000012B00000000000131 /* WorkoutHistory.swift */,
+				H10000012B00000000000033 /* Schema */,
+				B10000012B00000000000179 /* AppModelContainer.swift */,
+				H10000012B00000000000034 /* Repositories */,
 			);
 			path = Persistence;
 			sourceTree = "<group>";
@@ -534,6 +559,8 @@
 				B10000012B00000000000164 /* WorkoutFramePipelineTests.swift */,
 				B10000012B00000000000165 /* WorkoutIntentTests.swift */,
 				B10000012B00000000000172 /* PreferencesStoreTests.swift */,
+				B10000012B00000000000175 /* AppModelContainerTests.swift */,
+				B10000012B00000000000176 /* PersistenceRepositoryTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -784,6 +811,28 @@
 			path = Preferences;
 			sourceTree = "<group>";
 		};
+		H10000012B00000000000033 /* Schema */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000177 /* SchemaV1.swift */,
+				B10000012B00000000000178 /* AppMigrationPlan.swift */,
+			);
+			path = Schema;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000034 /* Repositories */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000180 /* RepositoryLogging.swift */,
+				B10000012B00000000000181 /* WorkoutHistoryRepository.swift */,
+				B10000012B00000000000182 /* RoutineRepository.swift */,
+				B10000012B00000000000183 /* AssessmentRepository.swift */,
+				B10000012B00000000000184 /* ImageStoring.swift */,
+				B10000012B00000000000185 /* AppRepositories.swift */,
+			);
+			path = Repositories;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -1001,6 +1050,15 @@
 				A10000012B00000000000171 /* WorkoutCoachFactory.swift in Sources */,
 				A10000012B00000000000173 /* AppPreferences.swift in Sources */,
 				A10000012B00000000000174 /* PreferencesEnvironment.swift in Sources */,
+				A10000012B00000000000177 /* SchemaV1.swift in Sources */,
+				A10000012B00000000000178 /* AppMigrationPlan.swift in Sources */,
+				A10000012B00000000000179 /* AppModelContainer.swift in Sources */,
+				A10000012B00000000000180 /* RepositoryLogging.swift in Sources */,
+				A10000012B00000000000181 /* WorkoutHistoryRepository.swift in Sources */,
+				A10000012B00000000000182 /* RoutineRepository.swift in Sources */,
+				A10000012B00000000000183 /* AssessmentRepository.swift in Sources */,
+				A10000012B00000000000184 /* ImageStoring.swift in Sources */,
+				A10000012B00000000000185 /* AppRepositories.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1043,6 +1101,8 @@
 				A10000012B00000000000164 /* WorkoutFramePipelineTests.swift in TestSources */,
 				A10000012B00000000000165 /* WorkoutIntentTests.swift in TestSources */,
 				A10000012B00000000000172 /* PreferencesStoreTests.swift in TestSources */,
+				A10000012B00000000000175 /* AppModelContainerTests.swift in TestSources */,
+				A10000012B00000000000176 /* PersistenceRepositoryTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
