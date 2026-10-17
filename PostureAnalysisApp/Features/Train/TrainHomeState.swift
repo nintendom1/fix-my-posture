@@ -6,6 +6,7 @@ struct TrainHomeRoutinePresentation: Equatable {
     let exerciseCount: Int
     let setCount: Int
     let estimatedMinutes: Int?
+    let lastDoneLabel: String?
     let chips: [String]
     let canStart: Bool
 
@@ -37,6 +38,8 @@ struct TrainLastWorkoutPresentation: Equatable {
 struct TrainHomeState: Equatable {
     let dateLabel: String
     let heroRoutine: TrainHomeRoutinePresentation?
+    let routineChoices: [TrainHomeRoutinePresentation]
+    var isRoutinePickerPresented: Bool
     let exercises: [TrainExerciseTile]
     let lastWorkout: TrainLastWorkoutPresentation?
 
@@ -46,6 +49,9 @@ struct TrainHomeState: Equatable {
 enum TrainHomeIntent: Equatable {
     case appeared
     case startRoutine
+    case pickAnother
+    case selectRoutine(UUID)
+    case dismissRoutinePicker
     case startExercise(ExerciseID)
     case createRoutine
     case openSettings

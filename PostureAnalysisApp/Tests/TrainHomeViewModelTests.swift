@@ -13,17 +13,39 @@ final class TrainHomeViewModelTests: XCTestCase {
         PushUpExercise.definition()
     ])
 
-    func testHeroPicksMostRecentlyUpdatedRoutine() throws {
+    func testHeroUsesUpNextRoutineRatherThanMostRecentlyUpdatedRoutine() throws {
         let older = routine(name: "Older", ids: [.shoulderPress])
         let newest = routine(name: "Upper Body", ids: [.shoulderPress, .dumbbellRow, .hammerCurl, .tricepsExtension])
         let repository = MemoryRoutineRepository(entries: [
-            SavedExerciseSetRecord(set: newest, updatedAt: Date(timeIntervalSince1970: 200)),
-            SavedExerciseSetRecord(set: older, updatedAt: Date(timeIntervalSince1970: 100))
+            SavedExerciseSetRecord(set: newest, createdAt: Date(timeIntervalSince1970: 20), updatedAt: Date(timeIntervalSince1970: 200)),
+            SavedExerciseSetRecord(set: older, createdAt: Date(timeIntervalSince1970: 10), updatedAt: Date(timeIntervalSince1970: 100))
         ])
         let viewModel = makeViewModel(routines: repository)
 
-        XCTAssertEqual(viewModel.state.heroRoutine?.id, newest.id)
-        XCTAssertEqual(viewModel.state.heroRoutine?.name, "Upper Body")
+        XCTAssertEqual(viewModel.state.heroRoutine?.id, older.id)
+        XCTAssertEqual(viewModel.state.heroRoutine?.name, "Older")
+    }
+
+    func testPickAnotherOpensChoicesAndSelectionPersistsOverrideAndUpdatesHero() {
+        let first = routine(name: "First", ids: [.shoulderPress])
+        let second = routine(name: "Second", ids: [.airSquat])
+        let repository = MemoryRoutineRepository(entries: [
+            SavedExerciseSetRecord(set: first, createdAt: Date(timeIntervalSince1970: 10), updatedAt: Date(timeIntervalSince1970: 20)),
+            SavedExerciseSetRecord(set: second, createdAt: Date(timeIntervalSince1970: 20), updatedAt: Date(timeIntervalSince1970: 10))
+        ])
+        let preferences = InMemoryPreferences()
+        let viewModel = makeViewModel(routines: repository, preferences: preferences)
+
+        XCTAssertEqual(viewModel.state.heroRoutine?.id, first.id)
+        viewModel.send(.pickAnother)
+        XCTAssertTrue(viewModel.state.isRoutinePickerPresented)
+        XCTAssertEqual(Set(viewModel.state.routineChoices.map(\.id)), Set([first.id, second.id]))
+
+        viewModel.send(.selectRoutine(second.id))
+
+        XCTAssertEqual(preferences.upNextOverride, second.id)
+        XCTAssertEqual(viewModel.state.heroRoutine?.id, second.id)
+        XCTAssertFalse(viewModel.state.isRoutinePickerPresented)
     }
 
     func testHeroChipsTruncateToThreeAndThenShowRemainingCount() {
@@ -35,15 +57,15 @@ final class TrainHomeViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.state.heroRoutine?.chips, ["Shoulder Press", "Row", "Hammer Curl", "+1"])
     }
 
-    func testRoutineSummaryReadsFourExercisesAndEightSetsWithoutAnEstimate() {
+    func testRoutineSummaryIncludesTheDurationEstimate() {
         let savedSet = routine(name: "Upper Body", ids: [.shoulderPress, .dumbbellRow, .hammerCurl, .tricepsExtension])
         let viewModel = makeViewModel(routines: MemoryRoutineRepository(entries: [
             SavedExerciseSetRecord(set: savedSet, updatedAt: FixedClock.date)
         ]))
         let hero = viewModel.state.heroRoutine
 
-        XCTAssertEqual(hero?.summary, "4 exercises · 8 sets")
-        XCTAssertNil(hero?.estimatedMinutes)
+        XCTAssertEqual(hero?.summaryWithEstimate, "4 exercises · 8 sets · about 25 min")
+        XCTAssertNotNil(hero?.estimatedMinutes)
     }
 
     func testNoRoutinesShowsTheCreateRoutineEmptyState() {
@@ -95,13 +117,14 @@ final class TrainHomeViewModelTests: XCTestCase {
 
     private func makeViewModel(
         routines: MemoryRoutineRepository,
-        router: AppRouter? = nil
+        router: AppRouter? = nil,
+        preferences: InMemoryPreferences = InMemoryPreferences()
     ) -> TrainHomeViewModel {
         TrainHomeViewModel(
             routines: routines,
             workoutHistory: MemoryWorkoutHistoryRepository(),
             exerciseCatalog: catalog,
-            preferences: InMemoryPreferences(),
+            preferences: preferences,
             router: router ?? AppRouter(),
             now: { FixedClock.date }
         )
@@ -109,11 +132,12 @@ final class TrainHomeViewModelTests: XCTestCase {
 
     private func routine(name: String, ids: [ExerciseID]) -> SavedExerciseSet {
         SavedExerciseSet(name: name, items: ids.map { id in
-            SavedExerciseSetItem(
+            let exercise = catalog.exercise(id)!
+            return SavedExerciseSetItem(
                 exerciseID: id,
                 setCount: 2,
-                targetRepMinimum: 8,
-                targetRepMaximum: 10
+                targetRepMinimum: exercise.targetReps.lowerBound,
+                targetRepMaximum: exercise.targetReps.upperBound
             )
         })
     }

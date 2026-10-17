@@ -32,11 +32,30 @@ final class RoutinesViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.state.routines.first?.theme, .brand)
     }
 
-    func testSummaryUsesExerciseAndSetCountsWithoutAnEstimate() {
+    func testSummaryIncludesExerciseSetAndDurationEstimate() {
         let upperBody = routine(name: "Upper Body", ids: [.shoulderPress, .dumbbellRow, .hammerCurl, .tricepsExtension])
         let viewModel = makeViewModel(repository: RoutinesTestRepository(sets: [upperBody]))
 
-        XCTAssertEqual(viewModel.state.routines.first?.summary, "4 exercises · 8 sets")
+        XCTAssertEqual(viewModel.state.routines.first?.summary, "4 exercises · 8 sets · about 25 min")
+    }
+
+    func testRoutineCardShowsFormattedLastDoneDate() {
+        let savedSet = routine(name: "Upper Body", ids: [.shoulderPress])
+        let endedAt = FixedClock.calendar.date(from: DateComponents(year: 2026, month: 10, day: 14, hour: 12))!
+        let history = RoutinesTestWorkoutHistoryRepository(records: [WorkoutRecord(
+            startedAt: endedAt.addingTimeInterval(-60),
+            endedAt: endedAt,
+            planID: savedSet.id,
+            planName: savedSet.name,
+            entries: []
+        )])
+        let viewModel = makeViewModel(
+            repository: RoutinesTestRepository(sets: [savedSet]),
+            history: history,
+            now: { FixedClock.date }
+        )
+
+        XCTAssertEqual(viewModel.state.routines.first?.lastDoneLabel, "Last done Wed, Oct 14")
     }
 
     func testCardStartOpensWorkoutRouteForItsRoutine() {
@@ -86,14 +105,21 @@ final class RoutinesViewModelTests: XCTestCase {
 
     private func makeViewModel(
         repository: RoutinesTestRepository,
-        router: AppRouter? = nil
+        router: AppRouter? = nil,
+        history: RoutinesTestWorkoutHistoryRepository? = nil,
+        now: @escaping () -> Date = Date.init
     ) -> RoutinesViewModel {
-        RoutinesViewModel(routines: repository, exerciseCatalog: catalog, router: router ?? AppRouter())
+        RoutinesViewModel(routines: repository, workoutHistory: history ?? RoutinesTestWorkoutHistoryRepository(), exerciseCatalog: catalog,
+                          preferences: InMemoryPreferences(), router: router ?? AppRouter(), now: now,
+                          calendar: FixedClock.calendar)
     }
 
     private func routine(name: String, ids: [ExerciseID]) -> SavedExerciseSet {
         SavedExerciseSet(name: name, items: ids.map { id in
-            SavedExerciseSetItem(exerciseID: id, setCount: 2, targetRepMinimum: 8, targetRepMaximum: 10)
+            let exercise = catalog.exercise(id)!
+            return SavedExerciseSetItem(exerciseID: id, setCount: 2,
+                                        targetRepMinimum: exercise.targetReps.lowerBound,
+                                        targetRepMaximum: exercise.targetReps.upperBound)
         })
     }
 }

@@ -59,6 +59,7 @@ struct RoutineEditorState: Equatable {
     var pickerExercises: [AddExercisePresentation]
     var showsDeleteConfirmation: Bool
     var isFinished: Bool
+    var estimatedMinutes: Int?
 
     var title: String { isNew ? "New Routine" : "Edit Routine" }
     var isSaveEnabled: Bool {
@@ -72,6 +73,10 @@ struct RoutineEditorState: Equatable {
         let setLabel = setCount == 1 ? "1 set" : "\(setCount) sets"
         return "\(exerciseLabel) · \(setLabel)"
     }
+    var timeEstimateSummary: String {
+        guard !items.isEmpty, let estimatedMinutes else { return "Add exercises to see the time" }
+        return "About \(estimatedMinutes) min including rest"
+    }
 
     init(
         name: String,
@@ -82,7 +87,8 @@ struct RoutineEditorState: Equatable {
         pickerSort: AddExerciseSortOption = .inRoutine,
         pickerExercises: [AddExercisePresentation] = [],
         showsDeleteConfirmation: Bool = false,
-        isFinished: Bool = false
+        isFinished: Bool = false,
+        estimatedMinutes: Int? = nil
     ) {
         self.name = name
         self.items = items
@@ -93,6 +99,7 @@ struct RoutineEditorState: Equatable {
         self.pickerExercises = pickerExercises
         self.showsDeleteConfirmation = showsDeleteConfirmation
         self.isFinished = isFinished
+        self.estimatedMinutes = estimatedMinutes
     }
 }
 

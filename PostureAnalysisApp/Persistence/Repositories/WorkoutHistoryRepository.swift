@@ -71,3 +71,18 @@ final class SwiftDataWorkoutHistoryRepository: WorkoutHistoryRepository {
         }
     }
 }
+
+/// Saves history and consumes the user's one-time routine choice only after a routine workout is stored.
+@MainActor
+enum WorkoutHistorySaver {
+    static func save(
+        _ record: WorkoutRecord,
+        using repository: any WorkoutHistoryRepository,
+        preferences: any AppPreferencesStoring
+    ) throws {
+        try repository.save(record)
+        if record.planID != nil {
+            preferences.upNextOverride = nil
+        }
+    }
+}

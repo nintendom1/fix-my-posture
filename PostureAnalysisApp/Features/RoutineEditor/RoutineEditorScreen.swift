@@ -124,11 +124,22 @@ struct RoutineEditorScreen: View {
 
     private var summaryCard: some View {
         HStack(spacing: 12) {
-            Text(state.summary)
-                .font(.system(size: 20, weight: .black, design: .rounded))
-                .foregroundStyle(ColorTokens.palette().textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(state.summary)
+                    .font(.system(size: 20, weight: .black, design: .rounded))
+                    .foregroundStyle(ColorTokens.palette().textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .frame(height: 24, alignment: .leading)
+                Text(state.timeEstimateSummary)
+                    .font(.system(size: state.items.isEmpty ? 13 : 12.8, weight: .bold, design: .rounded))
+                    .tracking(state.items.isEmpty ? 0.1 : 0)
+                    .foregroundStyle(ColorTokens.palette().textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .frame(height: 15.5, alignment: .leading)
+                    .designAnchor("editor.time")
+            }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Image(material: "timer")

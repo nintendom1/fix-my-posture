@@ -290,6 +290,12 @@
 		A10000012B00000000000299 /* SettingsFixtures.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000299 /* SettingsFixtures.swift */; };
 		A10000012B00000000000300 /* ExerciseFilterTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000300 /* ExerciseFilterTests.swift */; };
 		A10000012B00000000000301 /* ExerciseFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000301 /* ExerciseFilter.swift */; };
+		A10000012B00000000000302 /* RoutineRotationTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000302 /* RoutineRotationTests.swift */; };
+		A10000012B00000000000303 /* LastDoneFormatterTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000303 /* LastDoneFormatterTests.swift */; };
+		A10000012B00000000000304 /* RoutineEstimatorTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000304 /* RoutineEstimatorTests.swift */; };
+		A10000012B00000000000305 /* RoutineRotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000305 /* RoutineRotation.swift */; };
+		A10000012B00000000000306 /* RoutineEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000306 /* RoutineEstimator.swift */; };
+		A10000012B00000000000307 /* LastDoneFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000307 /* LastDoneFormatter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -588,6 +594,12 @@
 		B10000012B00000000000299 /* SettingsFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFixtures.swift; sourceTree = "<group>"; };
 		B10000012B00000000000300 /* ExerciseFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseFilterTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000301 /* ExerciseFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseFilter.swift; sourceTree = "<group>"; };
+		B10000012B00000000000302 /* RoutineRotationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineRotationTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000303 /* LastDoneFormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastDoneFormatterTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000304 /* RoutineEstimatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineEstimatorTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000305 /* RoutineRotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineRotation.swift; sourceTree = "<group>"; };
+		B10000012B00000000000306 /* RoutineEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineEstimator.swift; sourceTree = "<group>"; };
+		B10000012B00000000000307 /* LastDoneFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastDoneFormatter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -808,6 +820,9 @@
 				B10000012B00000000000283 /* AssessmentViewModelTests.swift */,
 				B10000012B00000000000294 /* SettingsViewModelTests.swift */,
 				B10000012B00000000000300 /* ExerciseFilterTests.swift */,
+				B10000012B00000000000302 /* RoutineRotationTests.swift */,
+				B10000012B00000000000303 /* LastDoneFormatterTests.swift */,
+				B10000012B00000000000304 /* RoutineEstimatorTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1057,6 +1072,9 @@
 				B10000012B00000000000263 /* WorkoutCompletionStats.swift */,
 				B10000012B00000000000271 /* WeeklyStats.swift */,
 				B10000012B00000000000272 /* HistoryWeekGrouping.swift */,
+				B10000012B00000000000305 /* RoutineRotation.swift */,
+				B10000012B00000000000306 /* RoutineEstimator.swift */,
+				B10000012B00000000000307 /* LastDoneFormatter.swift */,
 			);
 			path = Presentation;
 			sourceTree = "<group>";
@@ -1597,6 +1615,9 @@
 				A10000012B00000000000297 /* SettingsSubpages.swift in Sources */,
 				A10000012B00000000000298 /* SettingsRow.swift in Sources */,
 				A10000012B00000000000301 /* ExerciseFilter.swift in Sources */,
+				A10000012B00000000000305 /* RoutineRotation.swift in Sources */,
+				A10000012B00000000000306 /* RoutineEstimator.swift in Sources */,
+				A10000012B00000000000307 /* LastDoneFormatter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1679,6 +1700,9 @@
 				A10000012B00000000000294 /* SettingsViewModelTests.swift in TestSources */,
 				A10000012B00000000000299 /* SettingsFixtures.swift in TestSources */,
 				A10000012B00000000000300 /* ExerciseFilterTests.swift in TestSources */,
+				A10000012B00000000000302 /* RoutineRotationTests.swift in TestSources */,
+				A10000012B00000000000303 /* LastDoneFormatterTests.swift in TestSources */,
+				A10000012B00000000000304 /* RoutineEstimatorTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

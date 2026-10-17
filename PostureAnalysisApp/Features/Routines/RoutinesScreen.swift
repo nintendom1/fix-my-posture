@@ -225,7 +225,17 @@ private struct RoutineCardView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                Color.clear.frame(height: 39)
+                if let lastDoneLabel = routine.lastDoneLabel {
+                    Text(lastDoneLabel)
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundStyle(ColorTokens.palette().textMuted)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(height: 16, alignment: .leading)
+                } else {
+                    Color.clear.frame(height: 16)
+                }
+                Color.clear.frame(height: 13)
             }
             .padding(.horizontal, 16)
             .padding(.top, 16)

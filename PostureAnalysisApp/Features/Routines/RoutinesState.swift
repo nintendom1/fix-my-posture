@@ -9,6 +9,7 @@ struct RoutineCardPresentation: Equatable, Identifiable {
     let id: UUID
     let name: String
     let summary: String
+    let lastDoneLabel: String?
     let exerciseNames: [String]
     let theme: RoutineTheme
     let canStart: Bool

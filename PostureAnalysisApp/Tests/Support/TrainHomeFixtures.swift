@@ -10,9 +10,12 @@ enum TrainHomeFixtures {
             exerciseCount: 4,
             setCount: 8,
             estimatedMinutes: 25,
+            lastDoneLabel: "Wednesday",
             chips: ["Shoulder Press", "Row", "Hammer Curl", "+1"],
             canStart: true
         ),
+        routineChoices: [],
+        isRoutinePickerPresented: false,
         exercises: [
             tile(.shoulderPress, target: "2 × 8–10"),
             tile(.airSquat, target: "2 × 10–15"),

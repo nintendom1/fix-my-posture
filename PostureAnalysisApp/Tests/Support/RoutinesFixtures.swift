@@ -6,7 +6,8 @@ enum RoutinesFixtures {
         RoutineCardPresentation(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000321")!,
             name: "Upper Body",
-            summary: "4 exercises · 8 sets",
+            summary: "4 exercises · 8 sets · about 25 min",
+            lastDoneLabel: "Last done Wed, Oct 14",
             exerciseNames: ["Shoulder Press", "Dumbbell Row", "Hammer Curl", "Triceps Ext."],
             theme: .exercise(gradient(for: .shoulderPress)),
             canStart: true
@@ -14,7 +15,8 @@ enum RoutinesFixtures {
         RoutineCardPresentation(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000322")!,
             name: "Quick Strength",
-            summary: "3 exercises · 6 sets",
+            summary: "3 exercises · 6 sets · about 18 min",
+            lastDoneLabel: "Last done Mon, Oct 12",
             exerciseNames: ["Air Squat", "Push-Up", "Shoulder Press"],
             theme: .exercise(gradient(for: .airSquat)),
             canStart: true
@@ -22,7 +24,8 @@ enum RoutinesFixtures {
         RoutineCardPresentation(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000323")!,
             name: "Legs & Push",
-            summary: "2 exercises · 6 sets",
+            summary: "2 exercises · 6 sets · about 17 min",
+            lastDoneLabel: nil,
             exerciseNames: ["Air Squat", "Push-Up"],
             theme: .exercise(gradient(for: .airSquat)),
             canStart: true
@@ -66,11 +69,12 @@ enum RoutineDetailFixtures {
         routine: RoutineDetailPresentation(
             id: routineID,
             name: "Upper Body",
-            summary: "4 exercises · 8 sets",
+            summary: "4 exercises · 8 sets · about 25 min",
+            lastDoneLabel: "Last done Wed, Oct 14",
             steps: [
                 step(1, .shoulderPress, target: "2 × 8–10", weight: "20 lb", camera: "Front camera"),
                 step(2, .dumbbellRow, target: "2 × 8–10 / side", weight: "25 lb", camera: "Side camera"),
-                step(3, .hammerCurl, target: "2 × 8–10", weight: "15 lb", camera: "Front camera"),
+                step(3, .hammerCurl, target: "2 × 10", weight: "15 lb", camera: "Front camera"),
                 step(4, .tricepsExtension, target: "2 × 10", weight: "15 lb", camera: "Front camera")
             ],
             canStart: true

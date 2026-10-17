@@ -13,6 +13,7 @@ final class RoutineEditorViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.state.name, "")
         XCTAssertTrue(viewModel.state.items.isEmpty)
         XCTAssertFalse(viewModel.state.isSaveEnabled)
+        XCTAssertEqual(viewModel.state.timeEstimateSummary, "Add exercises to see the time")
     }
 
     func testNameAloneDoesNotEnableSaveButNameAndOneExerciseDoes() {
@@ -42,6 +43,20 @@ final class RoutineEditorViewModelTests: XCTestCase {
         let secondID = try XCTUnwrap(viewModel.state.items.last?.id)
         viewModel.send(.removeExercise(secondID))
         XCTAssertEqual(viewModel.state.summary, "1 exercise · 4 sets")
+    }
+
+    func testTimeEstimateUpdatesLiveWhenExerciseAndSetsChange() throws {
+        let viewModel = makeViewModel()
+        viewModel.send(.addExercise(.shoulderPress))
+        let rowID = try XCTUnwrap(viewModel.state.items.first?.id)
+        let twoSetEstimate = try XCTUnwrap(viewModel.state.estimatedMinutes)
+
+        XCTAssertEqual(viewModel.state.timeEstimateSummary, "About \(twoSetEstimate) min including rest")
+
+        viewModel.send(.setCountChanged(itemID: rowID, value: 4))
+
+        XCTAssertGreaterThan(try XCTUnwrap(viewModel.state.estimatedMinutes), twoSetEstimate)
+        XCTAssertEqual(viewModel.state.timeEstimateSummary, "About \(viewModel.state.estimatedMinutes!) min including rest")
     }
 
     func testStepperBoundsAndRepRangeStayValid() throws {
@@ -192,13 +207,17 @@ final class RoutineEditorViewModelTests: XCTestCase {
             id: id,
             routines: repository ?? RoutineEditorTestRepository(),
             exerciseCatalog: catalog,
+            preferences: InMemoryPreferences(),
             router: router ?? AppRouter(selectedTab: .routines)
         )
     }
 
     private func routine(name: String, ids: [ExerciseID]) -> SavedExerciseSet {
         SavedExerciseSet(name: name, items: ids.map { id in
-            SavedExerciseSetItem(exerciseID: id, setCount: 2, targetRepMinimum: 8, targetRepMaximum: 10)
+            let exercise = catalog.exercise(id)!
+            return SavedExerciseSetItem(exerciseID: id, setCount: 2,
+                                        targetRepMinimum: exercise.targetReps.lowerBound,
+                                        targetRepMaximum: exercise.targetReps.upperBound)
         })
     }
 }
