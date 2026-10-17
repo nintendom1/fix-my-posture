@@ -4,6 +4,11 @@ import SwiftUI
 /// The first Workout Coach screen, before the camera starts: Saved Sets and individual exercises.
 /// Starting either opens the coach.
 struct WorkoutSelectionView: View {
+    enum Mode: Equatable {
+        case train
+        case routines
+    }
+
     enum Filter: String, CaseIterable, Identifiable {
         case all = "All"
         case savedSets = "Saved Sets"
@@ -12,17 +17,22 @@ struct WorkoutSelectionView: View {
         var id: Self { self }
     }
 
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.appRepositories) private var appRepositories
+    @Environment(\.appRouter) private var appRouter
+    @Environment(\.exerciseCatalog) private var exerciseCatalog
     @Environment(\.preferences) private var preferences
     @Query(sort: \SavedExerciseSetEntity.createdAt) private var savedSets: [SavedExerciseSetEntity]
     @State private var filter: Filter = .all
-    @State private var launch: CoachLaunch?
     @State private var editing: SavedSetEditing?
     @State private var adjusting: ExerciseDefinition?
     /// Bumped after sets or reps are adjusted, so rows re-read the remembered targets.
     @State private var targetsVersion = 0
-    var exerciseCatalog: any ExerciseCatalogProviding = LiveExerciseCatalog()
+    let mode: Mode
+
+    init(mode: Mode = .train) {
+        self.mode = mode
+        _filter = State(initialValue: mode == .routines ? .savedSets : .all)
+    }
 
     private var catalog: [ExerciseDefinition] { exerciseCatalog.all }
 
@@ -33,35 +43,44 @@ struct WorkoutSelectionView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            List {
+        List {
+            if mode == .train {
                 Section {
                     Picker("Show", selection: $filter) {
                         ForEach(Filter.allCases) { Text($0.rawValue).tag($0) }
                     }
                     .pickerStyle(.segmented)
                 }
-                if filter != .exercises { savedSetsSection }
-                if filter != .savedSets { exercisesSection }
             }
-            .navigationTitle("Workout Coach")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
-                        .accessibilityIdentifier("closeWorkoutSelectionButton")
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    NavigationLink {
-                        WorkoutHistoryView(exerciseCatalog: exerciseCatalog)
-                    } label: {
-                        Label("History", systemImage: "clock.arrow.circlepath")
-                    }
-                    .accessibilityIdentifier("workoutHistoryButton")
-                }
-            }
+            if mode == .routines || filter != .exercises { savedSetsSection }
+            if mode == .train && filter != .savedSets { exercisesSection }
         }
-        .fullScreenCover(item: $launch) { launch in
-            WorkoutCoachView(model: launch.model)
+        .navigationTitle(mode == .train ? "Workout Coach" : "Saved Sets")
+        .toolbar {
+            if mode == .train {
+                ToolbarItem(placement: .primaryAction) {
+                    HStack {
+                        NavigationLink(value: AppRoute.library) {
+                            Image(systemName: "books.vertical")
+                        }
+                        .accessibilityLabel("Library")
+                        Button {
+                            appRouter?.open(.history)
+                        } label: {
+                            Image(systemName: "clock.arrow.circlepath")
+                        }
+                        .accessibilityIdentifier("workoutHistoryButton")
+                        .accessibilityLabel("History")
+                        Button {
+                            appRouter?.open(.settings)
+                        } label: {
+                            Image(systemName: "gearshape.fill")
+                        }
+                        .accessibilityIdentifier("trainSettingsButton")
+                        .accessibilityLabel("Settings")
+                    }
+                }
+            }
         }
         .sheet(item: $editing) { editing in
             SavedSetEditorView(set: editing.savedSet, isNew: editing.isNew, catalog: catalog,
@@ -80,10 +99,7 @@ struct WorkoutSelectionView: View {
                 let missing = set.missingItems(in: catalog)
                 HStack {
                     Button {
-                        launch = CoachLaunch(model: WorkoutCoachFactory.live(initialExercise: nil,
-                                                                              plan: set.plan(in: catalog),
-                                                                              preferences: preferences,
-                                                                              exerciseCatalog: exerciseCatalog))
+                        appRouter?.open(.workout(exerciseID: nil, routineID: set.id))
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(set.name)
@@ -135,9 +151,7 @@ struct WorkoutSelectionView: View {
             ForEach(exercises) { exercise in
                 HStack {
                     Button {
-                        launch = CoachLaunch(model: WorkoutCoachFactory.live(initialExercise: exercise.id, plan: nil,
-                                                                              preferences: preferences,
-                                                                              exerciseCatalog: exerciseCatalog))
+                        appRouter?.open(.workout(exerciseID: exercise.id, routineID: nil))
                     } label: {
                         Text(exercise.displayName)
                             .font(.headline)
@@ -178,11 +192,6 @@ struct WorkoutSelectionView: View {
     private func duplicate(_ set: SavedExerciseSet) {
         _ = try? appRepositories?.routines.duplicate(set)
     }
-}
-
-private struct CoachLaunch: Identifiable {
-    let id = UUID()
-    let model: WorkoutCoachModel
 }
 
 private struct SavedSetEditing: Identifiable {

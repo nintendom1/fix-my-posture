@@ -4,37 +4,23 @@
 //
 
 import SwiftUI
-import SwiftData
-import OSLog
 
 @main
+@MainActor
 struct PostureAnalysisApp: App {
-    @State private var preferences = UserDefaultsPreferences()
-    private let modelContainer: ModelContainer?
-    private let persistenceError: String?
+    @State private var appEnvironment: AppEnvironment
 
-    @MainActor
     init() {
-        do {
-            modelContainer = try AppModelContainer.make()
-            persistenceError = nil
-        } catch {
-            Logger(subsystem: "FixMyPosture", category: "Persistence")
-                .error("The app could not open its local database: \(error.localizedDescription, privacy: .public)")
-            modelContainer = nil
-            persistenceError = error.localizedDescription
-        }
+        TabBarAppearance.configure()
+        _appEnvironment = State(initialValue: AppEnvironment())
     }
 
     var body: some Scene {
         WindowGroup {
-            if let modelContainer {
-                ContentView()
-                    .environment(\.preferences, preferences)
-                    .environment(\.appRepositories, AppRepositories(context: modelContainer.mainContext))
-                    .modelContainer(modelContainer)
+            if appEnvironment.modelContainer != nil {
+                AppShellView(environment: appEnvironment)
             } else {
-                PersistenceUnavailableView(message: persistenceError ?? "The local database is unavailable.")
+                PersistenceUnavailableView(message: appEnvironment.persistenceError ?? "The local database is unavailable.")
             }
         }
     }

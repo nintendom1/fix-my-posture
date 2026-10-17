@@ -7,6 +7,7 @@ import QuartzCore
 struct SnapshotResult {
     let image: UIImage
     let anchors: [String: CGRect]
+    let window: UIWindow
 }
 
 enum SnapshotHost {
@@ -48,7 +49,7 @@ enum SnapshotHost {
         let image = renderer.image { _ in
             controller.view.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
         }
-        let result = SnapshotResult(image: image, anchors: DesignAnchorRegistry.shared.frames)
+        let result = SnapshotResult(image: image, anchors: DesignAnchorRegistry.shared.frames, window: window)
 
         if let directory = snapshotDirectory {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

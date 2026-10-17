@@ -198,6 +198,17 @@
 		A10000012B00000000000201 /* SectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000201 /* SectionHeader.swift */; };
 		A10000012B00000000000202 /* ProgressBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000202 /* ProgressBar.swift */; };
 		A10000012B00000000000203 /* EmptyStateTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000203 /* EmptyStateTile.swift */; };
+		A10000012B00000000000204 /* AppRouteTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000204 /* AppRouteTests.swift */; };
+		A10000012B00000000000205 /* TabBarStyleTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000205 /* TabBarStyleTests.swift */; };
+		A10000012B00000000000206 /* StickyCTALayoutTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000206 /* StickyCTALayoutTests.swift */; };
+		A10000012B00000000000207 /* AppShellSmokeTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000207 /* AppShellSmokeTests.swift */; };
+		A10000012B00000000000208 /* AppRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000208 /* AppRoute.swift */; };
+		A10000012B00000000000209 /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000209 /* AppRouter.swift */; };
+		A10000012B00000000000210 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000210 /* AppEnvironment.swift */; };
+		A10000012B00000000000211 /* AppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000211 /* AppShellView.swift */; };
+		A10000012B00000000000212 /* TabBarStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000212 /* TabBarStyle.swift */; };
+		A10000012B00000000000213 /* TabBarAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000213 /* TabBarAppearance.swift */; };
+		A10000012B00000000000214 /* StickyCTA.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000214 /* StickyCTA.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -404,6 +415,17 @@
 		B10000012B00000000000201 /* SectionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionHeader.swift; sourceTree = "<group>"; };
 		B10000012B00000000000202 /* ProgressBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressBar.swift; sourceTree = "<group>"; };
 		B10000012B00000000000203 /* EmptyStateTile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateTile.swift; sourceTree = "<group>"; };
+		B10000012B00000000000204 /* AppRouteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouteTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000205 /* TabBarStyleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabBarStyleTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000206 /* StickyCTALayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickyCTALayoutTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000207 /* AppShellSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellSmokeTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000208 /* AppRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRoute.swift; sourceTree = "<group>"; };
+		B10000012B00000000000209 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
+		B10000012B00000000000210 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
+		B10000012B00000000000211 /* AppShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000212 /* TabBarStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabBarStyle.swift; sourceTree = "<group>"; };
+		B10000012B00000000000213 /* TabBarAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabBarAppearance.swift; sourceTree = "<group>"; };
+		B10000012B00000000000214 /* StickyCTA.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickyCTA.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -450,6 +472,7 @@
 				B10000012B00000000000136 /* Assets.xcassets */,
 				H10000012B00000000000028 /* DesignSystem */,
 				H10000012B00000000000032 /* Preferences */,
+				H10000012B00000000000037 /* App */,
 			);
 			path = PostureAnalysisApp;
 			sourceTree = "<group>";
@@ -600,6 +623,10 @@
 				B10000012B00000000000186 /* ExerciseCatalogTests.swift */,
 				B10000012B00000000000188 /* DesignSystemTests.swift */,
 				B10000012B00000000000189 /* IconMapTests.swift */,
+				B10000012B00000000000204 /* AppRouteTests.swift */,
+				B10000012B00000000000205 /* TabBarStyleTests.swift */,
+				B10000012B00000000000206 /* StickyCTALayoutTests.swift */,
+				B10000012B00000000000207 /* AppShellSmokeTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -903,6 +930,20 @@
 			path = Components;
 			sourceTree = "<group>";
 		};
+		H10000012B00000000000037 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000208 /* AppRoute.swift */,
+				B10000012B00000000000209 /* AppRouter.swift */,
+				B10000012B00000000000210 /* AppEnvironment.swift */,
+				B10000012B00000000000211 /* AppShellView.swift */,
+				B10000012B00000000000212 /* TabBarStyle.swift */,
+				B10000012B00000000000213 /* TabBarAppearance.swift */,
+				B10000012B00000000000214 /* StickyCTA.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -1144,6 +1185,13 @@
 				A10000012B00000000000201 /* SectionHeader.swift in Sources */,
 				A10000012B00000000000202 /* ProgressBar.swift in Sources */,
 				A10000012B00000000000203 /* EmptyStateTile.swift in Sources */,
+				A10000012B00000000000208 /* AppRoute.swift in Sources */,
+				A10000012B00000000000209 /* AppRouter.swift in Sources */,
+				A10000012B00000000000210 /* AppEnvironment.swift in Sources */,
+				A10000012B00000000000211 /* AppShellView.swift in Sources */,
+				A10000012B00000000000212 /* TabBarStyle.swift in Sources */,
+				A10000012B00000000000213 /* TabBarAppearance.swift in Sources */,
+				A10000012B00000000000214 /* StickyCTA.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1191,6 +1239,10 @@
 				A10000012B00000000000186 /* ExerciseCatalogTests.swift in TestSources */,
 				A10000012B00000000000188 /* DesignSystemTests.swift in TestSources */,
 				A10000012B00000000000189 /* IconMapTests.swift in TestSources */,
+				A10000012B00000000000204 /* AppRouteTests.swift in TestSources */,
+				A10000012B00000000000205 /* TabBarStyleTests.swift in TestSources */,
+				A10000012B00000000000206 /* StickyCTALayoutTests.swift in TestSources */,
+				A10000012B00000000000207 /* AppShellSmokeTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
