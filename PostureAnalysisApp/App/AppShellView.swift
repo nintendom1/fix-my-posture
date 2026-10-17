@@ -76,9 +76,9 @@ struct AppShellView: View {
         case .routineEditor(let id):
             RoutineEditorRouteView(viewModel: environment.makeRoutineEditorViewModel(id: id))
         case .library:
-            WorkoutSelectionView(mode: .library)
+            LibraryRouteView(viewModel: environment.libraryViewModel)
         case .exercise(let id):
-            ExerciseRouteView(id: id)
+            ExerciseDetailRouteView(viewModel: environment.makeExerciseDetailViewModel(id: id))
         case .workout:
             Text("Workout camera is presented full screen.")
         case .workoutComplete:
@@ -166,33 +166,27 @@ private struct ProgressTabRootView: View {
     }
 }
 
-private struct ExerciseRouteView: View {
-    @Environment(\.exerciseCatalog) private var exerciseCatalog
-    @Environment(\.appRouter) private var router
-    let id: ExerciseID
+private struct LibraryRouteView: View {
+    @State private var viewModel: LibraryViewModel
 
-    private var exercise: ExerciseDefinition? { exerciseCatalog.exercise(id) }
+    init(viewModel: LibraryViewModel) {
+        _viewModel = State(initialValue: viewModel)
+    }
 
     var body: some View {
-        Group {
-            if let exercise {
-                List {
-                    Section(exercise.displayName) {
-                        Text(exercise.guide.summary)
-                        Text(exercise.setsAndRepsLabel)
-                    }
-                    Section {
-                        Button("Start Workout") {
-                            router?.open(.workout(exerciseID: exercise.id, routineID: nil))
-                        }
-                    }
-                }
-            } else {
-                ContentUnavailableView("Exercise Unavailable", systemImage: "figure.strengthtraining.traditional")
-            }
-        }
-        .navigationTitle(exercise?.displayName ?? "Exercise")
-        .navigationBarTitleDisplayMode(.inline)
+        LibraryScreen(state: viewModel.state, send: viewModel.send)
+    }
+}
+
+private struct ExerciseDetailRouteView: View {
+    @State private var viewModel: ExerciseDetailViewModel
+
+    init(viewModel: ExerciseDetailViewModel) {
+        _viewModel = State(initialValue: viewModel)
+    }
+
+    var body: some View {
+        ExerciseDetailScreen(state: viewModel.state, send: viewModel.send)
     }
 }
 

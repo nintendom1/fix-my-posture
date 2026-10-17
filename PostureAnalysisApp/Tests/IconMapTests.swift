@@ -3,6 +3,10 @@ import UIKit
 @testable import PostureAnalysisApp
 
 final class IconMapTests: XCTestCase {
+    func testDragIndicatorUsesTheMaterialTwoByThreeDotGrip() {
+        XCTAssertEqual(IconMap.symbol(for: "drag_indicator"), "circle.grid.2x2.fill")
+    }
+
     func testEveryDesignMetricMaterialIconMapsToAnAvailableIOS17Symbol() throws {
         let names = try DesignMetrics.load().allIcons
         XCTAssertEqual(names.count, 60)

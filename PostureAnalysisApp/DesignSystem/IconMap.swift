@@ -18,7 +18,7 @@ enum IconMap {
         "content_copy": "doc.on.doc",
         "delete": "trash",
         "description": "doc.text.fill",
-        "drag_indicator": "line.3.horizontal",
+        "drag_indicator": "circle.grid.2x2.fill",
         "edit": "pencil",
         "expand_less": "chevron.up",
         "favorite": "heart.fill",

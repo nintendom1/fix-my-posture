@@ -33,6 +33,15 @@ final class DesignMetricsTests: XCTestCase {
             "statusBar": "The iOS status bar belongs to the snapshot window, outside RoutineEditorScreen.",
             "editor.time": "Phase 4.4 adds routine duration estimates; the editor shows no time estimate.",
             "tabbar": "RoutineEditorScreen hides the native tab bar while the editor is open."
+        ],
+        "library": [
+            "statusBar": "The iOS status bar belongs to the snapshot window, outside LibraryScreen.",
+            "tabbar": "The native TabView owns the tab bar; LibraryScreen does not lay it out."
+        ],
+        "exercise": [
+            "statusBar": "The iOS status bar belongs to the snapshot window, outside ExerciseDetailScreen.",
+            "exercise.favorite": "The favourite heart is deferred.",
+            "tabbar": "The native TabView owns the tab bar; ExerciseDetailScreen does not lay it out."
         ]
     ]
 
@@ -74,6 +83,18 @@ final class DesignMetricsTests: XCTestCase {
     func testNewRoutineFrame() throws {
         let result = try SnapshotHost.render(RoutineEditorFixtures.newRoutineTabView, frameId: "editor-new", testCase: self)
         try assertAnchors(frameId: "editor-new", actual: result.snapshotMeasuredAnchors)
+    }
+
+    @MainActor
+    func testLibraryFrame() throws {
+        let result = try SnapshotHost.render(LibraryFixtures.designTabView, frameId: "library", testCase: self)
+        try assertAnchors(frameId: "library", actual: result.snapshotMeasuredAnchors)
+    }
+
+    @MainActor
+    func testExerciseDetailFrame() throws {
+        let result = try SnapshotHost.render(ExerciseDetailFixtures.designTabView, frameId: "exercise", testCase: self)
+        try assertAnchors(frameId: "exercise", actual: result.snapshotMeasuredAnchors)
     }
 
     @MainActor
