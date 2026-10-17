@@ -39,34 +39,44 @@ final class LibraryViewModel: LibraryViewModeling {
         case .exerciseSelected(let id):
             guard exerciseCatalog.exercise(id) != nil else { return }
             router.open(.exercise(id: id))
+        case .filterSelected(let filter):
+            state.selectedFilter = filter
+            refresh()
+        case .queryChanged(let query):
+            state.query = query
+            refresh()
+        case .clearFilters:
+            state.selectedFilter = .all
+            state.query = ""
+            refresh()
         }
     }
 
     private func refresh() {
         let weights = latestWeights()
         let exercises = ExerciseTargetStore.applying(to: exerciseCatalog.all, preferences: preferences)
+        let filteredExercises = ExerciseFilter.apply(exercises, chip: state.selectedFilter, query: state.query)
         let groups: [(String, ExerciseFilterGroup)] = [
             ("Upper body", .upper),
             ("Lower body", .lower)
         ]
-        state.groups = groups.map { title, filter in
-            LibraryExerciseGroup(
-                title: title,
-                exercises: exercises.compactMap { exercise in
-                    guard exercise.presentation.filterGroups.contains(filter) else { return nil }
-                    return LibraryExerciseRow(
-                        id: exercise.id,
-                        name: libraryName(for: exercise),
-                        muscles: exercise.presentation.muscles.joined(separator: " · "),
-                        target: "\(exercise.sets) × \(exercise.targetLabel)" + (exercise.perSide ? " / side" : ""),
-                        weight: weights[exercise.id],
-                        equipment: exercise.presentation.equipmentLine,
-                        cameraSetup: exercise.presentation.cameraSetupLine,
-                        gradient: exercise.presentation.gradient,
-                        symbolName: exercise.presentation.symbolName
-                    )
-                }
-            )
+        state.groups = groups.compactMap { title, filter in
+            let rows = filteredExercises.compactMap { exercise -> LibraryExerciseRow? in
+                guard exercise.presentation.filterGroups.contains(filter) else { return nil }
+                return LibraryExerciseRow(
+                    id: exercise.id,
+                    name: libraryName(for: exercise),
+                    muscles: exercise.presentation.muscles.joined(separator: " · "),
+                    target: "\(exercise.sets) × \(exercise.targetLabel)" + (exercise.perSide ? " / side" : ""),
+                    weight: weights[exercise.id],
+                    equipment: exercise.presentation.equipmentLine,
+                    cameraSetup: exercise.presentation.cameraSetupLine,
+                    gradient: exercise.presentation.gradient,
+                    symbolName: exercise.presentation.symbolName
+                )
+            }
+            guard !rows.isEmpty else { return nil }
+            return LibraryExerciseGroup(title: title, exercises: rows)
         }
     }
 

@@ -21,9 +21,19 @@ struct LibraryScreen: View {
                 searchField
                 filters
 
-                VStack(alignment: .leading, spacing: 16) {
-                    ForEach(state.groups) { group in
-                        exerciseGroup(group)
+                if let emptyState = state.emptyState {
+                    EmptyStateTile(
+                        title: emptyState.title,
+                        message: emptyState.message,
+                        icon: "magnifyingglass",
+                        actionTitle: emptyState.actionTitle,
+                        action: { send(.clearFilters) }
+                    )
+                } else {
+                    VStack(alignment: .leading, spacing: 16) {
+                        ForEach(state.groups) { group in
+                            exerciseGroup(group)
+                        }
                     }
                 }
 
@@ -64,11 +74,13 @@ struct LibraryScreen: View {
             Image(material: "search")
                 .font(.system(size: 18, weight: .bold, design: .rounded))
                 .foregroundStyle(ColorTokens.palette().textSubtle)
-            TextField(state.searchPlaceholder, text: .constant(""))
+            TextField(state.searchPlaceholder, text: searchBinding)
                 .font(.system(size: 16, weight: .bold, design: .rounded))
                 .foregroundStyle(ColorTokens.palette().textSubtle)
                 .textFieldStyle(.plain)
-                .disabled(!state.isSearchEnabled)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .accessibilityLabel(state.searchPlaceholder)
                 .accessibilityIdentifier("librarySearch")
         }
         .padding(.horizontal, 12)
@@ -80,16 +92,17 @@ struct LibraryScreen: View {
     private var filters: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
-                ForEach(LibraryFilter.allCases) { filter in
-                    Button {} label: {
+                ForEach(ExerciseFilterChip.allCases) { filter in
+                    let isSelected = filter == state.selectedFilter
+                    Button { send(.filterSelected(filter)) } label: {
                         Text(filter.title)
                             .font(.system(size: 14, weight: .heavy, design: .rounded))
-                            .foregroundStyle(filter == .all
+                            .foregroundStyle(isSelected
                                 ? ColorTokens.palette().filterSelectedText
                                 : ColorTokens.palette().filterUnselectedText)
-                            .frame(width: filter.anchorWidth, height: Metrics.Size.filterChipVisual)
+                            .frame(width: filterWidth(for: filter), height: Metrics.Size.filterChipVisual)
                             .background(
-                                filter == .all
+                                isSelected
                                     ? ColorTokens.palette().textPrimary
                                     : ColorTokens.palette().filterUnselectedBackground,
                                 in: Capsule()
@@ -98,7 +111,7 @@ struct LibraryScreen: View {
                             .designAnchor(filterAnchor(for: filter))
                     }
                     .buttonStyle(.plain)
-                    .accessibilityAddTraits(filter == .all ? .isSelected : [])
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
             }
         }
@@ -192,11 +205,25 @@ struct LibraryScreen: View {
         return "Floor camera"
     }
 
-    private func filterAnchor(for filter: LibraryFilter) -> String {
+    private var searchBinding: Binding<String> {
+        Binding(get: { state.query }, set: { send(.queryChanged($0)) })
+    }
+
+    private func filterWidth(for filter: ExerciseFilterChip) -> CGFloat {
+        switch filter {
+        case .all: return 48
+        case .upper: return 105.5
+        case .lower: return 106
+        case .bodyweight: return 108.5
+        case .dumbbells: return 101
+        }
+    }
+
+    private func filterAnchor(for filter: ExerciseFilterChip) -> String {
         switch filter {
         case .all: return "library.filter.all"
-        case .upperBody: return "library.filter.upperBody"
-        case .lowerBody: return "library.filter.lowerBody"
+        case .upper: return "library.filter.upperBody"
+        case .lower: return "library.filter.lowerBody"
         case .bodyweight: return "library.filter.bodyweight"
         case .dumbbells: return "library.filter.dumbbells"
         }

@@ -176,14 +176,11 @@ final class RoutineEditorViewModel: RoutineEditorViewModeling {
 
     private func refreshPickerExercises() {
         let counts = Dictionary(grouping: state.items, by: \.exerciseID).mapValues(\.count)
-        let search = state.pickerSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
         let designOrder = ["shoulder_press", "hammer_curl", "triceps_extension", "dumbbell_row", "air_squat", "push_up"]
+        let matchingIDs = Set(ExerciseFilter.apply(exerciseCatalog.all, chip: .all, query: state.pickerSearchText).map(\.id))
         let catalogItems = exerciseCatalog.all.enumerated().compactMap { index, exercise -> (Int, ExerciseDefinition, Int)? in
             let count = counts[exercise.id, default: 0]
-            let presentation = exercise.presentation
-            let searchable = ([presentation.shortName, exercise.displayName] + presentation.muscles)
-                .joined(separator: " ")
-            guard search.isEmpty || searchable.localizedCaseInsensitiveContains(search) else { return nil }
+            guard matchingIDs.contains(exercise.id) else { return nil }
             return (index, exercise, count)
         }
         let sorted = catalogItems.sorted { left, right in

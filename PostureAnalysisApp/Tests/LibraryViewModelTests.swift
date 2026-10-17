@@ -9,11 +9,45 @@ final class LibraryViewModelTests: XCTestCase {
     func testGroupsFollowCatalogOrderAndExerciseFilterGroups() {
         let viewModel = makeViewModel()
 
+        XCTAssertEqual(viewModel.state.selectedFilter, .all)
+        XCTAssertEqual(viewModel.state.query, "")
         XCTAssertEqual(viewModel.state.groups.map(\.title), ["Upper body", "Lower body"])
         XCTAssertEqual(viewModel.state.groups[0].exercises.map(\.id), [
             .shoulderPress, .hammerCurl, .tricepsExtension, .dumbbellRow, .pushUp
         ])
         XCTAssertEqual(viewModel.state.groups[1].exercises.map(\.id), [.airSquat])
+    }
+
+    func testFilterChipAndQueryUpdateStateAndResults() {
+        let viewModel = makeViewModel()
+
+        viewModel.send(.filterSelected(.dumbbells))
+        XCTAssertEqual(viewModel.state.selectedFilter, .dumbbells)
+        XCTAssertEqual(viewModel.state.groups.map(\.title), ["Upper body"])
+        XCTAssertEqual(viewModel.state.groups.flatMap(\.exercises).map(\.id), [
+            .shoulderPress, .hammerCurl, .dumbbellRow
+        ])
+
+        viewModel.send(.queryChanged("  press  "))
+        XCTAssertEqual(viewModel.state.query, "  press  ")
+        XCTAssertEqual(viewModel.state.groups.flatMap(\.exercises).map(\.id), [.shoulderPress])
+    }
+
+    func testEmptyGroupsAreHiddenAndNoMatchesOffersClearFilters() {
+        let viewModel = makeViewModel()
+
+        viewModel.send(.filterSelected(.lower))
+        XCTAssertEqual(viewModel.state.groups.map(\.title), ["Lower body"])
+
+        viewModel.send(.queryChanged("nothing matches"))
+        XCTAssertTrue(viewModel.state.groups.isEmpty)
+        XCTAssertEqual(viewModel.state.emptyState, .noMatches)
+
+        viewModel.send(.clearFilters)
+        XCTAssertEqual(viewModel.state.selectedFilter, .all)
+        XCTAssertEqual(viewModel.state.query, "")
+        XCTAssertNil(viewModel.state.emptyState)
+        XCTAssertEqual(viewModel.state.groups.map(\.title), ["Upper body", "Lower body"])
     }
 
     func testRowsShowSavedSetsAndRepsTargetAndMostRecentWeight() throws {
