@@ -5,6 +5,7 @@ import SwiftUI
 struct SavedSetEditorView: View {
     let isNew: Bool
     let catalog: [ExerciseDefinition]
+    let wrapsInNavigationStack: Bool
     let onSave: (SavedExerciseSet) -> Void
     let onDelete: (SavedExerciseSet) -> Void
     let onDuplicate: (SavedExerciseSet) -> Void
@@ -15,9 +16,10 @@ struct SavedSetEditorView: View {
 
     init(set: SavedExerciseSet, isNew: Bool, catalog: [ExerciseDefinition],
          onSave: @escaping (SavedExerciseSet) -> Void, onDelete: @escaping (SavedExerciseSet) -> Void,
-         onDuplicate: @escaping (SavedExerciseSet) -> Void) {
+         onDuplicate: @escaping (SavedExerciseSet) -> Void, wrapsInNavigationStack: Bool = true) {
         self.isNew = isNew
         self.catalog = catalog
+        self.wrapsInNavigationStack = wrapsInNavigationStack
         self.onSave = onSave
         self.onDelete = onDelete
         self.onDuplicate = onDuplicate
@@ -28,9 +30,17 @@ struct SavedSetEditorView: View {
         !draft.name.trimmingCharacters(in: .whitespaces).isEmpty && !draft.items.isEmpty
     }
 
+    @ViewBuilder
     var body: some View {
-        NavigationStack {
-            Form {
+        if wrapsInNavigationStack {
+            NavigationStack { editorForm }
+        } else {
+            editorForm
+        }
+    }
+
+    private var editorForm: some View {
+        Form {
                 Section("Name") {
                     TextField("Name", text: $draft.name)
                         .accessibilityIdentifier("savedSetNameField")
@@ -69,32 +79,31 @@ struct SavedSetEditorView: View {
                         }
                     }
                 }
+        }
+        .environment(\.editMode, .constant(.active))
+        .navigationTitle(isNew ? "New Saved Set" : "Edit Saved Set")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel") { dismiss() }
             }
-            .environment(\.editMode, .constant(.active))
-            .navigationTitle(isNew ? "New Saved Set" : "Edit Saved Set")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        var saved = draft
-                        saved.name = draft.name.trimmingCharacters(in: .whitespaces)
-                        onSave(saved)
-                        dismiss()
-                    }
-                    .disabled(!canSave)
-                    .accessibilityIdentifier("saveSavedSetButton")
-                }
-            }
-            .confirmationDialog("Delete \(draft.name)?", isPresented: $confirmingDelete, titleVisibility: .visible) {
-                Button("Delete Saved Set", role: .destructive) {
-                    onDelete(draft)
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Save") {
+                    var saved = draft
+                    saved.name = draft.name.trimmingCharacters(in: .whitespaces)
+                    onSave(saved)
                     dismiss()
                 }
-                Button("Keep It", role: .cancel) {}
+                .disabled(!canSave)
+                .accessibilityIdentifier("saveSavedSetButton")
             }
+        }
+        .confirmationDialog("Delete \(draft.name)?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+            Button("Delete Saved Set", role: .destructive) {
+                onDelete(draft)
+                dismiss()
+            }
+            Button("Keep It", role: .cancel) {}
         }
     }
 }

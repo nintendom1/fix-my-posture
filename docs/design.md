@@ -99,6 +99,28 @@ The 60 Material Symbols names from `Design/Metrics/design-metrics.json` map one-
 
 `Components/` contains previewed, value-driven building blocks: `PrimaryButton` (gradient or white, 56/58 pt, 18 pt Black label and 24 pt icon), `CapsuleButton`, `FilterChip`, `StatusChip`, `SectionHeader`, `ProgressBar`, and `EmptyStateTile`. Interactive chips keep a 44 pt hit target. The filter pill is 36 pt high, uses 14 pt Heavy text and the HTML's selected/unselected colors; the status chip is 24 pt high with a 12 pt Heavy label and green/red text tint. The HUD toggle button is 44 pt. The progress bar is 10 pt high with a 5 pt rounded end, 16% white track, and a gradient fill. The gallery preview shows the tokens, type ramp, icon map, and all base components together.
 
+## Navigation and routes (Phase 2.2)
+
+`PostureAnalysisApp/App/` owns the composition root and the app shell. `AppEnvironment` constructs the router, preferences, SwiftData container and repositories, exercise catalog, and workout factory once, then provides them through SwiftUI's environment. `PostureAnalysisApp` starts at `AppShellView`.
+
+The native `TabView` order is Train, Routines, Progress, Posture. Each tab owns a `NavigationStack` and an `[AppRoute]` path managed by the Foundation-only `AppRouter`. Selecting a different tab preserves its path; selecting the active tab again returns it to its root. `AppRoute` is Codable and Hashable so route state can be tested without rendering SwiftUI. Settings and the workout camera use a full-screen presentation over the tabs; the remaining routes push into their owning stack.
+
+| Route | Tab or presentation | Current entry point |
+|---|---|---|
+| `train`, `library`, `exercise(id)` | Train stack | Workout Coach list; Library is pushed from the Train toolbar |
+| `routines`, `routine(id)`, `routineEditor(id?)` | Routines stack | Saved Sets tab and its create/edit controls |
+| `progress`, `history` | Progress stack | Progress opens Workout History; Train's History control opens the same route |
+| `posture`, `postureHistory`, `assessment(id)` | Posture stack | Posture home and saved assessment history/details |
+| `livePostureCheck`, `photoAssessment(view)` | Posture flow | Existing realtime and camera/library flows in the Posture home |
+| `settings` | Full-screen over Train | Train gear; temporary screen has camera tilt, acknowledgements, diagnostics guidance, and Done |
+| `workout(exerciseID?, routineID?)`, `workoutComplete` | Full-screen camera / completion | Train exercise or Saved Set; the camera remains full screen |
+
+Workout history and posture assessment history are distinct: `.history` is workout history with weight editing under Progress, while `.postureHistory` is the saved assessment list with baseline selection under Posture. The report's Developer Diagnostics button and assessment landmark editor remain in the Posture assessment flow. The legacy screen styling is retained in this phase.
+
+The tab bar uses a dark material blur with `rgba(18,14,28,.84)`, a white 6% top hairline, inactive `#7D758C` icons and labels, and 11 pt rounded Heavy labels. The selected tint is `#C9B3FF` for Train, Routines, and Progress, and `#9FB0FF` for Posture. `TabBarStyle` holds the testable values; `TabBarAppearance` applies the UIKit appearance once at launch.
+
+`View.stickyCTA { ... }` reserves a 58 pt button, 16 pt horizontal insets, and 12 pt above the tab bar through a bottom safe-area inset. It is not attached to production screens yet; `StickyCTALayoutFixture` exercises the layout in DEBUG snapshots.
+
 ### Assumptions
 
 - The design system block does not show a light palette, so `.light` currently falls back to dark.
@@ -107,3 +129,4 @@ The 60 Material Symbols names from `Design/Metrics/design-metrics.json` map one-
 - The HTML provides the CapsuleButton in its component list but no single canonical size; its visible pill is 40 pt with a 44 pt hit target.
 - The eyebrow role is not specified in the type ramp; it uses 11 pt Heavy with 1 pt tracking, matching the compact uppercase section labels.
 - Caption 1 uses 13 pt Bold and Caption 2 uses 12 pt Semibold, selecting from the HTML's 12–13 pt caption range.
+- Assessment history and workout history remain separate: the tested `.history` route belongs to Progress, so Posture uses the additional `.postureHistory` route.

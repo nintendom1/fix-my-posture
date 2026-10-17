@@ -12,7 +12,7 @@ public struct HistoryView: View {
             } else {
                 Section("Saved Assessments") {
                     ForEach(storedAssessments) { entity in
-                        NavigationLink(destination: detailView(for: entity)) {
+                        NavigationLink(value: AppRoute.assessment(id: entity.id)) {
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
                                     HStack {
@@ -56,72 +56,6 @@ public struct HistoryView: View {
         .navigationTitle("History")
     }
 
-    private func detailView(for entity: AssessmentEntity) -> some View {
-        let currentAssessment = convertToDomain(entity)
-        let uiImg = appRepositories?.images.loadImage(relativePath: entity.imageRelativePath)
-
-        let baselineEntity = storedAssessments.first(where: { $0.isBaseline && $0.viewRawValue == entity.viewRawValue && $0.id != entity.id })
-        let baselineAssessment = baselineEntity.map { convertToDomain($0) }
-
-        return AssessmentDetailView(assessment: currentAssessment, image: uiImg, baselineAssessment: baselineAssessment)
-    }
-
-    private func convertToDomain(_ entity: AssessmentEntity) -> PostureAssessment {
-        var landmarks: [LandmarkType: Landmark] = [:]
-        for lm in entity.landmarks {
-            if let type = LandmarkType(rawValue: lm.typeRawValue) {
-                landmarks[type] = Landmark(
-                    type: type,
-                    normalizedLocation: CGPoint(x: lm.normalizedX, y: lm.normalizedY),
-                    imageLocation: CGPoint(x: lm.imageX, y: lm.imageY),
-                    confidence: lm.confidence,
-                    isManuallyCorrected: lm.isManuallyCorrected
-                )
-            }
-        }
-
-        var measurements: [PostureMeasurement] = []
-        for m in entity.measurements {
-            let mID = m.resolvedID
-            let lmTypes = m.landmarksUsedRaw.split(separator: ",").compactMap { LandmarkType(rawValue: String($0)) }
-            measurements.append(PostureMeasurement(
-                id: mID,
-                name: m.name,
-                value: m.value,
-                unit: m.unit,
-                landmarksUsed: lmTypes,
-                confidence: m.confidence,
-                explanation: m.explanation
-            ))
-        }
-
-        let pose = BodyPose(landmarks: landmarks, imageWidth: CGFloat(entity.imageWidth), imageHeight: CGFloat(entity.imageHeight))
-        let pView = PostureView(rawValue: entity.viewRawValue) ?? .uncertain
-
-        let horizonCtx: HorizonContext?
-        if let angle = entity.horizonAngle,
-           let srcRaw = entity.horizonSourceRawValue,
-           let src = HorizonSource(rawValue: srcRaw),
-           let applied = entity.isHorizonCompensationApplied {
-            horizonCtx = HorizonContext(angleDegrees: angle, source: src, isCompensationApplied: applied)
-        } else {
-            horizonCtx = nil
-        }
-
-        return PostureAssessment(
-            id: entity.id,
-            date: entity.date,
-            imageRelativePath: entity.imageRelativePath,
-            view: pView,
-            pose: pose,
-            measurements: measurements,
-            warnings: [],
-            isBaseline: entity.isBaseline,
-            appVersion: entity.appVersion,
-            horizonContext: horizonCtx
-        )
-    }
-
     private func toggleBaseline(entity: AssessmentEntity) {
         let newValue = !entity.isBaseline
         try? appRepositories?.assessments.setBaseline(id: entity.id, isBaseline: newValue)
@@ -134,5 +68,80 @@ public struct HistoryView: View {
             appRepositories.images.deleteImage(relativePath: item.imageRelativePath)
             try? appRepositories.assessments.delete(id: item.id)
         }
+    }
+}
+
+struct AssessmentRouteView: View {
+    @Environment(\.appRepositories) private var appRepositories
+    @Query(sort: \AssessmentEntity.date, order: .reverse) private var assessments: [AssessmentEntity]
+    let id: UUID
+
+    private var entity: AssessmentEntity? { assessments.first { $0.id == id } }
+
+    var body: some View {
+        Group {
+            if let entity {
+                let baseline = assessments.first {
+                    $0.isBaseline && $0.viewRawValue == entity.viewRawValue && $0.id != entity.id
+                }
+                AssessmentDetailView(
+                    assessment: convertToDomain(entity),
+                    image: appRepositories?.images.loadImage(relativePath: entity.imageRelativePath),
+                    baselineAssessment: baseline.map(convertToDomain)
+                )
+            } else {
+                ContentUnavailableView("Assessment Unavailable", systemImage: "figure.walk")
+            }
+        }
+    }
+
+    private func convertToDomain(_ entity: AssessmentEntity) -> PostureAssessment {
+        var landmarks: [LandmarkType: Landmark] = [:]
+        for landmark in entity.landmarks {
+            guard let type = LandmarkType(rawValue: landmark.typeRawValue) else { continue }
+            landmarks[type] = Landmark(
+                type: type,
+                normalizedLocation: CGPoint(x: landmark.normalizedX, y: landmark.normalizedY),
+                imageLocation: CGPoint(x: landmark.imageX, y: landmark.imageY),
+                confidence: landmark.confidence,
+                isManuallyCorrected: landmark.isManuallyCorrected
+            )
+        }
+
+        let measurements = entity.measurements.map { measurement in
+            PostureMeasurement(
+                id: measurement.resolvedID,
+                name: measurement.name,
+                value: measurement.value,
+                unit: measurement.unit,
+                landmarksUsed: measurement.landmarksUsedRaw.split(separator: ",")
+                    .compactMap { LandmarkType(rawValue: String($0)) },
+                confidence: measurement.confidence,
+                explanation: measurement.explanation
+            )
+        }
+        let pose = BodyPose(landmarks: landmarks, imageWidth: CGFloat(entity.imageWidth), imageHeight: CGFloat(entity.imageHeight))
+        let horizonContext: HorizonContext?
+        if let angle = entity.horizonAngle,
+           let sourceValue = entity.horizonSourceRawValue,
+           let source = HorizonSource(rawValue: sourceValue),
+           let applied = entity.isHorizonCompensationApplied {
+            horizonContext = HorizonContext(angleDegrees: angle, source: source, isCompensationApplied: applied)
+        } else {
+            horizonContext = nil
+        }
+
+        return PostureAssessment(
+            id: entity.id,
+            date: entity.date,
+            imageRelativePath: entity.imageRelativePath,
+            view: PostureView(rawValue: entity.viewRawValue) ?? .uncertain,
+            pose: pose,
+            measurements: measurements,
+            warnings: [],
+            isBaseline: entity.isBaseline,
+            appVersion: entity.appVersion,
+            horizonContext: horizonContext
+        )
     }
 }

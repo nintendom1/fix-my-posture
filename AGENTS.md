@@ -12,6 +12,7 @@ A native Swift and SwiftUI iOS application designed for iPhone 15 Pro that analy
 
 ```text
 PostureAnalysisApp/
+├── App/                 # Codable routes, Foundation-only router, composition root, four-tab shell, tab-bar style, sticky CTA slot
 ├── Models/              # Domain models (BodyPose, Landmark, PostureMeasurement, MeasurementID, PostureAssessment)
 ├── Preferences/         # Typed AppPreferencesStoring boundary, UserDefaults and in-memory stores, SwiftUI environment key
 ├── DesignSystem/        # Dark-first SwiftUI tokens, type, icons, aura, components, DEBUG gallery, layout anchors, and motion policy
