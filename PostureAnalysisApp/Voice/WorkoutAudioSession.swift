@@ -9,16 +9,8 @@ import Foundation
 /// coach speaks, because ducking only takes effect when the session is activated and other audio
 /// is only restored when it is deactivated.
 @MainActor
-final class WorkoutAudioSession {
-    enum Event {
-        case interruptionBegan
-        case interruptionEnded(shouldResume: Bool)
-        case mediaServicesReset
-        /// Headphones or another input/output device appeared or went away.
-        case routeChanged
-        /// A delayed restore re-activated the session for listening.
-        case reactivated
-    }
+final class WorkoutAudioSession: AudioSessionControlling {
+    typealias Event = AudioSessionEvent
 
     private let session = AVAudioSession.sharedInstance()
     private var observers: [NSObjectProtocol] = []

@@ -9,26 +9,8 @@ import Foundation
 /// - A transcript that stays unchanged for 1.2 s ends the utterance, so later commands aren't buried
 ///   in earlier chatter.
 @MainActor
-final class WorkoutVoiceController {
-    enum Status: Equatable {
-        case off
-        case requestingPermission
-        case needsPermission
-        case listening
-        case coachSpeaking
-        case paused
-        /// The user turned the microphone off.
-        case muted
-        case unavailable(String)
-
-        /// Voice commands work now or will resume on their own.
-        var isUsable: Bool {
-            switch self {
-            case .listening, .coachSpeaking, .paused: return true
-            default: return false
-            }
-        }
-    }
+final class WorkoutVoiceController: VoiceControlling {
+    typealias Status = VoiceStatus
 
     static let ambiguousSettleTime: TimeInterval = 0.6
     static let utteranceEndTime: TimeInterval = 1.2
@@ -46,23 +28,26 @@ final class WorkoutVoiceController {
     private let recognizer: SpeechRecognizing
     private let parser: VoiceCommandParsing
     private let permissions: VoicePermissionProviding
-    private let audio: WorkoutAudioSession?
+    private let audio: AudioSessionControlling?
     private let clock: () -> TimeInterval
+    private let scheduler: Scheduling
     private var wantsListening = false
     private var isCoachSpeaking = false
     private var isRecognizing = false
     private var transcript = ""
     private var transcriptChangedAt: TimeInterval = 0
     private var pending: VoiceCommandMatch?
-    private var checkTimer: Timer?
+    private var checkTimer: Cancellable?
 
     init(recognizer: SpeechRecognizing, parser: VoiceCommandParsing, permissions: VoicePermissionProviding,
-         audio: WorkoutAudioSession?, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
+         audio: AudioSessionControlling?, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+         scheduler: Scheduling? = nil) {
         self.recognizer = recognizer
         self.parser = parser
         self.permissions = permissions
         self.audio = audio
         self.clock = clock
+        self.scheduler = scheduler ?? MainScheduler()
         recognizer.setContextualStrings(parser.vocabulary)
         recognizer.onTranscript = { [weak self] text, isFinal in
             MainActor.assumeIsolated { self?.handleTranscript(text, isFinal: isFinal) }
@@ -139,7 +124,7 @@ final class WorkoutVoiceController {
     }
 
     /// The audio route or session changed underneath a running engine.
-    func handleAudioEvent(_ event: WorkoutAudioSession.Event) {
+    func handleAudioEvent(_ event: AudioSessionEvent) {
         switch event {
         case .routeChanged:
             if isRecognizing { recognizer.reconfigureInput() }
@@ -179,14 +164,12 @@ final class WorkoutVoiceController {
         resetTranscript()
         isRecognizing = true
         recognizer.start()
-        checkTimer?.invalidate()
-        checkTimer = Timer.scheduledTimer(withTimeInterval: Self.checkInterval, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.checkTranscript() }
-        }
+        checkTimer?.cancel()
+        checkTimer = scheduler.repeating(every: Self.checkInterval) { [weak self] in self?.checkTranscript() }
     }
 
     private func stopRecognizing() {
-        checkTimer?.invalidate()
+        checkTimer?.cancel()
         checkTimer = nil
         resetTranscript()
         guard isRecognizing else { return }
@@ -200,7 +183,7 @@ final class WorkoutVoiceController {
             if wantsListening, !isCoachSpeaking { status = .listening }
         case .unavailable(let reason):
             isRecognizing = false
-            checkTimer?.invalidate()
+            checkTimer?.cancel()
             checkTimer = nil
             audio?.stopListening()
             status = .unavailable(reason)

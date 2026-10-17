@@ -26,14 +26,14 @@ final class SpeechCoach: NSObject, SpeechCoaching {
     var isSpeaking: Bool { isActive }
 
     private let synthesizer = AVSpeechSynthesizer()
-    private let audio: WorkoutAudioSession
+    private let audio: AudioSessionControlling
     private let voice: AVSpeechSynthesisVoice?
     private var queue: [Utterance] = []
     private var current: AVSpeechUtterance?
     private var isActive = false
     private var watchdog: Timer?
 
-    init(audio: WorkoutAudioSession) {
+    init(audio: AudioSessionControlling) {
         self.audio = audio
         voice = Self.preferredVoice()
         super.init()

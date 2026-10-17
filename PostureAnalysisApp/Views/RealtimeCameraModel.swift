@@ -23,23 +23,6 @@ struct FeedbackRefreshGate {
 }
 
 @MainActor
-protocol RealtimeCameraPermission {
-    var status: AVAuthorizationStatus { get }
-    func request(_ completion: @escaping @MainActor (Bool) -> Void)
-}
-
-@MainActor
-struct SystemCameraPermission: RealtimeCameraPermission {
-    var status: AVAuthorizationStatus { AVCaptureDevice.authorizationStatus(for: .video) }
-
-    func request(_ completion: @escaping @MainActor (Bool) -> Void) {
-        AVCaptureDevice.requestAccess(for: .video) { granted in
-            Task { @MainActor in completion(granted) }
-        }
-    }
-}
-
-@MainActor
 public final class RealtimeCameraModel: ObservableObject {
     @Published public private(set) var state: RealtimeCameraState = .initializing
     @Published public private(set) var isFrontCamera = true
@@ -61,7 +44,7 @@ public final class RealtimeCameraModel: ObservableObject {
     }
 
     private let camera: RealtimeCaptureService
-    private let permission: RealtimeCameraPermission
+    private let permission: CameraPermissionProviding
     private var isViewActive = false
     private var isApplicationActive = false
     private var isRequestingPermission = false
@@ -73,7 +56,7 @@ public final class RealtimeCameraModel: ObservableObject {
         self.init(camera: RealtimeCameraController(estimator: poseEstimator), permission: SystemCameraPermission(), horizonMonitor: horizonMonitor)
     }
 
-    init(camera: RealtimeCaptureService, permission: RealtimeCameraPermission, horizonMonitor: HorizonMonitoring = CoreMotionHorizonMonitor()) {
+    init(camera: RealtimeCaptureService, permission: CameraPermissionProviding, horizonMonitor: HorizonMonitoring = CoreMotionHorizonMonitor()) {
         self.camera = camera
         self.permission = permission
         self.horizonMonitor = horizonMonitor

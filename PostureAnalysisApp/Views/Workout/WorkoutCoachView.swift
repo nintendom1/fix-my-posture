@@ -20,7 +20,7 @@ struct WorkoutCoachView: View {
     @State private var historySaved = false
 
     init(initialExercise: ExerciseID? = nil, plan: WorkoutPlan? = nil) {
-        _model = StateObject(wrappedValue: WorkoutCoachModel(initialExercise: initialExercise, plan: plan))
+        _model = StateObject(wrappedValue: WorkoutCoachModel.live(initialExercise: initialExercise, plan: plan))
     }
 
     var body: some View {
@@ -100,10 +100,12 @@ struct WorkoutCoachView: View {
     private var workoutContent: some View {
         GeometryReader { geo in
             ZStack {
-                RealtimeCameraPreview(session: model.captureSession, isMirrored: true)
-                    .frame(width: geo.size.width, height: geo.size.height)
-                    .allowsHitTesting(false)
-                    .clipped()
+                if let captureSession = model.captureSession {
+                    RealtimeCameraPreview(session: captureSession, isMirrored: true)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .allowsHitTesting(false)
+                        .clipped()
+                }
 
                 if let overlay = model.overlay {
                     if visualState.overlay == .ghostDemo,
