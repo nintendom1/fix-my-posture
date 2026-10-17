@@ -51,6 +51,14 @@ class PbxprojTests(unittest.TestCase):
         path.write_text(contents)
         return path
 
+    def next_file_number(self):
+        used = {
+            int(number)
+            for number in re.findall(rf"(?m)^\s*[AB]{ID_PREFIX}(\d{{14}})\b", self.project_text())
+        }
+        used.update({138, 139, 140, 141})
+        return max(used, default=0) + 1
+
     def assert_command_succeeded(self, result):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
@@ -68,19 +76,22 @@ class PbxprojTests(unittest.TestCase):
 
     def test_add_assigns_next_id(self):
         path = "PostureAnalysisApp/Utilities/NewHelper.swift"
+        expected_number = self.next_file_number()
         self.add_swift_file(path)
 
         result = self.run_helper("add", path)
 
         self.assert_command_succeeded(result)
         text = self.project_text()
-        self.assertIn(f"A{ID_PREFIX}00000000000142", text)
-        self.assertIn(f"B{ID_PREFIX}00000000000142", text)
+        suffix = f"{expected_number:014d}"
+        self.assertIn(f"A{ID_PREFIX}{suffix} /* NewHelper.swift in Sources */", text)
+        self.assertIn(f"B{ID_PREFIX}{suffix} /* NewHelper.swift */", text)
         self.assertNotRegex(text, rf"[AB]{ID_PREFIX}0000000000013[89]")
         self.assertNotRegex(text, rf"[AB]{ID_PREFIX}0000000000014[01]")
 
     def test_add_idempotent(self):
         path = "PostureAnalysisApp/Utilities/Idempotent.swift"
+        expected_number = self.next_file_number()
         self.add_swift_file(path)
 
         self.assert_command_succeeded(self.run_helper("add", path))
@@ -88,30 +99,32 @@ class PbxprojTests(unittest.TestCase):
         self.assert_command_succeeded(self.run_helper("add", path))
 
         self.assertEqual(self.project_text(), after_first_add)
-        self.assertEqual(after_first_add.count("B10000012B00000000000142 /* Idempotent.swift */ ="), 1)
-        self.assertEqual(after_first_add.count("A10000012B00000000000142 /* Idempotent.swift in Sources */ ="), 1)
+        suffix = f"{expected_number:014d}"
+        self.assertEqual(after_first_add.count(f"B{ID_PREFIX}{suffix} /* Idempotent.swift */ ="), 1)
+        self.assertEqual(after_first_add.count(f"A{ID_PREFIX}{suffix} /* Idempotent.swift in Sources */ ="), 1)
 
     def test_add_creates_missing_groups(self):
-        path = "PostureAnalysisApp/DesignSystem/Colors/Palette.swift"
+        path = "PostureAnalysisApp/ThemePreview/Colors/Palette.swift"
         self.add_swift_file(path)
 
         self.assert_command_succeeded(self.run_helper("add", path))
 
         text = self.project_text()
-        self.assertIn(f"H{ID_PREFIX}00000000000027 /* DesignSystem */", text)
-        self.assertIn(f"H{ID_PREFIX}00000000000028 /* Colors */", text)
-        self.assertIn("path = DesignSystem;", text)
+        self.assertRegex(text, rf"H{ID_PREFIX}\d{{14}} /\* ThemePreview \*/ =")
+        self.assertRegex(text, rf"H{ID_PREFIX}\d{{14}} /\* Colors \*/ =")
+        self.assertIn("path = ThemePreview;", text)
         self.assertIn("path = Colors;", text)
         self.assertIn("Palette.swift", text)
 
     def test_add_routes_tests_to_test_target(self):
         path = "PostureAnalysisApp/Tests/NewFeatureTests.swift"
+        expected_number = self.next_file_number()
         self.add_swift_file(path)
 
         self.assert_command_succeeded(self.run_helper("add", path))
 
         text = self.project_text()
-        build_file_id = f"A{ID_PREFIX}00000000000142"
+        build_file_id = f"A{ID_PREFIX}{expected_number:014d}"
         test_phase = next(
             match.group(0)
             for match in self.source_phase_blocks(text)

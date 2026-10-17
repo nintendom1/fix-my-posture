@@ -136,6 +136,16 @@
 		A10000012B00000000000135 /* WeightPhraseParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000135 /* WeightPhraseParser.swift */; };
 		A10000012B00000000000136 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000136 /* Assets.xcassets */; };
 		A10000012B00000000000137 /* AcknowledgementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000137 /* AcknowledgementsView.swift */; };
+		A10000012B00000000000142 /* DesignHarnessTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000142 /* DesignHarnessTests.swift */; };
+		A10000012B00000000000143 /* DesignAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000143 /* DesignAnchor.swift */; };
+		A10000012B00000000000144 /* MotionPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000144 /* MotionPolicy.swift */; };
+		A10000012B00000000000145 /* DesignWindow.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000145 /* DesignWindow.swift */; };
+		A10000012B00000000000146 /* SnapshotHost.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000146 /* SnapshotHost.swift */; };
+		A10000012B00000000000147 /* FixedClock.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000147 /* FixedClock.swift */; };
+		A10000012B00000000000148 /* DesignMetrics.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000148 /* DesignMetrics.swift */; };
+		A10000012B00000000000149 /* PendingFrames.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000149 /* PendingFrames.swift */; };
+		A10000012B00000000000150 /* DesignMetricsTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000150 /* DesignMetricsTests.swift */; };
+		A10000012B00000000000151 /* DesignCoverageTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000151 /* DesignCoverageTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -280,6 +290,16 @@
 		B10000012B00000000000135 /* WeightPhraseParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightPhraseParser.swift; sourceTree = "<group>"; };
 		B10000012B00000000000136 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B10000012B00000000000137 /* AcknowledgementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcknowledgementsView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000142 /* DesignHarnessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignHarnessTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000143 /* DesignAnchor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignAnchor.swift; sourceTree = "<group>"; };
+		B10000012B00000000000144 /* MotionPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionPolicy.swift; sourceTree = "<group>"; };
+		B10000012B00000000000145 /* DesignWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignWindow.swift; sourceTree = "<group>"; };
+		B10000012B00000000000146 /* SnapshotHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotHost.swift; sourceTree = "<group>"; };
+		B10000012B00000000000147 /* FixedClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixedClock.swift; sourceTree = "<group>"; };
+		B10000012B00000000000148 /* DesignMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignMetrics.swift; sourceTree = "<group>"; };
+		B10000012B00000000000149 /* PendingFrames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingFrames.swift; sourceTree = "<group>"; };
+		B10000012B00000000000150 /* DesignMetricsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignMetricsTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000151 /* DesignCoverageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignCoverageTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -324,6 +344,7 @@
 				H10000012B00000000000013 /* Workout */,
 				H10000012B00000000000019 /* Voice */,
 				B10000012B00000000000136 /* Assets.xcassets */,
+				H10000012B00000000000028 /* DesignSystem */,
 			);
 			path = PostureAnalysisApp;
 			sourceTree = "<group>";
@@ -458,6 +479,8 @@
 				B10000012B00000000000123 /* PushUpAnalyzerTests.swift */,
 				B10000012B00000000000128 /* SavedExerciseSetTests.swift */,
 				B10000012B00000000000133 /* WorkoutHistoryTests.swift */,
+				H10000012B00000000000027 /* Design */,
+				H10000012B00000000000029 /* Support */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -635,6 +658,37 @@
 				B10000012B00000000000122 /* PushUpAnalyzer.swift */,
 			);
 			path = PushUp;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000027 /* Design */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000142 /* DesignHarnessTests.swift */,
+				B10000012B00000000000148 /* DesignMetrics.swift */,
+				B10000012B00000000000149 /* PendingFrames.swift */,
+				B10000012B00000000000150 /* DesignMetricsTests.swift */,
+				B10000012B00000000000151 /* DesignCoverageTests.swift */,
+			);
+			path = Design;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000028 /* DesignSystem */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000143 /* DesignAnchor.swift */,
+				B10000012B00000000000144 /* MotionPolicy.swift */,
+			);
+			path = DesignSystem;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000029 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000145 /* DesignWindow.swift */,
+				B10000012B00000000000146 /* SnapshotHost.swift */,
+				B10000012B00000000000147 /* FixedClock.swift */,
+			);
+			path = Support;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -836,6 +890,8 @@
 				A10000012B00000000000132 /* WorkoutHistoryView.swift in Sources */,
 				A10000012B00000000000135 /* WeightPhraseParser.swift in Sources */,
 				A10000012B00000000000137 /* AcknowledgementsView.swift in Sources */,
+				A10000012B00000000000143 /* DesignAnchor.swift in Sources */,
+				A10000012B00000000000144 /* MotionPolicy.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -863,6 +919,14 @@
 				A10000012B00000000000123 /* PushUpAnalyzerTests.swift in TestSources */,
 				A10000012B00000000000128 /* SavedExerciseSetTests.swift in TestSources */,
 				A10000012B00000000000133 /* WorkoutHistoryTests.swift in TestSources */,
+				A10000012B00000000000142 /* DesignHarnessTests.swift in TestSources */,
+				A10000012B00000000000145 /* DesignWindow.swift in TestSources */,
+				A10000012B00000000000146 /* SnapshotHost.swift in TestSources */,
+				A10000012B00000000000147 /* FixedClock.swift in TestSources */,
+				A10000012B00000000000148 /* DesignMetrics.swift in TestSources */,
+				A10000012B00000000000149 /* PendingFrames.swift in TestSources */,
+				A10000012B00000000000150 /* DesignMetricsTests.swift in TestSources */,
+				A10000012B00000000000151 /* DesignCoverageTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

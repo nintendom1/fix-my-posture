@@ -1,0 +1,160 @@
+[
+  {
+    "id": "train",
+    "label": "1 · Train home",
+    "attrs": {
+      "start": "train"
+    }
+  },
+  {
+    "id": "routines",
+    "label": "2 · Routines",
+    "attrs": {
+      "start": "routines"
+    }
+  },
+  {
+    "id": "routine",
+    "label": "3 · Routine detail",
+    "attrs": {
+      "start": "routine"
+    }
+  },
+  {
+    "id": "library",
+    "label": "4 · Exercise library",
+    "attrs": {
+      "start": "library"
+    }
+  },
+  {
+    "id": "exercise",
+    "label": "5 · Exercise detail",
+    "attrs": {
+      "start": "exercise"
+    }
+  },
+  {
+    "id": "camera-ready",
+    "label": "6 · Workout camera (try it)",
+    "attrs": {
+      "start": "camera",
+      "cam": "ready"
+    }
+  },
+  {
+    "id": "complete",
+    "label": "7 · Workout complete",
+    "attrs": {
+      "start": "complete"
+    }
+  },
+  {
+    "id": "editor",
+    "label": "3b · Edit routine",
+    "attrs": {
+      "start": "editor"
+    }
+  },
+  {
+    "id": "editor-picker",
+    "label": "3c · Add exercise sheet",
+    "attrs": {
+      "start": "editor",
+      "picker": true
+    }
+  },
+  {
+    "id": "editor-new",
+    "label": "3d · New routine (empty)",
+    "attrs": {
+      "start": "editor",
+      "new-routine": true
+    }
+  },
+  {
+    "id": "camera-active",
+    "label": "Active",
+    "attrs": {
+      "start": "camera",
+      "cam": "active"
+    }
+  },
+  {
+    "id": "camera-paused",
+    "label": "Paused",
+    "attrs": {
+      "start": "camera",
+      "cam": "paused"
+    }
+  },
+  {
+    "id": "camera-tip",
+    "label": "Form tip",
+    "attrs": {
+      "start": "camera",
+      "cam": "tip"
+    }
+  },
+  {
+    "id": "camera-rest-coach-muted",
+    "label": "Resting · coach muted",
+    "attrs": {
+      "start": "camera",
+      "cam": "rest",
+      "spk-off": true
+    }
+  },
+  {
+    "id": "camera-lost-mic-off",
+    "label": "Tracking lost · mic off",
+    "attrs": {
+      "start": "camera",
+      "cam": "lost",
+      "mic-off": true
+    }
+  },
+  {
+    "id": "camera-tilt",
+    "label": "Phone tilted",
+    "attrs": {
+      "start": "camera",
+      "cam": "tilt"
+    }
+  },
+  {
+    "id": "progress",
+    "label": "8 · Progress",
+    "attrs": {
+      "start": "progress"
+    }
+  },
+  {
+    "id": "history",
+    "label": "9 · Workout history",
+    "attrs": {
+      "start": "history"
+    }
+  },
+  {
+    "id": "posture",
+    "label": "10 · Posture home",
+    "attrs": {
+      "start": "posture"
+    }
+  },
+  {
+    "id": "assessment",
+    "label": "11 · Posture assessment",
+    "attrs": {
+      "start": "assessment"
+    }
+  },
+  {
+    "id": "settings",
+    "label": "12 · Settings",
+    "attrs": {
+      "start": "settings"
+    }
+  }
+]

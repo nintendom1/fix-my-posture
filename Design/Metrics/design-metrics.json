@@ -1,0 +1,2405 @@
+{
+  "version": 1,
+  "renderer": "playwright-webkit-2370",
+  "viewport": {
+    "width": 390,
+    "height": 844,
+    "scale": 3
+  },
+  "frames": {
+    "train": {
+      "label": "1 · Train home",
+      "attrs": {
+        "start": "train"
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "train.title": {
+          "x": 20,
+          "y": 76,
+          "width": 98.5,
+          "height": 40,
+          "kind": "text"
+        },
+        "train.settings": {
+          "x": 326,
+          "y": 78,
+          "width": 44,
+          "height": 44,
+          "kind": "box"
+        },
+        "train.hero": {
+          "x": 20,
+          "y": 144,
+          "width": 350,
+          "height": 303.5,
+          "kind": "box"
+        },
+        "train.hero.title": {
+          "x": 42,
+          "y": 196,
+          "width": 306,
+          "height": 31.5,
+          "kind": "text"
+        },
+        "train.hero.subtitle": {
+          "x": 42,
+          "y": 233.5,
+          "width": 306,
+          "height": 18,
+          "kind": "text"
+        },
+        "train.hero.cta": {
+          "x": 42,
+          "y": 339.5,
+          "width": 306,
+          "height": 56,
+          "kind": "box"
+        },
+        "train.hero.lastDone": {
+          "x": 42,
+          "y": 409.5,
+          "width": 306,
+          "height": 16,
+          "kind": "text"
+        },
+        "train.quickStart.title": {
+          "x": 20,
+          "y": 469.5,
+          "width": 117,
+          "height": 24,
+          "kind": "text"
+        },
+        "train.quickStart.all": {
+          "x": 275.5,
+          "y": 475,
+          "width": 94.5,
+          "height": 18,
+          "kind": "text"
+        },
+        "train.quickStart.tile0": {
+          "x": 20,
+          "y": 505.5,
+          "width": 170,
+          "height": 158.5,
+          "kind": "box"
+        },
+        "train.quickStart.tile1": {
+          "x": 200,
+          "y": 505.5,
+          "width": 170,
+          "height": 158.5,
+          "kind": "box"
+        },
+        "train.quickStart.tile2": {
+          "x": 20,
+          "y": 673.5,
+          "width": 170,
+          "height": 158.5,
+          "kind": "box"
+        },
+        "train.quickStart.tile3": {
+          "x": 200,
+          "y": 673.5,
+          "width": 170,
+          "height": 158.5,
+          "kind": "box"
+        },
+        "train.lastWorkout": {
+          "x": 20,
+          "y": 854,
+          "width": 350,
+          "height": 86,
+          "kind": "box"
+        },
+        "tabbar": {
+          "x": 0,
+          "y": 749,
+          "width": 390,
+          "height": 95,
+          "kind": "box"
+        }
+      },
+      "icons": [
+        "accessibility_new",
+        "battery_full",
+        "check",
+        "chevron_right",
+        "fitness_center",
+        "format_list_numbered",
+        "monitoring",
+        "play_arrow",
+        "settings",
+        "signal_cellular_alt",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "rgba(255, 255, 255, 0.08)",
+        "primary": "rgba(255, 255, 255, 0.08)"
+      }
+    },
+    "routines": {
+      "label": "2 · Routines",
+      "attrs": {
+        "start": "routines"
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "routines.title": {
+          "x": 20,
+          "y": 78,
+          "width": 144,
+          "height": 40,
+          "kind": "text"
+        },
+        "routines.create": {
+          "x": 326,
+          "y": 74,
+          "width": 44,
+          "height": 44,
+          "kind": "box"
+        },
+        "routines.subtitle": {
+          "x": 20,
+          "y": 126,
+          "width": 350,
+          "height": 18,
+          "kind": "text"
+        },
+        "routines.card.upperBody": {
+          "x": 20,
+          "y": 162,
+          "width": 350,
+          "height": 211,
+          "kind": "box"
+        },
+        "routines.card.quickStrength": {
+          "x": 20,
+          "y": 391,
+          "width": 350,
+          "height": 180,
+          "kind": "box"
+        },
+        "routines.card.legsPush": {
+          "x": 20,
+          "y": 589,
+          "width": 350,
+          "height": 180,
+          "kind": "box"
+        },
+        "routines.emptyState": {
+          "x": 20,
+          "y": 787,
+          "width": 350,
+          "height": 120,
+          "kind": "box"
+        },
+        "tabbar": {
+          "x": 0,
+          "y": 749,
+          "width": 390,
+          "height": 95,
+          "kind": "box"
+        }
+      },
+      "icons": [
+        "accessibility_new",
+        "add",
+        "add_circle",
+        "battery_full",
+        "fitness_center",
+        "format_list_numbered",
+        "monitoring",
+        "more_horiz",
+        "play_arrow",
+        "signal_cellular_alt",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "linear-gradient(135deg, rgb(124, 77, 255), rgb(192, 75, 216))",
+        "primary": "linear-gradient(135deg, rgb(124, 77, 255), rgb(192, 75, 216))"
+      }
+    },
+    "routine": {
+      "label": "3 · Routine detail",
+      "attrs": {
+        "start": "routine"
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "routine.back": {
+          "x": 14,
+          "y": 58,
+          "width": 101,
+          "height": 36,
+          "kind": "box"
+        },
+        "routine.edit": {
+          "x": 337.5,
+          "y": 66,
+          "width": 32.5,
+          "height": 20,
+          "kind": "text"
+        },
+        "routine.title": {
+          "x": 20,
+          "y": 116,
+          "width": 350,
+          "height": 38,
+          "kind": "text"
+        },
+        "routine.summary": {
+          "x": 20,
+          "y": 154,
+          "width": 350,
+          "height": 18,
+          "kind": "text"
+        },
+        "routine.step.shoulderPress": {
+          "x": 60,
+          "y": 190,
+          "width": 310,
+          "height": 78,
+          "kind": "box"
+        },
+        "routine.step.dumbbellRow": {
+          "x": 60,
+          "y": 280,
+          "width": 310,
+          "height": 78,
+          "kind": "box"
+        },
+        "routine.step.hammerCurl": {
+          "x": 60,
+          "y": 370,
+          "width": 310,
+          "height": 78,
+          "kind": "box"
+        },
+        "routine.step.triceps": {
+          "x": 60,
+          "y": 460,
+          "width": 310,
+          "height": 78,
+          "kind": "box"
+        },
+        "routine.actions.duplicate": {
+          "x": 20,
+          "y": 568,
+          "width": 110,
+          "height": 68,
+          "kind": "box"
+        },
+        "routine.actions.remind": {
+          "x": 140,
+          "y": 568,
+          "width": 110,
+          "height": 68,
+          "kind": "box"
+        },
+        "routine.actions.delete": {
+          "x": 260,
+          "y": 568,
+          "width": 110,
+          "height": 68,
+          "kind": "box"
+        },
+        "cta.sticky": {
+          "x": 16,
+          "y": 688,
+          "width": 358,
+          "height": 58,
+          "kind": "box"
+        },
+        "tabbar": {
+          "x": 0,
+          "y": 749,
+          "width": 390,
+          "height": 95,
+          "kind": "box"
+        }
+      },
+      "icons": [
+        "accessibility_new",
+        "battery_full",
+        "chevron_left",
+        "content_copy",
+        "delete",
+        "drag_indicator",
+        "fitness_center",
+        "format_list_numbered",
+        "monitoring",
+        "notifications",
+        "play_arrow",
+        "signal_cellular_alt",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "linear-gradient(135deg, rgb(124, 77, 255), rgb(176, 108, 255))",
+        "primary": "rgba(0, 0, 0, 0)"
+      }
+    },
+    "library": {
+      "label": "4 · Exercise library",
+      "attrs": {
+        "start": "library"
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "library.back": {
+          "x": 14,
+          "y": 58,
+          "width": 70.5,
+          "height": 36,
+          "kind": "box"
+        },
+        "library.title": {
+          "x": 20,
+          "y": 114,
+          "width": 350,
+          "height": 38,
+          "kind": "text"
+        },
+        "library.search": {
+          "x": 20,
+          "y": 168,
+          "width": 350,
+          "height": 44,
+          "kind": "box"
+        },
+        "library.filter.all": {
+          "x": 20,
+          "y": 228,
+          "width": 48,
+          "height": 36,
+          "kind": "box"
+        },
+        "library.filter.upperBody": {
+          "x": 76,
+          "y": 228,
+          "width": 105.5,
+          "height": 36,
+          "kind": "box"
+        },
+        "library.filter.lowerBody": {
+          "x": 189.5,
+          "y": 228,
+          "width": 106,
+          "height": 36,
+          "kind": "box"
+        },
+        "library.filter.bodyweight": {
+          "x": 303.5,
+          "y": 228,
+          "width": 108.5,
+          "height": 36,
+          "kind": "box"
+        },
+        "library.exercise.shoulderPress": {
+          "x": 20,
+          "y": 308,
+          "width": 350,
+          "height": 78,
+          "kind": "box"
+        },
+        "library.exercise.hammerCurl": {
+          "x": 20,
+          "y": 394,
+          "width": 350,
+          "height": 78,
+          "kind": "box"
+        },
+        "library.exercise.tricepsExtension": {
+          "x": 20,
+          "y": 480,
+          "width": 350,
+          "height": 78,
+          "kind": "box"
+        },
+        "library.exercise.dumbbellRow": {
+          "x": 20,
+          "y": 566,
+          "width": 350,
+          "height": 78,
+          "kind": "box"
+        },
+        "tabbar": {
+          "x": 0,
+          "y": 749,
+          "width": 390,
+          "height": 95,
+          "kind": "box"
+        }
+      },
+      "icons": [
+        "accessibility_new",
+        "battery_full",
+        "chevron_left",
+        "chevron_right",
+        "fitness_center",
+        "format_list_numbered",
+        "monitoring",
+        "search",
+        "signal_cellular_alt",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "rgba(255, 255, 255, 0.08)",
+        "primary": "rgba(0, 0, 0, 0)"
+      }
+    },
+    "exercise": {
+      "label": "5 · Exercise detail",
+      "attrs": {
+        "start": "exercise"
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "exercise.back": {
+          "x": 14,
+          "y": 58,
+          "width": 104.5,
+          "height": 36,
+          "kind": "box"
+        },
+        "exercise.guide": {
+          "x": 20,
+          "y": 116,
+          "width": 350,
+          "height": 228,
+          "kind": "box"
+        },
+        "exercise.watchGuide": {
+          "x": 213,
+          "y": 290,
+          "width": 143,
+          "height": 40,
+          "kind": "box"
+        },
+        "exercise.title": {
+          "x": 20,
+          "y": 360,
+          "width": 272,
+          "height": 67,
+          "kind": "text"
+        },
+        "exercise.subtitle": {
+          "x": 20,
+          "y": 429,
+          "width": 138.5,
+          "height": 17.5,
+          "kind": "text"
+        },
+        "exercise.equipment": {
+          "x": 20,
+          "y": 465,
+          "width": 170,
+          "height": 105,
+          "kind": "box"
+        },
+        "exercise.cameraSetup": {
+          "x": 200,
+          "y": 465,
+          "width": 170,
+          "height": 105,
+          "kind": "box"
+        },
+        "exercise.sets": {
+          "x": 34,
+          "y": 594,
+          "width": 322,
+          "height": 53,
+          "kind": "box"
+        },
+        "exercise.reps": {
+          "x": 34,
+          "y": 647,
+          "width": 322,
+          "height": 52,
+          "kind": "box"
+        },
+        "exercise.coaching": {
+          "x": 20,
+          "y": 943,
+          "width": 350,
+          "height": 22,
+          "kind": "text"
+        },
+        "cta.sticky": {
+          "x": 16,
+          "y": 688,
+          "width": 358,
+          "height": 58,
+          "kind": "box"
+        },
+        "tabbar": {
+          "x": 0,
+          "y": 749,
+          "width": 390,
+          "height": 95,
+          "kind": "box"
+        }
+      },
+      "icons": [
+        "accessibility_new",
+        "add",
+        "battery_full",
+        "chevron_left",
+        "favorite",
+        "fitness_center",
+        "format_list_numbered",
+        "monitoring",
+        "photo_camera_front",
+        "play_arrow",
+        "play_circle",
+        "remove",
+        "signal_cellular_alt",
+        "visibility",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "linear-gradient(135deg, rgb(124, 77, 255), rgb(176, 108, 255))",
+        "primary": "rgba(0, 0, 0, 0)"
+      }
+    },
+    "camera-ready": {
+      "label": "6 · Workout camera (try it)",
+      "attrs": {
+        "start": "camera",
+        "cam": "ready"
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "camera.title": {
+          "x": 68,
+          "y": 63,
+          "width": 202,
+          "height": 19,
+          "kind": "text"
+        },
+        "camera.speaker": {
+          "x": 278,
+          "y": 58,
+          "width": 44,
+          "height": 44,
+          "kind": "box"
+        },
+        "camera.mic": {
+          "x": 330,
+          "y": 58,
+          "width": 44,
+          "height": 44,
+          "kind": "box"
+        },
+        "camera.micChip": {
+          "x": 198,
+          "y": 112,
+          "width": 176,
+          "height": 25,
+          "kind": "box"
+        },
+        "camera.statePill": {
+          "x": 20,
+          "y": 150,
+          "width": 350,
+          "height": 58.5,
+          "kind": "box"
+        },
+        "camera.toolbar": {
+          "x": 332,
+          "y": 300,
+          "width": 44,
+          "height": 260,
+          "kind": "box"
+        },
+        "camera.stateLabel": {
+          "x": 20,
+          "y": 638,
+          "width": 135.5,
+          "height": 16.5,
+          "kind": "text"
+        },
+        "camera.repCount": {
+          "x": 20,
+          "y": 644,
+          "width": 63,
+          "height": 113,
+          "kind": "text"
+        },
+        "camera.primary": {
+          "x": 286,
+          "y": 662,
+          "width": 84,
+          "height": 84,
+          "kind": "box"
+        },
+        "camera.progressBar": {
+          "x": 20,
+          "y": 762,
+          "width": 350,
+          "height": 10,
+          "kind": "box"
+        },
+        "camera.setSummary": {
+          "x": 20,
+          "y": 638,
+          "width": 350,
+          "height": 166,
+          "kind": "text"
+        }
+      },
+      "icons": [
+        "accessibility_new",
+        "battery_full",
+        "close",
+        "menu_book",
+        "mic",
+        "play_arrow",
+        "restart_alt",
+        "signal_cellular_alt",
+        "skip_next",
+        "straighten",
+        "swap_horiz",
+        "volume_up",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "rgba(255, 255, 255, 0.14)",
+        "primary": "rgba(255, 255, 255, 0.14)"
+      }
+    },
+    "complete": {
+      "label": "7 · Workout complete",
+      "attrs": {
+        "start": "complete"
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "complete.close": {
+          "x": 330,
+          "y": 56,
+          "width": 40,
+          "height": 40,
+          "kind": "box"
+        },
+        "complete.title": {
+          "x": 49.5,
+          "y": 268,
+          "width": 290.5,
+          "height": 38,
+          "kind": "text"
+        },
+        "complete.subtitle": {
+          "x": 88,
+          "y": 316,
+          "width": 214.5,
+          "height": 18,
+          "kind": "text"
+        },
+        "complete.check": {
+          "x": 135,
+          "y": 122,
+          "width": 120,
+          "height": 120,
+          "kind": "box"
+        },
+        "complete.stats": {
+          "x": 20,
+          "y": 352,
+          "width": 350,
+          "height": 71,
+          "kind": "box"
+        },
+        "complete.exercises": {
+          "x": 20,
+          "y": 441,
+          "width": 350,
+          "height": 219,
+          "kind": "box"
+        },
+        "complete.done": {
+          "x": 20,
+          "y": 678,
+          "width": 350,
+          "height": 56,
+          "kind": "box"
+        },
+        "complete.history": {
+          "x": 20,
+          "y": 748,
+          "width": 350,
+          "height": 18,
+          "kind": "text"
+        }
+      },
+      "icons": [
+        "battery_full",
+        "check",
+        "check_circle",
+        "close",
+        "signal_cellular_alt",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "rgba(255, 255, 255, 0.1)",
+        "primary": "rgba(255, 255, 255, 0.1)"
+      }
+    },
+    "editor": {
+      "label": "3b · Edit routine",
+      "attrs": {
+        "start": "editor"
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "editor.cancel": {
+          "x": 20,
+          "y": 66,
+          "width": 57.5,
+          "height": 20,
+          "kind": "text"
+        },
+        "editor.title": {
+          "x": 151.5,
+          "y": 66,
+          "width": 102.5,
+          "height": 20,
+          "kind": "text"
+        },
+        "editor.save": {
+          "x": 328.5,
+          "y": 66,
+          "width": 41.5,
+          "height": 20,
+          "kind": "text"
+        },
+        "editor.name": {
+          "x": 20,
+          "y": 136,
+          "width": 350,
+          "height": 54.5,
+          "kind": "box"
+        },
+        "editor.summary": {
+          "x": 20,
+          "y": 206.5,
+          "width": 350,
+          "height": 67,
+          "kind": "box"
+        },
+        "editor.row.shoulderPress": {
+          "x": 20,
+          "y": 322.5,
+          "width": 350,
+          "height": 283.5,
+          "kind": "box"
+        },
+        "editor.row.dumbbellRow": {
+          "x": 20,
+          "y": 622,
+          "width": 350,
+          "height": 62.5,
+          "kind": "box"
+        },
+        "editor.row.hammerCurl": {
+          "x": 20,
+          "y": 700.5,
+          "width": 350,
+          "height": 62.5,
+          "kind": "box"
+        },
+        "editor.row.triceps": {
+          "x": 20,
+          "y": 779.5,
+          "width": 350,
+          "height": 62.5,
+          "kind": "box"
+        },
+        "editor.addExercise": {
+          "x": 20,
+          "y": 858,
+          "width": 350,
+          "height": 52,
+          "kind": "box"
+        },
+        "editor.duplicate": {
+          "x": 20,
+          "y": 996.5,
+          "width": 170,
+          "height": 48,
+          "kind": "box"
+        },
+        "editor.delete": {
+          "x": 200,
+          "y": 996.5,
+          "width": 170,
+          "height": 48,
+          "kind": "box"
+        }
+      },
+      "icons": [
+        "add",
+        "arrow_downward",
+        "arrow_upward",
+        "battery_full",
+        "content_copy",
+        "delete",
+        "drag_indicator",
+        "expand_less",
+        "remove",
+        "signal_cellular_alt",
+        "timer",
+        "tune",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "rgba(255, 255, 255, 0.06)",
+        "primary": "rgba(255, 255, 255, 0.08)"
+      }
+    },
+    "editor-picker": {
+      "label": "3c · Add exercise sheet",
+      "attrs": {
+        "start": "editor",
+        "picker": true
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "editor.title": {
+          "x": 151.5,
+          "y": 66,
+          "width": 102.5,
+          "height": 20,
+          "kind": "text"
+        },
+        "picker.sheet": {
+          "x": 0,
+          "y": 120,
+          "width": 390,
+          "height": 724,
+          "kind": "box"
+        },
+        "picker.title": {
+          "x": 20,
+          "y": 637,
+          "width": 350,
+          "height": 52,
+          "kind": "text"
+        },
+        "picker.done": {
+          "x": 310,
+          "y": 150,
+          "width": 60,
+          "height": 20,
+          "kind": "text"
+        },
+        "picker.search": {
+          "x": 20,
+          "y": 186,
+          "width": 350,
+          "height": 42,
+          "kind": "box"
+        },
+        "picker.exercise.shoulderPress": {
+          "x": 20,
+          "y": 240,
+          "width": 350,
+          "height": 70,
+          "kind": "box"
+        },
+        "picker.exercise.hammerCurl": {
+          "x": 20,
+          "y": 318,
+          "width": 350,
+          "height": 70,
+          "kind": "box"
+        },
+        "picker.exercise.airSquat": {
+          "x": 20,
+          "y": 550,
+          "width": 350,
+          "height": 68,
+          "kind": "box"
+        },
+        "picker.exercise.pushUp": {
+          "x": 20,
+          "y": 626,
+          "width": 350,
+          "height": 68,
+          "kind": "box"
+        }
+      },
+      "icons": [
+        "add",
+        "battery_full",
+        "content_copy",
+        "delete",
+        "drag_indicator",
+        "search",
+        "signal_cellular_alt",
+        "timer",
+        "tune",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "rgba(255, 255, 255, 0.06)",
+        "primary": "rgba(255, 255, 255, 0.08)"
+      }
+    },
+    "editor-new": {
+      "label": "3d · New routine (empty)",
+      "attrs": {
+        "start": "editor",
+        "new-routine": true
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "editor.cancel": {
+          "x": 20,
+          "y": 66,
+          "width": 57.5,
+          "height": 20,
+          "kind": "text"
+        },
+        "editor.title": {
+          "x": 149.5,
+          "y": 66,
+          "width": 107,
+          "height": 20,
+          "kind": "text"
+        },
+        "editor.save": {
+          "x": 328.5,
+          "y": 66,
+          "width": 41.5,
+          "height": 20,
+          "kind": "text"
+        },
+        "editor.name": {
+          "x": 20,
+          "y": 136,
+          "width": 350,
+          "height": 54.5,
+          "kind": "box"
+        },
+        "editor.summary": {
+          "x": 20,
+          "y": 206.5,
+          "width": 350,
+          "height": 67,
+          "kind": "box"
+        },
+        "editor.emptyState": {
+          "x": 20,
+          "y": 322.5,
+          "width": 350,
+          "height": 188,
+          "kind": "box"
+        },
+        "editor.addExercise": {
+          "x": 20,
+          "y": 526.5,
+          "width": 350,
+          "height": 52,
+          "kind": "box"
+        },
+        "editor.helper": {
+          "x": 20,
+          "y": 594.5,
+          "width": 350,
+          "height": 50.5,
+          "kind": "text"
+        }
+      },
+      "icons": [
+        "add",
+        "battery_full",
+        "fitness_center",
+        "signal_cellular_alt",
+        "timer",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "rgba(255, 255, 255, 0.06)",
+        "primary": "rgba(124, 77, 255, 0.12)"
+      }
+    },
+    "camera-active": {
+      "label": "Active",
+      "attrs": {
+        "start": "camera",
+        "cam": "active"
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "camera.title": {
+          "x": 68,
+          "y": 63,
+          "width": 202,
+          "height": 19,
+          "kind": "text"
+        },
+        "camera.speaker": {
+          "x": 278,
+          "y": 58,
+          "width": 44,
+          "height": 44,
+          "kind": "box"
+        },
+        "camera.mic": {
+          "x": 330,
+          "y": 58,
+          "width": 44,
+          "height": 44,
+          "kind": "box"
+        },
+        "camera.micChip": {
+          "x": 198,
+          "y": 112,
+          "width": 176,
+          "height": 25,
+          "kind": "box"
+        },
+        "camera.statePill": {
+          "x": 70,
+          "y": 150,
+          "width": 249.5,
+          "height": 46.5,
+          "kind": "box"
+        },
+        "camera.toolbar": {
+          "x": 332,
+          "y": 300,
+          "width": 44,
+          "height": 260,
+          "kind": "box"
+        },
+        "camera.stateLabel": {
+          "x": 20,
+          "y": 638,
+          "width": 86,
+          "height": 16.5,
+          "kind": "text"
+        },
+        "camera.repCount": {
+          "x": 20,
+          "y": 644,
+          "width": 61.5,
+          "height": 113,
+          "kind": "text"
+        },
+        "camera.primary": {
+          "x": 286,
+          "y": 662,
+          "width": 84,
+          "height": 84,
+          "kind": "box"
+        },
+        "camera.progressBar": {
+          "x": 20,
+          "y": 762,
+          "width": 350,
+          "height": 10,
+          "kind": "box"
+        },
+        "camera.setSummary": {
+          "x": 20,
+          "y": 638,
+          "width": 350,
+          "height": 166,
+          "kind": "text"
+        }
+      },
+      "icons": [
+        "battery_full",
+        "close",
+        "graphic_eq",
+        "menu_book",
+        "mic",
+        "pause",
+        "restart_alt",
+        "signal_cellular_alt",
+        "skip_next",
+        "straighten",
+        "swap_horiz",
+        "volume_up",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "rgba(255, 255, 255, 0.14)",
+        "primary": "rgba(255, 255, 255, 0.14)"
+      }
+    },
+    "camera-paused": {
+      "label": "Paused",
+      "attrs": {
+        "start": "camera",
+        "cam": "paused"
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "camera.title": {
+          "x": 68,
+          "y": 63,
+          "width": 202,
+          "height": 19,
+          "kind": "text"
+        },
+        "camera.speaker": {
+          "x": 278,
+          "y": 58,
+          "width": 44,
+          "height": 44,
+          "kind": "box"
+        },
+        "camera.mic": {
+          "x": 330,
+          "y": 58,
+          "width": 44,
+          "height": 44,
+          "kind": "box"
+        },
+        "camera.micChip": {
+          "x": 198,
+          "y": 112,
+          "width": 176,
+          "height": 25,
+          "kind": "box"
+        },
+        "camera.statePill": {
+          "x": 71.5,
+          "y": 150,
+          "width": 247,
+          "height": 46.5,
+          "kind": "box"
+        },
+        "camera.toolbar": {
+          "x": 332,
+          "y": 300,
+          "width": 44,
+          "height": 260,
+          "kind": "box"
+        },
+        "camera.stateLabel": {
+          "x": 20,
+          "y": 638,
+          "width": 64,
+          "height": 16.5,
+          "kind": "text"
+        },
+        "camera.repCount": {
+          "x": 20,
+          "y": 644,
+          "width": 61.5,
+          "height": 113,
+          "kind": "text"
+        },
+        "camera.primary": {
+          "x": 286,
+          "y": 662,
+          "width": 84,
+          "height": 84,
+          "kind": "box"
+        },
+        "camera.progressBar": {
+          "x": 20,
+          "y": 762,
+          "width": 350,
+          "height": 10,
+          "kind": "box"
+        },
+        "camera.setSummary": {
+          "x": 20,
+          "y": 638,
+          "width": 350,
+          "height": 166,
+          "kind": "text"
+        }
+      },
+      "icons": [
+        "battery_full",
+        "close",
+        "menu_book",
+        "mic",
+        "pause_circle",
+        "play_arrow",
+        "restart_alt",
+        "signal_cellular_alt",
+        "skip_next",
+        "straighten",
+        "swap_horiz",
+        "volume_up",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "rgba(255, 255, 255, 0.14)",
+        "primary": "rgba(255, 255, 255, 0.14)"
+      }
+    },
+    "camera-tip": {
+      "label": "Form tip",
+      "attrs": {
+        "start": "camera",
+        "cam": "tip"
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "camera.title": {
+          "x": 68,
+          "y": 63,
+          "width": 202,
+          "height": 19,
+          "kind": "text"
+        },
+        "camera.speaker": {
+          "x": 278,
+          "y": 58,
+          "width": 44,
+          "height": 44,
+          "kind": "box"
+        },
+        "camera.mic": {
+          "x": 330,
+          "y": 58,
+          "width": 44,
+          "height": 44,
+          "kind": "box"
+        },
+        "camera.micChip": {
+          "x": 198,
+          "y": 112,
+          "width": 176,
+          "height": 25,
+          "kind": "box"
+        },
+        "camera.statePill": {
+          "x": 88.5,
+          "y": 150,
+          "width": 213.5,
+          "height": 46.5,
+          "kind": "box"
+        },
+        "camera.toolbar": {
+          "x": 332,
+          "y": 300,
+          "width": 44,
+          "height": 260,
+          "kind": "box"
+        },
+        "camera.stateLabel": {
+          "x": 20,
+          "y": 638,
+          "width": 76.5,
+          "height": 16.5,
+          "kind": "text"
+        },
+        "camera.repCount": {
+          "x": 20,
+          "y": 644,
+          "width": 61.5,
+          "height": 113,
+          "kind": "text"
+        },
+        "camera.primary": {
+          "x": 286,
+          "y": 662,
+          "width": 84,
+          "height": 84,
+          "kind": "box"
+        },
+        "camera.progressBar": {
+          "x": 20,
+          "y": 762,
+          "width": 350,
+          "height": 10,
+          "kind": "box"
+        },
+        "camera.setSummary": {
+          "x": 20,
+          "y": 638,
+          "width": 350,
+          "height": 166,
+          "kind": "text"
+        }
+      },
+      "icons": [
+        "battery_full",
+        "close",
+        "menu_book",
+        "mic",
+        "pause",
+        "restart_alt",
+        "signal_cellular_alt",
+        "skip_next",
+        "straighten",
+        "swap_horiz",
+        "tips_and_updates",
+        "volume_up",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "rgba(255, 255, 255, 0.14)",
+        "primary": "rgba(255, 255, 255, 0.14)"
+      }
+    },
+    "camera-rest-coach-muted": {
+      "label": "Resting · coach muted",
+      "attrs": {
+        "start": "camera",
+        "cam": "rest",
+        "spk-off": true
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "camera.title": {
+          "x": 68,
+          "y": 63,
+          "width": 202,
+          "height": 19,
+          "kind": "text"
+        },
+        "camera.speaker": {
+          "x": 278,
+          "y": 58,
+          "width": 44,
+          "height": 44,
+          "kind": "box"
+        },
+        "camera.mic": {
+          "x": 330,
+          "y": 58,
+          "width": 44,
+          "height": 44,
+          "kind": "box"
+        },
+        "camera.micChip": {
+          "x": 198,
+          "y": 112,
+          "width": 176,
+          "height": 25,
+          "kind": "box"
+        },
+        "camera.statePill": {
+          "x": 65.5,
+          "y": 150,
+          "width": 259,
+          "height": 46.5,
+          "kind": "box"
+        },
+        "camera.toolbar": {
+          "x": 332,
+          "y": 300,
+          "width": 44,
+          "height": 260,
+          "kind": "box"
+        },
+        "camera.stateLabel": {
+          "x": 20,
+          "y": 645.5,
+          "width": 70.5,
+          "height": 16.5,
+          "kind": "text"
+        },
+        "camera.repCount": {
+          "x": 20,
+          "y": 654.5,
+          "width": 186.5,
+          "height": 99,
+          "kind": "text"
+        },
+        "camera.primary": {
+          "x": 286,
+          "y": 662,
+          "width": 84,
+          "height": 84,
+          "kind": "box"
+        },
+        "camera.progressBar": {
+          "x": 20,
+          "y": 762,
+          "width": 350,
+          "height": 10,
+          "kind": "box"
+        },
+        "camera.setSummary": {
+          "x": 20,
+          "y": 645,
+          "width": 350,
+          "height": 159,
+          "kind": "text"
+        }
+      },
+      "icons": [
+        "battery_full",
+        "close",
+        "menu_book",
+        "mic",
+        "restart_alt",
+        "self_improvement",
+        "signal_cellular_alt",
+        "skip_next",
+        "straighten",
+        "swap_horiz",
+        "volume_off",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "rgba(255, 255, 255, 0.14)",
+        "primary": "rgba(255, 255, 255, 0.14)"
+      }
+    },
+    "camera-lost-mic-off": {
+      "label": "Tracking lost · mic off",
+      "attrs": {
+        "start": "camera",
+        "cam": "lost",
+        "mic-off": true
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "camera.title": {
+          "x": 68,
+          "y": 63,
+          "width": 202,
+          "height": 19,
+          "kind": "text"
+        },
+        "camera.speaker": {
+          "x": 278,
+          "y": 58,
+          "width": 44,
+          "height": 44,
+          "kind": "box"
+        },
+        "camera.mic": {
+          "x": 330,
+          "y": 58,
+          "width": 44,
+          "height": 44,
+          "kind": "box"
+        },
+        "camera.micChip": {
+          "x": 216,
+          "y": 112,
+          "width": 158,
+          "height": 25,
+          "kind": "box"
+        },
+        "camera.statePill": {
+          "x": 36,
+          "y": 150,
+          "width": 318,
+          "height": 46.5,
+          "kind": "box"
+        },
+        "camera.toolbar": {
+          "x": 332,
+          "y": 300,
+          "width": 44,
+          "height": 260,
+          "kind": "box"
+        },
+        "camera.stateLabel": {
+          "x": 20,
+          "y": 638,
+          "width": 130,
+          "height": 16.5,
+          "kind": "text"
+        },
+        "camera.repCount": {
+          "x": 20,
+          "y": 644,
+          "width": 61.5,
+          "height": 113,
+          "kind": "text"
+        },
+        "camera.primary": {
+          "x": 286,
+          "y": 662,
+          "width": 84,
+          "height": 84,
+          "kind": "box"
+        },
+        "camera.progressBar": {
+          "x": 20,
+          "y": 762,
+          "width": 350,
+          "height": 10,
+          "kind": "box"
+        },
+        "camera.setSummary": {
+          "x": 20,
+          "y": 638,
+          "width": 350,
+          "height": 166,
+          "kind": "text"
+        }
+      },
+      "icons": [
+        "battery_full",
+        "close",
+        "menu_book",
+        "mic_off",
+        "pause",
+        "restart_alt",
+        "signal_cellular_alt",
+        "skip_next",
+        "straighten",
+        "swap_horiz",
+        "visibility_off",
+        "volume_up",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "rgba(255, 255, 255, 0.14)",
+        "primary": "rgba(255, 255, 255, 0.14)"
+      }
+    },
+    "camera-tilt": {
+      "label": "Phone tilted",
+      "attrs": {
+        "start": "camera",
+        "cam": "tilt"
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "camera.title": {
+          "x": 68,
+          "y": 63,
+          "width": 202,
+          "height": 19,
+          "kind": "text"
+        },
+        "camera.speaker": {
+          "x": 278,
+          "y": 58,
+          "width": 44,
+          "height": 44,
+          "kind": "box"
+        },
+        "camera.mic": {
+          "x": 330,
+          "y": 58,
+          "width": 44,
+          "height": 44,
+          "kind": "box"
+        },
+        "camera.micChip": {
+          "x": 198,
+          "y": 112,
+          "width": 176,
+          "height": 25,
+          "kind": "box"
+        },
+        "camera.statePill": {
+          "x": 32,
+          "y": 150,
+          "width": 326,
+          "height": 46.5,
+          "kind": "box"
+        },
+        "camera.toolbar": {
+          "x": 332,
+          "y": 300,
+          "width": 44,
+          "height": 260,
+          "kind": "box"
+        },
+        "camera.stateLabel": {
+          "x": 20,
+          "y": 638,
+          "width": 152.5,
+          "height": 16.5,
+          "kind": "text"
+        },
+        "camera.repCount": {
+          "x": 20,
+          "y": 644,
+          "width": 61.5,
+          "height": 113,
+          "kind": "text"
+        },
+        "camera.primary": {
+          "x": 286,
+          "y": 662,
+          "width": 84,
+          "height": 84,
+          "kind": "box"
+        },
+        "camera.progressBar": {
+          "x": 20,
+          "y": 762,
+          "width": 350,
+          "height": 10,
+          "kind": "box"
+        },
+        "camera.setSummary": {
+          "x": 20,
+          "y": 638,
+          "width": 350,
+          "height": 166,
+          "kind": "text"
+        }
+      },
+      "icons": [
+        "battery_full",
+        "close",
+        "menu_book",
+        "mic",
+        "pause",
+        "restart_alt",
+        "screen_rotation",
+        "signal_cellular_alt",
+        "skip_next",
+        "straighten",
+        "swap_horiz",
+        "volume_up",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "rgba(255, 255, 255, 0.14)",
+        "primary": "rgba(255, 255, 255, 0.14)"
+      }
+    },
+    "progress": {
+      "label": "8 · Progress",
+      "attrs": {
+        "start": "progress"
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "progress.title": {
+          "x": 20,
+          "y": 78,
+          "width": 350,
+          "height": 40,
+          "kind": "text"
+        },
+        "progress.week": {
+          "x": 20,
+          "y": 136,
+          "width": 350,
+          "height": 174,
+          "kind": "box"
+        },
+        "progress.stats.workouts": {
+          "x": 40,
+          "y": 183.5,
+          "width": 16.5,
+          "height": 30.5,
+          "kind": "text"
+        },
+        "progress.stats.sets": {
+          "x": 119,
+          "y": 183.5,
+          "width": 31.5,
+          "height": 30.5,
+          "kind": "text"
+        },
+        "progress.stats.reps": {
+          "x": 198,
+          "y": 183.5,
+          "width": 47.5,
+          "height": 30.5,
+          "kind": "text"
+        },
+        "progress.activity": {
+          "x": 20,
+          "y": 328,
+          "width": 350,
+          "height": 176,
+          "kind": "box"
+        },
+        "progress.weight": {
+          "x": 20,
+          "y": 522,
+          "width": 350,
+          "height": 164,
+          "kind": "box"
+        },
+        "progress.recent": {
+          "x": 20,
+          "y": 704,
+          "width": 175.5,
+          "height": 24,
+          "kind": "text"
+        },
+        "progress.workout.upperBody": {
+          "x": 20,
+          "y": 736,
+          "width": 350,
+          "height": 62,
+          "kind": "box"
+        },
+        "progress.workout.quickStrength": {
+          "x": 20,
+          "y": 806,
+          "width": 350,
+          "height": 62,
+          "kind": "box"
+        },
+        "tabbar": {
+          "x": 0,
+          "y": 749,
+          "width": 390,
+          "height": 95,
+          "kind": "box"
+        }
+      },
+      "icons": [
+        "accessibility_new",
+        "battery_full",
+        "check",
+        "chevron_right",
+        "fitness_center",
+        "format_list_numbered",
+        "monitoring",
+        "signal_cellular_alt",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "linear-gradient(150deg, rgb(74, 43, 216) 0%, rgb(124, 77, 255) 50%, rgb(47, 184, 160) 130%)",
+        "primary": ""
+      }
+    },
+    "history": {
+      "label": "9 · Workout history",
+      "attrs": {
+        "start": "history"
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "history.back": {
+          "x": 14,
+          "y": 58,
+          "width": 101.5,
+          "height": 36,
+          "kind": "box"
+        },
+        "history.title": {
+          "x": 20,
+          "y": 112,
+          "width": 350,
+          "height": 38,
+          "kind": "text"
+        },
+        "history.week": {
+          "x": 244.5,
+          "y": 170.5,
+          "width": 125.5,
+          "height": 15.5,
+          "kind": "text"
+        },
+        "history.date.thisWeek": {
+          "x": 35,
+          "y": 209,
+          "width": 44,
+          "height": 44,
+          "kind": "box"
+        },
+        "history.workout.upperBody": {
+          "x": 20,
+          "y": 194,
+          "width": 350,
+          "height": 136,
+          "kind": "box"
+        },
+        "history.workout.quickStrength": {
+          "x": 20,
+          "y": 338,
+          "width": 350,
+          "height": 107,
+          "kind": "box"
+        },
+        "history.date.lastWeek": {
+          "x": 20,
+          "y": 465.5,
+          "width": 86,
+          "height": 15.5,
+          "kind": "text"
+        },
+        "tabbar": {
+          "x": 0,
+          "y": 749,
+          "width": 390,
+          "height": 95,
+          "kind": "box"
+        }
+      },
+      "icons": [
+        "accessibility_new",
+        "battery_full",
+        "chevron_left",
+        "chevron_right",
+        "fitness_center",
+        "format_list_numbered",
+        "monitoring",
+        "signal_cellular_alt",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "rgba(255, 255, 255, 0.06)",
+        "primary": "rgba(0, 0, 0, 0)"
+      }
+    },
+    "posture": {
+      "label": "10 · Posture home",
+      "attrs": {
+        "start": "posture"
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "posture.title": {
+          "x": 20,
+          "y": 78,
+          "width": 350,
+          "height": 40,
+          "kind": "text"
+        },
+        "posture.liveCard": {
+          "x": 20,
+          "y": 136,
+          "width": 350,
+          "height": 234,
+          "kind": "box"
+        },
+        "posture.liveDescription": {
+          "x": 42,
+          "y": 196,
+          "width": 280,
+          "height": 61,
+          "kind": "text"
+        },
+        "posture.liveCTA": {
+          "x": 42,
+          "y": 273,
+          "width": 306,
+          "height": 50,
+          "kind": "box"
+        },
+        "posture.photoAssessment": {
+          "x": 20,
+          "y": 388,
+          "width": 350,
+          "height": 24,
+          "kind": "text"
+        },
+        "posture.takePhoto": {
+          "x": 20,
+          "y": 422,
+          "width": 170,
+          "height": 109,
+          "kind": "box"
+        },
+        "posture.choosePhoto": {
+          "x": 200,
+          "y": 422,
+          "width": 170,
+          "height": 109,
+          "kind": "box"
+        },
+        "posture.assessments": {
+          "x": 20,
+          "y": 549,
+          "width": 141,
+          "height": 24,
+          "kind": "text"
+        },
+        "posture.assessment.latest": {
+          "x": 20,
+          "y": 581,
+          "width": 350,
+          "height": 80,
+          "kind": "box"
+        },
+        "tabbar": {
+          "x": 0,
+          "y": 749,
+          "width": 390,
+          "height": 95,
+          "kind": "box"
+        }
+      },
+      "icons": [
+        "accessibility_new",
+        "battery_full",
+        "chevron_right",
+        "fitness_center",
+        "format_list_numbered",
+        "monitoring",
+        "photo_camera",
+        "photo_library",
+        "signal_cellular_alt",
+        "videocam",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "linear-gradient(150deg, rgb(59, 79, 216) 0%, rgb(106, 108, 240) 55%, rgb(86, 184, 216) 120%)",
+        "primary": "rgb(255, 255, 255)"
+      }
+    },
+    "assessment": {
+      "label": "11 · Posture assessment",
+      "attrs": {
+        "start": "assessment"
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "assessment.back": {
+          "x": 14,
+          "y": 58,
+          "width": 92,
+          "height": 36,
+          "kind": "box"
+        },
+        "assessment.date": {
+          "x": 20,
+          "y": 114,
+          "width": 350,
+          "height": 35,
+          "kind": "text"
+        },
+        "assessment.view": {
+          "x": 20,
+          "y": 149,
+          "width": 350,
+          "height": 18,
+          "kind": "text"
+        },
+        "assessment.photo": {
+          "x": 20,
+          "y": 183,
+          "width": 350,
+          "height": 330,
+          "kind": "box"
+        },
+        "assessment.adjustPoints": {
+          "x": 210.5,
+          "y": 463,
+          "width": 147.5,
+          "height": 38,
+          "kind": "box"
+        },
+        "assessment.measurements": {
+          "x": 20,
+          "y": 529,
+          "width": 350,
+          "height": 22,
+          "kind": "text"
+        },
+        "assessment.headTilt": {
+          "x": 20,
+          "y": 559,
+          "width": 350,
+          "height": 58,
+          "kind": "box"
+        },
+        "assessment.shoulderLine": {
+          "x": 20,
+          "y": 621,
+          "width": 350,
+          "height": 58,
+          "kind": "box"
+        },
+        "assessment.torsoDeviation": {
+          "x": 20,
+          "y": 683,
+          "width": 350,
+          "height": 58,
+          "kind": "box"
+        },
+        "tabbar": {
+          "x": 0,
+          "y": 749,
+          "width": 390,
+          "height": 95,
+          "kind": "box"
+        }
+      },
+      "icons": [
+        "accessibility_new",
+        "battery_full",
+        "chevron_left",
+        "edit",
+        "fitness_center",
+        "format_list_numbered",
+        "ios_share",
+        "monitoring",
+        "signal_cellular_alt",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "repeating-linear-gradient(135deg, rgba(159, 176, 255, 0.12) 0px, rgba(159, 176, 255, 0.12) 8px, rgba(159, 176, 255, 0.04) 8px, rgba(159, 176, 255, 0.04) 16px)",
+        "primary": "rgba(0, 0, 0, 0)"
+      }
+    },
+    "settings": {
+      "label": "12 · Settings",
+      "attrs": {
+        "start": "settings"
+      },
+      "anchors": {
+        "statusBar": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 54,
+          "kind": "box"
+        },
+        "settings.done": {
+          "x": 326,
+          "y": 66,
+          "width": 44,
+          "height": 20,
+          "kind": "text"
+        },
+        "settings.title": {
+          "x": 20,
+          "y": 106,
+          "width": 350,
+          "height": 38,
+          "kind": "text"
+        },
+        "settings.coachingGroup": {
+          "x": 24,
+          "y": 162.5,
+          "width": 54.5,
+          "height": 15.5,
+          "kind": "text"
+        },
+        "settings.spokenCoaching": {
+          "x": 20,
+          "y": 184,
+          "width": 350,
+          "height": 52,
+          "kind": "box"
+        },
+        "settings.voiceCommands": {
+          "x": 20,
+          "y": 236,
+          "width": 350,
+          "height": 53,
+          "kind": "box"
+        },
+        "settings.voiceHelp": {
+          "x": 20,
+          "y": 289,
+          "width": 350,
+          "height": 53,
+          "kind": "box"
+        },
+        "settings.restBetweenSets": {
+          "x": 20,
+          "y": 342,
+          "width": 350,
+          "height": 53,
+          "kind": "box"
+        },
+        "settings.workoutGroup": {
+          "x": 24,
+          "y": 436,
+          "width": 77.5,
+          "height": 15.5,
+          "kind": "text"
+        },
+        "settings.weightUnits": {
+          "x": 20,
+          "y": 458,
+          "width": 350,
+          "height": 52,
+          "kind": "box"
+        },
+        "settings.startByHolding": {
+          "x": 20,
+          "y": 510,
+          "width": 350,
+          "height": 53,
+          "kind": "box"
+        },
+        "settings.reminders": {
+          "x": 20,
+          "y": 563,
+          "width": 350,
+          "height": 53,
+          "kind": "box"
+        },
+        "settings.cameraPostureGroup": {
+          "x": 24,
+          "y": 634,
+          "width": 154.5,
+          "height": 15.5,
+          "kind": "text"
+        },
+        "settings.cameraFraming": {
+          "x": 20,
+          "y": 656,
+          "width": 350,
+          "height": 52,
+          "kind": "box"
+        },
+        "settings.tiltWarnings": {
+          "x": 20,
+          "y": 708,
+          "width": 350,
+          "height": 53,
+          "kind": "box"
+        },
+        "settings.postureDisplay": {
+          "x": 20,
+          "y": 761,
+          "width": 350,
+          "height": 53,
+          "kind": "box"
+        }
+      },
+      "icons": [
+        "accessibility_new",
+        "battery_full",
+        "chevron_right",
+        "code",
+        "description",
+        "help",
+        "info",
+        "lock",
+        "mic",
+        "notifications",
+        "photo_camera",
+        "play_circle",
+        "record_voice_over",
+        "scale",
+        "screen_rotation",
+        "signal_cellular_alt",
+        "timer",
+        "wifi"
+      ],
+      "colors": {
+        "background": "rgb(14, 11, 22)",
+        "foreground": "rgb(246, 243, 251)",
+        "card": "rgba(255, 255, 255, 0.06)",
+        "primary": ""
+      }
+    }
+  },
+  "allIcons": [
+    "accessibility_new",
+    "add",
+    "add_circle",
+    "arrow_downward",
+    "arrow_upward",
+    "battery_full",
+    "check",
+    "check_circle",
+    "chevron_left",
+    "chevron_right",
+    "close",
+    "code",
+    "content_copy",
+    "delete",
+    "description",
+    "drag_indicator",
+    "edit",
+    "expand_less",
+    "favorite",
+    "fitness_center",
+    "format_list_numbered",
+    "graphic_eq",
+    "help",
+    "info",
+    "ios_share",
+    "lock",
+    "menu_book",
+    "mic",
+    "mic_off",
+    "monitoring",
+    "more_horiz",
+    "notifications",
+    "pause",
+    "pause_circle",
+    "photo_camera",
+    "photo_camera_front",
+    "photo_library",
+    "play_arrow",
+    "play_circle",
+    "record_voice_over",
+    "remove",
+    "restart_alt",
+    "scale",
+    "screen_rotation",
+    "search",
+    "self_improvement",
+    "settings",
+    "signal_cellular_alt",
+    "skip_next",
+    "straighten",
+    "swap_horiz",
+    "timer",
+    "tips_and_updates",
+    "tune",
+    "videocam",
+    "visibility",
+    "visibility_off",
+    "volume_off",
+    "volume_up",
+    "wifi"
+  ]
+}

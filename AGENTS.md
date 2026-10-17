@@ -13,6 +13,7 @@ A native Swift and SwiftUI iOS application designed for iPhone 15 Pro that analy
 ```text
 PostureAnalysisApp/
 ├── Models/              # Domain models (BodyPose, Landmark, PostureMeasurement, MeasurementID, PostureAssessment)
+├── DesignSystem/        # Debug-only layout anchors and the motion-policy environment value
 ├── PoseEstimation/      # PoseEstimator protocol & AppleVisionPoseEstimator implementation
 ├── PostureAnalysis/    # PostureAnalyzer geometry calculation engine
 ├── ImageImport/         # PhotoValidator & ViewClassifier
@@ -30,7 +31,11 @@ PostureAnalysisApp/
 ├── Utilities/           # CoordinateConverter (aspect-correct image pixel transform), PortraitCameraSession, ProtectedBodyGeometry (body areas overlays avoid)
 ├── Assets.xcassets/     # AppIcon (exported from Design/AppIcon; don't edit the PNG by hand)
 └── Tests/               # XCTest suite for geometry, analyzers, the session reducer, and related behavior
-scripts/                 # validate.sh, run-ios.sh, and pbxproj.py (registers files in the hand-maintained project)
+    ├── Support/         # Fixed-window SwiftUI snapshot host and fixed clock
+    └── Design/          # Design metrics, anchor tolerances, coverage, and pending frames
+scripts/                 # validate.sh, run-ios.sh, pbxproj.py, and design-reference/diff helpers
+scripts/design/          # HTML frame extraction, WebKit reference rendering, anchor locators, masks, and pixel diff
+Design/Metrics/          # Committed layout metrics generated from the local design bundle
 Design/AppIcon/          # App icon SVG source, export script, Tabler license (see THIRD_PARTY_NOTICES.md)
 ```
 
@@ -74,6 +79,7 @@ Every new Workout Coach exercise ships with full guidance (guide, ghost demo, th
 - Photo Validation: `docs/validation.md`
 - Developer Diagnostics: `docs/debugging.md`
 - Workout Coach (Beta): `docs/workout.md`
+- Design snapshot and layout gate: `docs/design.md`
 - Realtime posture: `docs/realtime.md`
 - Commit and PR conventions: `docs/commit-and-pr.md`
 - App icon source & export: `Design/AppIcon/README.md`
