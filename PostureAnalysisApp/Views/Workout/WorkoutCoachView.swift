@@ -9,9 +9,7 @@ struct WorkoutCoachView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.modelContext) private var modelContext
-    @StateObject private var model: WorkoutCoachModel
-    @AppStorage("workoutCoach.showMeasurements") private var showMeasurements = false
-    @State private var showGuide = false
+    @State private var model: any WorkoutCoachViewModeling
     /// Open the Voice Commands help once the guide finishes dismissing.
     @State private var showVoiceCommandsAfterGuide = false
     /// Top and bottom HUD frames, which tips keep clear of.
@@ -19,8 +17,8 @@ struct WorkoutCoachView: View {
     @State private var startedAt = Date()
     @State private var historySaved = false
 
-    init(initialExercise: ExerciseID? = nil, plan: WorkoutPlan? = nil) {
-        _model = StateObject(wrappedValue: WorkoutCoachModel.live(initialExercise: initialExercise, plan: plan))
+    init(model: any WorkoutCoachViewModeling) {
+        _model = State(initialValue: model)
     }
 
     var body: some View {
@@ -63,35 +61,39 @@ struct WorkoutCoachView: View {
             saveHistory()
             if model.session.endedAfterCompletion { close() }
         }
-        .sheet(isPresented: $showGuide, onDismiss: guideDismissed) {
+        .sheet(isPresented: Binding(get: { model.isGuidePresented },
+                                    set: { routeIntent($0 ? .showGuide : .hideGuide) }),
+               onDismiss: guideDismissed) {
             if let exercise = model.session.exercise {
                 ExerciseGuideView(
                     exercise: exercise,
                     hasStarted: model.hasOpened,
                     isSpeaking: model.isCoachSpeaking,
-                    onReadAloud: { model.readGuideAloud() },
-                    onStopReading: { model.stopSpeaking() },
+                    onReadAloud: { routeIntent(.readGuideAloud) },
+                    onStopReading: { routeIntent(.stopSpeaking) },
                     onShowVoiceCommands: {
                         showVoiceCommandsAfterGuide = true
-                        showGuide = false
+                        routeIntent(.hideGuide)
                     },
-                    onDone: { showGuide = false }
+                    onDone: { routeIntent(.hideGuide) }
                 )
                 .presentationDetents([.large])
             }
         }
-        .sheet(isPresented: Binding(get: { model.isHelpPresented }, set: { model.setHelpPresented($0) })) {
+        .sheet(isPresented: Binding(get: { model.isHelpPresented },
+                                    set: { routeIntent($0 ? .showVoiceHelp : .hideVoiceHelp) })) {
             VoiceCommandsHelpView(
                 sections: VoiceCommandHelp.sections(exercises: model.exercises),
                 suggestions: VoiceCommandHelp.entries(for: model.session.suggestedCommands, exercises: model.exercises),
                 micStatus: model.micStatus,
                 isMicMuted: model.isMicMuted,
                 isCoachMuted: model.isCoachMuted,
-                onSetMicMuted: { model.setMicMuted($0) },
-                onSetCoachMuted: { model.setCoachMuted($0) },
-                progressLine: hudPresentation.progressLine,
-                onRetry: { model.retryVoice() },
-                onDone: { model.setHelpPresented(false) }
+                onSetMicMuted: { routeIntent(.setMicrophoneMuted($0)) },
+                onSetCoachMuted: { routeIntent(.setCoachMuted($0)) },
+                progressLine: model.hud.presentation.progressLine,
+                onRetry: { routeIntent(.retryVoice) },
+                onOpenSettings: { routeIntent(.openSettings) },
+                onDone: { routeIntent(.hideVoiceHelp) }
             )
             .presentationDetents([.large])
         }
@@ -108,15 +110,15 @@ struct WorkoutCoachView: View {
                 }
 
                 if let overlay = model.overlay {
-                    if visualState.overlay == .ghostDemo,
+                    if model.hud.visual.overlay == .ghostDemo,
                        let metrics = model.guideMetrics,
                        let exercise = model.session.exercise {
                         WorkoutGhostOverlayView(overlay: overlay, metrics: metrics, motion: exercise.guide.motion,
                                                 cameraView: exercise.cameraView)
                             .frame(width: geo.size.width, height: geo.size.height)
                     }
-                    if visualState.overlay == .repThresholds {
-                        RepThresholdOverlayView(thresholds: model.armThresholds, imageSize: overlay.imageSize)
+                    if model.hud.visual.overlay == .repThresholds {
+                        RepThresholdOverlayView(thresholds: model.hud.thresholds, imageSize: overlay.imageSize)
                             .frame(width: geo.size.width, height: geo.size.height)
                     }
                 }
@@ -133,64 +135,26 @@ struct WorkoutCoachView: View {
                 WorkoutTipOverlayView(tip: model.activeTip, protectedRects: tipProtectedRects(in: geo.size), hudRects: hudRects)
                     .frame(width: geo.size.width, height: geo.size.height)
 
-                WorkoutHUDView(
-                    session: model.session,
-                    presentation: hudPresentation,
-                    readings: model.armReadings,
-                    formReadings: model.formReadings,
-                    isPhoneTilted: model.isPhoneTilted,
-                    micStatus: model.micStatus,
-                    heardPhrase: model.heardPhrase,
-                    showMeasurements: $showMeasurements,
-                    onClose: close,
-                    onShowGuide: presentGuide,
-                    isCoachMuted: model.isCoachMuted,
-                    onMicrophoneTap: { model.microphoneTapped() },
-                    onToggleCoachVoice: { model.setCoachMuted(!model.isCoachMuted) },
-                    onShowVoiceCommands: { model.setHelpPresented(true) },
-                    onCommand: { model.send($0) }
-                )
+                WorkoutHUDView(state: model.hud, send: sendHUDIntent)
 
-                if visualState.showsCompletionCard {
+                if model.hud.visual.showsCompletionCard {
                     ExerciseCompleteCard(session: model.session,
-                                         onAnotherRound: { model.send(.anotherRound) },
-                                         onChooseExercise: { model.send(.changeExercise) },
-                                         onEndWorkout: { model.send(.endWorkout) })
+                                         onAnotherRound: { routeIntent(.anotherRound) },
+                                         onChooseExercise: { routeIntent(.changeExercise) },
+                                         onEndWorkout: { routeIntent(.endWorkout) })
                         .transition(.opacity)
                 }
 
-                if visualState.showsExerciseChooser {
+                if model.hud.visual.showsExerciseChooser {
                     ExerciseChooserOverlay(session: model.session, voiceActive: model.session.voiceControlActive,
-                                           onSelect: { model.send(.selectExercise($0)) },
-                                           onCancel: { model.send(.cancel) })
+                                           onSelect: { routeIntent(.chooseExercise($0)) },
+                                           onCancel: { routeIntent(.cancelExerciseChange) })
                 }
             }
             .coordinateSpace(name: Self.coordinateSpace)
             .onPreferenceChange(WorkoutHUDRects.self) { hudRects = $0 }
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: visualState.showsCompletionCard)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: model.hud.visual.showsCompletionCard)
         }
-    }
-
-    private var visualInputs: WorkoutVisualInputs {
-        WorkoutVisualInputs(
-            session: model.session,
-            now: model.now,
-            isPhoneTilted: model.isPhoneTilted,
-            activeTip: model.activeTip.map { WorkoutVisualTip(id: $0.id, kind: $0.cue.kind) },
-            hasPose: model.overlay != nil
-        )
-    }
-
-    private var visualState: WorkoutVisualState {
-        WorkoutVisualState.derive(visualInputs)
-    }
-
-    private var hudPresentation: WorkoutHUDPresentation {
-        WorkoutHUDPresenter.derive(WorkoutHUDInputs(
-            session: model.session,
-            visual: visualInputs,
-            voiceCommandsAvailable: model.micStatus.isUsable
-        ))
     }
 
     /// The body and the exercise's motion envelope, computed only while a tip is up.
@@ -205,8 +169,27 @@ struct WorkoutCoachView: View {
     private func close() {
         // Closing without ending still keeps any finished sets.
         saveHistory()
-        model.onDisappear()
+        routeIntent(.closeWorkout)
         dismiss()
+    }
+
+    private func routeIntent(_ intent: WorkoutIntent) {
+        switch intent {
+        case .closeWorkout:
+            model.send(intent)
+        case .openSettings:
+            if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+        default:
+            model.send(intent)
+        }
+    }
+
+    private func sendHUDIntent(_ intent: WorkoutIntent) {
+        if intent == .closeWorkout {
+            close()
+        } else {
+            routeIntent(intent)
+        }
     }
 
     /// Saves what was done once per workout; nothing is saved when no set was finished.
@@ -222,21 +205,20 @@ struct WorkoutCoachView: View {
 
     private func presentGuide() {
         guard model.session.exercise != nil else { return }
-        model.setGuidePresented(true)
-        showGuide = true
+        routeIntent(.showGuide)
     }
 
     private func presentGuideIfUnseen() {
-        guard !showGuide, let id = model.session.exerciseID, !WorkoutGuidePreferences.hasSeen(id) else { return }
+        guard !model.isGuidePresented, let id = model.session.exerciseID, !WorkoutGuidePreferences.hasSeen(id) else { return }
         presentGuide()
     }
 
     private func guideDismissed() {
         if let id = model.session.exerciseID { WorkoutGuidePreferences.markSeen(id) }
-        model.setGuidePresented(false)
+        routeIntent(.hideGuide)
         if showVoiceCommandsAfterGuide {
             showVoiceCommandsAfterGuide = false
-            model.setHelpPresented(true)
+            routeIntent(.showVoiceHelp)
         }
     }
 
@@ -258,11 +240,7 @@ struct WorkoutCoachView: View {
                 .padding(.horizontal)
 
             HStack(spacing: 16) {
-                Button("Open Settings") {
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        UIApplication.shared.open(url)
-                    }
-                }
+                Button("Open Settings") { routeIntent(.openSettings) }
                 .buttonStyle(.borderedProminent)
 
                 Button("Close", action: close)

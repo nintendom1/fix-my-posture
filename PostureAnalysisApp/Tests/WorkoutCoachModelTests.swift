@@ -3,6 +3,15 @@ import XCTest
 
 @MainActor
 final class WorkoutCoachModelTests: XCTestCase {
+    func testConstructionDoesNotStartCameraVoiceAudioOrTiltServices() {
+        let harness = makeHarness()
+
+        XCTAssertEqual(harness.camera.starts, 0)
+        XCTAssertEqual(harness.voice.enabledCount, 0)
+        XCTAssertTrue(harness.audio.calls.isEmpty)
+        XCTAssertEqual(harness.tilt.startCount, 0)
+    }
+
     func testAuthorizedPermissionStartsCameraAndDeniedPermissionDoesNot() {
         let authorized = makeHarness(permissionStatus: .authorized)
         authorized.model.onAppear(isApplicationActive: true)
@@ -74,6 +83,8 @@ final class WorkoutCoachModelTests: XCTestCase {
         let second = makeHarness(defaults: defaults)
         XCTAssertTrue(second.model.isCoachMuted)
         XCTAssertTrue(second.model.isMicMuted)
+        XCTAssertTrue(second.voice.mutedValues.isEmpty, "Construction doesn't operate the voice service.")
+        second.model.onAppear(isApplicationActive: true)
         XCTAssertEqual(second.voice.mutedValues, [true])
     }
 
