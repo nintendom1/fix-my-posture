@@ -41,6 +41,8 @@ struct ExerciseDefinition: Identifiable {
     let id: ExerciseID
     /// Title case, for the HUD.
     let displayName: String
+    /// Display metadata used by the redesigned exercise library and detail views.
+    let presentation: ExercisePresentation
     /// Lower case, for spoken sentences.
     let spokenName: String
     var sets: Int

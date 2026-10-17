@@ -1,5 +1,18 @@
 import Foundation
 
+protocol ExerciseCatalogProviding {
+    var all: [ExerciseDefinition] { get }
+    func exercise(_ id: ExerciseID) -> ExerciseDefinition?
+}
+
+struct LiveExerciseCatalog: ExerciseCatalogProviding {
+    var all: [ExerciseDefinition] { ExerciseCatalog.all }
+
+    func exercise(_ id: ExerciseID) -> ExerciseDefinition? {
+        ExerciseCatalog.definition(for: id)
+    }
+}
+
 /// The exercises the coach offers, in menu order.
 enum ExerciseCatalog {
     static let all: [ExerciseDefinition] = [

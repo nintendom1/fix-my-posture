@@ -180,6 +180,8 @@
 		A10000012B00000000000183 /* AssessmentRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000183 /* AssessmentRepository.swift */; };
 		A10000012B00000000000184 /* ImageStoring.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000184 /* ImageStoring.swift */; };
 		A10000012B00000000000185 /* AppRepositories.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000185 /* AppRepositories.swift */; };
+		A10000012B00000000000186 /* ExerciseCatalogTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000186 /* ExerciseCatalogTests.swift */; };
+		A10000012B00000000000187 /* ExercisePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000187 /* ExercisePresentation.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -368,6 +370,8 @@
 		B10000012B00000000000183 /* AssessmentRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssessmentRepository.swift; sourceTree = "<group>"; };
 		B10000012B00000000000184 /* ImageStoring.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageStoring.swift; sourceTree = "<group>"; };
 		B10000012B00000000000185 /* AppRepositories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRepositories.swift; sourceTree = "<group>"; };
+		B10000012B00000000000186 /* ExerciseCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseCatalogTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000187 /* ExercisePresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExercisePresentation.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -561,6 +565,7 @@
 				B10000012B00000000000172 /* PreferencesStoreTests.swift */,
 				B10000012B00000000000175 /* AppModelContainerTests.swift */,
 				B10000012B00000000000176 /* PersistenceRepositoryTests.swift */,
+				B10000012B00000000000186 /* ExerciseCatalogTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -600,6 +605,7 @@
 				H10000012B00000000000024 /* AirSquat */,
 				H10000012B00000000000025 /* DumbbellRow */,
 				H10000012B00000000000026 /* PushUp */,
+				B10000012B00000000000187 /* ExercisePresentation.swift */,
 			);
 			path = Exercises;
 			sourceTree = "<group>";
@@ -1059,6 +1065,7 @@
 				A10000012B00000000000183 /* AssessmentRepository.swift in Sources */,
 				A10000012B00000000000184 /* ImageStoring.swift in Sources */,
 				A10000012B00000000000185 /* AppRepositories.swift in Sources */,
+				A10000012B00000000000187 /* ExercisePresentation.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1103,6 +1110,7 @@
 				A10000012B00000000000172 /* PreferencesStoreTests.swift in TestSources */,
 				A10000012B00000000000175 /* AppModelContainerTests.swift in TestSources */,
 				A10000012B00000000000176 /* PersistenceRepositoryTests.swift in TestSources */,
+				A10000012B00000000000186 /* ExerciseCatalogTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

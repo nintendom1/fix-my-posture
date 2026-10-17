@@ -60,6 +60,19 @@ enum HammerCurlExercise {
         ExerciseDefinition(
             id: .hammerCurl,
             displayName: "Hammer Curl",
+            presentation: ExercisePresentation(
+                shortName: "Hammer Curl",
+                muscles: ["Biceps", "Forearms"],
+                filterGroups: [.upper, .dumbbells],
+                gradient: ExerciseGradient(token: .curl, stops: ["#b04bff", "#ff7fc8"], angle: 135),
+                symbolName: "dumbbell.fill",
+                equipmentLine: "Two dumbbells",
+                cameraSetupLine: "Front, full arms",
+                watchesFor: [
+                    WatchItem(cueID: .curlFullRange, text: "Full range of motion"),
+                    WatchItem(cueID: .curlElbowsIn, text: "Elbows staying by your sides")
+                ]
+            ),
             spokenName: "hammer curl",
             sets: 2,
             targetReps: 10...10,

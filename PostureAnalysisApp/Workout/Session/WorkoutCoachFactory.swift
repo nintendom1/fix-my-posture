@@ -4,10 +4,11 @@ import Foundation
 enum WorkoutCoachFactory {
     @MainActor
     static func live(initialExercise: ExerciseID? = nil, plan: WorkoutPlan? = nil,
-                     preferences: any AppPreferencesStoring = UserDefaultsPreferences()) -> WorkoutCoachModel {
+                     preferences: any AppPreferencesStoring = UserDefaultsPreferences(),
+                     exerciseCatalog: any ExerciseCatalogProviding = LiveExerciseCatalog()) -> WorkoutCoachModel {
         let audio = WorkoutAudioSession()
         // Sets and reps the user adjusted on the list apply here; Saved Sets bring their own.
-        let exercises = ExerciseTargetStore.applying(to: ExerciseCatalog.all, preferences: preferences)
+        let exercises = ExerciseTargetStore.applying(to: exerciseCatalog.all, preferences: preferences)
         let voice = WorkoutVoiceController(recognizer: OnDeviceSpeechRecognizer(),
                                            parser: VoiceCommandParser(exercises: exercises),
                                            permissions: SystemVoicePermissions(), audio: audio)
