@@ -32,6 +32,8 @@ design-snapshots:
 		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testRoutineEditorFrame \
 		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testRoutineEditorPickerFrame \
 		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testNewRoutineFrame \
+		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testLibraryFrame \
+		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testExerciseDetailFrame \
 		CODE_SIGNING_ALLOWED=NO
 
 design-diff:

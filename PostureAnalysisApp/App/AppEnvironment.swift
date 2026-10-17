@@ -14,6 +14,7 @@ final class AppEnvironment {
     let workoutCoachFactory: WorkoutCoachFactory
     let trainHomeViewModel: TrainHomeViewModel
     let routinesViewModel: RoutinesViewModel
+    let libraryViewModel: LibraryViewModel
     let persistenceError: String?
 
     init(inMemory: Bool = false) {
@@ -43,6 +44,12 @@ final class AppEnvironment {
                 exerciseCatalog: exerciseCatalog,
                 router: router
             )
+            libraryViewModel = LibraryViewModel(
+                workoutHistory: repositories.workoutHistory,
+                exerciseCatalog: exerciseCatalog,
+                preferences: preferences,
+                router: router
+            )
             persistenceError = nil
         } catch {
             modelContainer = nil
@@ -64,6 +71,12 @@ final class AppEnvironment {
                 exerciseCatalog: exerciseCatalog,
                 router: router
             )
+            libraryViewModel = LibraryViewModel(
+                workoutHistory: nil,
+                exerciseCatalog: exerciseCatalog,
+                preferences: preferences,
+                router: router
+            )
             persistenceError = error.localizedDescription
         }
     }
@@ -83,6 +96,15 @@ final class AppEnvironment {
             id: id,
             routines: repositories?.routines,
             exerciseCatalog: exerciseCatalog,
+            router: router
+        )
+    }
+
+    func makeExerciseDetailViewModel(id: ExerciseID) -> ExerciseDetailViewModel {
+        ExerciseDetailViewModel(
+            id: id,
+            exerciseCatalog: exerciseCatalog,
+            preferences: preferences,
             router: router
         )
     }

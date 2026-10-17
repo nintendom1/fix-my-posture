@@ -231,6 +231,16 @@
 		A10000012B00000000000235 /* AddExerciseSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000235 /* AddExerciseSheet.swift */; };
 		A10000012B00000000000236 /* ExerciseTargetEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000236 /* ExerciseTargetEditor.swift */; };
 		A10000012B00000000000237 /* RoutineEditorFixtures.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000237 /* RoutineEditorFixtures.swift */; };
+		A10000012B00000000000238 /* LibraryViewModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000238 /* LibraryViewModelTests.swift */; };
+		A10000012B00000000000239 /* ExerciseDetailViewModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000239 /* ExerciseDetailViewModelTests.swift */; };
+		A10000012B00000000000240 /* LibraryState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000240 /* LibraryState.swift */; };
+		A10000012B00000000000241 /* LibraryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000241 /* LibraryViewModel.swift */; };
+		A10000012B00000000000242 /* LibraryScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000242 /* LibraryScreen.swift */; };
+		A10000012B00000000000243 /* ExerciseDetailState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000243 /* ExerciseDetailState.swift */; };
+		A10000012B00000000000244 /* ExerciseDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000244 /* ExerciseDetailViewModel.swift */; };
+		A10000012B00000000000245 /* ExerciseDetailScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000245 /* ExerciseDetailScreen.swift */; };
+		A10000012B00000000000246 /* LibraryFixtures.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000246 /* LibraryFixtures.swift */; };
+		A10000012B00000000000247 /* ExerciseDetailFixtures.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000247 /* ExerciseDetailFixtures.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -470,6 +480,16 @@
 		B10000012B00000000000235 /* AddExerciseSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddExerciseSheet.swift; sourceTree = "<group>"; };
 		B10000012B00000000000236 /* ExerciseTargetEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseTargetEditor.swift; sourceTree = "<group>"; };
 		B10000012B00000000000237 /* RoutineEditorFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineEditorFixtures.swift; sourceTree = "<group>"; };
+		B10000012B00000000000238 /* LibraryViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryViewModelTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000239 /* ExerciseDetailViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseDetailViewModelTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000240 /* LibraryState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryState.swift; sourceTree = "<group>"; };
+		B10000012B00000000000241 /* LibraryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryViewModel.swift; sourceTree = "<group>"; };
+		B10000012B00000000000242 /* LibraryScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryScreen.swift; sourceTree = "<group>"; };
+		B10000012B00000000000243 /* ExerciseDetailState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseDetailState.swift; sourceTree = "<group>"; };
+		B10000012B00000000000244 /* ExerciseDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseDetailViewModel.swift; sourceTree = "<group>"; };
+		B10000012B00000000000245 /* ExerciseDetailScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseDetailScreen.swift; sourceTree = "<group>"; };
+		B10000012B00000000000246 /* LibraryFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryFixtures.swift; sourceTree = "<group>"; };
+		B10000012B00000000000247 /* ExerciseDetailFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseDetailFixtures.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -677,6 +697,8 @@
 				B10000012B00000000000221 /* RoutineDetailViewModelTests.swift */,
 				B10000012B00000000000229 /* RoutineEditorViewModelTests.swift */,
 				B10000012B00000000000230 /* TabRootHeaderTests.swift */,
+				B10000012B00000000000238 /* LibraryViewModelTests.swift */,
+				B10000012B00000000000239 /* ExerciseDetailViewModelTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -905,6 +927,8 @@
 				B10000012B00000000000216 /* TrainHomeFixtures.swift */,
 				B10000012B00000000000222 /* RoutinesFixtures.swift */,
 				B10000012B00000000000237 /* RoutineEditorFixtures.swift */,
+				B10000012B00000000000246 /* LibraryFixtures.swift */,
+				B10000012B00000000000247 /* ExerciseDetailFixtures.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -1004,6 +1028,8 @@
 				H10000012B00000000000039 /* Train */,
 				H10000012B00000000000040 /* Routines */,
 				H10000012B00000000000041 /* RoutineEditor */,
+				H10000012B00000000000042 /* Library */,
+				H10000012B00000000000043 /* ExerciseDetail */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -1040,6 +1066,26 @@
 				B10000012B00000000000235 /* AddExerciseSheet.swift */,
 			);
 			path = RoutineEditor;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000042 /* Library */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000240 /* LibraryState.swift */,
+				B10000012B00000000000241 /* LibraryViewModel.swift */,
+				B10000012B00000000000242 /* LibraryScreen.swift */,
+			);
+			path = Library;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000043 /* ExerciseDetail */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000243 /* ExerciseDetailState.swift */,
+				B10000012B00000000000244 /* ExerciseDetailViewModel.swift */,
+				B10000012B00000000000245 /* ExerciseDetailScreen.swift */,
+			);
+			path = ExerciseDetail;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1304,6 +1350,12 @@
 				A10000012B00000000000234 /* RoutineEditorScreen.swift in Sources */,
 				A10000012B00000000000235 /* AddExerciseSheet.swift in Sources */,
 				A10000012B00000000000236 /* ExerciseTargetEditor.swift in Sources */,
+				A10000012B00000000000240 /* LibraryState.swift in Sources */,
+				A10000012B00000000000241 /* LibraryViewModel.swift in Sources */,
+				A10000012B00000000000242 /* LibraryScreen.swift in Sources */,
+				A10000012B00000000000243 /* ExerciseDetailState.swift in Sources */,
+				A10000012B00000000000244 /* ExerciseDetailViewModel.swift in Sources */,
+				A10000012B00000000000245 /* ExerciseDetailScreen.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1363,6 +1415,10 @@
 				A10000012B00000000000229 /* RoutineEditorViewModelTests.swift in TestSources */,
 				A10000012B00000000000230 /* TabRootHeaderTests.swift in TestSources */,
 				A10000012B00000000000237 /* RoutineEditorFixtures.swift in TestSources */,
+				A10000012B00000000000238 /* LibraryViewModelTests.swift in TestSources */,
+				A10000012B00000000000239 /* ExerciseDetailViewModelTests.swift in TestSources */,
+				A10000012B00000000000246 /* LibraryFixtures.swift in TestSources */,
+				A10000012B00000000000247 /* ExerciseDetailFixtures.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

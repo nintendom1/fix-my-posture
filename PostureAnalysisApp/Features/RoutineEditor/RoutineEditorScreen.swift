@@ -132,7 +132,7 @@ struct RoutineEditorScreen: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Image(material: "timer")
-                .font(.system(size: 28, weight: .regular, design: .rounded))
+                .font(.system(size: 28, weight: .black, design: .rounded))
                 .foregroundStyle(Color(hex: 0xE4D9FF))
                 .accessibilityHidden(true)
         }
@@ -338,7 +338,7 @@ private struct RoutineEditorItemRow: View {
                 .accessibilityHint("Edit sets and reps")
 
                 Button { send(.toggleExpanded(item.id)) } label: {
-                    Image(material: item.isExpanded ? "expand_less" : "chevron_right")
+                    Image(material: item.isExpanded ? "expand_less" : "tune")
                         .font(.system(size: 22, weight: .bold, design: .rounded))
                         .foregroundStyle(ColorTokens.palette().textSecondary)
                         .frame(width: 40, height: 40)
@@ -385,10 +385,10 @@ private struct RoutineEditorItemRow: View {
             stepperRow("Sets", value: item.setCount, lowerBound: 1, upperBound: 10) { delta in
                 send(.setCountChanged(itemID: item.id, value: item.setCount + delta))
             }
-            stepperRow("Min reps", value: item.minimumReps, lowerBound: 1, upperBound: 50) { delta in
+            stepperRow("Fewest reps", value: item.minimumReps, lowerBound: 1, upperBound: 50) { delta in
                 send(.minimumRepsChanged(itemID: item.id, value: item.minimumReps + delta))
             }
-            stepperRow("Max reps", value: item.maximumReps, lowerBound: 1, upperBound: 50) { delta in
+            stepperRow("Most reps", value: item.maximumReps, lowerBound: 1, upperBound: 50) { delta in
                 send(.maximumRepsChanged(itemID: item.id, value: item.maximumReps + delta))
             }
 
