@@ -4,14 +4,11 @@ An iPhone 15 Pro native Swift/SwiftUI application for analyzing standing body po
 
 ## Key Features
 
-- **On-Device Pose Detection**: Uses Apple Vision 2D body pose estimation without sending photos off-device.
-- **Realtime Posture Correction**: Open the main-menu button for a mirrored selfie preview, body landmark overlay, and live geometric measurements. Includes camera switching and front/side views; frames are processed in memory and never recorded.
-- **Workout Coach (Beta)**: Guides and counts reps for six exercises: shoulder press, hammer curl, triceps extension, air squat, one-arm row, and push-up. Save exercise plans as Saved Sets, then review workout history with the weights used. First-time guides demonstrate each movement, with ghost poses and thresholds overlaid on your body. You can run workouts by voice ("start", "pause", "next set") with on-device speech recognition, or start a set by holding the start position. The coach gives framing guidance, warns if the phone is tilted, and makes short spoken announcements that briefly lower your music. Separate top-right toggles (also by voice) mute the coach or microphone. Frames are analyzed on device and never recorded. See [workout coach](docs/workout.md).
-- **Objective Geometry Metrics**: Measures head tilt, shoulder asymmetry, torso lateral deviation, forward-head angle, sagittal body lean, and knee alignment.
-- **Aspect-Correct Coordinate Engine**: Aspect-ratio preserving transformations prevent angle distortion on non-square camera photos.
-- **Manual Landmark Editing**: Interactive point dragging with touch feedback, reset point, and reset all options.
-- **Local Persistence & Baseline Comparison**: SwiftData storage with image sandboxing and baseline comparison deltas (+/- degrees).
-- **Developer Diagnostics**: Inspect raw normalized/pixel landmark coordinates, confidence ratings, and copy diagnostic logs.
+- **Four-tab app**: Train, Routines, Progress, and Posture, with settings for workout, camera, and posture preferences.
+- **Workouts and routines**: Quick-start six guided exercises, save and reorder routines, and review rep and weight history.
+- **Exercise library**: Search and filter exercises, review movement guidance, and adjust set and rep targets.
+- **Progress and history**: See weekly workout stats and trends, open completed workouts, and edit logged weights.
+- **On-device posture checks**: Analyze photos or use the live camera for geometric measurements, baseline comparisons, and manual landmark adjustment. Photos and frames stay on the device.
 
 ## Requirements
 

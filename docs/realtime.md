@@ -1,6 +1,6 @@
 # Realtime posture correction
 
-Open **Realtime Posture Correction** from the main menu. The front camera opens by default with a mirrored selfie preview. Stand far enough away to include your body, choose the front or side view that matches your position, and watch the skeleton and geometric measurements as you move. The overlay can be hidden and the camera can be switched. Measurements describe geometry rather than prescribing a posture or making a diagnosis.
+Open **Live Posture Check** from the Posture tab. The front camera opens by default with a mirrored selfie preview. Stand far enough away to include your body, choose the front or side view that matches your position, and watch the skeleton and geometric measurements as you move. The overlay can be hidden and the camera can be switched. Measurements describe geometry rather than prescribing a posture or making a diagnosis.
 
 ## Implementation
 
@@ -31,7 +31,7 @@ Run `./scripts/validate.sh`. `RealtimeCameraTests` uses an injected capture serv
 
 Simulator tests do not validate camera hardware, actual Vision detections, or preview latency. On an iPhone 15 Pro:
 
-1. Open the feature from the menu. Grant camera permission and verify an upright mirrored selfie. Raise one arm and move toward either edge: landmarks must stay over the same joints across the preview, including near letterboxing.
+1. Open Live Posture Check from the Posture tab. Grant camera permission and verify an upright mirrored selfie. Raise one arm and move toward either edge: landmarks must stay over the same joints across the preview, including near letterboxing.
 2. Tilt shoulders and return to level. Values should update responsively and return near zero for a level shoulder line. Repeat with the rear camera and the supported side views; verify there is no extra horizontal flip.
 3. Hide/reveal the overlay, switch cameras repeatedly, and change analysis view while moving. Old overlays and measurements must clear rather than flash results from the previous selection.
 4. Leave the frame or obscure key joints. Missing/unreliable measurements should disappear, with framing guidance when no measurements remain. Check low-light confidence warnings.

@@ -31,7 +31,6 @@
 		A10000012B00000000000023 /* GeometryTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000023 /* GeometryTests.swift */; };
 		A10000012B00000000000024 /* CoordinateConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000024 /* CoordinateConverter.swift */; };
 		A10000012B00000000000026 /* CameraPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000026 /* CameraPickerView.swift */; };
-		A10000012B00000000000027 /* PosturePreviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000027 /* PosturePreviews.swift */; };
 		A10000012B00000000000028 /* ImageNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000028 /* ImageNormalizer.swift */; };
 		A10000012B00000000000029 /* BodyRegion.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000029 /* BodyRegion.swift */; };
 		A10000012B00000000000030 /* PostureReferenceProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000030 /* PostureReferenceProfile.swift */; };
@@ -106,7 +105,7 @@
 		A10000012B00000000000101 /* HammerCurlAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000101 /* HammerCurlAnalyzer.swift */; };
 		A10000012B00000000000102 /* HammerCurlFormMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000102 /* HammerCurlFormMonitor.swift */; };
 		A10000012B00000000000103 /* HammerCurlAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000103 /* HammerCurlAnalyzerTests.swift */; };
-		A10000012B00000000000104 /* WorkoutSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000104 /* WorkoutSelectionView.swift */; };
+		A10000012B00000000000104 /* ExerciseChooserOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000104 /* ExerciseChooserOverlay.swift */; };
 		A10000012B00000000000106 /* ExerciseCompleteCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000106 /* ExerciseCompleteCard.swift */; };
 		A10000012B00000000000108 /* TricepsExtensionExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000108 /* TricepsExtensionExercise.swift */; };
 		A10000012B00000000000109 /* TricepsExtensionAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000109 /* TricepsExtensionAnalyzer.swift */; };
@@ -296,6 +295,8 @@
 		A10000012B00000000000305 /* RoutineRotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000305 /* RoutineRotation.swift */; };
 		A10000012B00000000000306 /* RoutineEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000306 /* RoutineEstimator.swift */; };
 		A10000012B00000000000307 /* LastDoneFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000307 /* LastDoneFormatter.swift */; };
+		A10000012B00000000000308 /* PostureHomePreviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000308 /* PostureHomePreviews.swift */; };
+		A10000012B00000000000309 /* AssessmentPreviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000309 /* AssessmentPreviews.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -335,7 +336,6 @@
 		B10000012B00000000000023 /* GeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeometryTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000024 /* CoordinateConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoordinateConverter.swift; sourceTree = "<group>"; };
 		B10000012B00000000000026 /* CameraPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPickerView.swift; sourceTree = "<group>"; };
-		B10000012B00000000000027 /* PosturePreviews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PosturePreviews.swift; sourceTree = "<group>"; };
 		B10000012B00000000000028 /* ImageNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageNormalizer.swift; sourceTree = "<group>"; };
 		B10000012B00000000000029 /* BodyRegion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyRegion.swift; sourceTree = "<group>"; };
 		B10000012B00000000000030 /* PostureReferenceProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureReferenceProfile.swift; sourceTree = "<group>"; };
@@ -410,7 +410,7 @@
 		B10000012B00000000000101 /* HammerCurlAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HammerCurlAnalyzer.swift; sourceTree = "<group>"; };
 		B10000012B00000000000102 /* HammerCurlFormMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HammerCurlFormMonitor.swift; sourceTree = "<group>"; };
 		B10000012B00000000000103 /* HammerCurlAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HammerCurlAnalyzerTests.swift; sourceTree = "<group>"; };
-		B10000012B00000000000104 /* WorkoutSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSelectionView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000104 /* ExerciseChooserOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseChooserOverlay.swift; sourceTree = "<group>"; };
 		B10000012B00000000000106 /* ExerciseCompleteCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseCompleteCard.swift; sourceTree = "<group>"; };
 		B10000012B00000000000108 /* TricepsExtensionExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TricepsExtensionExercise.swift; sourceTree = "<group>"; };
 		B10000012B00000000000109 /* TricepsExtensionAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TricepsExtensionAnalyzer.swift; sourceTree = "<group>"; };
@@ -600,6 +600,8 @@
 		B10000012B00000000000305 /* RoutineRotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineRotation.swift; sourceTree = "<group>"; };
 		B10000012B00000000000306 /* RoutineEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineEstimator.swift; sourceTree = "<group>"; };
 		B10000012B00000000000307 /* LastDoneFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastDoneFormatter.swift; sourceTree = "<group>"; };
+		B10000012B00000000000308 /* PostureHomePreviews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureHomePreviews.swift; sourceTree = "<group>"; };
+		B10000012B00000000000309 /* AssessmentPreviews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssessmentPreviews.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -721,19 +723,12 @@
 			isa = PBXGroup;
 			children = (
 				B10000012B00000000000019 /* LandmarkOverlayView.swift */,
-				B10000012B00000000000020 /* DeveloperDebugView.swift */,
-				B10000012B00000000000026 /* CameraPickerView.swift */,
 				B10000012B00000000000034 /* AlignmentReferenceOverlayView.swift */,
 				B10000012B00000000000035 /* PostureReportView.swift */,
-				B10000012B00000000000037 /* RealtimeCorrectionView.swift */,
-				B10000012B00000000000038 /* RealtimeCameraModel.swift */,
 				B10000012B00000000000041 /* PostureMeasurementCard.swift */,
-				B10000012B00000000000044 /* PostureCalloutOverlayView.swift */,
-				B10000012B00000000000047 /* AlignmentTargetOverlayView.swift */,
-				B10000012B00000000000052 /* HorizonOverlayView.swift */,
-				B10000012B00000000000137 /* AcknowledgementsView.swift */,
 				H10000012B00000000000020 /* Workout */,
-				B10000012B00000000000027 /* PosturePreviews.swift */,
+				B10000012B00000000000076 /* ExerciseDemoFigureView.swift */,
+				B10000012B00000000000075 /* ExerciseGuideView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -823,6 +818,7 @@
 				B10000012B00000000000302 /* RoutineRotationTests.swift */,
 				B10000012B00000000000303 /* LastDoneFormatterTests.swift */,
 				B10000012B00000000000304 /* RoutineEstimatorTests.swift */,
+				H10000012B00000000000054 /* Fakes */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -940,19 +936,6 @@
 		H10000012B00000000000020 /* Workout */ = {
 			isa = PBXGroup;
 			children = (
-				B10000012B00000000000071 /* WorkoutCoachView.swift */,
-				B10000012B00000000000073 /* WorkoutJointOverlayView.swift */,
-				B10000012B00000000000075 /* ExerciseGuideView.swift */,
-				B10000012B00000000000076 /* ExerciseDemoFigureView.swift */,
-				B10000012B00000000000088 /* HoldProgressRingView.swift */,
-				B10000012B00000000000091 /* VoiceCommandsHelpView.swift */,
-				B10000012B00000000000097 /* WorkoutTipView.swift */,
-				B10000012B00000000000104 /* WorkoutSelectionView.swift */,
-				B10000012B00000000000106 /* ExerciseCompleteCard.swift */,
-				B10000012B00000000000077 /* WorkoutGhostOverlayView.swift */,
-				B10000012B00000000000156 /* RepThresholdOverlayView.swift */,
-				B10000012B00000000000236 /* ExerciseTargetEditor.swift */,
-				B10000012B00000000000259 /* VoiceStatusPresentation.swift */,
 			);
 			path = Workout;
 			sourceTree = "<group>";
@@ -1082,7 +1065,6 @@
 		H10000012B00000000000031 /* Fakes */ = {
 			isa = PBXGroup;
 			children = (
-				B10000012B00000000000157 /* WorkoutServiceFakes.swift */,
 			);
 			path = Fakes;
 			sourceTree = "<group>";
@@ -1179,6 +1161,8 @@
 				H10000012B00000000000049 /* PostureHome */,
 				H10000012B00000000000050 /* Assessment */,
 				H10000012B00000000000051 /* Settings */,
+				H10000012B00000000000052 /* RealtimePosture */,
+				H10000012B00000000000053 /* VoiceCommands */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -1233,6 +1217,7 @@
 				B10000012B00000000000243 /* ExerciseDetailState.swift */,
 				B10000012B00000000000244 /* ExerciseDetailViewModel.swift */,
 				B10000012B00000000000245 /* ExerciseDetailScreen.swift */,
+				B10000012B00000000000236 /* ExerciseTargetEditor.swift */,
 			);
 			path = ExerciseDetail;
 			sourceTree = "<group>";
@@ -1243,6 +1228,14 @@
 				B10000012B00000000000250 /* EdgeToolbarVisibilityController.swift */,
 				B10000012B00000000000251 /* WorkoutCameraControl.swift */,
 				B10000012B00000000000252 /* WorkoutCameraScreen.swift */,
+				B10000012B00000000000106 /* ExerciseCompleteCard.swift */,
+				B10000012B00000000000088 /* HoldProgressRingView.swift */,
+				B10000012B00000000000156 /* RepThresholdOverlayView.swift */,
+				B10000012B00000000000071 /* WorkoutCoachView.swift */,
+				B10000012B00000000000077 /* WorkoutGhostOverlayView.swift */,
+				B10000012B00000000000073 /* WorkoutJointOverlayView.swift */,
+				B10000012B00000000000104 /* ExerciseChooserOverlay.swift */,
+				B10000012B00000000000097 /* WorkoutTipView.swift */,
 			);
 			path = WorkoutCamera;
 			sourceTree = "<group>";
@@ -1282,6 +1275,7 @@
 			isa = PBXGroup;
 			children = (
 				B10000012B00000000000018 /* PhotoAssessmentFlowScreen.swift */,
+				B10000012B00000000000026 /* CameraPickerView.swift */,
 			);
 			path = PhotoAssessment;
 			sourceTree = "<group>";
@@ -1292,6 +1286,7 @@
 				B10000012B00000000000287 /* PostureHomeState.swift */,
 				B10000012B00000000000288 /* PostureHomeViewModel.swift */,
 				B10000012B00000000000289 /* PostureHomeScreen.swift */,
+				B10000012B00000000000308 /* PostureHomePreviews.swift */,
 			);
 			path = PostureHome;
 			sourceTree = "<group>";
@@ -1303,6 +1298,8 @@
 				B10000012B00000000000291 /* AssessmentViewModel.swift */,
 				B10000012B00000000000292 /* AssessmentScreen.swift */,
 				B10000012B00000000000293 /* AssessmentRouteView.swift */,
+				B10000012B00000000000020 /* DeveloperDebugView.swift */,
+				B10000012B00000000000309 /* AssessmentPreviews.swift */,
 			);
 			path = Assessment;
 			sourceTree = "<group>";
@@ -1313,8 +1310,38 @@
 				B10000012B00000000000295 /* SettingsViewModel.swift */,
 				B10000012B00000000000296 /* SettingsScreen.swift */,
 				B10000012B00000000000297 /* SettingsSubpages.swift */,
+				B10000012B00000000000137 /* AcknowledgementsView.swift */,
 			);
 			path = Settings;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000052 /* RealtimePosture */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000047 /* AlignmentTargetOverlayView.swift */,
+				B10000012B00000000000052 /* HorizonOverlayView.swift */,
+				B10000012B00000000000044 /* PostureCalloutOverlayView.swift */,
+				B10000012B00000000000038 /* RealtimeCameraModel.swift */,
+				B10000012B00000000000037 /* RealtimeCorrectionView.swift */,
+			);
+			path = RealtimePosture;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000053 /* VoiceCommands */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000091 /* VoiceCommandsHelpView.swift */,
+				B10000012B00000000000259 /* VoiceStatusPresentation.swift */,
+			);
+			path = VoiceCommands;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000054 /* Fakes */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000157 /* WorkoutServiceFakes.swift */,
+			);
+			path = Fakes;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1426,10 +1453,8 @@
 				A10000012B00000000000016 /* ImageStore.swift in Sources */,
 				A10000012B00000000000017 /* BaselineComparisonEngine.swift in Sources */,
 				A10000012B00000000000019 /* LandmarkOverlayView.swift in Sources */,
-				A10000012B00000000000020 /* DeveloperDebugView.swift in Sources */,
 				A10000012B00000000000022 /* LandmarkEditingView.swift in Sources */,
 				A10000012B00000000000024 /* CoordinateConverter.swift in Sources */,
-				A10000012B00000000000026 /* CameraPickerView.swift in Sources */,
 				A10000012B00000000000028 /* ImageNormalizer.swift in Sources */,
 				A10000012B00000000000029 /* BodyRegion.swift in Sources */,
 				A10000012B00000000000030 /* PostureReferenceProfile.swift in Sources */,
@@ -1438,18 +1463,13 @@
 				A10000012B00000000000033 /* ReferencePoseGenerator.swift in Sources */,
 				A10000012B00000000000034 /* AlignmentReferenceOverlayView.swift in Sources */,
 				A10000012B00000000000035 /* PostureReportView.swift in Sources */,
-				A10000012B00000000000037 /* RealtimeCorrectionView.swift in Sources */,
-				A10000012B00000000000038 /* RealtimeCameraModel.swift in Sources */,
 				A10000012B00000000000040 /* MeasurementFeedbackEvaluator.swift in Sources */,
 				A10000012B00000000000046 /* MeasurementPresentation.swift in Sources */,
 				A10000012B00000000000041 /* PostureMeasurementCard.swift in Sources */,
 				A10000012B00000000000043 /* PostureCalloutLayout.swift in Sources */,
-				A10000012B00000000000044 /* PostureCalloutOverlayView.swift in Sources */,
-				A10000012B00000000000047 /* AlignmentTargetOverlayView.swift in Sources */,
 				A10000012B00000000000049 /* HorizonContext.swift in Sources */,
 				A10000012B00000000000050 /* HorizonGeometry.swift in Sources */,
 				A10000012B00000000000051 /* HorizonMonitor.swift in Sources */,
-				A10000012B00000000000052 /* HorizonOverlayView.swift in Sources */,
 				A10000012B00000000000054 /* PortraitCameraSession.swift in Sources */,
 				A10000012B00000000000055 /* ExerciseCatalog.swift in Sources */,
 				A10000012B00000000000056 /* ExerciseDefinition.swift in Sources */,
@@ -1467,30 +1487,21 @@
 				A10000012B00000000000068 /* WorkoutCameraController.swift in Sources */,
 				A10000012B00000000000069 /* SpeechCoach.swift in Sources */,
 				A10000012B00000000000070 /* WorkoutAudioSession.swift in Sources */,
-				A10000012B00000000000071 /* WorkoutCoachView.swift in Sources */,
-				A10000012B00000000000073 /* WorkoutJointOverlayView.swift in Sources */,
 				A10000012B00000000000074 /* ExerciseGuide.swift in Sources */,
-				A10000012B00000000000075 /* ExerciseGuideView.swift in Sources */,
-				A10000012B00000000000076 /* ExerciseDemoFigureView.swift in Sources */,
 				A10000012B00000000000078 /* PhoneTiltMonitor.swift in Sources */,
 				A10000012B00000000000083 /* VoiceCommandParser.swift in Sources */,
 				A10000012B00000000000084 /* VoicePermissions.swift in Sources */,
 				A10000012B00000000000085 /* OnDeviceSpeechRecognizer.swift in Sources */,
 				A10000012B00000000000086 /* WorkoutVoiceController.swift in Sources */,
-				A10000012B00000000000088 /* HoldProgressRingView.swift in Sources */,
 				A10000012B00000000000090 /* VoiceCommandHelp.swift in Sources */,
-				A10000012B00000000000091 /* VoiceCommandsHelpView.swift in Sources */,
 				A10000012B00000000000092 /* ProtectedBodyGeometry.swift in Sources */,
 				A10000012B00000000000093 /* CoachingCue.swift in Sources */,
 				A10000012B00000000000094 /* CoachingCueScheduler.swift in Sources */,
 				A10000012B00000000000095 /* WorkoutTipLayout.swift in Sources */,
 				A10000012B00000000000096 /* ShoulderPressFormMonitor.swift in Sources */,
-				A10000012B00000000000097 /* WorkoutTipView.swift in Sources */,
 				A10000012B00000000000100 /* HammerCurlExercise.swift in Sources */,
 				A10000012B00000000000101 /* HammerCurlAnalyzer.swift in Sources */,
 				A10000012B00000000000102 /* HammerCurlFormMonitor.swift in Sources */,
-				A10000012B00000000000104 /* WorkoutSelectionView.swift in Sources */,
-				A10000012B00000000000106 /* ExerciseCompleteCard.swift in Sources */,
 				A10000012B00000000000108 /* TricepsExtensionExercise.swift in Sources */,
 				A10000012B00000000000109 /* TricepsExtensionAnalyzer.swift in Sources */,
 				A10000012B00000000000112 /* AirSquatExercise.swift in Sources */,
@@ -1505,15 +1516,11 @@
 				A10000012B00000000000130 /* WorkoutWeight.swift in Sources */,
 				A10000012B00000000000131 /* WorkoutHistory.swift in Sources */,
 				A10000012B00000000000135 /* WeightPhraseParser.swift in Sources */,
-				A10000012B00000000000137 /* AcknowledgementsView.swift in Sources */,
 				A10000012B00000000000143 /* DesignAnchor.swift in Sources */,
 				A10000012B00000000000144 /* MotionPolicy.swift in Sources */,
 				A10000012B00000000000154 /* WorkoutVisualState.swift in Sources */,
 				A10000012B00000000000155 /* WorkoutHUDPresenter.swift in Sources */,
-				A10000012B00000000000027 /* PosturePreviews.swift in Sources */,
 				A10000012B00000000000082 /* VoiceCommandParsing.swift in Sources */,
-				A10000012B00000000000077 /* WorkoutGhostOverlayView.swift in Sources */,
-				A10000012B00000000000156 /* RepThresholdOverlayView.swift in Sources */,
 				A10000012B00000000000159 /* ClockAndScheduling.swift in Sources */,
 				A10000012B00000000000160 /* CameraPermission.swift in Sources */,
 				A10000012B00000000000161 /* CameraPreviewProviding.swift in Sources */,
@@ -1572,7 +1579,6 @@
 				A10000012B00000000000233 /* RoutineEditorViewModel.swift in Sources */,
 				A10000012B00000000000234 /* RoutineEditorScreen.swift in Sources */,
 				A10000012B00000000000235 /* AddExerciseSheet.swift in Sources */,
-				A10000012B00000000000236 /* ExerciseTargetEditor.swift in Sources */,
 				A10000012B00000000000240 /* LibraryState.swift in Sources */,
 				A10000012B00000000000241 /* LibraryViewModel.swift in Sources */,
 				A10000012B00000000000242 /* LibraryScreen.swift in Sources */,
@@ -1587,7 +1593,6 @@
 				A10000012B00000000000255 /* EdgeToolbar.swift in Sources */,
 				A10000012B00000000000256 /* RepCounter.swift in Sources */,
 				A10000012B00000000000257 /* EdgeGlow.swift in Sources */,
-				A10000012B00000000000259 /* VoiceStatusPresentation.swift in Sources */,
 				A10000012B00000000000263 /* WorkoutCompletionStats.swift in Sources */,
 				A10000012B00000000000264 /* WorkoutCompleteState.swift in Sources */,
 				A10000012B00000000000265 /* WorkoutCompleteViewModel.swift in Sources */,
@@ -1618,6 +1623,29 @@
 				A10000012B00000000000305 /* RoutineRotation.swift in Sources */,
 				A10000012B00000000000306 /* RoutineEstimator.swift in Sources */,
 				A10000012B00000000000307 /* LastDoneFormatter.swift in Sources */,
+				A10000012B00000000000137 /* AcknowledgementsView.swift in Sources */,
+				A10000012B00000000000047 /* AlignmentTargetOverlayView.swift in Sources */,
+				A10000012B00000000000026 /* CameraPickerView.swift in Sources */,
+				A10000012B00000000000020 /* DeveloperDebugView.swift in Sources */,
+				A10000012B00000000000052 /* HorizonOverlayView.swift in Sources */,
+				A10000012B00000000000044 /* PostureCalloutOverlayView.swift in Sources */,
+				A10000012B00000000000038 /* RealtimeCameraModel.swift in Sources */,
+				A10000012B00000000000037 /* RealtimeCorrectionView.swift in Sources */,
+				A10000012B00000000000106 /* ExerciseCompleteCard.swift in Sources */,
+				A10000012B00000000000076 /* ExerciseDemoFigureView.swift in Sources */,
+				A10000012B00000000000236 /* ExerciseTargetEditor.swift in Sources */,
+				A10000012B00000000000088 /* HoldProgressRingView.swift in Sources */,
+				A10000012B00000000000156 /* RepThresholdOverlayView.swift in Sources */,
+				A10000012B00000000000091 /* VoiceCommandsHelpView.swift in Sources */,
+				A10000012B00000000000259 /* VoiceStatusPresentation.swift in Sources */,
+				A10000012B00000000000071 /* WorkoutCoachView.swift in Sources */,
+				A10000012B00000000000077 /* WorkoutGhostOverlayView.swift in Sources */,
+				A10000012B00000000000073 /* WorkoutJointOverlayView.swift in Sources */,
+				A10000012B00000000000104 /* ExerciseChooserOverlay.swift in Sources */,
+				A10000012B00000000000097 /* WorkoutTipView.swift in Sources */,
+				A10000012B00000000000308 /* PostureHomePreviews.swift in Sources */,
+				A10000012B00000000000309 /* AssessmentPreviews.swift in Sources */,
+				A10000012B00000000000075 /* ExerciseGuideView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1655,7 +1683,6 @@
 				A10000012B00000000000151 /* DesignCoverageTests.swift in TestSources */,
 				A10000012B00000000000152 /* WorkoutVisualStateTests.swift in TestSources */,
 				A10000012B00000000000153 /* WorkoutHUDPresenterTests.swift in TestSources */,
-				A10000012B00000000000157 /* WorkoutServiceFakes.swift in TestSources */,
 				A10000012B00000000000158 /* WorkoutCoachModelTests.swift in TestSources */,
 				A10000012B00000000000164 /* WorkoutFramePipelineTests.swift in TestSources */,
 				A10000012B00000000000165 /* WorkoutIntentTests.swift in TestSources */,
@@ -1703,6 +1730,7 @@
 				A10000012B00000000000302 /* RoutineRotationTests.swift in TestSources */,
 				A10000012B00000000000303 /* LastDoneFormatterTests.swift in TestSources */,
 				A10000012B00000000000304 /* RoutineEstimatorTests.swift in TestSources */,
+				A10000012B00000000000157 /* WorkoutServiceFakes.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

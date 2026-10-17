@@ -12,39 +12,60 @@ A native Swift and SwiftUI iOS application designed for iPhone 15 Pro that analy
 
 ```text
 PostureAnalysisApp/
-├── App/                 # Codable routes, Foundation-only router, composition root, four-tab shell, tab-bar style, sticky CTA slot
-├── Models/              # Domain models (BodyPose, Landmark, PostureMeasurement, MeasurementID, PostureAssessment)
-├── Preferences/         # Typed AppPreferencesStoring boundary, UserDefaults and in-memory stores, SwiftUI environment key
-├── DesignSystem/        # Dark-first SwiftUI tokens, type, icons, aura, components, DEBUG gallery, layout anchors, and motion policy
-│   ├── Tokens/          # Semantic colors, gradients, and shared radius/spacing/size metrics
-│   └── Components/      # PrimaryButton, CapsuleButton, FilterChip, StatusChip, SectionHeader, ProgressBar, EmptyStateTile
-├── PoseEstimation/      # PoseEstimator protocol & AppleVisionPoseEstimator implementation
-├── PostureAnalysis/    # PostureAnalyzer geometry calculation engine
-├── ImageImport/         # PhotoValidator & ViewClassifier
-├── Persistence/         # Saved Set, exercise-target & workout-history models, ImageStore, BaselineComparisonEngine
-│   ├── Schema/          # Versioned SwiftData models (SchemaV1) and AppMigrationPlan
-│   └── Repositories/    # Assessment, routine, and workout-history repositories; image-store boundary
-├── Views/               # SwiftUI views (ContentView, HistoryView, LandmarkOverlayView, AssessmentDetailView, DeveloperDebugView, AcknowledgementsView, PosturePreviews)
-│   └── Workout/         # WorkoutCoachView, WorkoutHUDView, WorkoutJointOverlayView, ExerciseGuideView, WorkoutGhostOverlayView, RepThresholdOverlayView, HoldProgressRingView, MicrophoneStatusView, VoiceCommandsHelpView, WorkoutTipView (coaching tips), WorkoutSelectionView (Saved Sets & exercise list, in-camera chooser), SavedSetEditorView, WorkoutHistoryView (history & weight editing), ExerciseCompleteCard
-├── Workout/             # Workout Coach (Beta)
-│   ├── Exercises/       # ExerciseCatalog, ExerciseDefinition, ExerciseAnalyzing, ExerciseGuide; one folder per exercise (ShoulderPress/, HammerCurl/, TricepsExtension/, AirSquat/, DumbbellRow/, PushUp/)
-│   ├── Analysis/        # PoseFrame, ArmGeometry, HysteresisPhaseTracker, FramingEvaluator, LandmarkSmoother, NearArmSelector
-│   ├── Session/         # WorkoutSession (pure reducer), WorkoutPlan (ordered exercise occurrences) & WorkoutCoachModel (main-actor orchestrator)
-│   ├── Presentation/    # WorkoutVisualState and WorkoutHUDPresenter (Foundation-only display derivation)
-│   ├── Coaching/        # CoachingCue, CoachingCueScheduler (pure), WorkoutTipLayout & MotionEnvelope (pure tip placement)
-│   └── Camera/          # PoseFrameSource protocol, WorkoutCameraController, PhoneTiltMonitor
-├── Voice/               # SpeechCoach & WorkoutAudioSession (speech, ducking); VoiceCommandParsing, VoiceCommandParser, VoiceCommandHelp, OnDeviceSpeechRecognizer, WorkoutVoiceController, VoicePermissions (hands-free commands)
-├── LandmarkEditing/     # LandmarkEditingView (manual point repositioning)
-├── Utilities/           # CoordinateConverter (aspect-correct image pixel transform), PortraitCameraSession, ProtectedBodyGeometry (body areas overlays avoid)
-├── Assets.xcassets/     # AppIcon (exported from Design/AppIcon; don't edit the PNG by hand)
-└── Tests/               # XCTest suite for geometry, analyzers, the session reducer, and related behavior
-    ├── Support/         # Fixed-window SwiftUI snapshot host and fixed clock
-    └── Design/          # Design metrics, anchor tolerances, coverage, and pending frames
-scripts/                 # validate.sh, run-ios.sh, pbxproj.py, and design-reference/diff helpers
-scripts/design/          # HTML frame extraction, WebKit reference rendering, anchor locators, masks, and pixel diff
-Design/Metrics/          # Committed layout metrics generated from the local design bundle
-Design/AppIcon/          # App icon SVG source, export script, Tabler license (see THIRD_PARTY_NOTICES.md)
+├── App/                         # Composition root, routes, four-tab shell, tab style, sticky CTA
+├── Models/                      # Estimator-independent posture and measurement models
+├── Preferences/                 # AppPreferencesStoring, UserDefaults/in-memory stores, SwiftUI environment
+├── DesignSystem/
+│   ├── Tokens/                  # Colors, gradients, typography, radius, spacing, and sizes
+│   └── Components/              # Shared buttons, chips, headers, workout HUD, and other components
+├── Features/<Screen>/           # Screen state, intents, view models, and feature-specific SwiftUI views
+│   ├── Assessment/              # Saved photo assessment and developer diagnostics
+│   ├── ExerciseDetail/          # Exercise details and target editing
+│   ├── History/                 # Workout history and weight editing
+│   ├── Library/                 # Exercise library
+│   ├── PhotoAssessment/         # Camera/library import and photo assessment flow
+│   ├── PostureHome/             # Posture tab and saved assessment history
+│   ├── Progress/                # Workout progress and stats
+│   ├── RealtimePosture/         # Live camera check, capture model, and posture overlays
+│   ├── Routines/                # Routine list and detail
+│   ├── RoutineEditor/           # Routine creation, editing, and exercise picker
+│   ├── Settings/                # Settings and acknowledgements
+│   ├── Train/                   # Train tab
+│   ├── VoiceCommands/           # Voice command help shared by Settings and workout
+│   ├── WorkoutCamera/           # Workout camera, HUD, guide, chooser, and overlays
+│   └── WorkoutComplete/         # Saved workout summary
+├── PoseEstimation/              # PoseEstimator protocol and AppleVisionPoseEstimator
+├── PostureAnalysis/             # PostureAnalyzer, PostureAssessmentService, and measurement presentation
+├── ImageImport/                 # PhotoValidator and ViewClassifier
+├── Persistence/
+│   ├── Schema/                  # Versioned SwiftData schema and migration plan
+│   └── Repositories/            # Assessment, routine, workout-history, and image-store boundaries
+├── Workout/                     # Workout Coach domain and camera infrastructure
+│   ├── Exercises/               # Catalog, definitions, guidance, analyzers, and per-exercise folders
+│   ├── Analysis/                # Pose frames, geometry, tracking, smoothing, and framing
+│   ├── Session/                 # Pure reducer, plan, model, intents, and factory
+│   ├── Presentation/            # Foundation-only workout state and presenters
+│   ├── Coaching/                # Cue scheduling and tip layout
+│   └── Camera/                  # Camera source/controller, permissions, and phone tilt
+├── Voice/                       # Speech, audio session, command parsing, and microphone services
+├── LandmarkEditing/             # Manual posture landmark adjustment
+├── Utilities/                   # Coordinate conversion, camera setup, image normalization, geometry
+├── Views/                       # Shared, still-used views reused across feature folders
+├── Assets.xcassets/             # App icon asset; source is in Design/AppIcon
+└── Tests/
+    ├── Support/                 # Snapshot host, fixtures, fixed clock, and shared test support
+    ├── Fakes/                   # Test fakes
+    └── Design/                  # Metrics, anchors, frame coverage, and pending frames
+scripts/design/                  # Reference extraction/rendering, anchors, masks, and pixel diff
+Design/Metrics/                  # Committed metrics generated from the local design bundle
+Design/AppIcon/                  # App icon SVG source, export script, and notices
 ```
+
+## Architecture
+
+- Feature screens receive state and send intents to view models. View-model protocols define screen-facing contracts where injection is useful; implementations use `@MainActor` and `@Observable`. Camera, persistence, preferences, speech, and scheduling services sit behind protocols where tests need substitutes.
+- `AppEnvironment` is the composition root. It creates the router, preferences, SwiftData container, repositories, catalogs, factories, and long-lived view models; `AppShellView` provides them to the four tab stacks and their presentations.
+- `WorkoutSession` is a pure reducer. `WorkoutFramePipeline` coordinates frame analysis, and `Workout/Presentation` derives display values without UI frameworks. Repositories in `Persistence/Repositories` own storage access for assessments, routines, workout history, and images.
 
 ## Critical Invariants
 
