@@ -77,6 +77,15 @@ final class AppEnvironment {
             router: router
         )
     }
+
+    func makeRoutineEditorViewModel(id: UUID?) -> RoutineEditorViewModel {
+        RoutineEditorViewModel(
+            id: id,
+            routines: repositories?.routines,
+            exerciseCatalog: exerciseCatalog,
+            router: router
+        )
+    }
 }
 
 private struct AppRouterEnvironmentKey: EnvironmentKey {

@@ -33,6 +33,7 @@ public final class DesignAnchorRegistry {
     }
 }
 
+@MainActor
 private struct DesignAnchorModifier: ViewModifier {
     let name: String
     @Environment(\.designAnchorMarkerName) private var markerName
@@ -60,9 +61,7 @@ private struct DesignAnchorModifier: ViewModifier {
     }
 
     private func report(_ frame: CGRect) {
-        Task { @MainActor in
-            DesignAnchorRegistry.shared.record(name, frame: frame)
-        }
+        DesignAnchorRegistry.shared.record(name, frame: frame)
     }
 }
 

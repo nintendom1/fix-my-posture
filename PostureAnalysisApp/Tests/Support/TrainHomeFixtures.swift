@@ -50,6 +50,31 @@ enum TrainHomeFixtures {
         .tint(Color(hex: TabBarStyle.design.tintHex(for: .train)))
     }
 
+    static var scrolledTabView: some View {
+        TabView(selection: .constant(AppTab.train)) {
+            NavigationStack {
+                ZStack {
+                    AuraBackground(tab: .train)
+                    TrainHomeScreen(state: design, send: { _ in }, initialScrollOffset: 200)
+                }
+                .toolbar(.hidden, for: .navigationBar)
+            }
+            .tabItem { Label(AppTab.train.title, systemImage: "dumbbell.fill") }
+            .tag(AppTab.train)
+
+            NavigationStack { Color.clear }
+                .tabItem { Label(AppTab.routines.title, systemImage: "list.number") }
+                .tag(AppTab.routines)
+            NavigationStack { Color.clear }
+                .tabItem { Label(AppTab.progress.title, systemImage: "chart.xyaxis.line") }
+                .tag(AppTab.progress)
+            NavigationStack { Color.clear }
+                .tabItem { Label(AppTab.posture.title, systemImage: "figure.stand") }
+                .tag(AppTab.posture)
+        }
+        .tint(Color(hex: TabBarStyle.design.tintHex(for: .train)))
+    }
+
     private static func tile(_ id: ExerciseID, target: String) -> TrainExerciseTile {
         let exercise = ExerciseCatalog.definition(for: id)!
         return TrainExerciseTile(

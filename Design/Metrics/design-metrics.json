@@ -849,6 +849,13 @@
           "height": 67,
           "kind": "box"
         },
+        "editor.time": {
+          "x": 36,
+          "y": 244,
+          "width": 176,
+          "height": 15.5,
+          "kind": "text"
+        },
         "editor.row.shoulderPress": {
           "x": 20,
           "y": 322.5,
@@ -950,10 +957,10 @@
           "kind": "box"
         },
         "picker.title": {
-          "x": 20,
-          "y": 637,
-          "width": 350,
-          "height": 52,
+          "x": 140,
+          "y": 150,
+          "width": 110,
+          "height": 20,
           "kind": "text"
         },
         "picker.done": {
@@ -1066,6 +1073,13 @@
           "width": 350,
           "height": 67,
           "kind": "box"
+        },
+        "editor.time": {
+          "x": 36,
+          "y": 244,
+          "width": 187,
+          "height": 15.5,
+          "kind": "text"
         },
         "editor.emptyState": {
           "x": 20,

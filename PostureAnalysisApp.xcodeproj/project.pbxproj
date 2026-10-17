@@ -127,7 +127,6 @@
 		A10000012B00000000000123 /* PushUpAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000123 /* PushUpAnalyzerTests.swift */; };
 		A10000012B00000000000125 /* WorkoutPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000125 /* WorkoutPlan.swift */; };
 		A10000012B00000000000126 /* SavedExerciseSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000126 /* SavedExerciseSet.swift */; };
-		A10000012B00000000000127 /* SavedSetEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000127 /* SavedSetEditorView.swift */; };
 		A10000012B00000000000128 /* SavedExerciseSetTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000128 /* SavedExerciseSetTests.swift */; };
 		A10000012B00000000000130 /* WorkoutWeight.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000130 /* WorkoutWeight.swift */; };
 		A10000012B00000000000131 /* WorkoutHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000131 /* WorkoutHistory.swift */; };
@@ -223,6 +222,15 @@
 		A10000012B00000000000226 /* RoutineDetailState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000226 /* RoutineDetailState.swift */; };
 		A10000012B00000000000227 /* RoutineDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000227 /* RoutineDetailViewModel.swift */; };
 		A10000012B00000000000228 /* RoutineDetailScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000228 /* RoutineDetailScreen.swift */; };
+		A10000012B00000000000229 /* RoutineEditorViewModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000229 /* RoutineEditorViewModelTests.swift */; };
+		A10000012B00000000000230 /* TabRootHeaderTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000230 /* TabRootHeaderTests.swift */; };
+		A10000012B00000000000231 /* TabRootHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000231 /* TabRootHeader.swift */; };
+		A10000012B00000000000232 /* RoutineEditorState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000232 /* RoutineEditorState.swift */; };
+		A10000012B00000000000233 /* RoutineEditorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000233 /* RoutineEditorViewModel.swift */; };
+		A10000012B00000000000234 /* RoutineEditorScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000234 /* RoutineEditorScreen.swift */; };
+		A10000012B00000000000235 /* AddExerciseSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000235 /* AddExerciseSheet.swift */; };
+		A10000012B00000000000236 /* ExerciseTargetEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000236 /* ExerciseTargetEditor.swift */; };
+		A10000012B00000000000237 /* RoutineEditorFixtures.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000237 /* RoutineEditorFixtures.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -358,7 +366,6 @@
 		B10000012B00000000000123 /* PushUpAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushUpAnalyzerTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000125 /* WorkoutPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutPlan.swift; sourceTree = "<group>"; };
 		B10000012B00000000000126 /* SavedExerciseSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedExerciseSet.swift; sourceTree = "<group>"; };
-		B10000012B00000000000127 /* SavedSetEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedSetEditorView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000128 /* SavedExerciseSetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedExerciseSetTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000130 /* WorkoutWeight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutWeight.swift; sourceTree = "<group>"; };
 		B10000012B00000000000131 /* WorkoutHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistory.swift; sourceTree = "<group>"; };
@@ -454,6 +461,15 @@
 		B10000012B00000000000226 /* RoutineDetailState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineDetailState.swift; sourceTree = "<group>"; };
 		B10000012B00000000000227 /* RoutineDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineDetailViewModel.swift; sourceTree = "<group>"; };
 		B10000012B00000000000228 /* RoutineDetailScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineDetailScreen.swift; sourceTree = "<group>"; };
+		B10000012B00000000000229 /* RoutineEditorViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineEditorViewModelTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000230 /* TabRootHeaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabRootHeaderTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000231 /* TabRootHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabRootHeader.swift; sourceTree = "<group>"; };
+		B10000012B00000000000232 /* RoutineEditorState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineEditorState.swift; sourceTree = "<group>"; };
+		B10000012B00000000000233 /* RoutineEditorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineEditorViewModel.swift; sourceTree = "<group>"; };
+		B10000012B00000000000234 /* RoutineEditorScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineEditorScreen.swift; sourceTree = "<group>"; };
+		B10000012B00000000000235 /* AddExerciseSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddExerciseSheet.swift; sourceTree = "<group>"; };
+		B10000012B00000000000236 /* ExerciseTargetEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseTargetEditor.swift; sourceTree = "<group>"; };
+		B10000012B00000000000237 /* RoutineEditorFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineEditorFixtures.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -659,6 +675,8 @@
 				B10000012B00000000000215 /* TrainHomeViewModelTests.swift */,
 				B10000012B00000000000220 /* RoutinesViewModelTests.swift */,
 				B10000012B00000000000221 /* RoutineDetailViewModelTests.swift */,
+				B10000012B00000000000229 /* RoutineEditorViewModelTests.swift */,
+				B10000012B00000000000230 /* TabRootHeaderTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -786,10 +804,10 @@
 				B10000012B00000000000097 /* WorkoutTipView.swift */,
 				B10000012B00000000000104 /* WorkoutSelectionView.swift */,
 				B10000012B00000000000106 /* ExerciseCompleteCard.swift */,
-				B10000012B00000000000127 /* SavedSetEditorView.swift */,
 				B10000012B00000000000132 /* WorkoutHistoryView.swift */,
 				B10000012B00000000000077 /* WorkoutGhostOverlayView.swift */,
 				B10000012B00000000000156 /* RepThresholdOverlayView.swift */,
+				B10000012B00000000000236 /* ExerciseTargetEditor.swift */,
 			);
 			path = Workout;
 			sourceTree = "<group>";
@@ -886,6 +904,7 @@
 				H10000012B00000000000031 /* Fakes */,
 				B10000012B00000000000216 /* TrainHomeFixtures.swift */,
 				B10000012B00000000000222 /* RoutinesFixtures.swift */,
+				B10000012B00000000000237 /* RoutineEditorFixtures.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -960,6 +979,7 @@
 				B10000012B00000000000201 /* SectionHeader.swift */,
 				B10000012B00000000000202 /* ProgressBar.swift */,
 				B10000012B00000000000203 /* EmptyStateTile.swift */,
+				B10000012B00000000000231 /* TabRootHeader.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -983,6 +1003,7 @@
 			children = (
 				H10000012B00000000000039 /* Train */,
 				H10000012B00000000000040 /* Routines */,
+				H10000012B00000000000041 /* RoutineEditor */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -1008,6 +1029,17 @@
 				B10000012B00000000000228 /* RoutineDetailScreen.swift */,
 			);
 			path = Routines;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000041 /* RoutineEditor */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000232 /* RoutineEditorState.swift */,
+				B10000012B00000000000233 /* RoutineEditorViewModel.swift */,
+				B10000012B00000000000234 /* RoutineEditorScreen.swift */,
+				B10000012B00000000000235 /* AddExerciseSheet.swift */,
+			);
+			path = RoutineEditor;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1200,7 +1232,6 @@
 				A10000012B00000000000122 /* PushUpAnalyzer.swift in Sources */,
 				A10000012B00000000000125 /* WorkoutPlan.swift in Sources */,
 				A10000012B00000000000126 /* SavedExerciseSet.swift in Sources */,
-				A10000012B00000000000127 /* SavedSetEditorView.swift in Sources */,
 				A10000012B00000000000130 /* WorkoutWeight.swift in Sources */,
 				A10000012B00000000000131 /* WorkoutHistory.swift in Sources */,
 				A10000012B00000000000132 /* WorkoutHistoryView.swift in Sources */,
@@ -1267,6 +1298,12 @@
 				A10000012B00000000000226 /* RoutineDetailState.swift in Sources */,
 				A10000012B00000000000227 /* RoutineDetailViewModel.swift in Sources */,
 				A10000012B00000000000228 /* RoutineDetailScreen.swift in Sources */,
+				A10000012B00000000000231 /* TabRootHeader.swift in Sources */,
+				A10000012B00000000000232 /* RoutineEditorState.swift in Sources */,
+				A10000012B00000000000233 /* RoutineEditorViewModel.swift in Sources */,
+				A10000012B00000000000234 /* RoutineEditorScreen.swift in Sources */,
+				A10000012B00000000000235 /* AddExerciseSheet.swift in Sources */,
+				A10000012B00000000000236 /* ExerciseTargetEditor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1323,6 +1360,9 @@
 				A10000012B00000000000220 /* RoutinesViewModelTests.swift in TestSources */,
 				A10000012B00000000000221 /* RoutineDetailViewModelTests.swift in TestSources */,
 				A10000012B00000000000222 /* RoutinesFixtures.swift in TestSources */,
+				A10000012B00000000000229 /* RoutineEditorViewModelTests.swift in TestSources */,
+				A10000012B00000000000230 /* TabRootHeaderTests.swift in TestSources */,
+				A10000012B00000000000237 /* RoutineEditorFixtures.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

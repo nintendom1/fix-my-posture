@@ -3,7 +3,14 @@ import SwiftData
 
 struct SavedExerciseSetRecord: Equatable {
     let set: SavedExerciseSet
+    let createdAt: Date
     let updatedAt: Date
+
+    init(set: SavedExerciseSet, createdAt: Date = .distantPast, updatedAt: Date) {
+        self.set = set
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
 }
 
 @MainActor
@@ -39,7 +46,7 @@ final class SwiftDataRoutineRepository: RoutineRepository {
                 sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
             )
             return try context.fetch(descriptor).map {
-                SavedExerciseSetRecord(set: $0.value, updatedAt: $0.updatedAt)
+                SavedExerciseSetRecord(set: $0.value, createdAt: $0.createdAt, updatedAt: $0.updatedAt)
             }
         } catch {
             PersistenceRepositoryLogging.failed("List Saved Sets by update time", error: error)

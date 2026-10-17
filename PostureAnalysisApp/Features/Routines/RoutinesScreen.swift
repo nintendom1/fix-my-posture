@@ -4,41 +4,66 @@ struct RoutinesScreen: View {
     let state: RoutinesState
     let send: (RoutinesIntent) -> Void
 
+    @Environment(\.motionPolicy) private var motionPolicy
+    @State private var tabRootScrollOffset: CGFloat = 0
+    @State private var tabRootTitleFrame: CGRect = .zero
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 8) {
-                    header
-                    Text("Exercises in order, with your own sets and reps.")
-                        .font(Typography.body)
-                        .foregroundStyle(ColorTokens.palette().textSecondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .frame(height: 18, alignment: .leading)
-                        .designAnchor("routines.subtitle")
-                }
+        ZStack(alignment: .top) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        tabRootHeader(compact: false)
+                        Text("Exercises in order, with your own sets and reps.")
+                            .font(Typography.body)
+                            .foregroundStyle(ColorTokens.palette().textSecondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(height: 18, alignment: .leading)
+                            .designAnchor("routines.subtitle")
+                    }
 
-                ForEach(Array(state.routines.enumerated()), id: \.element.id) { index, routine in
-                    RoutineCardView(
-                        routine: routine,
-                        anchor: cardAnchor(for: routine, index: index),
-                        open: { send(.open(routine.id)) },
-                        start: { send(.start(routine.id)) },
-                        edit: { send(.edit(routine.id)) },
-                        duplicate: { send(.duplicate(routine.id)) },
-                        delete: { send(.requestDelete(routine.id)) }
-                    )
-                }
+                    ForEach(Array(state.routines.enumerated()), id: \.element.id) { index, routine in
+                        RoutineCardView(
+                            routine: routine,
+                            anchor: cardAnchor(for: routine, index: index),
+                            open: { send(.open(routine.id)) },
+                            start: { send(.start(routine.id)) },
+                            edit: { send(.edit(routine.id)) },
+                            duplicate: { send(.duplicate(routine.id)) },
+                            delete: { send(.requestDelete(routine.id)) }
+                        )
+                    }
 
-                createRoutineTile
+                    createRoutineTile
+                }
+                .padding(.horizontal, Metrics.Spacing.screenMargin)
+                .padding(.top, 4)
+                .padding(.bottom, 20)
+                .coordinateSpace(name: "routines.content")
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: TabRootScrollOffsetPreferenceKey.self,
+                            value: -proxy.frame(in: .named("routines.scroll")).minY
+                        )
+                    }
+                }
             }
-            .padding(.horizontal, Metrics.Spacing.screenMargin)
-            .padding(.top, 4)
-            .padding(.bottom, 20)
+            .coordinateSpace(name: "routines.scroll")
+            .scrollIndicators(.hidden)
+
+            if isTabRootHeaderCollapsed {
+                tabRootHeader(compact: true)
+                    .transition(.opacity)
+                    .zIndex(1)
+            }
         }
-        .scrollIndicators(.hidden)
         .toolbar(.hidden, for: .navigationBar)
+        .onPreferenceChange(TabRootScrollOffsetPreferenceKey.self) { tabRootScrollOffset = $0 }
+        .onPreferenceChange(TabRootTitleFramePreferenceKey.self) { tabRootTitleFrame = $0 }
+        .animation(motionPolicy == .reduced ? nil : .easeInOut(duration: 0.18), value: isTabRootHeaderCollapsed)
         .onAppear { send(.appeared) }
         .alert("Delete routine?", isPresented: deleteConfirmationBinding) {
             Button("Delete", role: .destructive) { send(.confirmDelete) }
@@ -48,33 +73,50 @@ struct RoutinesScreen: View {
         }
     }
 
-    private var header: some View {
-        HStack(alignment: .bottom) {
-            Text("Routines")
-                .textStyle(.largeTitle)
-                .foregroundStyle(ColorTokens.palette().textPrimary)
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
-                .scaleEffect(x: 0.88, y: 1, anchor: .leading)
-                .frame(width: 144, height: 40, alignment: .leading)
-                .designAnchor("routines.title")
-                .padding(.top, 20)
+    private var isTabRootHeaderCollapsed: Bool {
+        TabRootHeaderCollapse.shouldShowCompactBar(
+            scrollOffset: tabRootScrollOffset,
+            titleFrame: tabRootTitleFrame
+        )
+    }
 
-            Spacer(minLength: 0)
+    @ViewBuilder
+    private func tabRootHeader(compact: Bool) -> some View {
+        let header = TabRootHeader(
+            title: "Routines",
+            height: 60,
+            alignment: .bottom,
+            compactBarAnchor: "routines.compactBar",
+            leading: {
+                Text("Routines")
+                    .textStyle(.largeTitle)
+                    .foregroundStyle(ColorTokens.palette().textPrimary)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .scaleEffect(x: 0.88, y: 1, anchor: .leading)
+                    .frame(width: 144, height: 40, alignment: .leading)
+                    .designAnchor("routines.title")
+                    .tabRootTitleFrame(in: "routines.content")
+                    .padding(.top, 20)
+            },
+            largeTrailing: { createRoutineButton(anchor: "routines.create") },
+            compactTrailing: { createRoutineButton(anchor: "routines.compactBar.create") }
+        )
+        if compact { header.compactBar } else { header }
+    }
 
-            Button { send(.createRoutine) } label: {
-                Image(material: "add")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .frame(width: 44, height: 44)
-                    .background(GradientTokens.workoutActive, in: Circle())
-                    .contentShape(Circle())
-                    .designAnchor("routines.create")
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("New routine")
+    private func createRoutineButton(anchor: String) -> some View {
+        Button { send(.createRoutine) } label: {
+            Image(material: "add")
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(GradientTokens.workoutActive, in: Circle())
+                .contentShape(Circle())
+                .designAnchor(anchor)
         }
-        .frame(height: 60, alignment: .bottom)
+        .buttonStyle(.plain)
+        .accessibilityLabel("New routine")
     }
 
     private var createRoutineTile: some View {

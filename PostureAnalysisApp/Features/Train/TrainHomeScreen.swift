@@ -3,6 +3,11 @@ import SwiftUI
 struct TrainHomeScreen: View {
     let state: TrainHomeState
     let send: (TrainHomeIntent) -> Void
+    var initialScrollOffset: CGFloat? = nil
+
+    @Environment(\.motionPolicy) private var motionPolicy
+    @State private var tabRootScrollOffset: CGFloat = 0
+    @State private var tabRootTitleFrame: CGRect = .zero
 
     private let horizontalMargin: CGFloat = 20
     private let heroHeight: CGFloat = 303.5
@@ -14,54 +19,92 @@ struct TrainHomeScreen: View {
     ]
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                header
-                hero
-                quickStart
-                if let lastWorkout = state.lastWorkout {
-                    lastWorkoutCard(lastWorkout)
+        ZStack(alignment: .top) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                        tabRootHeader(compact: false)
+                        hero
+                        quickStart
+                        if let lastWorkout = state.lastWorkout {
+                            lastWorkoutCard(lastWorkout)
+                        }
+                }
+                .padding(.horizontal, horizontalMargin)
+                .padding(.top, 4)
+                .padding(.bottom, 20)
+                .offset(y: -(initialScrollOffset ?? 0))
+                .coordinateSpace(name: "train.content")
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: TabRootScrollOffsetPreferenceKey.self,
+                            value: -proxy.frame(in: .named("train.scroll")).minY
+                        )
+                    }
                 }
             }
-            .padding(.horizontal, horizontalMargin)
-            .padding(.top, 4)
-            .padding(.bottom, 20)
+            .coordinateSpace(name: "train.scroll")
+            .scrollIndicators(.hidden)
+
+            if isTabRootHeaderCollapsed {
+                tabRootHeader(compact: true)
+                    .transition(.opacity)
+                    .zIndex(1)
+            }
         }
-        .scrollIndicators(.hidden)
+        .onPreferenceChange(TabRootScrollOffsetPreferenceKey.self) { tabRootScrollOffset = $0 }
+        .onPreferenceChange(TabRootTitleFramePreferenceKey.self) { tabRootTitleFrame = $0 }
+        .animation(motionPolicy == .reduced ? nil : .easeInOut(duration: 0.18), value: isTabRootHeaderCollapsed)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear { send(.appeared) }
     }
 
-    private var header: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 0) {
-                Text(state.dateLabel)
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                    .foregroundStyle(ColorTokens.palette().textSecondary)
-                Text("Train")
-                    .textStyle(.largeTitle)
-                    .foregroundStyle(ColorTokens.palette().textPrimary)
-                    .scaleEffect(x: 1.16, y: 1, anchor: .leading)
-                    .frame(width: 98.5, height: 40, alignment: .leading)
-                    .designAnchor("train.title")
-            }
+    private var isTabRootHeaderCollapsed: Bool {
+        TabRootHeaderCollapse.shouldShowCompactBar(
+            scrollOffset: tabRootScrollOffset,
+            titleFrame: tabRootTitleFrame
+        )
+    }
 
-            Spacer(minLength: 0)
+    @ViewBuilder
+    private func tabRootHeader(compact: Bool) -> some View {
+        let header = TabRootHeader(
+            title: "Train",
+            height: 64,
+            alignment: .top,
+            compactBarAnchor: "train.compactBar",
+            leading: {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(state.dateLabel)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundStyle(ColorTokens.palette().textSecondary)
+                    Text("Train")
+                        .textStyle(.largeTitle)
+                        .foregroundStyle(ColorTokens.palette().textPrimary)
+                        .scaleEffect(x: 1.16, y: 1, anchor: .leading)
+                        .frame(width: 98.5, height: 40, alignment: .leading)
+                        .designAnchor("train.title")
+                        .tabRootTitleFrame(in: "train.content")
+                }
+            },
+            largeTrailing: { settingsButton(anchor: "train.settings").padding(.top, 20) },
+            compactTrailing: { settingsButton(anchor: "train.compactBar.settings") }
+        )
+        if compact { header.compactBar } else { header }
+    }
 
-            Button { send(.openSettings) } label: {
-                Image(material: "settings")
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .foregroundStyle(ColorTokens.palette().textPrimary)
-                    .frame(width: 44, height: 44)
-                    .background(Color.white.opacity(0.08), in: Circle())
-                    .contentShape(Circle())
-                    .designAnchor("train.settings")
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Settings")
-            .padding(.top, 20)
+    private func settingsButton(anchor: String) -> some View {
+        Button { send(.openSettings) } label: {
+            Image(material: "settings")
+                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .foregroundStyle(ColorTokens.palette().textPrimary)
+                .frame(width: 44, height: 44)
+                .background(Color.white.opacity(0.08), in: Circle())
+                .contentShape(Circle())
+                .designAnchor(anchor)
         }
-        .frame(height: 64, alignment: .top)
+        .buttonStyle(.plain)
+        .accessibilityLabel("Settings")
     }
 
     private var hero: some View {
