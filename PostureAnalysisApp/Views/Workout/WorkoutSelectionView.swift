@@ -58,7 +58,7 @@ struct WorkoutSelectionView: View {
             }
         }
         .fullScreenCover(item: $launch) { launch in
-            WorkoutCoachView(initialExercise: launch.exerciseID, plan: launch.plan)
+            WorkoutCoachView(model: launch.model)
         }
         .sheet(item: $editing) { editing in
             SavedSetEditorView(set: editing.savedSet, isNew: editing.isNew, catalog: catalog,
@@ -77,7 +77,8 @@ struct WorkoutSelectionView: View {
                 let missing = set.missingItems(in: catalog)
                 HStack {
                     Button {
-                        launch = CoachLaunch(exerciseID: nil, plan: set.plan(in: catalog))
+                        launch = CoachLaunch(model: WorkoutCoachFactory.live(initialExercise: nil,
+                                                                              plan: set.plan(in: catalog)))
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(set.name)
@@ -129,7 +130,7 @@ struct WorkoutSelectionView: View {
             ForEach(exercises) { exercise in
                 HStack {
                     Button {
-                        launch = CoachLaunch(exerciseID: exercise.id, plan: nil)
+                        launch = CoachLaunch(model: WorkoutCoachFactory.live(initialExercise: exercise.id, plan: nil))
                     } label: {
                         Text(exercise.displayName)
                             .font(.headline)
@@ -182,8 +183,7 @@ struct WorkoutSelectionView: View {
 
 private struct CoachLaunch: Identifiable {
     let id = UUID()
-    let exerciseID: ExerciseID?
-    let plan: WorkoutPlan?
+    let model: WorkoutCoachModel
 }
 
 private struct SavedSetEditing: Identifiable {

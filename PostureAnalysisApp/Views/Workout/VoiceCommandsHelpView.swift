@@ -15,6 +15,7 @@ struct VoiceCommandsHelpView: View {
     /// Live progress, since counting continues while this is open.
     let progressLine: String?
     let onRetry: () -> Void
+    let onOpenSettings: () -> Void
     let onDone: () -> Void
 
     @ScaledMetric(relativeTo: .title2) private var chipMinWidth: CGFloat = 150
@@ -102,9 +103,7 @@ struct VoiceCommandsHelpView: View {
         switch micStatus {
         case .needsPermission:
             message = "Voice commands need microphone and speech recognition access. Speech is recognized on this iPhone and never recorded."
-            button = ("Open Settings", {
-                if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
-            })
+            button = ("Open Settings", onOpenSettings)
         case .unavailable(let reason):
             message = reason + " The buttons still work."
             button = ("Try Again", onRetry)

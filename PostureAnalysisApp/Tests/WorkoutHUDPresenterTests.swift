@@ -239,12 +239,15 @@ final class WorkoutHUDPresenterTests: XCTestCase {
         )
         let exercise = session.exercise.map {
             WorkoutHUDExercise(
+                id: $0.id,
                 displayName: $0.displayName,
                 targetLabel: $0.targetLabel,
                 startsByHolding: $0.startsByHolding,
                 startPositionInstruction: $0.guide.startPositionInstruction,
                 sets: $0.sets,
-                setsAndRepsLabel: $0.setsAndRepsLabel
+                setsAndRepsLabel: $0.setsAndRepsLabel,
+                equipment: $0.equipment,
+                countsArmsIndependently: $0.countsArmsIndependently
             )
         }
         return WorkoutHUDInputs(

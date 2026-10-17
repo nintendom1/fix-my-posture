@@ -158,6 +158,14 @@
 		A10000012B00000000000161 /* CameraPreviewProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000161 /* CameraPreviewProviding.swift */; };
 		A10000012B00000000000162 /* AudioSessionControlling.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000162 /* AudioSessionControlling.swift */; };
 		A10000012B00000000000163 /* VoiceControlling.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000163 /* VoiceControlling.swift */; };
+		A10000012B00000000000164 /* WorkoutFramePipelineTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000164 /* WorkoutFramePipelineTests.swift */; };
+		A10000012B00000000000165 /* WorkoutIntentTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000165 /* WorkoutIntentTests.swift */; };
+		A10000012B00000000000166 /* WorkoutOverlayState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000166 /* WorkoutOverlayState.swift */; };
+		A10000012B00000000000167 /* GuideMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000167 /* GuideMetrics.swift */; };
+		A10000012B00000000000168 /* WorkoutFramePipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000168 /* WorkoutFramePipeline.swift */; };
+		A10000012B00000000000169 /* WorkoutIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000169 /* WorkoutIntent.swift */; };
+		A10000012B00000000000170 /* WorkoutCoachViewModeling.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000170 /* WorkoutCoachViewModeling.swift */; };
+		A10000012B00000000000171 /* WorkoutCoachFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000171 /* WorkoutCoachFactory.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -324,6 +332,14 @@
 		B10000012B00000000000161 /* CameraPreviewProviding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreviewProviding.swift; sourceTree = "<group>"; };
 		B10000012B00000000000162 /* AudioSessionControlling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionControlling.swift; sourceTree = "<group>"; };
 		B10000012B00000000000163 /* VoiceControlling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceControlling.swift; sourceTree = "<group>"; };
+		B10000012B00000000000164 /* WorkoutFramePipelineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutFramePipelineTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000165 /* WorkoutIntentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutIntentTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000166 /* WorkoutOverlayState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutOverlayState.swift; sourceTree = "<group>"; };
+		B10000012B00000000000167 /* GuideMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideMetrics.swift; sourceTree = "<group>"; };
+		B10000012B00000000000168 /* WorkoutFramePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutFramePipeline.swift; sourceTree = "<group>"; };
+		B10000012B00000000000169 /* WorkoutIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutIntent.swift; sourceTree = "<group>"; };
+		B10000012B00000000000170 /* WorkoutCoachViewModeling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCoachViewModeling.swift; sourceTree = "<group>"; };
+		B10000012B00000000000171 /* WorkoutCoachFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCoachFactory.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -508,6 +524,8 @@
 				B10000012B00000000000152 /* WorkoutVisualStateTests.swift */,
 				B10000012B00000000000153 /* WorkoutHUDPresenterTests.swift */,
 				B10000012B00000000000158 /* WorkoutCoachModelTests.swift */,
+				B10000012B00000000000164 /* WorkoutFramePipelineTests.swift */,
+				B10000012B00000000000165 /* WorkoutIntentTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -582,6 +600,10 @@
 				B10000012B00000000000125 /* WorkoutPlan.swift */,
 				B10000012B00000000000130 /* WorkoutWeight.swift */,
 				B10000012B00000000000159 /* ClockAndScheduling.swift */,
+				B10000012B00000000000168 /* WorkoutFramePipeline.swift */,
+				B10000012B00000000000169 /* WorkoutIntent.swift */,
+				B10000012B00000000000170 /* WorkoutCoachViewModeling.swift */,
+				B10000012B00000000000171 /* WorkoutCoachFactory.swift */,
 			);
 			path = Session;
 			sourceTree = "<group>";
@@ -731,6 +753,8 @@
 			children = (
 				B10000012B00000000000154 /* WorkoutVisualState.swift */,
 				B10000012B00000000000155 /* WorkoutHUDPresenter.swift */,
+				B10000012B00000000000166 /* WorkoutOverlayState.swift */,
+				B10000012B00000000000167 /* GuideMetrics.swift */,
 			);
 			path = Presentation;
 			sourceTree = "<group>";
@@ -952,6 +976,12 @@
 				A10000012B00000000000161 /* CameraPreviewProviding.swift in Sources */,
 				A10000012B00000000000162 /* AudioSessionControlling.swift in Sources */,
 				A10000012B00000000000163 /* VoiceControlling.swift in Sources */,
+				A10000012B00000000000166 /* WorkoutOverlayState.swift in Sources */,
+				A10000012B00000000000167 /* GuideMetrics.swift in Sources */,
+				A10000012B00000000000168 /* WorkoutFramePipeline.swift in Sources */,
+				A10000012B00000000000169 /* WorkoutIntent.swift in Sources */,
+				A10000012B00000000000170 /* WorkoutCoachViewModeling.swift in Sources */,
+				A10000012B00000000000171 /* WorkoutCoachFactory.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -991,6 +1021,8 @@
 				A10000012B00000000000153 /* WorkoutHUDPresenterTests.swift in TestSources */,
 				A10000012B00000000000157 /* WorkoutServiceFakes.swift in TestSources */,
 				A10000012B00000000000158 /* WorkoutCoachModelTests.swift in TestSources */,
+				A10000012B00000000000164 /* WorkoutFramePipelineTests.swift in TestSources */,
+				A10000012B00000000000165 /* WorkoutIntentTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

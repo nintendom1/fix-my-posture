@@ -46,12 +46,15 @@ enum WorkoutHUDRestTone: Equatable {
 
 /// The minimal exercise data needed to preserve existing HUD wording.
 struct WorkoutHUDExercise: Equatable {
+    let id: ExerciseID
     let displayName: String
     let targetLabel: String
     let startsByHolding: Bool
     let startPositionInstruction: String
     let sets: Int
     let setsAndRepsLabel: String
+    let equipment: ExerciseEquipment
+    let countsArmsIndependently: Bool
 }
 
 struct WorkoutHUDInputs: Equatable {
@@ -84,12 +87,15 @@ struct WorkoutHUDInputs: Equatable {
             visual: visual,
             exercise: session.exercise.map {
                 WorkoutHUDExercise(
+                    id: $0.id,
                     displayName: $0.displayName,
                     targetLabel: $0.targetLabel,
                     startsByHolding: $0.startsByHolding,
                     startPositionInstruction: $0.guide.startPositionInstruction,
                     sets: $0.sets,
-                    setsAndRepsLabel: $0.setsAndRepsLabel
+                    setsAndRepsLabel: $0.setsAndRepsLabel,
+                    equipment: $0.equipment,
+                    countsArmsIndependently: $0.countsArmsIndependently
                 )
             },
             voiceCommandsAvailable: voiceCommandsAvailable,

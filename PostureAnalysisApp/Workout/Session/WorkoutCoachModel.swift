@@ -1,108 +1,104 @@
 import AVFoundation
-import SwiftUI
-
-/// Overlay display state in mirrored, normalized Vision coordinates.
-struct WorkoutOverlayState: Equatable {
-    var imageSize: CGSize
-    var joints: [LandmarkType: OverlayJoint]
-    var segments: [FocusSegment]
-    /// Arms at their counted end position while counting.
-    var endPositionSides: Set<BodySide>
-    /// Every detected joint, mirrored but unsmoothed; tips keep clear of the whole body.
-    var pose: BodyPose
-    /// Joints the active corrective tip refers to; drawn amber.
-    var emphasizedJoints: Set<LandmarkType> = []
-}
-
-/// Smoothed arm-segment lengths in image pixels, used to fit the ghost demo to the user.
-struct GuideMetrics: Equatable {
-    var upperArm: CGFloat
-    var forearm: CGFloat
-
-    /// Typical proportions relative to shoulder width, used until segments have been measured.
-    static let upperArmToShoulderWidth: CGFloat = 0.85
-    static let forearmToShoulderWidth: CGFloat = 0.72
-    /// Measured segments outside this shoulder-width-relative range are treated as noise.
-    static let plausibleSegmentRatio: ClosedRange<CGFloat> = 0.45...1.4
-    /// From the side, shoulder width vanishes, so segments are judged against torso length instead.
-    static let upperArmToTorso: CGFloat = 0.53
-    static let forearmToTorso: CGFloat = 0.47
-    static let plausibleTorsoRatio: ClosedRange<CGFloat> = 0.3...0.9
-    static let smoothing: CGFloat = 0.25
-}
+import Foundation
+import Observation
 
 /// Main-actor orchestrator: feeds camera frames, commands, and lifecycle changes through the pure
 /// `WorkoutSession` reducer and carries out the effects it returns.
 @MainActor
-final class WorkoutCoachModel: ObservableObject {
-    enum CameraStatus: Equatable {
-        case idle
-        case starting
-        case running
-        case interrupted
-        case notAuthorized
-        case failed(String)
-    }
-
-    @Published private(set) var session: WorkoutSession
-    @Published private(set) var cameraStatus: CameraStatus = .idle
-    @Published private(set) var overlay: WorkoutOverlayState?
+@Observable
+final class WorkoutCoachModel: WorkoutCoachViewModeling {
+    private(set) var session: WorkoutSession
+    private(set) var cameraStatus: WorkoutCameraStatus = .idle
+    private(set) var overlay: WorkoutOverlayState?
+    /// True after a frame has arrived; framing reliability supplies the existing loss grace period.
+    private(set) var hasPoseFrame = false
     /// Refreshed on every tick for the rest timer.
-    @Published private(set) var now: TimeInterval
-    @Published private(set) var guideMetrics: GuideMetrics?
-    @Published private(set) var armReadings: [BodySide: ArmReading] = [:]
-    @Published private(set) var armThresholds: [BodySide: ArmThresholds] = [:]
+    private(set) var now: TimeInterval
+    private(set) var guideMetrics: GuideMetrics?
+    private(set) var armReadings: [BodySide: ArmReading] = [:]
+    private(set) var armThresholds: [BodySide: ArmThresholds] = [:]
     /// The phone leans forward or back enough to distort heights.
-    @Published private(set) var isPhoneTilted = false
-    @Published private(set) var isCoachSpeaking = false
+    private(set) var isPhoneTilted = false
+    private(set) var isCoachSpeaking = false
     /// The camera has run and the coach has introduced the workout.
-    @Published private(set) var hasOpened = false
-    @Published private(set) var micStatus: VoiceStatus = .off
+    private(set) var hasOpened = false
+    private(set) var micStatus: VoiceStatus = .off
     /// The phrase behind the most recent voice command, shown briefly as a "Heard" chip.
-    @Published private(set) var heardPhrase: String?
+    private(set) var heardPhrase: String?
     /// The Voice Commands help is open. Capture and listening continue behind it.
-    @Published private(set) var isHelpPresented = false
+    private(set) var isHelpPresented = false
     /// The coach says nothing at all, so other audio is never ducked. Remembered between workouts.
-    @Published private(set) var isCoachMuted: Bool
+    private(set) var isCoachMuted: Bool
     /// The microphone stays off until the user turns it back on. Remembered between workouts.
-    @Published private(set) var isMicMuted: Bool
+    private(set) var isMicMuted: Bool
     /// The coaching tip on screen; it clears after `tipDuration`.
-    @Published private(set) var activeTip: CoachingTip?
+    private(set) var activeTip: CoachingTip?
     /// The last rep's form values, for Show Measurements.
-    @Published private(set) var formReadings: [FormReading] = []
+    private(set) var formReadings: [FormReading] = []
+    private(set) var showsMeasurements: Bool
+    private(set) var isGuidePresented = false
 
     var captureSession: AVCaptureSession? { previewProvider?.previewSession }
     var exercises: [ExerciseDefinition] { session.exercises }
+    var hud: WorkoutHUDViewState {
+        let visualInputs = WorkoutVisualInputs(
+            session: session,
+            now: now,
+            isPhoneTilted: isPhoneTilted,
+            activeTip: activeTip.map { WorkoutVisualTip(id: $0.id, kind: $0.cue.kind) },
+            hasPose: hasPoseFrame
+        )
+        let visual = WorkoutVisualState.derive(visualInputs)
+        let presentation = WorkoutHUDPresenter.derive(WorkoutHUDInputs(
+            session: session,
+            visual: visualInputs,
+            voiceCommandsAvailable: micStatus.isUsable
+        ))
+        return WorkoutHUDViewState(
+            presentation: presentation,
+            visual: visual,
+            exercise: WorkoutHUDInputs(session: session, visual: visualInputs,
+                                       voiceCommandsAvailable: micStatus.isUsable).exercise,
+            exerciseID: session.exerciseID,
+            exerciseOptions: session.exercises.map { .init(id: $0.id, displayName: $0.displayName) },
+            planName: session.plan?.name,
+            isFollowingPlan: session.isFollowingPlan,
+            repCount: session.repCount,
+            sideReps: session.sideReps,
+            currentWeights: session.currentWeights,
+            readings: armReadings,
+            thresholds: armThresholds,
+            formReadings: formReadings,
+            isPhoneTilted: isPhoneTilted,
+            micStatus: micStatus,
+            heardPhrase: heardPhrase,
+            isCoachMuted: isCoachMuted,
+            showsMeasurements: showsMeasurements
+        )
+    }
 
-    private let camera: PoseFrameSource
-    private let previewProvider: CameraPreviewProviding?
-    private let permission: CameraPermissionProviding
-    private let speech: SpeechCoaching
-    private let audio: AudioSessionControlling?
-    private let tiltMonitor: PhoneTiltMonitoring?
-    private let voice: VoiceControlling?
-    private let defaults: UserDefaults
-    private let clock: Clock
-    private let scheduler: Scheduling
+    @ObservationIgnored private let camera: PoseFrameSource
+    @ObservationIgnored private let previewProvider: CameraPreviewProviding?
+    @ObservationIgnored private let permission: CameraPermissionProviding
+    @ObservationIgnored private let speech: SpeechCoaching
+    @ObservationIgnored private let audio: AudioSessionControlling?
+    @ObservationIgnored private let tiltMonitor: PhoneTiltMonitoring?
+    @ObservationIgnored private let voice: VoiceControlling?
+    @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let clock: Clock
+    @ObservationIgnored private let scheduler: Scheduling
 
-    private var analyzer: ExerciseAnalyzing?
-    private var framingEvaluator: FramingEvaluator?
-    private var framingExerciseID: ExerciseID?
-    private var lastFramingStatus: FramingStatus?
-    private var smoother = LandmarkSmoother()
-    private var isCounting = false
-    private var generation = UUID()
-    private var isGuidePresented = false
-    private var lastStartPositionHeld = false
-    private var tiltDetector = PhoneTiltDetector()
-    private var isViewActive = false
-    private var isApplicationActive = false
-    private var isRequestingPermission = false
-    private var tickTimer: Cancellable?
-    private var tipExpiry: Cancellable?
-    private var heardExpiry: Cancellable?
-    private var unmuteTipTask: Cancellable?
-    private var heardGeneration = 0
+    @ObservationIgnored private var framePipeline = WorkoutFramePipeline()
+    @ObservationIgnored private var generation = UUID()
+    @ObservationIgnored private var isViewActive = false
+    @ObservationIgnored private var isApplicationActive = false
+    @ObservationIgnored private var isRequestingPermission = false
+    @ObservationIgnored private var didApplyInitialMicMute = false
+    @ObservationIgnored private var tickTimer: Cancellable?
+    @ObservationIgnored private var tipExpiry: Cancellable?
+    @ObservationIgnored private var heardExpiry: Cancellable?
+    @ObservationIgnored private var unmuteTipTask: Cancellable?
+    @ObservationIgnored private var heardGeneration = 0
 
     static let tickInterval: TimeInterval = 0.5
     static let heardChipDuration: TimeInterval = 1.5
@@ -112,22 +108,7 @@ final class WorkoutCoachModel: ObservableObject {
     static let voiceTip = "Say \u{201C}what can I say\u{201D} anytime to see voice commands."
     static let coachMutedKey = "workoutCoach.coachMuted"
     static let micMutedKey = "workoutCoach.micMuted"
-
-    static func live(initialExercise: ExerciseID? = nil, plan: WorkoutPlan? = nil) -> WorkoutCoachModel {
-        let audio = WorkoutAudioSession()
-        // Sets and reps the user adjusted on the list apply here; Saved Sets bring their own.
-        let exercises = ExerciseTargetStore.applying(to: ExerciseCatalog.all)
-        let voice = WorkoutVoiceController(recognizer: OnDeviceSpeechRecognizer(),
-                                           parser: VoiceCommandParser(exercises: exercises),
-                                           permissions: SystemVoicePermissions(), audio: audio)
-        let camera = WorkoutCameraController()
-        return WorkoutCoachModel(camera: camera, previewProvider: camera,
-                                 permission: SystemCameraPermission(), speech: SpeechCoach(audio: audio),
-                                 audio: audio, tiltMonitor: CoreMotionTiltMonitor(), voice: voice,
-                                 clock: SystemClock(), scheduler: MainScheduler(), defaults: .standard,
-                                 exercises: exercises, initialExercise: initialExercise ?? exercises.first?.id,
-                                 plan: plan)
-    }
+    static let showMeasurementsKey = "workoutCoach.showMeasurements"
 
     init(camera: PoseFrameSource, previewProvider: CameraPreviewProviding?, permission: CameraPermissionProviding,
          speech: SpeechCoaching, audio: AudioSessionControlling?, tiltMonitor: PhoneTiltMonitoring?,
@@ -145,17 +126,16 @@ final class WorkoutCoachModel: ObservableObject {
         self.scheduler = scheduler
         isCoachMuted = defaults.bool(forKey: Self.coachMutedKey)
         isMicMuted = defaults.bool(forKey: Self.micMutedKey)
+        showsMeasurements = defaults.bool(forKey: Self.showMeasurementsKey)
         session = WorkoutSession(exercises: exercises, initialExercise: initialExercise, plan: plan)
         now = clock.now
         audio?.onEvent = { [weak self] event in self?.handleAudio(event) }
         speech.onActivityChanged = { [weak self] speaking in
             self?.coachSpeakingChanged(speaking)
         }
-        voice?.onCommand = { [weak self] command in self?.send(command) }
+        voice?.onCommand = { [weak self] command in self?.handleVoiceCommand(command) }
         voice?.onHeard = { [weak self] phrase in self?.showHeard(phrase) }
         voice?.onStatusChanged = { [weak self] status in self?.voiceStatusChanged(status) }
-        // A remembered muted microphone never starts listening or asks for permission.
-        if isMicMuted { voice?.setMuted(true) }
     }
 
     // MARK: - Lifecycle
@@ -167,6 +147,10 @@ final class WorkoutCoachModel: ObservableObject {
     func onAppear(isApplicationActive: Bool) {
         isViewActive = true
         self.isApplicationActive = isApplicationActive
+        if isMicMuted, !didApplyInitialMicMute {
+            voice?.setMuted(true)
+            didApplyInitialMicMute = true
+        }
         audio?.configureBaseCategory()
         startTicks()
         startCaptureIfPossible()
@@ -193,7 +177,7 @@ final class WorkoutCoachModel: ObservableObject {
         }
     }
 
-    func send(_ command: WorkoutCommand) {
+    private func handleVoiceCommand(_ command: WorkoutCommand) {
         switch command {
         case .help:
             isHelpPresented = true
@@ -214,6 +198,49 @@ final class WorkoutCoachModel: ObservableObject {
         apply(session.handle(.command(command), at: clock.now))
     }
 
+    func send(_ intent: WorkoutIntent) {
+        if let command = intent.command {
+            handleVoiceCommand(command)
+            return
+        }
+        switch intent {
+        case .toggleCoachMute:
+            setCoachMuted(!isCoachMuted)
+        case .setCoachMuted(let muted):
+            setCoachMuted(muted)
+        case .toggleMicrophoneMute, .microphoneTapped:
+            microphoneTapped()
+        case .setMicrophoneMuted(let muted):
+            setMicMuted(muted)
+        case .showGuide:
+            setGuidePresented(true)
+        case .hideGuide:
+            setGuidePresented(false)
+        case .readGuideAloud:
+            readGuideAloud()
+        case .stopSpeaking:
+            stopSpeaking()
+        case .showVoiceHelp:
+            isHelpPresented = true
+        case .hideVoiceHelp:
+            isHelpPresented = false
+        case .retryVoice:
+            retryVoice()
+        case .toggleMeasurements:
+            showsMeasurements.toggle()
+            defaults.set(showsMeasurements, forKey: Self.showMeasurementsKey)
+        case .dismissTip:
+            setActiveTip(nil)
+        case .closeWorkout:
+            onDisappear()
+        case .openSettings:
+            break
+        case .start, .pause, .resume, .restartSet, .nextSet, .changeExercise, .chooseExercise,
+             .cancelExerciseChange, .anotherRound, .nextExercise, .endWorkout:
+            assertionFailure("Reducer-backed intents are mapped above.")
+        }
+    }
+
     /// Touch path for the Voice Commands help; opening it this way doesn't speak.
     func setHelpPresented(_ presented: Bool) {
         isHelpPresented = presented
@@ -226,7 +253,7 @@ final class WorkoutCoachModel: ObservableObject {
         guard presented != isGuidePresented else { return }
         isGuidePresented = presented
         if presented {
-            if session.phase == .exercising { send(.pause) }
+            if session.phase == .exercising { handleVoiceCommand(.pause) }
             stopCapture()
         } else {
             speech.stopAll()
@@ -267,6 +294,7 @@ final class WorkoutCoachModel: ObservableObject {
         isMicMuted = muted
         defaults.set(muted, forKey: Self.micMutedKey)
         voice?.setMuted(muted)
+        didApplyInitialMicMute = true
         if !muted, canCapture { voice?.enable() }
     }
 
@@ -339,8 +367,10 @@ final class WorkoutCoachModel: ObservableObject {
         // Paused rather than off, so prompts spoken on return still say "Say resume".
         voice?.disable(status: .paused)
         tiltMonitor?.stop()
-        tiltDetector.reset()
-        setPhoneTilted(false)
+        if let event = framePipeline.resetTilt() {
+            if case .phoneTiltChanged(let tilted) = event { isPhoneTilted = tilted }
+            apply(session.handle(event, at: clock.now))
+        }
         if cameraStatus == .running || cameraStatus == .starting || cameraStatus == .interrupted {
             cameraStatus = .idle
         }
@@ -374,54 +404,48 @@ final class WorkoutCoachModel: ObservableObject {
     }
 
     private func process(_ frame: PoseFrame) {
-        guard let exercise = session.exercise else {
+        guard session.exercise != nil else {
+            hasPoseFrame = false
             overlay = nil
             return
         }
-        if framingExerciseID != exercise.id { rebuildTracking(for: exercise) }
-        if var evaluator = framingEvaluator {
-            let status = evaluator.evaluate(frame)
-            framingEvaluator = evaluator
-            if status != lastFramingStatus {
-                lastFramingStatus = status
-                apply(session.handle(.framingChanged(status), at: clock.now))
+        hasPoseFrame = true
+        framePipeline.setSessionPhase(session.phase)
+        framePipeline.exerciseChanged(to: session.exercise, analyzerEpoch: session.analyzerEpoch)
+        let output = framePipeline.process(frame: frame, at: clock.now)
+        overlay = output.overlay
+        guideMetrics = output.guideMetrics
+        armReadings = output.readings
+        armThresholds = output.thresholds
+        formReadings = output.formReadings
+
+        var checkedStartHold = false
+        for event in output.events {
+            apply(session.handle(event, at: clock.now))
+            // A full start hold starts on this frame, before any rep event from the same sample.
+            if !checkedStartHold, isStartHoldComplete(at: clock.now),
+               isStartPositionEvent(event) || isRepEvent(event) {
+                apply(session.handle(.tick, at: clock.now))
+                checkedStartHold = true
             }
         }
-
-        updateGuideMetrics(frame)
-
-        var endSides: Set<BodySide> = []
-        if let analyzer {
-            let analysis = analyzer.process(frame, counting: isCounting)
-            if isCounting { endSides = analysis.endPositionSides }
-            if armReadings != analysis.readings { armReadings = analysis.readings }
-            if armThresholds != analysis.thresholds { armThresholds = analysis.thresholds }
-            setStartPositionHeld(analysis.startPositionHeld)
-            // Start as soon as the hold completes rather than waiting for the next tick.
-            let time = clock.now
-            if session.startHoldProgress(at: time) == 1 { apply(session.handle(.tick, at: time)) }
-            for rep in analysis.repEvents {
-                apply(session.handle(.repCompleted(rep), at: clock.now))
-            }
-            if formReadings != analysis.formReadings { formReadings = analysis.formReadings }
-            // After reps, so a rep that completes the set isn't followed by a stale cue.
-            if isCounting {
-                let observation = FormObservation(epoch: analyzer.epoch, repForms: analysis.repForms,
-                                                  signals: analysis.formSignals)
-                apply(session.handle(.formObserved(observation), at: clock.now))
-            }
+        if !checkedStartHold, isStartHoldComplete(at: clock.now) {
+            apply(session.handle(.tick, at: clock.now))
         }
+    }
 
-        // Display only: mirror for the selfie preview, then smooth.
-        let display = RealtimePoseProcessing.displayPose(frame.pose, mirrored: true)
-        overlay = WorkoutOverlayState(
-            imageSize: frame.imageSize,
-            joints: smoother.update(pose: display, joints: exercise.focusJoints, at: frame.timestamp),
-            segments: exercise.focusSegments,
-            endPositionSides: endSides,
-            pose: display,
-            emphasizedJoints: emphasizedJoints
-        )
+    private func isStartHoldComplete(at time: TimeInterval) -> Bool {
+        session.startHoldProgress(at: time) == 1
+    }
+
+    private func isStartPositionEvent(_ event: WorkoutEvent) -> Bool {
+        if case .startPositionChanged = event { return true }
+        return false
+    }
+
+    private func isRepEvent(_ event: WorkoutEvent) -> Bool {
+        if case .repCompleted = event { return true }
+        return false
     }
 
     private var emphasizedJoints: Set<LandmarkType> {
@@ -429,99 +453,18 @@ final class WorkoutCoachModel: ObservableObject {
         return cue.joints
     }
 
-    /// The session sees a fresh, unreliable start; the overlay clears.
     private func resetTracking() {
-        framingEvaluator?.reset()
-        lastFramingStatus = nil
-        smoother.reset()
-        overlay = nil
-        guideMetrics = nil
-        armReadings = [:]
-        armThresholds = [:]
-        formReadings = []
-        setStartPositionHeld(false)
+        let events = framePipeline.resetTracking()
+        hasPoseFrame = false
+        overlay = framePipeline.overlay
+        guideMetrics = framePipeline.guideMetrics
+        armReadings = framePipeline.readings
+        armThresholds = framePipeline.thresholds
+        formReadings = framePipeline.formReadings
+        for event in events { apply(session.handle(event, at: clock.now)) }
         if session.framing != .lost {
             apply(session.handle(.framingChanged(.lost), at: clock.now))
         }
-    }
-
-    private func setStartPositionHeld(_ held: Bool) {
-        guard held != lastStartPositionHeld else { return }
-        lastStartPositionHeld = held
-        apply(session.handle(.startPositionChanged(held), at: clock.now))
-    }
-
-    /// Arm-segment lengths from the raw pose, smoothed so the ghost doesn't flicker. Shoulder width
-    /// rejects implausible segments and stands in until the arms are measured.
-    private func updateGuideMetrics(_ frame: PoseFrame) {
-        let confidence = FramingConfiguration().minimumConfidence
-        guard let reference = metricsReference(frame, confidence: confidence) else { return }
-        let arms = BodySide.allCases.compactMap { ArmGeometry.arm($0, in: frame, minimumConfidence: confidence) }
-        func measured(_ lengths: [CGFloat], typical: CGFloat) -> CGFloat {
-            let plausible = lengths.filter { reference.plausible.contains($0 / reference.length) }
-            guard !plausible.isEmpty else { return reference.length * typical }
-            return plausible.reduce(0, +) / CGFloat(plausible.count)
-        }
-        let sample = GuideMetrics(upperArm: measured(arms.map(\.upperArmLength), typical: reference.upperArm),
-                                  forearm: measured(arms.map(\.forearmLength), typical: reference.forearm))
-        guard let previous = guideMetrics else {
-            guideMetrics = sample
-            return
-        }
-        let k = GuideMetrics.smoothing
-        guideMetrics = GuideMetrics(upperArm: previous.upperArm + (sample.upperArm - previous.upperArm) * k,
-                                    forearm: previous.forearm + (sample.forearm - previous.forearm) * k)
-    }
-
-    /// The body length arm segments are checked against: shoulder width from the front, torso length
-    /// (shoulder to hip on either side) from the side.
-    private func metricsReference(_ frame: PoseFrame, confidence: Double)
-        -> (length: CGFloat, upperArm: CGFloat, forearm: CGFloat, plausible: ClosedRange<CGFloat>)? {
-        if session.exercise?.cameraView == .side {
-            for side in BodySide.allCases {
-                guard let shoulder = frame.point(side.shoulder, minimumConfidence: confidence),
-                      let hip = frame.point(side.hip, minimumConfidence: confidence) else { continue }
-                let torso = ArmGeometry.distance(shoulder, hip)
-                if torso > 1 {
-                    return (torso, GuideMetrics.upperArmToTorso, GuideMetrics.forearmToTorso, GuideMetrics.plausibleTorsoRatio)
-                }
-            }
-            return nil
-        }
-        guard let left = frame.point(.leftShoulder, minimumConfidence: confidence),
-              let right = frame.point(.rightShoulder, minimumConfidence: confidence) else { return nil }
-        let width = ArmGeometry.distance(left, right)
-        guard width > 1 else { return nil }
-        return (width, GuideMetrics.upperArmToShoulderWidth, GuideMetrics.forearmToShoulderWidth, GuideMetrics.plausibleSegmentRatio)
-    }
-
-    private func updatePhoneTilt(at now: TimeInterval) {
-        guard session.exercise?.warnsAboutTilt ?? true else {
-            tiltDetector.reset()
-            setPhoneTilted(false)
-            return
-        }
-        setPhoneTilted(tiltDetector.update(pitchDegrees: tiltMonitor?.latestTilt?.pitchDegrees, at: now))
-    }
-
-    private func setPhoneTilted(_ tilted: Bool) {
-        guard tilted != isPhoneTilted else { return }
-        isPhoneTilted = tilted
-        apply(session.handle(.phoneTiltChanged(tilted), at: clock.now))
-    }
-
-    private func rebuildTracking(for exercise: ExerciseDefinition) {
-        framingEvaluator = FramingEvaluator(requiredJoints: exercise.requiredJoints,
-                                            anyOfRequiredJoints: exercise.anyOfRequiredJoints,
-                                            headroomArmLengths: exercise.headroomArmLengths,
-                                            cameraView: exercise.cameraView)
-        framingExerciseID = exercise.id
-        // The previous exercise's lines and readings must not linger after a switch.
-        armReadings = [:]
-        armThresholds = [:]
-        formReadings = []
-        lastFramingStatus = nil
-        smoother.reset()
     }
 
     // MARK: - Effects
@@ -535,13 +478,13 @@ final class WorkoutCoachModel: ObservableObject {
                 if !isCoachMuted { speech.repeatLastInstruction() }
             case .resetAnalyzer(let epoch):
                 guard let exercise = session.exercise else {
-                    analyzer = nil
+                    framePipeline.exerciseChanged(to: nil, analyzerEpoch: epoch)
                     continue
                 }
-                analyzer = exercise.makeAnalyzer(epoch)
-                if exercise.id != framingExerciseID { rebuildTracking(for: exercise) }
+                framePipeline.exerciseChanged(to: exercise, analyzerEpoch: epoch)
+                framePipeline.resetAnalyzer(epoch: epoch)
             case .setCounting(let counting):
-                isCounting = counting
+                framePipeline.setCounting(counting)
             case .clearFeedback:
                 overlay?.endPositionSides = []
                 setActiveTip(nil)
@@ -569,7 +512,10 @@ final class WorkoutCoachModel: ObservableObject {
 
     private func tick() {
         now = clock.now
-        updatePhoneTilt(at: now)
+        if let event = framePipeline.processTiltSample(pitchDegrees: tiltMonitor?.latestTilt?.pitchDegrees, at: now) {
+            if case .phoneTiltChanged(let tilted) = event { isPhoneTilted = tilted }
+            apply(session.handle(event, at: now))
+        }
         apply(session.handle(.tick, at: now))
     }
 
@@ -619,6 +565,7 @@ final class WorkoutCoachModel: ObservableObject {
         tipExpiry?.cancel()
         tipExpiry = nil
         activeTip = tip
+        framePipeline.setEmphasizedJoints(emphasizedJoints)
         overlay?.emphasizedJoints = emphasizedJoints
         guard let id = tip?.id else { return }
         tipExpiry = scheduler.schedule(after: Self.tipDuration) { [weak self] in

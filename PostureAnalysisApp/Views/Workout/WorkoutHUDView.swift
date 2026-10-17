@@ -11,35 +11,21 @@ struct WorkoutHUDRects: PreferenceKey {
 /// Compact top status and bottom rep counter with touch controls. The top stays small to leave
 /// headroom for overhead movements.
 struct WorkoutHUDView: View {
-    let session: WorkoutSession
-    let presentation: WorkoutHUDPresentation
-    let readings: [BodySide: ArmReading]
-    /// The last rep's form values, shown with the measurements for tuning cue thresholds.
-    let formReadings: [FormReading]
-    let isPhoneTilted: Bool
-    let micStatus: VoiceStatus
-    let heardPhrase: String?
-    @Binding var showMeasurements: Bool
-    let onClose: () -> Void
-    let onShowGuide: () -> Void
-    let isCoachMuted: Bool
-    let onMicrophoneTap: () -> Void
-    let onToggleCoachVoice: () -> Void
-    let onShowVoiceCommands: () -> Void
-    let onCommand: (WorkoutCommand) -> Void
+    let state: WorkoutHUDViewState
+    let send: (WorkoutIntent) -> Void
 
     @ScaledMetric(relativeTo: .largeTitle) private var repSize: CGFloat = 64
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var confirmingEnd = false
     /// An exercise picked from the menu mid-set, waiting for confirmation that the set's reps can go.
-    @State private var pendingExercise: ExerciseDefinition?
+    @State private var pendingExercise: WorkoutHUDViewState.ExerciseOption?
     @State private var repPulse = false
 
     var body: some View {
         VStack {
             VStack(spacing: 6) {
                 topBar
-                if isPhoneTilted {
+                if state.isPhoneTilted {
                     Label("Phone tilted: stand it upright", systemImage: "iphone.gen3.radiowaves.left.and.right")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.orange)
@@ -49,7 +35,7 @@ struct WorkoutHUDView: View {
                         .clipShape(Capsule())
                         .accessibilityLabel("Phone tilted. Stand it upright for accurate counts.")
                 }
-                if let heardPhrase {
+                if let heardPhrase = state.heardPhrase {
                     Label("Heard: \u{201C}\(heardPhrase)\u{201D}", systemImage: "waveform")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.white)
@@ -61,7 +47,7 @@ struct WorkoutHUDView: View {
                         .accessibilityLabel("Heard \(heardPhrase)")
                 }
             }
-            .animation(.easeInOut(duration: 0.2), value: heardPhrase)
+            .animation(.easeInOut(duration: 0.2), value: state.heardPhrase)
             .background(GeometryReader { proxy in
                 Color.clear.preference(key: WorkoutHUDRects.self, value: [proxy.frame(in: .named(WorkoutCoachView.coordinateSpace))])
             })
@@ -77,7 +63,7 @@ struct WorkoutHUDView: View {
 
     private var topBar: some View {
         HStack(alignment: .center) {
-            Button(action: onClose) {
+            Button { send(.closeWorkout) } label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.title)
                     .foregroundStyle(.white)
@@ -89,21 +75,21 @@ struct WorkoutHUDView: View {
             Spacer(minLength: 8)
 
             // Tapping the title reopens the how-to guide.
-            Button(action: onShowGuide) {
+            Button { send(.showGuide) } label: {
                 VStack(spacing: 2) {
                     HStack(spacing: 4) {
-                        Text(session.exercise?.displayName ?? "Workout Coach")
+                        Text(state.exercise?.displayName ?? "Workout Coach")
                             .font(.headline)
                             .lineLimit(2)
                             .minimumScaleFactor(0.85)
                             .multilineTextAlignment(.center)
-                        if session.exercise != nil {
+                        if state.exercise != nil {
                             Image(systemName: "info.circle")
                                 .font(.subheadline)
                         }
                     }
                     .foregroundStyle(.white)
-                    Text(presentation.statusText)
+                    Text(state.presentation.statusText)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(statusColor)
                         .multilineTextAlignment(.center)
@@ -114,7 +100,7 @@ struct WorkoutHUDView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 14))
             }
             .buttonStyle(.plain)
-            .disabled(session.exercise == nil)
+            .disabled(state.exercise == nil)
             .accessibilityElement(children: .combine)
             .accessibilityHint("Shows how to do this exercise")
             .accessibilityIdentifier("workoutGuideButton")
@@ -122,8 +108,10 @@ struct WorkoutHUDView: View {
             Spacer(minLength: 8)
 
             HStack(spacing: 8) {
-                MicrophoneStatusView(status: micStatus, onTap: onMicrophoneTap, onShowCommands: onShowVoiceCommands)
-                CoachVoiceButton(isMuted: isCoachMuted, action: onToggleCoachVoice)
+                MicrophoneStatusView(status: state.micStatus,
+                                     onTap: { send(.microphoneTapped) },
+                                     onShowCommands: { send(.showVoiceHelp) })
+                CoachVoiceButton(isMuted: state.isCoachMuted) { send(.toggleCoachMute) }
             }
         }
         .padding(.horizontal)
@@ -131,7 +119,7 @@ struct WorkoutHUDView: View {
     }
 
     private var statusColor: Color {
-        switch presentation.statusTone {
+        switch state.presentation.statusTone {
         case .endPosition: return WorkoutJointOverlayView.endPositionColor
         case .tracked: return WorkoutJointOverlayView.trackedColor
         case .attention: return .orange
@@ -143,15 +131,15 @@ struct WorkoutHUDView: View {
 
     private var bottomPanel: some View {
         VStack(spacing: 8) {
-            if presentation.showsRepProgress, let exercise = session.exercise {
+            if state.presentation.showsRepProgress, let exercise = state.exercise {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("\(session.repCount)")
+                    Text("\(state.repCount)")
                         .font(.system(size: min(repSize, 96), weight: .heavy, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(.white)
                         .contentTransition(.numericText())
                         .scaleEffect(repPulse ? 1.15 : 1, anchor: .bottomLeading)
-                        .onChange(of: presentation.repEventCount) { old, new in
+                        .onChange(of: state.presentation.repEventCount) { old, new in
                             guard new > old, !reduceMotion else { return }
                             withAnimation(.spring(response: 0.18, dampingFraction: 0.5)) { repPulse = true }
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
@@ -163,30 +151,30 @@ struct WorkoutHUDView: View {
                         .foregroundStyle(.white.opacity(0.75))
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
-                        if let setLabel = presentation.setLabel {
+                        if let setLabel = state.presentation.setLabel {
                             Text(setLabel)
                                 .font(.headline)
                                 .foregroundStyle(.white)
                         }
-                        if let restLabel = presentation.restLabel {
+                        if let restLabel = state.presentation.restLabel {
                             Text(restLabel)
                                 .font(.subheadline.monospacedDigit())
-                                .foregroundStyle(presentation.restTone == .waiting ? .yellow : WorkoutJointOverlayView.endPositionColor)
+                                .foregroundStyle(state.presentation.restTone == .waiting ? .yellow : WorkoutJointOverlayView.endPositionColor)
                         }
-                        if let weight = session.currentWeights[exercise.id] {
+                        if let weight = state.currentWeights[exercise.id] {
                             Label(weight.label, systemImage: exercise.equipment == .band ? "lasso" : "scalemass")
                                 .font(.caption.monospacedDigit())
                                 .foregroundStyle(.white.opacity(0.85))
                                 .accessibilityLabel("Weight \(weight.spokenLabel)")
                         }
-                        if let planProgressLabel = presentation.planProgressLabel {
+                        if let planProgressLabel = state.presentation.planProgressLabel {
                             Text(planProgressLabel)
                                 .font(.caption)
                                 .foregroundStyle(.white.opacity(0.85))
                                 .multilineTextAlignment(.trailing)
                         }
                         if exercise.countsArmsIndependently {
-                            Text("L \(session.sideReps[.left] ?? 0) · R \(session.sideReps[.right] ?? 0)")
+                            Text("L \(state.sideReps[.left] ?? 0) · R \(state.sideReps[.right] ?? 0)")
                                 .font(.caption.monospacedDigit())
                                 .foregroundStyle(.white.opacity(0.8))
                         }
@@ -195,7 +183,7 @@ struct WorkoutHUDView: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(accessibilitySummary(exercise))
             }
-            if showMeasurements {
+            if state.showsMeasurements {
                 measurementsRow
             }
             controls
@@ -212,28 +200,28 @@ struct WorkoutHUDView: View {
             primaryButton
                 .frame(maxWidth: .infinity)
 
-            iconButton("arrow.counterclockwise", label: "Restart set", enabled: presentation.isSetInProgress) {
-                onCommand(.restartSet)
+            iconButton("arrow.counterclockwise", label: "Restart set", enabled: state.presentation.isSetInProgress) {
+                send(.restartSet)
             }
-            iconButton("forward.end.fill", label: "Next set", enabled: presentation.canAdvanceSet) {
-                onCommand(.nextSet)
+            iconButton("forward.end.fill", label: "Next set", enabled: state.presentation.canAdvanceSet) {
+                send(.nextSet)
             }
             Menu {
-                if let plan = session.plan, session.isFollowingPlan {
+                if let planName = state.planName, state.isFollowingPlan {
                     // In a Saved Set, skip ahead in order, or leave it through the chooser, which explains.
-                    Section(plan.name) {
-                        Button { onCommand(.nextExercise) } label: {
+                    Section(planName) {
+                        Button { send(.nextExercise) } label: {
                             Label("Skip to Next Exercise", systemImage: "forward.fill")
                         }
-                        Button { onCommand(.changeExercise) } label: {
+                        Button { send(.changeExercise) } label: {
                             Label("Change Exercise\u{2026}", systemImage: "list.bullet")
                         }
                     }
                 } else {
                     Section("Exercise") {
-                        ForEach(session.exercises) { exercise in
+                        ForEach(state.exerciseOptions) { exercise in
                             Button { requestExercise(exercise) } label: {
-                                if exercise.id == session.exerciseID {
+                                if exercise.id == state.exerciseID {
                                     Label(exercise.displayName, systemImage: "checkmark")
                                 } else {
                                     Text(exercise.displayName)
@@ -242,14 +230,14 @@ struct WorkoutHUDView: View {
                         }
                     }
                 }
-                Button(action: onShowGuide) {
+                Button { send(.showGuide) } label: {
                     Label("How to Do It", systemImage: "questionmark.circle")
                 }
-                .disabled(session.exercise == nil)
-                Button(action: onShowVoiceCommands) {
+                .disabled(state.exercise == nil)
+                Button { send(.showVoiceHelp) } label: {
                     Label("Voice Commands", systemImage: "text.bubble")
                 }
-                Toggle(isOn: $showMeasurements) {
+                Toggle(isOn: Binding(get: { state.showsMeasurements }, set: { _ in send(.toggleMeasurements) })) {
                     Label("Show Measurements", systemImage: "ruler")
                 }
             } label: {
@@ -259,11 +247,11 @@ struct WorkoutHUDView: View {
             }
             .tint(.white)
             .accessibilityLabel("Exercise options")
-            iconButton("stop.fill", label: "End workout", enabled: presentation.canEndWorkout) {
+            iconButton("stop.fill", label: "End workout", enabled: state.presentation.canEndWorkout) {
                 confirmingEnd = true
             }
             .confirmationDialog("End this workout?", isPresented: $confirmingEnd, titleVisibility: .visible) {
-                Button("End Workout", role: .destructive) { onCommand(.endWorkout) }
+                Button("End Workout", role: .destructive) { send(.endWorkout) }
                 Button("Keep Going", role: .cancel) {}
             }
         }
@@ -271,23 +259,24 @@ struct WorkoutHUDView: View {
                                                               set: { if !$0 { pendingExercise = nil } }),
                             titleVisibility: .visible) {
             if let exercise = pendingExercise {
-                Button("Switch to \(exercise.displayName)", role: .destructive) { onCommand(.selectExercise(exercise.id)) }
+                Button("Switch to \(exercise.displayName)", role: .destructive) { send(.chooseExercise(exercise.id)) }
             }
             Button("Keep Going", role: .cancel) {}
         }
     }
 
     /// Switching mid-set discards that set's reps, so confirm when there are any.
-    private func requestExercise(_ exercise: ExerciseDefinition) {
-        if exercise.id != session.exerciseID, presentation.isSetInProgress, session.sideReps.values.contains(where: { $0 > 0 }) {
+    private func requestExercise(_ exercise: WorkoutHUDViewState.ExerciseOption) {
+        if exercise.id != state.exerciseID, state.presentation.isSetInProgress,
+           state.sideReps.values.contains(where: { $0 > 0 }) {
             pendingExercise = exercise
         } else {
-            onCommand(.selectExercise(exercise.id))
+            send(.chooseExercise(exercise.id))
         }
     }
 
     private var switchTitle: String {
-        let reps = max(session.sideReps[.left] ?? 0, session.sideReps[.right] ?? 0)
+        let reps = max(state.sideReps[.left] ?? 0, state.sideReps[.right] ?? 0)
         return "Discard this set's \(reps == 1 ? "1 rep" : "\(reps) reps")?"
     }
 
@@ -301,8 +290,8 @@ struct WorkoutHUDView: View {
                 }
                 Spacer(minLength: 0)
             }
-            if !formReadings.isEmpty {
-                Text("Last rep: " + formReadings.map { "\($0.label) \($0.value)" }.joined(separator: " · "))
+            if !state.formReadings.isEmpty {
+                Text("Last rep: " + state.formReadings.map { "\($0.label) \($0.value)" }.joined(separator: " · "))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
@@ -313,7 +302,7 @@ struct WorkoutHUDView: View {
     }
 
     private func measurement(for side: BodySide) -> Text {
-        guard let reading = readings[side] else { return Text("\(side.shortLabel) –") }
+        guard let reading = state.readings[side] else { return Text("\(side.shortLabel) –") }
         let symbol: String
         switch reading.zone {
         case .top: symbol = "arrow.up.circle.fill"
@@ -326,9 +315,14 @@ struct WorkoutHUDView: View {
 
     private var primaryButton: some View {
         Button {
-            if let command = presentation.primaryButton.command { onCommand(command) }
+            switch state.presentation.primaryButton.kind {
+            case .start, .startSet: send(.start)
+            case .pause: send(.pause)
+            case .resume: send(.resume)
+            case .disabled: break
+            }
         } label: {
-            Label(presentation.primaryButton.label, systemImage: presentation.primaryButton.systemImageName)
+            Label(state.presentation.primaryButton.label, systemImage: state.presentation.primaryButton.systemImageName)
                 .font(.headline)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -336,7 +330,7 @@ struct WorkoutHUDView: View {
         }
         .buttonStyle(.borderedProminent)
         .tint(.blue)
-        .disabled(!presentation.primaryButton.isEnabled)
+        .disabled(!state.presentation.primaryButton.isEnabled)
     }
 
     private func iconButton(_ systemImage: String, label: String, enabled: Bool, action: @escaping () -> Void) -> some View {
@@ -350,7 +344,7 @@ struct WorkoutHUDView: View {
         .accessibilityLabel(label)
     }
 
-    private func accessibilitySummary(_ exercise: ExerciseDefinition) -> String {
-        "\(session.repCount) reps of \(exercise.targetLabel). \(presentation.setLabel ?? "")."
+    private func accessibilitySummary(_ exercise: WorkoutHUDExercise) -> String {
+        "\(state.repCount) reps of \(exercise.targetLabel). \(state.presentation.setLabel ?? "")."
     }
 }
