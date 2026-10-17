@@ -89,7 +89,7 @@ struct WorkoutCoachView: View {
                 isCoachMuted: model.isCoachMuted,
                 onSetMicMuted: { model.setMicMuted($0) },
                 onSetCoachMuted: { model.setCoachMuted($0) },
-                progressLine: progressLine,
+                progressLine: hudPresentation.progressLine,
                 onRetry: { model.retryVoice() },
                 onDone: { model.setHelpPresented(false) }
             )
@@ -105,20 +105,18 @@ struct WorkoutCoachView: View {
                     .allowsHitTesting(false)
                     .clipped()
 
-                switch model.session.phase {
-                case .ready:
-                    if let overlay = model.overlay, let metrics = model.guideMetrics, let exercise = model.session.exercise {
+                if let overlay = model.overlay {
+                    if visualState.overlay == .ghostDemo,
+                       let metrics = model.guideMetrics,
+                       let exercise = model.session.exercise {
                         WorkoutGhostOverlayView(overlay: overlay, metrics: metrics, motion: exercise.guide.motion,
                                                 cameraView: exercise.cameraView)
                             .frame(width: geo.size.width, height: geo.size.height)
                     }
-                case .exercising, .paused:
-                    if let overlay = model.overlay {
+                    if visualState.overlay == .repThresholds {
                         RepThresholdOverlayView(thresholds: model.armThresholds, imageSize: overlay.imageSize)
                             .frame(width: geo.size.width, height: geo.size.height)
                     }
-                default:
-                    EmptyView()
                 }
 
                 if let overlay = model.overlay {
@@ -135,7 +133,7 @@ struct WorkoutCoachView: View {
 
                 WorkoutHUDView(
                     session: model.session,
-                    now: model.now,
+                    presentation: hudPresentation,
                     readings: model.armReadings,
                     formReadings: model.formReadings,
                     isPhoneTilted: model.isPhoneTilted,
@@ -151,7 +149,7 @@ struct WorkoutCoachView: View {
                     onCommand: { model.send($0) }
                 )
 
-                if model.session.phase == .exerciseComplete {
+                if visualState.showsCompletionCard {
                     ExerciseCompleteCard(session: model.session,
                                          onAnotherRound: { model.send(.anotherRound) },
                                          onChooseExercise: { model.send(.changeExercise) },
@@ -159,7 +157,7 @@ struct WorkoutCoachView: View {
                         .transition(.opacity)
                 }
 
-                if case .changingExercise = model.session.phase {
+                if visualState.showsExerciseChooser {
                     ExerciseChooserOverlay(session: model.session, voiceActive: model.session.voiceControlActive,
                                            onSelect: { model.send(.selectExercise($0)) },
                                            onCancel: { model.send(.cancel) })
@@ -167,8 +165,30 @@ struct WorkoutCoachView: View {
             }
             .coordinateSpace(name: Self.coordinateSpace)
             .onPreferenceChange(WorkoutHUDRects.self) { hudRects = $0 }
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: model.session.phase == .exerciseComplete)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: visualState.showsCompletionCard)
         }
+    }
+
+    private var visualInputs: WorkoutVisualInputs {
+        WorkoutVisualInputs(
+            session: model.session,
+            now: model.now,
+            isPhoneTilted: model.isPhoneTilted,
+            activeTip: model.activeTip.map { WorkoutVisualTip(id: $0.id, kind: $0.cue.kind) },
+            hasPose: model.overlay != nil
+        )
+    }
+
+    private var visualState: WorkoutVisualState {
+        WorkoutVisualState.derive(visualInputs)
+    }
+
+    private var hudPresentation: WorkoutHUDPresentation {
+        WorkoutHUDPresenter.derive(WorkoutHUDInputs(
+            session: model.session,
+            visual: visualInputs,
+            voiceCommandsAvailable: model.micStatus.isUsable
+        ))
     }
 
     /// The body and the exercise's motion envelope, computed only while a tip is up.
@@ -215,20 +235,6 @@ struct WorkoutCoachView: View {
         if showVoiceCommandsAfterGuide {
             showVoiceCommandsAfterGuide = false
             model.setHelpPresented(true)
-        }
-    }
-
-    /// Live set progress for the help header, since counting continues behind it.
-    private var progressLine: String? {
-        let session = model.session
-        guard let exercise = session.exercise else { return nil }
-        switch session.phase {
-        case .exercising, .paused:
-            return "Set \(session.currentSetNumber) of \(exercise.sets) \u{00B7} \(session.repCount) reps"
-        case .resting:
-            return session.restRemaining(at: model.now).map { "Resting \u{00B7} \(WorkoutHUDView.format($0))" }
-        default:
-            return nil
         }
     }
 

@@ -33,7 +33,7 @@
 		A10000012B00000000000024 /* CoordinateConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000024 /* CoordinateConverter.swift */; };
 		A10000012B00000000000025 /* AssessmentDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000025 /* AssessmentDetailView.swift */; };
 		A10000012B00000000000026 /* CameraPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000026 /* CameraPickerView.swift */; };
-		A10000012B00000000000027 /* Previews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000027 /* Previews.swift */; };
+		A10000012B00000000000027 /* PosturePreviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000027 /* PosturePreviews.swift */; };
 		A10000012B00000000000028 /* ImageNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000028 /* ImageNormalizer.swift */; };
 		A10000012B00000000000029 /* BodyRegion.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000029 /* BodyRegion.swift */; };
 		A10000012B00000000000030 /* PostureReferenceProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000030 /* PostureReferenceProfile.swift */; };
@@ -83,12 +83,12 @@
 		A10000012B00000000000074 /* ExerciseGuide.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000074 /* ExerciseGuide.swift */; };
 		A10000012B00000000000075 /* ExerciseGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000075 /* ExerciseGuideView.swift */; };
 		A10000012B00000000000076 /* ExerciseDemoFigureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000076 /* ExerciseDemoFigureView.swift */; };
-		A10000012B00000000000077 /* WorkoutGuideOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000077 /* WorkoutGuideOverlayView.swift */; };
+		A10000012B00000000000077 /* WorkoutGhostOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000077 /* WorkoutGhostOverlayView.swift */; };
 		A10000012B00000000000078 /* PhoneTiltMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000078 /* PhoneTiltMonitor.swift */; };
 		A10000012B00000000000079 /* ShoulderPressAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000079 /* ShoulderPressAnalyzerTests.swift */; };
 		A10000012B00000000000080 /* WorkoutSessionTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000080 /* WorkoutSessionTests.swift */; };
 		A10000012B00000000000081 /* PhoneTiltDetectorTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000081 /* PhoneTiltDetectorTests.swift */; };
-		A10000012B00000000000082 /* VoiceCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000082 /* VoiceCommand.swift */; };
+		A10000012B00000000000082 /* VoiceCommandParsing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000082 /* VoiceCommandParsing.swift */; };
 		A10000012B00000000000083 /* VoiceCommandParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000083 /* VoiceCommandParser.swift */; };
 		A10000012B00000000000084 /* VoicePermissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000084 /* VoicePermissions.swift */; };
 		A10000012B00000000000085 /* OnDeviceSpeechRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000085 /* OnDeviceSpeechRecognizer.swift */; };
@@ -146,6 +146,11 @@
 		A10000012B00000000000149 /* PendingFrames.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000149 /* PendingFrames.swift */; };
 		A10000012B00000000000150 /* DesignMetricsTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000150 /* DesignMetricsTests.swift */; };
 		A10000012B00000000000151 /* DesignCoverageTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000151 /* DesignCoverageTests.swift */; };
+		A10000012B00000000000152 /* WorkoutVisualStateTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000152 /* WorkoutVisualStateTests.swift */; };
+		A10000012B00000000000153 /* WorkoutHUDPresenterTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000153 /* WorkoutHUDPresenterTests.swift */; };
+		A10000012B00000000000154 /* WorkoutVisualState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000154 /* WorkoutVisualState.swift */; };
+		A10000012B00000000000155 /* WorkoutHUDPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000155 /* WorkoutHUDPresenter.swift */; };
+		A10000012B00000000000156 /* RepThresholdOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000156 /* RepThresholdOverlayView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -187,7 +192,7 @@
 		B10000012B00000000000024 /* CoordinateConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoordinateConverter.swift; sourceTree = "<group>"; };
 		B10000012B00000000000025 /* AssessmentDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssessmentDetailView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000026 /* CameraPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPickerView.swift; sourceTree = "<group>"; };
-		B10000012B00000000000027 /* Previews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Previews.swift; sourceTree = "<group>"; };
+		B10000012B00000000000027 /* PosturePreviews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PosturePreviews.swift; sourceTree = "<group>"; };
 		B10000012B00000000000028 /* ImageNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageNormalizer.swift; sourceTree = "<group>"; };
 		B10000012B00000000000029 /* BodyRegion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyRegion.swift; sourceTree = "<group>"; };
 		B10000012B00000000000030 /* PostureReferenceProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureReferenceProfile.swift; sourceTree = "<group>"; };
@@ -237,12 +242,12 @@
 		B10000012B00000000000074 /* ExerciseGuide.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseGuide.swift; sourceTree = "<group>"; };
 		B10000012B00000000000075 /* ExerciseGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseGuideView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000076 /* ExerciseDemoFigureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseDemoFigureView.swift; sourceTree = "<group>"; };
-		B10000012B00000000000077 /* WorkoutGuideOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutGuideOverlayView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000077 /* WorkoutGhostOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutGhostOverlayView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000078 /* PhoneTiltMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneTiltMonitor.swift; sourceTree = "<group>"; };
 		B10000012B00000000000079 /* ShoulderPressAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShoulderPressAnalyzerTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000080 /* WorkoutSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000081 /* PhoneTiltDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneTiltDetectorTests.swift; sourceTree = "<group>"; };
-		B10000012B00000000000082 /* VoiceCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommand.swift; sourceTree = "<group>"; };
+		B10000012B00000000000082 /* VoiceCommandParsing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommandParsing.swift; sourceTree = "<group>"; };
 		B10000012B00000000000083 /* VoiceCommandParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommandParser.swift; sourceTree = "<group>"; };
 		B10000012B00000000000084 /* VoicePermissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePermissions.swift; sourceTree = "<group>"; };
 		B10000012B00000000000085 /* OnDeviceSpeechRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceSpeechRecognizer.swift; sourceTree = "<group>"; };
@@ -300,6 +305,11 @@
 		B10000012B00000000000149 /* PendingFrames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingFrames.swift; sourceTree = "<group>"; };
 		B10000012B00000000000150 /* DesignMetricsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignMetricsTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000151 /* DesignCoverageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignCoverageTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000152 /* WorkoutVisualStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutVisualStateTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000153 /* WorkoutHUDPresenterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHUDPresenterTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000154 /* WorkoutVisualState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutVisualState.swift; sourceTree = "<group>"; };
+		B10000012B00000000000155 /* WorkoutHUDPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHUDPresenter.swift; sourceTree = "<group>"; };
+		B10000012B00000000000156 /* RepThresholdOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepThresholdOverlayView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -419,7 +429,6 @@
 				B10000012B00000000000021 /* HistoryView.swift */,
 				B10000012B00000000000025 /* AssessmentDetailView.swift */,
 				B10000012B00000000000026 /* CameraPickerView.swift */,
-				B10000012B00000000000027 /* Previews.swift */,
 				B10000012B00000000000034 /* AlignmentReferenceOverlayView.swift */,
 				B10000012B00000000000035 /* PostureReportView.swift */,
 				B10000012B00000000000037 /* RealtimeCorrectionView.swift */,
@@ -430,6 +439,7 @@
 				B10000012B00000000000052 /* HorizonOverlayView.swift */,
 				B10000012B00000000000137 /* AcknowledgementsView.swift */,
 				H10000012B00000000000020 /* Workout */,
+				B10000012B00000000000027 /* PosturePreviews.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -481,6 +491,8 @@
 				B10000012B00000000000133 /* WorkoutHistoryTests.swift */,
 				H10000012B00000000000027 /* Design */,
 				H10000012B00000000000029 /* Support */,
+				B10000012B00000000000152 /* WorkoutVisualStateTests.swift */,
+				B10000012B00000000000153 /* WorkoutHUDPresenterTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -502,6 +514,7 @@
 				H10000012B00000000000017 /* Session */,
 				H10000012B00000000000018 /* Camera */,
 				H10000012B00000000000021 /* Coaching */,
+				H10000012B00000000000030 /* Presentation */,
 			);
 			path = Workout;
 			sourceTree = "<group>";
@@ -572,13 +585,13 @@
 			children = (
 				B10000012B00000000000069 /* SpeechCoach.swift */,
 				B10000012B00000000000070 /* WorkoutAudioSession.swift */,
-				B10000012B00000000000082 /* VoiceCommand.swift */,
 				B10000012B00000000000083 /* VoiceCommandParser.swift */,
 				B10000012B00000000000084 /* VoicePermissions.swift */,
 				B10000012B00000000000085 /* OnDeviceSpeechRecognizer.swift */,
 				B10000012B00000000000086 /* WorkoutVoiceController.swift */,
 				B10000012B00000000000090 /* VoiceCommandHelp.swift */,
 				B10000012B00000000000135 /* WeightPhraseParser.swift */,
+				B10000012B00000000000082 /* VoiceCommandParsing.swift */,
 			);
 			path = Voice;
 			sourceTree = "<group>";
@@ -591,7 +604,6 @@
 				B10000012B00000000000073 /* WorkoutJointOverlayView.swift */,
 				B10000012B00000000000075 /* ExerciseGuideView.swift */,
 				B10000012B00000000000076 /* ExerciseDemoFigureView.swift */,
-				B10000012B00000000000077 /* WorkoutGuideOverlayView.swift */,
 				B10000012B00000000000087 /* MicrophoneStatusView.swift */,
 				B10000012B00000000000088 /* HoldProgressRingView.swift */,
 				B10000012B00000000000091 /* VoiceCommandsHelpView.swift */,
@@ -600,6 +612,8 @@
 				B10000012B00000000000106 /* ExerciseCompleteCard.swift */,
 				B10000012B00000000000127 /* SavedSetEditorView.swift */,
 				B10000012B00000000000132 /* WorkoutHistoryView.swift */,
+				B10000012B00000000000077 /* WorkoutGhostOverlayView.swift */,
+				B10000012B00000000000156 /* RepThresholdOverlayView.swift */,
 			);
 			path = Workout;
 			sourceTree = "<group>";
@@ -689,6 +703,15 @@
 				B10000012B00000000000147 /* FixedClock.swift */,
 			);
 			path = Support;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000030 /* Presentation */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000154 /* WorkoutVisualState.swift */,
+				B10000012B00000000000155 /* WorkoutHUDPresenter.swift */,
+			);
+			path = Presentation;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -807,7 +830,6 @@
 				A10000012B00000000000024 /* CoordinateConverter.swift in Sources */,
 				A10000012B00000000000025 /* AssessmentDetailView.swift in Sources */,
 				A10000012B00000000000026 /* CameraPickerView.swift in Sources */,
-				A10000012B00000000000027 /* Previews.swift in Sources */,
 				A10000012B00000000000028 /* ImageNormalizer.swift in Sources */,
 				A10000012B00000000000029 /* BodyRegion.swift in Sources */,
 				A10000012B00000000000030 /* PostureReferenceProfile.swift in Sources */,
@@ -851,9 +873,7 @@
 				A10000012B00000000000074 /* ExerciseGuide.swift in Sources */,
 				A10000012B00000000000075 /* ExerciseGuideView.swift in Sources */,
 				A10000012B00000000000076 /* ExerciseDemoFigureView.swift in Sources */,
-				A10000012B00000000000077 /* WorkoutGuideOverlayView.swift in Sources */,
 				A10000012B00000000000078 /* PhoneTiltMonitor.swift in Sources */,
-				A10000012B00000000000082 /* VoiceCommand.swift in Sources */,
 				A10000012B00000000000083 /* VoiceCommandParser.swift in Sources */,
 				A10000012B00000000000084 /* VoicePermissions.swift in Sources */,
 				A10000012B00000000000085 /* OnDeviceSpeechRecognizer.swift in Sources */,
@@ -892,6 +912,12 @@
 				A10000012B00000000000137 /* AcknowledgementsView.swift in Sources */,
 				A10000012B00000000000143 /* DesignAnchor.swift in Sources */,
 				A10000012B00000000000144 /* MotionPolicy.swift in Sources */,
+				A10000012B00000000000154 /* WorkoutVisualState.swift in Sources */,
+				A10000012B00000000000155 /* WorkoutHUDPresenter.swift in Sources */,
+				A10000012B00000000000027 /* PosturePreviews.swift in Sources */,
+				A10000012B00000000000082 /* VoiceCommandParsing.swift in Sources */,
+				A10000012B00000000000077 /* WorkoutGhostOverlayView.swift in Sources */,
+				A10000012B00000000000156 /* RepThresholdOverlayView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -927,6 +953,8 @@
 				A10000012B00000000000149 /* PendingFrames.swift in TestSources */,
 				A10000012B00000000000150 /* DesignMetricsTests.swift in TestSources */,
 				A10000012B00000000000151 /* DesignCoverageTests.swift in TestSources */,
+				A10000012B00000000000152 /* WorkoutVisualStateTests.swift in TestSources */,
+				A10000012B00000000000153 /* WorkoutHUDPresenterTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

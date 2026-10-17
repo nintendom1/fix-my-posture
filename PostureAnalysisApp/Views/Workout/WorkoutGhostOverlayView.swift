@@ -80,13 +80,29 @@ struct WorkoutGhostOverlayView: View {
             let (a, b) = (point(left), point(right))
             return [(a, a.x >= b.x ? 1 : -1), (b, b.x >= a.x ? 1 : -1)]
         case .side:
-            guard let side = overlay.nearSide, let joint = overlay.joints[side.shoulder] else { return [] }
+            guard let side = Self.nearSide(in: overlay), let joint = overlay.joints[side.shoulder] else { return [] }
             let shoulder = point(joint)
-            return [(shoulder, overlay.facing(from: shoulder, containerSize: containerSize) ?? 1)]
+            return [(shoulder, Self.facing(from: shoulder, in: overlay, containerSize: containerSize) ?? 1)]
         case .floor:
             // Floor exercises anchor on the hands instead; see `drawFloorArms`.
             return []
         }
+    }
+
+    /// From the side, the arm nearer the phone: the tracked shoulder with the most of its arm in view.
+    private static func nearSide(in overlay: WorkoutOverlayState) -> BodySide? {
+        func tracked(_ joint: LandmarkType) -> Bool { overlay.joints[joint].map { !$0.isStale } ?? false }
+        return BodySide.allCases.filter { tracked($0.shoulder) }
+            .max { lhs, rhs in lhs.armJoints.filter(tracked).count < rhs.armJoints.filter(tracked).count }
+    }
+
+    /// +1 when the user faces larger x on screen, judged by the nose against the shoulder; nil without a nose.
+    private static func facing(from shoulder: CGPoint, in overlay: WorkoutOverlayState,
+                               containerSize: CGSize) -> CGFloat? {
+        guard let nose = overlay.pose[.nose] else { return nil }
+        let point = CoordinateConverter.normalizedToContainer(normalized: nose.normalizedLocation, imageSize: overlay.imageSize,
+                                                              containerSize: containerSize)
+        return point.x >= shoulder.x ? 1 : -1
     }
 
     /// Ghost arms rising from the user's own planted hands, showing where the shoulders go.
@@ -179,83 +195,5 @@ struct WorkoutGhostOverlayView: View {
                 DumbbellDrawing.draw(in: dumbbell, elbow: arm.elbow, wrist: arm.wrist, forearmLength: arms.fore)
             }
         }
-    }
-}
-
-extension WorkoutOverlayState {
-    /// From the side, the arm nearer the phone: the tracked shoulder with the most of its arm in view.
-    var nearSide: BodySide? {
-        func tracked(_ joint: LandmarkType) -> Bool { joints[joint].map { !$0.isStale } ?? false }
-        return BodySide.allCases.filter { tracked($0.shoulder) }
-            .max { lhs, rhs in lhs.armJoints.filter(tracked).count < rhs.armJoints.filter(tracked).count }
-    }
-
-    /// +1 when the user faces larger x on screen, judged by the nose against the shoulder; nil without a nose.
-    func facing(from shoulder: CGPoint, containerSize: CGSize) -> CGFloat? {
-        guard let nose = pose[.nose] else { return nil }
-        let point = CoordinateConverter.normalizedToContainer(normalized: nose.normalizedLocation, imageSize: imageSize,
-                                                              containerSize: containerSize)
-        return point.x >= shoulder.x ? 1 : -1
-    }
-}
-
-/// The analyzer's own Start and Top thresholds as a short segment over each arm. The checkpoint the arm
-/// is heading toward is bright, the other dim, and a segment turns solid once that arm reaches it.
-struct RepThresholdOverlayView: View {
-    let thresholds: [BodySide: ArmThresholds]
-    let imageSize: CGSize
-
-    var body: some View {
-        Canvas { context, size in draw(in: context, size: size) }
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-    }
-
-    private func draw(in context: GraphicsContext, size: CGSize) {
-        guard imageSize.width > 0, imageSize.height > 0 else { return }
-        let fit = CoordinateConverter.aspectFitRect(for: imageSize, in: size)
-        guard fit.width > 0 else { return }
-        // Thresholds are unmirrored image pixels; the preview is a mirrored selfie.
-        func display(_ point: CGPoint) -> CGPoint {
-            CoordinateConverter.normalizedToContainer(
-                normalized: CGPoint(x: 1 - point.x / imageSize.width, y: 1 - point.y / imageSize.height),
-                imageSize: imageSize, containerSize: size)
-        }
-        var context = context
-        context.clip(to: Path(fit))
-
-        // Labels go on the segments furthest right on screen, at their outer end, clear of the body.
-        let labeled = thresholds.max { lhs, rhs in
-            display(lhs.value.startLine.from).x + display(lhs.value.startLine.to).x
-                < display(rhs.value.startLine.from).x + display(rhs.value.startLine.to).x
-        }?.key
-        for (side, arm) in thresholds {
-            for checkpoint in [RepCheckpoint.start, .top] {
-                let line = arm.line(checkpoint)
-                drawSegment(in: context, from: display(line.from), to: display(line.to), checkpoint: checkpoint, arm: arm,
-                            label: side == labeled ? line.label : nil, fit: fit)
-            }
-        }
-    }
-
-    private func drawSegment(in context: GraphicsContext, from start: CGPoint, to end: CGPoint,
-                             checkpoint: RepCheckpoint, arm: ArmThresholds, label: String?, fit: CGRect) {
-        let color = checkpoint == .top ? WorkoutJointOverlayView.endPositionColor : WorkoutJointOverlayView.trackedColor
-        let reached = arm.confirmed == checkpoint
-        let isNext = arm.next == checkpoint
-        var path = Path()
-        path.move(to: start)
-        path.addLine(to: end)
-        let style = reached
-            ? StrokeStyle(lineWidth: 4, lineCap: .round)
-            : StrokeStyle(lineWidth: isNext ? 3 : 2, lineCap: .round, dash: [10, 6])
-        let opacity = reached || isNext ? 1 : 0.35
-        context.stroke(path, with: .color(.black.opacity(0.5 * opacity)),
-                       style: StrokeStyle(lineWidth: style.lineWidth + 2, lineCap: .round, dash: style.dash))
-        context.stroke(path, with: .color(color.opacity(opacity)), style: style)
-        guard let label else { return }
-        let anchor = start.x > end.x ? start : end
-        context.draw(Text(label).font(.caption.bold()).foregroundColor(color.opacity(opacity)),
-                     at: CGPoint(x: min(anchor.x, fit.maxX - 4), y: anchor.y - 3), anchor: .bottomTrailing)
     }
 }

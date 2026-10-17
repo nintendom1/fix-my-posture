@@ -128,6 +128,10 @@ struct WorkoutSession {
     private(set) var sideReps: [BodySide: Int] = [.left: 0, .right: 0]
     private(set) var framing = FramingStatus.lost
     private(set) var isCounting = false
+    /// Time of the most recent rep that increased the displayed rep count.
+    private(set) var lastRepAt: TimeInterval?
+    /// Monotonic event key for visible rep-count changes, including when the count later resets.
+    private(set) var repEventCount = 0
     private(set) var analyzerEpoch = 0
     private(set) var restEndsAt: TimeInterval?
     private(set) var voiceControlActive = false
@@ -699,6 +703,8 @@ struct WorkoutSession {
         for side in rep.sides { sideReps[side, default: 0] += 1 }
         let after = repCount
         guard after > before else { return [] }
+        lastRepAt = now
+        repEventCount += 1
         if after >= exercise.autoCompleteReps { return completeSet(at: now) }
         if let announce = exercise.targetRangeAnnouncementReps, before < announce, after >= announce {
             return [.speak(Utterance(text: "\(after). You're in the target range.", isInstruction: false))]

@@ -12,7 +12,7 @@ struct WorkoutHUDRects: PreferenceKey {
 /// headroom for overhead movements.
 struct WorkoutHUDView: View {
     let session: WorkoutSession
-    let now: TimeInterval
+    let presentation: WorkoutHUDPresentation
     let readings: [BodySide: ArmReading]
     /// The last rep's form values, shown with the measurements for tuning cue thresholds.
     let formReadings: [FormReading]
@@ -103,7 +103,7 @@ struct WorkoutHUDView: View {
                         }
                     }
                     .foregroundStyle(.white)
-                    Text(statusText)
+                    Text(presentation.statusText)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(statusColor)
                         .multilineTextAlignment(.center)
@@ -130,33 +130,12 @@ struct WorkoutHUDView: View {
         .padding(.top, 4)
     }
 
-    private var statusText: String {
-        switch session.phase {
-        case .choosingExercise, .changingExercise: return "Choose an exercise"
-        case .framing: return session.framing.guidance?.shortText ?? "Hold still"
-        case .ready:
-            // With voice available, alternate every few seconds with a pointer to the commands.
-            if micStatus.isUsable, Int(now / Self.hintAlternation) % 2 == 1 {
-                return "Say \u{201C}what can I say\u{201D} for commands"
-            }
-            guard let exercise = session.exercise else { return "Ready" }
-            guard exercise.startsByHolding else { return micStatus.isUsable ? "Say \u{201C}start\u{201D} to begin" : "Tap Start to begin" }
-            return "\(exercise.guide.startPositionInstruction) to begin"
-        case .exercising:
-            return session.isCounting ? "Counting" : (session.framing.guidance?.shortText ?? FramingGuidance.stepIntoView.shortText)
-        case .paused: return "Paused"
-        case .resting: return "Resting"
-        case .exerciseComplete: return "Exercise complete"
-        case .ended: return "Workout ended"
-        }
-    }
-
     private var statusColor: Color {
-        switch session.phase {
-        case .ready: return WorkoutJointOverlayView.endPositionColor
-        case .exercising: return session.isCounting ? WorkoutJointOverlayView.trackedColor : .orange
-        case .framing: return .orange
-        default: return .white.opacity(0.8)
+        switch presentation.statusTone {
+        case .endPosition: return WorkoutJointOverlayView.endPositionColor
+        case .tracked: return WorkoutJointOverlayView.trackedColor
+        case .attention: return .orange
+        case .subdued: return .white.opacity(0.8)
         }
     }
 
@@ -164,7 +143,7 @@ struct WorkoutHUDView: View {
 
     private var bottomPanel: some View {
         VStack(spacing: 8) {
-            if let exercise = session.exercise {
+            if presentation.showsRepProgress, let exercise = session.exercise {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text("\(session.repCount)")
                         .font(.system(size: min(repSize, 96), weight: .heavy, design: .rounded))
@@ -172,7 +151,7 @@ struct WorkoutHUDView: View {
                         .foregroundStyle(.white)
                         .contentTransition(.numericText())
                         .scaleEffect(repPulse ? 1.15 : 1, anchor: .bottomLeading)
-                        .onChange(of: session.repCount) { old, new in
+                        .onChange(of: presentation.repEventCount) { old, new in
                             guard new > old, !reduceMotion else { return }
                             withAnimation(.spring(response: 0.18, dampingFraction: 0.5)) { repPulse = true }
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
@@ -184,13 +163,15 @@ struct WorkoutHUDView: View {
                         .foregroundStyle(.white.opacity(0.75))
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text(setLabel(exercise))
-                            .font(.headline)
-                            .foregroundStyle(.white)
-                        if let rest = session.restRemaining(at: now) {
-                            Text("Rest \(Self.format(rest))")
+                        if let setLabel = presentation.setLabel {
+                            Text(setLabel)
+                                .font(.headline)
+                                .foregroundStyle(.white)
+                        }
+                        if let restLabel = presentation.restLabel {
+                            Text(restLabel)
                                 .font(.subheadline.monospacedDigit())
-                                .foregroundStyle(rest > 0 ? .yellow : WorkoutJointOverlayView.endPositionColor)
+                                .foregroundStyle(presentation.restTone == .waiting ? .yellow : WorkoutJointOverlayView.endPositionColor)
                         }
                         if let weight = session.currentWeights[exercise.id] {
                             Label(weight.label, systemImage: exercise.equipment == .band ? "lasso" : "scalemass")
@@ -198,15 +179,11 @@ struct WorkoutHUDView: View {
                                 .foregroundStyle(.white.opacity(0.85))
                                 .accessibilityLabel("Weight \(weight.spokenLabel)")
                         }
-                        if session.isRestingBeforeNextExercise {
-                            Text("Up next: \(exercise.displayName) · \(exercise.setsAndRepsLabel)")
+                        if let planProgressLabel = presentation.planProgressLabel {
+                            Text(planProgressLabel)
                                 .font(.caption)
                                 .foregroundStyle(.white.opacity(0.85))
                                 .multilineTextAlignment(.trailing)
-                        } else if let position = session.planPositionLabel {
-                            Text(position)
-                                .font(.caption)
-                                .foregroundStyle(.white.opacity(0.85))
                         }
                         if exercise.countsArmsIndependently {
                             Text("L \(session.sideReps[.left] ?? 0) · R \(session.sideReps[.right] ?? 0)")
@@ -235,10 +212,10 @@ struct WorkoutHUDView: View {
             primaryButton
                 .frame(maxWidth: .infinity)
 
-            iconButton("arrow.counterclockwise", label: "Restart set", enabled: isSetInProgress) {
+            iconButton("arrow.counterclockwise", label: "Restart set", enabled: presentation.isSetInProgress) {
                 onCommand(.restartSet)
             }
-            iconButton("forward.end.fill", label: "Next set", enabled: isSetInProgress || session.phase == .resting) {
+            iconButton("forward.end.fill", label: "Next set", enabled: presentation.canAdvanceSet) {
                 onCommand(.nextSet)
             }
             Menu {
@@ -282,7 +259,7 @@ struct WorkoutHUDView: View {
             }
             .tint(.white)
             .accessibilityLabel("Exercise options")
-            iconButton("stop.fill", label: "End workout", enabled: session.phase != .ended) {
+            iconButton("stop.fill", label: "End workout", enabled: presentation.canEndWorkout) {
                 confirmingEnd = true
             }
             .confirmationDialog("End this workout?", isPresented: $confirmingEnd, titleVisibility: .visible) {
@@ -302,7 +279,7 @@ struct WorkoutHUDView: View {
 
     /// Switching mid-set discards that set's reps, so confirm when there are any.
     private func requestExercise(_ exercise: ExerciseDefinition) {
-        if exercise.id != session.exerciseID, isSetInProgress, session.sideReps.values.contains(where: { $0 > 0 }) {
+        if exercise.id != session.exerciseID, presentation.isSetInProgress, session.sideReps.values.contains(where: { $0 > 0 }) {
             pendingExercise = exercise
         } else {
             onCommand(.selectExercise(exercise.id))
@@ -347,26 +324,11 @@ struct WorkoutHUDView: View {
             + Text(Image(systemName: symbol))
     }
 
-    @ViewBuilder
     private var primaryButton: some View {
-        switch session.phase {
-        case .exercising:
-            primary("Pause", systemImage: "pause.fill") { onCommand(.pause) }
-        case .paused:
-            primary("Resume", systemImage: "play.fill") { onCommand(.resume) }
-        case .resting:
-            primary("Start set \(session.currentSetNumber)", systemImage: "play.fill") { onCommand(.start) }
-        case .framing, .ready:
-            primary("Start", systemImage: "play.fill") { onCommand(.start) }
-        case .choosingExercise, .changingExercise, .exerciseComplete, .ended:
-            primary("Start", systemImage: "play.fill") {}
-                .disabled(true)
-        }
-    }
-
-    private func primary(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Label(title, systemImage: systemImage)
+        Button {
+            if let command = presentation.primaryButton.command { onCommand(command) }
+        } label: {
+            Label(presentation.primaryButton.label, systemImage: presentation.primaryButton.systemImageName)
                 .font(.headline)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -374,6 +336,7 @@ struct WorkoutHUDView: View {
         }
         .buttonStyle(.borderedProminent)
         .tint(.blue)
+        .disabled(!presentation.primaryButton.isEnabled)
     }
 
     private func iconButton(_ systemImage: String, label: String, enabled: Bool, action: @escaping () -> Void) -> some View {
@@ -387,31 +350,7 @@ struct WorkoutHUDView: View {
         .accessibilityLabel(label)
     }
 
-    private var isSetInProgress: Bool {
-        switch session.phase {
-        case .exercising, .paused: return true
-        default: return false
-        }
-    }
-
-    private func setLabel(_ exercise: ExerciseDefinition) -> String {
-        let arm = session.currentSide.map { $0 == .left ? " · Left arm" : " · Right arm" } ?? ""
-        switch session.phase {
-        case .resting: return "Next: set \(session.currentSetNumber) of \(exercise.sets)\(arm)"
-        case .exerciseComplete: return "All \(exercise.sets) sets done"
-        default: return "Set \(session.currentSetNumber) of \(exercise.sets)\(arm)"
-        }
-    }
-
     private func accessibilitySummary(_ exercise: ExerciseDefinition) -> String {
-        "\(session.repCount) reps of \(exercise.targetLabel). \(setLabel(exercise))."
-    }
-
-    /// Seconds each ready-status message shows before alternating.
-    static let hintAlternation: TimeInterval = 4
-
-    static func format(_ seconds: TimeInterval) -> String {
-        let total = Int(seconds.rounded(.up))
-        return String(format: "%d:%02d", total / 60, total % 60)
+        "\(session.repCount) reps of \(exercise.targetLabel). \(presentation.setLabel ?? "")."
     }
 }
