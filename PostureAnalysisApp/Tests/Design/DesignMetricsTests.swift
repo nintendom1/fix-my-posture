@@ -82,7 +82,7 @@ final class DesignMetricsTests: XCTestCase {
         ],
         "settings": [
             "statusBar": "The iOS status bar belongs to the snapshot window, outside SettingsScreen.",
-            "settings.reminders.value": "Reminders deferred; the row displays Soon until workout reminders ship."
+            "settings.reminders.value": "The reminder summary varies with saved recurrence settings and notification permission."
         ]
     ]
 

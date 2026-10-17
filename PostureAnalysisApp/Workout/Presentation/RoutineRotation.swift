@@ -41,3 +41,16 @@ enum RoutineRotation {
         return lhs.set.id.uuidString < rhs.set.id.uuidString
     }
 }
+
+/// Shared by Train and reminder selection so an unusable routine never becomes Up Next.
+enum CurrentUpNextRoutine {
+    static func select(
+        routines: [SavedExerciseSetRecord],
+        records: [WorkoutRecord],
+        override: UUID?,
+        catalog: [ExerciseDefinition]
+    ) -> SavedExerciseSet? {
+        let startable = routines.filter { !$0.set.plan(in: catalog).items.isEmpty }
+        return RoutineRotation.upNext(routines: startable, records: records, override: override)
+    }
+}

@@ -17,6 +17,7 @@ final class RoutinesViewModel: RoutinesViewModeling {
     private let exerciseCatalog: any ExerciseCatalogProviding
     private let preferences: any AppPreferencesStoring
     private let router: AppRouter
+    private let reminderReconciliation: (any WorkoutReminderReconciliation)?
     private let now: () -> Date
     private let calendar: Calendar
 
@@ -26,6 +27,7 @@ final class RoutinesViewModel: RoutinesViewModeling {
         exerciseCatalog: any ExerciseCatalogProviding,
         preferences: any AppPreferencesStoring,
         router: AppRouter,
+        reminderReconciliation: (any WorkoutReminderReconciliation)? = nil,
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .current
     ) {
@@ -34,6 +36,7 @@ final class RoutinesViewModel: RoutinesViewModeling {
         self.exerciseCatalog = exerciseCatalog
         self.preferences = preferences
         self.router = router
+        self.reminderReconciliation = reminderReconciliation
         self.now = now
         self.calendar = calendar
         refresh()
@@ -56,8 +59,13 @@ final class RoutinesViewModel: RoutinesViewModeling {
             router.open(.routineEditor(id: id))
         case .duplicate(let id):
             guard let set = try? routines?.list().first(where: { $0.id == id }) else { return }
-            _ = try? routines?.duplicate(set)
-            refresh()
+            do {
+                _ = try routines?.duplicate(set)
+                reminderReconciliation?.reconcile()
+                refresh()
+            } catch {
+                // Leave the list unchanged when duplication fails.
+            }
         case .requestDelete(let id):
             guard state.routines.contains(where: { $0.id == id }) else { return }
             state.deleteConfirmationRoutineID = id
@@ -66,6 +74,7 @@ final class RoutinesViewModel: RoutinesViewModeling {
             do {
                 try routines?.delete(id: id)
                 state.deleteConfirmationRoutineID = nil
+                reminderReconciliation?.reconcile()
                 refresh()
             } catch {
                 // Keep the confirmation available so the user can retry.

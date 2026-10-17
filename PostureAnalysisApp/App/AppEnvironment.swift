@@ -12,6 +12,7 @@ final class AppEnvironment {
     let repositories: AppRepositories?
     let exerciseCatalog: any ExerciseCatalogProviding
     let workoutCoachFactory: WorkoutCoachFactory
+    let workoutReminderCoordinator: WorkoutReminderCoordinator
     let trainHomeViewModel: TrainHomeViewModel
     let routinesViewModel: RoutinesViewModel
     let libraryViewModel: LibraryViewModel
@@ -27,8 +28,16 @@ final class AppEnvironment {
         do {
             let container = try AppModelContainer.make(inMemory: inMemory)
             let repositories = AppRepositories(context: container.mainContext)
+            let reminderCoordinator = WorkoutReminderCoordinator(
+                preferences: preferences,
+                routines: repositories.routines,
+                workoutHistory: repositories.workoutHistory,
+                exerciseCatalog: exerciseCatalog,
+                router: router
+            )
             modelContainer = container
             self.repositories = repositories
+            workoutReminderCoordinator = reminderCoordinator
             workoutCoachFactory = WorkoutCoachFactory(
                 preferences: preferences,
                 exerciseCatalog: exerciseCatalog,
@@ -39,14 +48,16 @@ final class AppEnvironment {
                 workoutHistory: repositories.workoutHistory,
                 exerciseCatalog: exerciseCatalog,
                 preferences: preferences,
-                router: router
+                router: router,
+                reminderReconciliation: reminderCoordinator
             )
             routinesViewModel = RoutinesViewModel(
                 routines: repositories.routines,
                 workoutHistory: repositories.workoutHistory,
                 exerciseCatalog: exerciseCatalog,
                 preferences: preferences,
-                router: router
+                router: router,
+                reminderReconciliation: reminderCoordinator
             )
             libraryViewModel = LibraryViewModel(
                 workoutHistory: repositories.workoutHistory,
@@ -68,6 +79,14 @@ final class AppEnvironment {
         } catch {
             modelContainer = nil
             repositories = nil
+            let reminderCoordinator = WorkoutReminderCoordinator(
+                preferences: preferences,
+                routines: nil,
+                workoutHistory: nil,
+                exerciseCatalog: exerciseCatalog,
+                router: router
+            )
+            workoutReminderCoordinator = reminderCoordinator
             workoutCoachFactory = WorkoutCoachFactory(
                 preferences: preferences,
                 exerciseCatalog: exerciseCatalog,
@@ -78,14 +97,16 @@ final class AppEnvironment {
                 workoutHistory: nil,
                 exerciseCatalog: exerciseCatalog,
                 preferences: preferences,
-                router: router
+                router: router,
+                reminderReconciliation: reminderCoordinator
             )
             routinesViewModel = RoutinesViewModel(
                 routines: nil,
                 workoutHistory: nil,
                 exerciseCatalog: exerciseCatalog,
                 preferences: preferences,
-                router: router
+                router: router,
+                reminderReconciliation: reminderCoordinator
             )
             libraryViewModel = LibraryViewModel(
                 workoutHistory: nil,
@@ -105,6 +126,11 @@ final class AppEnvironment {
             )
             persistenceError = error.localizedDescription
         }
+
+        let reminderCoordinator = workoutReminderCoordinator
+        WorkoutReminderNotificationBridge.shared.install { [weak reminderCoordinator] target in
+            reminderCoordinator?.handleTap(target)
+        }
     }
 
     func makeRoutineDetailViewModel(id: UUID) -> RoutineDetailViewModel {
@@ -114,7 +140,8 @@ final class AppEnvironment {
             workoutHistory: repositories?.workoutHistory,
             exerciseCatalog: exerciseCatalog,
             preferences: preferences,
-            router: router
+            router: router,
+            reminderReconciliation: workoutReminderCoordinator
         )
     }
 
@@ -124,7 +151,8 @@ final class AppEnvironment {
             routines: repositories?.routines,
             exerciseCatalog: exerciseCatalog,
             preferences: preferences,
-            router: router
+            router: router,
+            reminderReconciliation: workoutReminderCoordinator
         )
     }
 
@@ -156,6 +184,10 @@ private struct WorkoutCoachFactoryEnvironmentKey: EnvironmentKey {
     static let defaultValue: WorkoutCoachFactory? = nil
 }
 
+private struct WorkoutReminderReconciliationEnvironmentKey: EnvironmentKey {
+    static let defaultValue: (any WorkoutReminderReconciliation)? = nil
+}
+
 extension EnvironmentValues {
     var appRouter: AppRouter? {
         get { self[AppRouterEnvironmentKey.self] }
@@ -170,5 +202,10 @@ extension EnvironmentValues {
     var workoutCoachFactory: WorkoutCoachFactory? {
         get { self[WorkoutCoachFactoryEnvironmentKey.self] }
         set { self[WorkoutCoachFactoryEnvironmentKey.self] = newValue }
+    }
+
+    var workoutReminderReconciliation: (any WorkoutReminderReconciliation)? {
+        get { self[WorkoutReminderReconciliationEnvironmentKey.self] }
+        set { self[WorkoutReminderReconciliationEnvironmentKey.self] = newValue }
     }
 }

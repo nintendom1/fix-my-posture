@@ -8,6 +8,7 @@ import SwiftUI
 @main
 @MainActor
 struct PostureAnalysisApp: App {
+    @UIApplicationDelegateAdaptor(WorkoutReminderAppDelegate.self) private var reminderAppDelegate
     @State private var appEnvironment: AppEnvironment
 
     init() {

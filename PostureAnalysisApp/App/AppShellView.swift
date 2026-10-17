@@ -3,6 +3,7 @@ import SwiftUI
 
 struct AppShellView: View {
     let environment: AppEnvironment
+    @Environment(\.scenePhase) private var scenePhase
 
     private var router: AppRouter { environment.router }
 
@@ -32,7 +33,15 @@ struct AppShellView: View {
         .environment(\.appRepositories, environment.repositories)
         .environment(\.exerciseCatalog, environment.exerciseCatalog)
         .environment(\.workoutCoachFactory, environment.workoutCoachFactory)
+        .environment(\.workoutReminderReconciliation, environment.workoutReminderCoordinator)
         .modelContainer(environment.modelContainer!)
+        .task {
+            environment.workoutReminderCoordinator.reconcile()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            environment.workoutReminderCoordinator.reconcile()
+        }
     }
 
     @ViewBuilder
@@ -136,6 +145,7 @@ struct AppShellView: View {
         SettingsScreen(viewModel: SettingsViewModel(
             preferences: environment.preferences,
             router: router,
+            reminderManager: environment.workoutReminderCoordinator,
             latestAssessmentID: environment.postureHomeViewModel.state.assessments.first?.id
         ))
     }

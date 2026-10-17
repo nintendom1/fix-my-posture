@@ -297,6 +297,10 @@
 		A10000012B00000000000307 /* LastDoneFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000307 /* LastDoneFormatter.swift */; };
 		A10000012B00000000000308 /* PostureHomePreviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000308 /* PostureHomePreviews.swift */; };
 		A10000012B00000000000309 /* AssessmentPreviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000309 /* AssessmentPreviews.swift */; };
+		A10000012B00000000000310 /* WorkoutReminderSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000310 /* WorkoutReminderSettings.swift */; };
+		A10000012B00000000000311 /* WorkoutReminderScheduling.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000311 /* WorkoutReminderScheduling.swift */; };
+		A10000012B00000000000312 /* WorkoutReminderCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000312 /* WorkoutReminderCoordinator.swift */; };
+		A10000012B00000000000313 /* WorkoutRemindersTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000313 /* WorkoutRemindersTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -602,6 +606,10 @@
 		B10000012B00000000000307 /* LastDoneFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastDoneFormatter.swift; sourceTree = "<group>"; };
 		B10000012B00000000000308 /* PostureHomePreviews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureHomePreviews.swift; sourceTree = "<group>"; };
 		B10000012B00000000000309 /* AssessmentPreviews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssessmentPreviews.swift; sourceTree = "<group>"; };
+		B10000012B00000000000310 /* WorkoutReminderSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutReminderSettings.swift; sourceTree = "<group>"; };
+		B10000012B00000000000311 /* WorkoutReminderScheduling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutReminderScheduling.swift; sourceTree = "<group>"; };
+		B10000012B00000000000312 /* WorkoutReminderCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutReminderCoordinator.swift; sourceTree = "<group>"; };
+		B10000012B00000000000313 /* WorkoutRemindersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutRemindersTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -819,6 +827,7 @@
 				B10000012B00000000000303 /* LastDoneFormatterTests.swift */,
 				B10000012B00000000000304 /* RoutineEstimatorTests.swift */,
 				H10000012B00000000000054 /* Fakes */,
+				B10000012B00000000000313 /* WorkoutRemindersTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1058,6 +1067,7 @@
 				B10000012B00000000000305 /* RoutineRotation.swift */,
 				B10000012B00000000000306 /* RoutineEstimator.swift */,
 				B10000012B00000000000307 /* LastDoneFormatter.swift */,
+				B10000012B00000000000310 /* WorkoutReminderSettings.swift */,
 			);
 			path = Presentation;
 			sourceTree = "<group>";
@@ -1141,6 +1151,8 @@
 				B10000012B00000000000212 /* TabBarStyle.swift */,
 				B10000012B00000000000213 /* TabBarAppearance.swift */,
 				B10000012B00000000000214 /* StickyCTA.swift */,
+				B10000012B00000000000311 /* WorkoutReminderScheduling.swift */,
+				B10000012B00000000000312 /* WorkoutReminderCoordinator.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -1646,6 +1658,9 @@
 				A10000012B00000000000308 /* PostureHomePreviews.swift in Sources */,
 				A10000012B00000000000309 /* AssessmentPreviews.swift in Sources */,
 				A10000012B00000000000075 /* ExerciseGuideView.swift in Sources */,
+				A10000012B00000000000310 /* WorkoutReminderSettings.swift in Sources */,
+				A10000012B00000000000311 /* WorkoutReminderScheduling.swift in Sources */,
+				A10000012B00000000000312 /* WorkoutReminderCoordinator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1731,6 +1746,7 @@
 				A10000012B00000000000303 /* LastDoneFormatterTests.swift in TestSources */,
 				A10000012B00000000000304 /* RoutineEstimatorTests.swift in TestSources */,
 				A10000012B00000000000157 /* WorkoutServiceFakes.swift in TestSources */,
+				A10000012B00000000000313 /* WorkoutRemindersTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

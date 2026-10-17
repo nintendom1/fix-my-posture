@@ -124,7 +124,7 @@ The 60 Material Symbols names from `Design/Metrics/design-metrics.json` map one-
 
 SwiftUI fixtures attach `.designAnchor("screen.element")` to the element measured against its metric in `Design/Metrics/design-metrics.json`. The design test requires every non-exempt anchor to exist and compares its position and size using the tolerance for its kind: 1 pt for `box`, 2 pt for `text`. Keep anchor names stable when moving a view between files.
 
-`DesignMetricsTests.exemptions` records the anchors the screen cannot own or that belong to deferred UI. The status bar is supplied by the snapshot window. The native tab bar is owned by `TabView` or covered by an editor sheet. The current deferred or intentionally absent anchors are routine action anchors (`routine.actions.remind`, `routine.actions.duplicate`, `routine.actions.delete`), the exercise favourite (`exercise.favorite`), assessment sharing (`assessment.share`), and the settings reminder value (`settings.reminders.value`). Camera frames exempt only the host-owned status bar. Each exemption has its reason beside the key in the test.
+`DesignMetricsTests.exemptions` records the anchors the screen cannot own or whose content varies by saved preferences. The status bar is supplied by the snapshot window. The native tab bar is owned by `TabView` or covered by an editor sheet. The current deferred or intentionally absent anchors are routine action anchors (`routine.actions.remind`, `routine.actions.duplicate`, `routine.actions.delete`), the exercise favourite (`exercise.favorite`), assessment sharing (`assessment.share`), and the settings reminder summary (`settings.reminders.value`), which changes with its saved recurrence and notification permission. Camera frames exempt only the host-owned status bar. Each exemption has its reason beside the key in the test.
 
 ## Adding a screen
 
@@ -137,7 +137,7 @@ Use the feature-folder pattern:
 
 ## Deferred features
 
-The current design coverage defers richer progress charts, workout reminders, exercise favourites, sharing posture assessments, URL deep links, and exercise photos. `DesignMetricsTests` records the frame-anchor exemptions that exist today, including the reminder value, favourite, share, and routine action anchors. URL deep links and exercise photos have no frame in this bundle.
+The current design coverage defers richer progress charts, exercise favourites, sharing posture assessments, URL deep links, and exercise photos. Workout reminders now have settings and local scheduling; `DesignMetricsTests` records the settings reminder summary as a variable-content anchor, alongside the favourite, share, and routine action anchors. URL deep links and exercise photos have no frame in this bundle.
 
 ## Navigation and routes
 

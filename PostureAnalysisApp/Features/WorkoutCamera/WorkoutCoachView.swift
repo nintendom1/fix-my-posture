@@ -11,6 +11,7 @@ struct WorkoutCoachView: View {
     @Environment(\.appRepositories) private var appRepositories
     @Environment(\.appRouter) private var appRouter
     @Environment(\.preferences) private var preferences
+    @Environment(\.workoutReminderReconciliation) private var workoutReminderReconciliation
     @State private var model: any WorkoutCoachViewModeling
     /// Open the Voice Commands help once the guide finishes dismissing.
     @State private var showVoiceCommandsAfterGuide = false
@@ -229,7 +230,12 @@ struct WorkoutCoachView: View {
         guard let record = WorkoutRecord(session: model.session, startedAt: startedAt, endedAt: Date()) else { return }
         finishedRecord = record
         guard let history = appRepositories?.workoutHistory else { return }
-        try? WorkoutHistorySaver.save(record, using: history, preferences: preferences)
+        do {
+            try WorkoutHistorySaver.save(record, using: history, preferences: preferences)
+            workoutReminderReconciliation?.reconcile()
+        } catch {
+            // A failed history save is retried only through the existing workout flow.
+        }
     }
 
     private func displayCompletionRecord() -> WorkoutRecord {

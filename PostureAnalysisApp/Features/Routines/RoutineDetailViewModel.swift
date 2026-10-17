@@ -18,6 +18,7 @@ final class RoutineDetailViewModel: RoutineDetailViewModeling {
     private let exerciseCatalog: any ExerciseCatalogProviding
     private let preferences: any AppPreferencesStoring
     private let router: AppRouter
+    private let reminderReconciliation: (any WorkoutReminderReconciliation)?
     private let now: () -> Date
     private let calendar: Calendar
 
@@ -28,6 +29,7 @@ final class RoutineDetailViewModel: RoutineDetailViewModeling {
         exerciseCatalog: any ExerciseCatalogProviding,
         preferences: any AppPreferencesStoring,
         router: AppRouter,
+        reminderReconciliation: (any WorkoutReminderReconciliation)? = nil,
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .current
     ) {
@@ -37,6 +39,7 @@ final class RoutineDetailViewModel: RoutineDetailViewModeling {
         self.exerciseCatalog = exerciseCatalog
         self.preferences = preferences
         self.router = router
+        self.reminderReconciliation = reminderReconciliation
         self.now = now
         self.calendar = calendar
         refresh()
@@ -54,7 +57,12 @@ final class RoutineDetailViewModel: RoutineDetailViewModeling {
         case .duplicate:
             guard let routine = state.routine,
                   let set = try? routines?.list().first(where: { $0.id == routine.id }) else { return }
-            _ = try? routines?.duplicate(set)
+            do {
+                _ = try routines?.duplicate(set)
+                reminderReconciliation?.reconcile()
+            } catch {
+                // Keep the current detail visible when duplication fails.
+            }
         case .requestDelete:
             guard state.routine != nil else { return }
             state.showsDeleteConfirmation = true
@@ -62,6 +70,7 @@ final class RoutineDetailViewModel: RoutineDetailViewModeling {
             guard state.showsDeleteConfirmation, state.routine != nil else { return }
             do {
                 try routines?.delete(id: id)
+                reminderReconciliation?.reconcile()
                 state.showsDeleteConfirmation = false
                 state.routine = nil
                 popToRoutines()
