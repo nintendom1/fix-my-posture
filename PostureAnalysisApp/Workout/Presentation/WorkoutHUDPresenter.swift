@@ -75,18 +75,18 @@ struct WorkoutHUDExercise: Equatable {
         self.restSeconds = restSeconds
     }
 
-    init(exercise: ExerciseDefinition) {
+    init(exercise: ExerciseDefinition, startsByHolding: Bool? = nil, restSeconds: Int? = nil) {
         self.init(id: exercise.id,
                   displayName: exercise.displayName,
                   targetLabel: exercise.targetLabel,
-                  startsByHolding: exercise.startsByHolding,
+                  startsByHolding: startsByHolding ?? exercise.startsByHolding,
                   startPositionInstruction: exercise.guide.startPositionInstruction,
                   sets: exercise.sets,
                   setsAndRepsLabel: exercise.setsAndRepsLabel,
                   equipment: exercise.equipment,
                   countsArmsIndependently: exercise.countsArmsIndependently,
                   targetReps: exercise.targetReps,
-                  restSeconds: exercise.restSeconds)
+                  restSeconds: restSeconds ?? exercise.restSeconds)
     }
 }
 
@@ -123,7 +123,13 @@ struct WorkoutHUDInputs: Equatable {
     init(session: WorkoutSession, visual: WorkoutVisualInputs, voiceCommandsAvailable: Bool) {
         self.init(
             visual: visual,
-            exercise: session.exercise.map(WorkoutHUDExercise.init(exercise:)),
+            exercise: session.exercise.map {
+                WorkoutHUDExercise(
+                    exercise: $0,
+                    startsByHolding: session.effectiveStartsByHolding,
+                    restSeconds: session.restDurationSeconds ?? session.effectiveRestSeconds ?? $0.restSeconds
+                )
+            },
             voiceCommandsAvailable: voiceCommandsAvailable,
             currentSetNumber: session.currentSetNumber,
             currentSide: session.currentSide,
@@ -195,14 +201,12 @@ enum WorkoutHUDPresenter {
             statusText = inputs.visual.framing.guidance?.shortText ?? "Hold still"
             statusTone = .attention
         case .ready:
-            if inputs.voiceCommandsAvailable, Int(inputs.visual.now / hintAlternation) % 2 == 1 {
+            if let exercise, !exercise.startsByHolding {
+                statusText = inputs.voiceCommandsAvailable ? "Say \u{201C}start\u{201D} or tap play" : "Tap play to start"
+            } else if inputs.voiceCommandsAvailable, Int(inputs.visual.now / hintAlternation) % 2 == 1 {
                 statusText = "Say \u{201C}what can I say\u{201D} for commands"
             } else if let exercise {
-                if exercise.startsByHolding {
-                    statusText = "\(exercise.startPositionInstruction) to begin"
-                } else {
-                    statusText = inputs.voiceCommandsAvailable ? "Say \u{201C}start\u{201D} to begin" : "Tap Start to begin"
-                }
+                statusText = "\(exercise.startPositionInstruction) to begin"
             } else {
                 statusText = "Ready"
             }

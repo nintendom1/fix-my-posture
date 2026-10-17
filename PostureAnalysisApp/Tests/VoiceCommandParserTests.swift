@@ -61,7 +61,20 @@ final class VoiceCommandParserTests: XCTestCase {
         XCTAssertEqual(parser.parse("I'm using the red band")?.command, .setWeight(.band("Red band")))
         XCTAssertEqual(parser.parse("my weights are 17.5 pounds")?.isPrefixOfLongerPhrase, true, "Waits for the number to settle.")
         XCTAssertNil(parser.parse("I lost five pounds this month"), "Numbers outside a weight phrase never set one.")
-        XCTAssertNil(parser.parse("my weights are seventeen"), "No unit yet.")
+        XCTAssertEqual(parser.parse("my weights are seventeen")?.command,
+                       .setWeight(.mass(17, .pounds)), "An omitted unit uses the preferred default.")
+    }
+
+    func testPreferredWeightUnitIsUsedOnlyWhenSpeechOmitsTheUnit() {
+        let metricParser = VoiceCommandParser(
+            exercises: [ShoulderPressExercise.definition()],
+            preferredWeightUnit: .kg
+        )
+
+        XCTAssertEqual(metricParser.parse("my weights are twenty")?.command,
+                       .setWeight(.mass(20, .kilograms)))
+        XCTAssertEqual(metricParser.parse("my weights are twenty pounds")?.command,
+                       .setWeight(.mass(20, .pounds)))
     }
 
     func testWaitHeardForWeight() {

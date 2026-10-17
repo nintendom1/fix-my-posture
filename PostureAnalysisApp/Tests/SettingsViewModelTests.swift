@@ -13,6 +13,7 @@ final class SettingsViewModelTests: XCTestCase {
         defaults.set(false, forKey: PreferenceKey.tiltWarningsEnabled)
         defaults.set(false, forKey: PreferenceKey.cameraTiltCompensationEnabled)
         defaults.set(false, forKey: PreferenceKey.showHorizonLine)
+        defaults.set(false, forKey: PreferenceKey.showAlignmentTargets)
         let preferences = UserDefaultsPreferences(defaults: defaults)
 
         let viewModel = makeViewModel(preferences: preferences)
@@ -23,6 +24,7 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.tiltWarningsEnabled)
         XCTAssertFalse(viewModel.cameraTiltCompensationEnabled)
         XCTAssertFalse(viewModel.showHorizonLine)
+        XCTAssertFalse(viewModel.showAlignmentTargets)
 
         viewModel.spokenCoachingEnabled = true
         viewModel.voiceCommandsEnabled = true
@@ -30,6 +32,7 @@ final class SettingsViewModelTests: XCTestCase {
         viewModel.tiltWarningsEnabled = true
         viewModel.cameraTiltCompensationEnabled = true
         viewModel.showHorizonLine = true
+        viewModel.showAlignmentTargets = true
 
         XCTAssertEqual(defaults.object(forKey: PreferenceKey.workoutCoachCoachMuted) as? Bool, false)
         XCTAssertEqual(defaults.object(forKey: PreferenceKey.workoutCoachMicMuted) as? Bool, false)
@@ -37,6 +40,7 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(defaults.object(forKey: PreferenceKey.tiltWarningsEnabled) as? Bool, true)
         XCTAssertEqual(defaults.object(forKey: PreferenceKey.cameraTiltCompensationEnabled) as? Bool, true)
         XCTAssertEqual(defaults.object(forKey: PreferenceKey.showHorizonLine) as? Bool, true)
+        XCTAssertEqual(defaults.object(forKey: PreferenceKey.showAlignmentTargets) as? Bool, true)
     }
 
     func testRestPolicyAndWeightUnitPagesStoreSelectedValues() {
@@ -50,6 +54,23 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(preferences.weightUnit, .kg)
         XCTAssertEqual(viewModel.restPolicy, .fixed(seconds: 60))
         XCTAssertEqual(viewModel.weightUnit, .kg)
+    }
+
+    func testWorkoutSettingRowsExposeTheirCurrentValues() {
+        let preferences = InMemoryPreferences()
+        let viewModel = makeViewModel(preferences: preferences)
+
+        XCTAssertEqual(viewModel.restPolicyLabel, "Exercise default")
+        XCTAssertEqual(viewModel.weightUnitLabel, "lb")
+        XCTAssertTrue(viewModel.startByHoldingEnabled)
+
+        viewModel.restPolicy = .fixed(seconds: 60)
+        viewModel.weightUnit = .kg
+        viewModel.startByHoldingEnabled = false
+
+        XCTAssertEqual(viewModel.restPolicyLabel, "60 s")
+        XCTAssertEqual(viewModel.weightUnitLabel, "kg")
+        XCTAssertFalse(viewModel.startByHoldingEnabled)
     }
 
     func testCameraFramingRefreshRateStoresSelectedValue() {

@@ -49,9 +49,9 @@ final class WorkoutHUDPresenterTests: XCTestCase {
         noHold.startsByHolding = false
         let source = readySession(exercise: noHold)
 
-        XCTAssertEqual(WorkoutHUDPresenter.derive(makeInputs(source, now: 2)).statusText, "Tap Start to begin")
+        XCTAssertEqual(WorkoutHUDPresenter.derive(makeInputs(source, now: 2)).statusText, "Tap play to start")
         XCTAssertEqual(WorkoutHUDPresenter.derive(makeInputs(source, now: 2, voiceCommandsAvailable: true)).statusText,
-                       "Say “start” to begin")
+                       "Say “start” or tap play")
         XCTAssertEqual(WorkoutHUDPresenter.derive(makeInputs(session(exercise: nil), now: 1)).statusText, "Choose an exercise")
 
         let readyWithoutExercise = WorkoutHUDInputs(
@@ -68,6 +68,25 @@ final class WorkoutHUDPresenterTests: XCTestCase {
             planPositionLabel: nil
         )
         XCTAssertEqual(WorkoutHUDPresenter.derive(readyWithoutExercise).statusText, "Ready")
+    }
+
+    func testGlobalHoldToStartOffUsesReadyCopyForVoiceAndTouch() {
+        let source = readySession(settings: WorkoutSettings(startByHolding: false))
+
+        XCTAssertEqual(WorkoutHUDPresenter.derive(makeInputs(source, now: 2)).statusText, "Tap play to start")
+        XCTAssertEqual(WorkoutHUDPresenter.derive(makeInputs(source, now: 2, voiceCommandsAvailable: true)).statusText,
+                       "Say “start” or tap play")
+    }
+
+    func testRestProgressUsesEffectiveFixedDuration() {
+        var source = readySession(settings: WorkoutSettings(restPolicy: .fixed(seconds: 45)))
+        _ = source.handle(.command(.start), at: 2)
+        _ = source.handle(.command(.nextSet), at: 3)
+
+        let presentation = WorkoutHUDPresenter.derive(makeInputs(source, now: 25.5))
+
+        XCTAssertEqual(presentation.progressValue, 0.5, accuracy: 0.001)
+        XCTAssertEqual(presentation.restCountdownText, WorkoutHUDPresenter.format(source.restRemaining(at: 25.5)!))
     }
 
     func testPrimaryButtonPerPhase() {
@@ -237,9 +256,13 @@ final class WorkoutHUDPresenterTests: XCTestCase {
         return result
     }
 
-    private func readySession(exercise: ExerciseDefinition? = nil, unframed: Bool = false) -> WorkoutSession {
+    private func readySession(
+        exercise: ExerciseDefinition? = nil,
+        unframed: Bool = false,
+        settings: WorkoutSettings = WorkoutSettings()
+    ) -> WorkoutSession {
         let selected = exercise ?? press
-        var result = WorkoutSession(exercises: [selected], initialExercise: selected.id)
+        var result = WorkoutSession(exercises: [selected], initialExercise: selected.id, settings: settings)
         _ = result.handle(.opened, at: 0)
         if !unframed {
             _ = result.handle(.framingChanged(FramingStatus(isReliable: true, guidance: nil)), at: 1)

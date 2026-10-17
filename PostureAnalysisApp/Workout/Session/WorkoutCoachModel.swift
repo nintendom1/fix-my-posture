@@ -110,7 +110,8 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     init(camera: PoseFrameSource, previewProvider: CameraPreviewProviding?, permission: CameraPermissionProviding,
          speech: SpeechCoaching, audio: AudioSessionControlling?, tiltMonitor: PhoneTiltMonitoring?,
          voice: VoiceControlling?, clock: Clock, scheduler: Scheduling, preferences: any AppPreferencesStoring,
-         exercises: [ExerciseDefinition], initialExercise: ExerciseID?, plan: WorkoutPlan?) {
+         exercises: [ExerciseDefinition], initialExercise: ExerciseID?, plan: WorkoutPlan?,
+         settings: WorkoutSettings = WorkoutSettings()) {
         self.camera = camera
         self.previewProvider = previewProvider
         self.permission = permission
@@ -124,7 +125,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         isCoachMuted = preferences.workoutCoachCoachMuted
         isMicMuted = preferences.workoutCoachMicMuted
         showsMeasurements = preferences.workoutCoachShowMeasurements
-        session = WorkoutSession(exercises: exercises, initialExercise: initialExercise, plan: plan)
+        session = WorkoutSession(exercises: exercises, initialExercise: initialExercise, plan: plan, settings: settings)
         now = clock.now
         audio?.onEvent = { [weak self] event in self?.handleAudio(event) }
         speech.onActivityChanged = { [weak self] speaking in

@@ -132,7 +132,9 @@ final class AppEnvironment {
     }
 
     func makeHistoryViewModel() -> HistoryViewModel {
-        HistoryViewModel(repository: repositories?.workoutHistory, exerciseCatalog: exerciseCatalog)
+        HistoryViewModel(repository: repositories?.workoutHistory,
+                         exerciseCatalog: exerciseCatalog,
+                         preferences: preferences)
     }
 }
 

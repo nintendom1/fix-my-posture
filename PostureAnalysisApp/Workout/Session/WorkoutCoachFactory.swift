@@ -22,8 +22,14 @@ final class WorkoutCoachFactory {
         let audio = WorkoutAudioSession()
         // Sets and reps the user adjusted on the list apply here; Saved Sets bring their own.
         let exercises = ExerciseTargetStore.applying(to: exerciseCatalog.all, preferences: preferences)
+        let settings = WorkoutSettings(
+            restPolicy: preferences.restPolicy,
+            weightUnit: preferences.weightUnit,
+            startByHolding: preferences.startByHolding
+        )
         let voice = WorkoutVoiceController(recognizer: OnDeviceSpeechRecognizer(),
-                                           parser: VoiceCommandParser(exercises: exercises),
+                                           parser: VoiceCommandParser(exercises: exercises,
+                                                                     preferredWeightUnit: settings.weightUnit),
                                            permissions: SystemVoicePermissions(), audio: audio)
         let camera = WorkoutCameraController()
         return WorkoutCoachModel(camera: camera, previewProvider: camera,
@@ -31,6 +37,6 @@ final class WorkoutCoachFactory {
                                  audio: audio, tiltMonitor: CoreMotionTiltMonitor(), voice: voice,
                                  clock: SystemClock(), scheduler: MainScheduler(), preferences: preferences,
                                  exercises: exercises, initialExercise: exerciseID ?? exercises.first?.id,
-                                 plan: plan)
+                                 plan: plan, settings: settings)
     }
 }

@@ -119,9 +119,34 @@ struct ExerciseProgress: Equatable {
     }
 }
 
+/// A workout-scoped snapshot of settings that affect reducer decisions or voice parsing.
+struct WorkoutSettings: Equatable {
+    let restPolicy: RestPolicy
+    let weightUnit: PreferredWeightUnit
+    let startByHolding: Bool
+
+    init(restPolicy: RestPolicy = .exerciseDefault,
+         weightUnit: PreferredWeightUnit = .lb,
+         startByHolding: Bool = true) {
+        self.restPolicy = restPolicy
+        self.weightUnit = weightUnit
+        self.startByHolding = startByHolding
+    }
+
+    func restSeconds(for exercise: ExerciseDefinition) -> Int {
+        switch restPolicy {
+        case .exerciseDefault:
+            return exercise.restSeconds
+        case .fixed(let seconds):
+            return min(max(seconds, 30), 120)
+        }
+    }
+}
+
 /// Pure workout state machine. Every input is an event with a time; every side effect is returned.
 struct WorkoutSession {
     let exercises: [ExerciseDefinition]
+    let settings: WorkoutSettings
     private(set) var phase: WorkoutPhase
     private(set) var exerciseID: ExerciseID?
     private(set) var progress: [ExerciseID: ExerciseProgress] = [:]
@@ -134,6 +159,8 @@ struct WorkoutSession {
     private(set) var repEventCount = 0
     private(set) var analyzerEpoch = 0
     private(set) var restEndsAt: TimeInterval?
+    /// Full effective duration for the current rest, used by the HUD progress bar.
+    private(set) var restDurationSeconds: Int?
     private(set) var voiceControlActive = false
     /// The workout was ended from the completion card, which already showed the results.
     private(set) var endedAfterCompletion = false
@@ -175,8 +202,10 @@ struct WorkoutSession {
     /// The tilt warning is spoken at most this often.
     static let tiltWarningInterval: TimeInterval = 30
 
-    init(exercises: [ExerciseDefinition], initialExercise: ExerciseID?, plan: WorkoutPlan? = nil) {
+    init(exercises: [ExerciseDefinition], initialExercise: ExerciseID?, plan: WorkoutPlan? = nil,
+         settings: WorkoutSettings = WorkoutSettings()) {
         self.exercises = exercises
+        self.settings = settings
         // Occurrences whose exercise isn't available are skipped.
         let usable = plan.flatMap { plan in plan.items.firstIndex { item in exercises.contains { $0.id == item.exerciseID } } }
         self.plan = usable == nil ? nil : plan
@@ -195,6 +224,16 @@ struct WorkoutSession {
         guard let id = exerciseID, let base = exercises.first(where: { $0.id == id }) else { return nil }
         if let item = currentPlanItem, item.exerciseID == id { return base.withTarget(sets: item.sets, reps: item.targetReps) }
         return base
+    }
+
+    /// The exercise's hold-to-start choice combined with the workout-wide preference.
+    var effectiveStartsByHolding: Bool {
+        settings.startByHolding && (exercise?.startsByHolding ?? true)
+    }
+
+    /// Effective rest for the selected exercise, before a rest has started.
+    var effectiveRestSeconds: Int? {
+        exercise.map { settings.restSeconds(for: $0) }
     }
 
     /// The plan occurrence in progress or up next.
@@ -247,7 +286,7 @@ struct WorkoutSession {
         default:
             return nil
         }
-        guard framing.isReliable, let held = startPositionSince else { return nil }
+        guard effectiveStartsByHolding, framing.isReliable, let held = startPositionSince else { return nil }
         return max(0, min(1, (now - max(held, phaseStart)) / Self.startHoldDuration))
     }
 
@@ -268,7 +307,7 @@ struct WorkoutSession {
         case .repCompleted(let rep):
             return repCompleted(rep, at: now)
         case .startPositionChanged(let held):
-            startPositionSince = held && (exercise?.startsByHolding ?? true) ? (startPositionSince ?? now) : nil
+            startPositionSince = held && effectiveStartsByHolding ? (startPositionSince ?? now) : nil
             return []
         case .phoneTiltChanged(let tilted):
             // Advisory only: counting continues, and the warning never blocks a set.
@@ -426,6 +465,7 @@ struct WorkoutSession {
         guard let exercise else { return hint(exerciseChoicePrompt) }
         phase = .exercising
         restEndsAt = nil
+        restDurationSeconds = nil
         sideReps = [.left: 0, .right: 0]
         trackingLostAt = framing.isReliable ? nil : now
         trackingLossAnnounced = false
@@ -458,18 +498,22 @@ struct WorkoutSession {
                                                   setWeights: progress[exercise.id]?.roundSetWeights ?? [])
             let lead = "\(done), \(repPhrase(reps)). \(exercise.displayName) complete."
             if let next = nextPlanIndex(after: planIndex) {
-                return effects + advancePlan(to: next, at: now, restSeconds: exercise.restSeconds, lead: lead)
+                return effects + advancePlan(to: next, at: now,
+                                             restSeconds: settings.restSeconds(for: exercise), lead: lead)
             }
             phase = .exerciseComplete
             restEndsAt = nil
+            restDurationSeconds = nil
             effects.append(.speak(Utterance(text: "\(lead) \(plan.name) complete. \(completePrompt)")))
         } else if finished >= exercise.setEntries {
             phase = .exerciseComplete
             restEndsAt = nil
+            restDurationSeconds = nil
             effects.append(.speak(Utterance(text: "\(done), \(repPhrase(reps)). \(exercise.displayName) complete. \(completePrompt)")))
         } else if exercise.perSide, finished % 2 == 1 {
             // Halfway through a one-arm set: switch arms without resting.
             restEndsAt = nil
+            restDurationSeconds = nil
             if framing.isReliable, framing.guidance == nil {
                 phase = .ready
                 readySince = now
@@ -480,12 +524,16 @@ struct WorkoutSession {
         } else if exercise.perSide {
             let set = finished / 2
             phase = .resting
-            restEndsAt = now + TimeInterval(exercise.restSeconds)
+            let restSeconds = settings.restSeconds(for: exercise)
+            restDurationSeconds = restSeconds
+            restEndsAt = now + TimeInterval(restSeconds)
             restDoneAnnounced = false
             effects.append(.speak(Utterance(text: "\(done), \(repPhrase(reps)). Set \(set) done. Rest up. I'll tell you when it's time for set \(set + 1).")))
         } else {
             phase = .resting
-            restEndsAt = now + TimeInterval(exercise.restSeconds)
+            let restSeconds = settings.restSeconds(for: exercise)
+            restDurationSeconds = restSeconds
+            restEndsAt = now + TimeInterval(restSeconds)
             restDoneAnnounced = false
             effects.append(.speak(Utterance(text: "Set \(finished) done, \(repPhrase(reps)). Rest up. I'll tell you when it's time for set \(finished + 1).")))
         }
@@ -500,6 +548,7 @@ struct WorkoutSession {
         record.round += 1
         progress[exercise.id] = record
         restEndsAt = nil
+        restDurationSeconds = nil
         // Framing doesn't change on its own here, so go straight to ready when it's already good.
         if framing.isReliable, framing.guidance == nil {
             phase = .ready
@@ -541,6 +590,7 @@ struct WorkoutSession {
         if let restSeconds {
             phase = .resting
             restEndsAt = now + TimeInterval(restSeconds)
+            restDurationSeconds = restSeconds
             restDoneAnnounced = false
             restLeadsToNextExercise = true
             isRestingBeforeNextExercise = true
@@ -549,6 +599,7 @@ struct WorkoutSession {
         }
         phase = .framing
         restEndsAt = nil
+        restDurationSeconds = nil
         restLeadsToNextExercise = false
         isRestingBeforeNextExercise = false
         return [.speak(Utterance(text: "\(lead) \(next.setupLine)"))]
@@ -577,6 +628,7 @@ struct WorkoutSession {
         sideReps = [.left: 0, .right: 0]
         phase = .exerciseComplete
         restEndsAt = nil
+        restDurationSeconds = nil
         isRestingBeforeNextExercise = false
         return effects + [.speak(Utterance(text: "\(plan.name) complete. \(completePrompt)"))]
     }
@@ -609,6 +661,7 @@ struct WorkoutSession {
         sideReps = [.left: 0, .right: 0]
         exerciseID = id
         restEndsAt = nil
+        restDurationSeconds = nil
         framing = .lost
         guidanceChangedAt = nil
         lastSpokenGuidance = nil
@@ -661,6 +714,7 @@ struct WorkoutSession {
         sideReps = [.left: 0, .right: 0]
         phase = .ended
         restEndsAt = nil
+        restDurationSeconds = nil
         return setCounting(false) + clearFeedback() + [
             .speak(Utterance(text: "Workout ended. Nice work.", interrupts: true)),
             .stopCaptureAndVoice]
@@ -741,6 +795,7 @@ struct WorkoutSession {
                 restLeadsToNextExercise = false
                 isRestingBeforeNextExercise = false
                 self.restEndsAt = nil
+                restDurationSeconds = nil
                 if framing.isReliable, framing.guidance == nil {
                     phase = .ready
                     readySince = now
@@ -752,7 +807,7 @@ struct WorkoutSession {
             if startHoldProgress(at: now) == 1 { return beginSet(at: now) }
             guard !restDoneAnnounced else { return [] }
             restDoneAnnounced = true
-            let begin = exercise?.startsByHolding ?? true ? "\(startPrompt) or \(prompt("start").lowercased())" : prompt("start")
+            let begin = effectiveStartsByHolding ? "\(startPrompt) or \(prompt("start").lowercased())" : prompt("start")
             return [.speak(Utterance(text: "Rest is up. \(begin) for set \(currentSetNumber)."))]
         default:
             return []
@@ -763,7 +818,7 @@ struct WorkoutSession {
 
     /// How to begin a set: hold the start position or say start, or just say start.
     private var beginPrompt: String {
-        guard exercise?.startsByHolding ?? true else { return "\(prompt("start")) when you're ready" }
+        guard effectiveStartsByHolding else { return "\(prompt("start")) when you're ready" }
         return "\(startPrompt) to start, or \(prompt("start").lowercased())"
     }
 

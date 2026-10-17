@@ -46,6 +46,10 @@ final class SettingsViewModel {
         didSet { preferences.showHorizonLine = showHorizonLine }
     }
 
+    var showAlignmentTargets: Bool {
+        didSet { preferences.showAlignmentTargets = showAlignmentTargets }
+    }
+
     var feedbackRefreshRate: Int {
         didSet { preferences.feedbackRefreshRate = feedbackRefreshRate }
     }
@@ -74,6 +78,7 @@ final class SettingsViewModel {
         startByHoldingEnabled = preferences.startByHolding
         cameraTiltCompensationEnabled = preferences.cameraTiltCompensationEnabled
         showHorizonLine = preferences.showHorizonLine
+        showAlignmentTargets = preferences.showAlignmentTargets
         feedbackRefreshRate = preferences.feedbackRefreshRate
         tiltWarningsEnabled = preferences.tiltWarningsEnabled
     }
@@ -89,6 +94,8 @@ final class SettingsViewModel {
             return "\(seconds) s"
         }
     }
+
+    var weightUnitLabel: String { weightUnit.rawValue }
 
     func navigate(to destination: SettingsDestination) {
         path.append(destination)

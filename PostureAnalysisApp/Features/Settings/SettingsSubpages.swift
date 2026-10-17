@@ -67,6 +67,13 @@ struct SettingsCameraFramingPage: View {
                     toggle: binding(\.showHorizonLine),
                     showsSeparator: true
                 )
+                SettingsRow(
+                    icon: "visibility",
+                    title: "Alignment targets",
+                    iconColor: cameraBlue,
+                    toggle: binding(\.showAlignmentTargets),
+                    showsSeparator: true
+                )
                 HStack(spacing: 12) {
                     SettingsIconTile(icon: "graphic_eq", color: cameraBlue)
                     Text("Feedback refresh rate")

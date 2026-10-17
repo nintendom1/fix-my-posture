@@ -63,7 +63,9 @@ struct HistoryWorkoutDetailScreen: View {
         .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(Color(hex: 0x0E0B16, alpha: 0.9), for: .navigationBar)
         .sheet(item: $editing) { target in
-            WeightEditorView(weight: weight(at: target), equipment: target.equipment) { weight, applyToLater in
+            WeightEditorView(weight: weight(at: target),
+                             preferredWeightUnit: viewModel.preferredWeightUnit,
+                             equipment: target.equipment) { weight, applyToLater in
                 if let updated = viewModel.updateWeight(
                     recordID: record.id,
                     entryID: target.entryID,
@@ -116,7 +118,8 @@ private struct WeightEditorView: View {
     @State private var bandName = ""
     @State private var applyToLater = true
 
-    init(weight: WorkoutWeight?, equipment: ExerciseEquipment, onSave: @escaping (WorkoutWeight?, Bool) -> Void) {
+    init(weight: WorkoutWeight?, preferredWeightUnit: PreferredWeightUnit,
+         equipment: ExerciseEquipment, onSave: @escaping (WorkoutWeight?, Bool) -> Void) {
         self.equipment = equipment
         self.onSave = onSave
         switch weight {
@@ -126,7 +129,7 @@ private struct WeightEditorView: View {
         case .band(let name):
             _bandName = State(initialValue: name)
         case nil:
-            break
+            _unit = State(initialValue: preferredWeightUnit == .lb ? .pounds : .kilograms)
         }
     }
 

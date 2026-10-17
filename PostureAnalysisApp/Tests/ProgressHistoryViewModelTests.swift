@@ -89,6 +89,20 @@ final class ProgressHistoryViewModelTests: XCTestCase {
         ])
     }
 
+    func testHistoryWeightEditorUsesPreferredUnitForNewEntries() {
+        let preferences = InMemoryPreferences()
+        preferences.weightUnit = .kg
+        let viewModel = HistoryViewModel(
+            repository: MemoryWorkoutHistoryRepository(records: []),
+            exerciseCatalog: LiveExerciseCatalog(),
+            preferences: preferences,
+            now: { FixedClock.date },
+            calendar: FixedClock.calendar
+        )
+
+        XCTAssertEqual(viewModel.preferredWeightUnit, .kg)
+    }
+
     private func date(_ year: Int, _ month: Int, _ day: Int, hour: Int) -> Date {
         FixedClock.calendar.date(from: DateComponents(year: year, month: month, day: day, hour: hour))!
     }
