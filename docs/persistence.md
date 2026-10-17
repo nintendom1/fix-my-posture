@@ -4,6 +4,12 @@
 
 The app utilizes **SwiftData** for local metadata storage and the app sandboxed `Documents/AssessmentImages/` directory for full-resolution JPEG image files managed via `ImageStore`.
 
+## Preferences
+
+`AppPreferencesStoring` centralizes app preferences. `UserDefaultsPreferences` preserves these existing keys and formats: `cameraTiltCompensationEnabled` (Bool, default `true`), `showHorizonLine` (Bool, default `true`), `feedbackRefreshRate` (Int, default `5`), `workoutCoach.showMeasurements` (Bool, default `false`), `workoutCoach.coachMuted` (Bool, default `false`), `workoutCoach.micMuted` (Bool, default `false`), `workoutCoach.voiceTipSpoken` (Bool, default `false`), `workoutCoach.guideSeen.<exerciseID>` (Bool, default `false`), and `workoutCoach.target.<exerciseID>` (JSON-encoded `ExerciseTarget` `Data`, default absent). These keys preserve settings written by earlier app versions.
+
+Future workout settings use new namespaced keys: `settings.restPolicy` (JSON `Data`, default `exerciseDefault`, fixed seconds clamped to 30–120), `settings.weightUnit` (String `lb` or `kg`, default `lb`), `train.startByHolding` (Bool, default `true`), and `train.upNextOverride` (optional UUID string, default absent).
+
 ### Entities
 
 - `AssessmentEntity`: Stores assessment ID, date, view classification, app version, baseline status, and relationships to landmarks and measurements.

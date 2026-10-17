@@ -65,22 +65,22 @@ final class WorkoutIntentTests: XCTestCase {
         let suiteName = "WorkoutIntentTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
-        let harness = makeHarness(defaults: defaults)
+        let harness = makeHarness(preferences: UserDefaultsPreferences(defaults: defaults))
 
         harness.model.send(.toggleCoachMute)
         harness.model.send(.setMicrophoneMuted(true))
 
         XCTAssertTrue(harness.model.isCoachMuted)
         XCTAssertTrue(harness.model.isMicMuted)
-        XCTAssertTrue(defaults.bool(forKey: WorkoutCoachModel.coachMutedKey))
-        XCTAssertTrue(defaults.bool(forKey: WorkoutCoachModel.micMutedKey))
+        XCTAssertTrue(defaults.bool(forKey: "workoutCoach.coachMuted"))
+        XCTAssertTrue(defaults.bool(forKey: "workoutCoach.micMuted"))
     }
 
     func testMicrophoneToggleKeepsTheCurrentStatusAwareTapPath() {
         let listeningName = "WorkoutIntentTests.Listening.\(UUID().uuidString)"
         let listeningDefaults = UserDefaults(suiteName: listeningName)!
         defer { listeningDefaults.removePersistentDomain(forName: listeningName) }
-        let listening = makeHarness(defaults: listeningDefaults)
+        let listening = makeHarness(preferences: UserDefaultsPreferences(defaults: listeningDefaults))
         listening.voice.status = .listening
         listening.model.send(.toggleMicrophoneMute)
         XCTAssertTrue(listening.model.isMicMuted)
@@ -89,7 +89,7 @@ final class WorkoutIntentTests: XCTestCase {
         let pausedName = "WorkoutIntentTests.Paused.\(UUID().uuidString)"
         let pausedDefaults = UserDefaults(suiteName: pausedName)!
         defer { pausedDefaults.removePersistentDomain(forName: pausedName) }
-        let paused = makeHarness(defaults: pausedDefaults)
+        let paused = makeHarness(preferences: UserDefaultsPreferences(defaults: pausedDefaults))
         paused.model.onAppear(isApplicationActive: true)
         paused.voice.status = .paused
         paused.model.send(.toggleMicrophoneMute)
@@ -111,7 +111,7 @@ final class WorkoutIntentTests: XCTestCase {
         let suiteName = "WorkoutIntentTests.Presentation.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
-        let harness = makeHarness(defaults: defaults)
+        let harness = makeHarness(preferences: UserDefaultsPreferences(defaults: defaults))
         harness.model.send(.showGuide)
         XCTAssertTrue(harness.model.isGuidePresented)
         harness.model.send(.hideGuide)
@@ -126,7 +126,8 @@ final class WorkoutIntentTests: XCTestCase {
         XCTAssertTrue(harness.model.showsMeasurements)
     }
 
-    private func makeHarness(defaults: UserDefaults = .standard, plan: WorkoutPlan? = nil) -> Harness {
+    private func makeHarness(preferences: any AppPreferencesStoring = UserDefaultsPreferences(),
+                             plan: WorkoutPlan? = nil) -> Harness {
         let clock = ManualClock(now: 10)
         let scheduler = ManualScheduler(clock: clock)
         let camera = FakePoseFrameSource()
@@ -141,7 +142,7 @@ final class WorkoutIntentTests: XCTestCase {
                                       voice: voice,
                                       clock: clock,
                                       scheduler: scheduler,
-                                      defaults: defaults,
+                                      preferences: preferences,
                                       exercises: ExerciseCatalog.all,
                                       initialExercise: .shoulderPress,
                                       plan: plan)

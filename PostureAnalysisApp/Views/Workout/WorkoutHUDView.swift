@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// HUD regions that floating content must avoid, in the workout overlay coordinate space.
-struct WorkoutHUDRects: PreferenceKey {
+struct WorkoutHUDRects: SwiftUI.PreferenceKey {
     static var defaultValue: [CGRect] = []
     static func reduce(value: inout [CGRect], nextValue: () -> [CGRect]) {
         value.append(contentsOf: nextValue())

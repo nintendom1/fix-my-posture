@@ -136,15 +136,17 @@ private struct SavedSetItemRow: View {
 /// reset; the exercise's built-in default never changes.
 struct ExerciseTargetEditor: View {
     let exercise: ExerciseDefinition
+    let preferences: any AppPreferencesStoring
     let onChange: () -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var target: ExerciseTarget
 
-    init(exercise: ExerciseDefinition, onChange: @escaping () -> Void) {
+    init(exercise: ExerciseDefinition, preferences: any AppPreferencesStoring, onChange: @escaping () -> Void) {
         self.exercise = exercise
+        self.preferences = preferences
         self.onChange = onChange
-        _target = State(initialValue: ExerciseTargetStore.target(for: exercise.id) ?? ExerciseTarget(exercise))
+        _target = State(initialValue: ExerciseTargetStore.target(for: exercise.id, preferences: preferences) ?? ExerciseTarget(exercise))
     }
 
     var body: some View {
@@ -172,7 +174,8 @@ struct ExerciseTargetEditor: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         // Matching the default stores nothing, so future default changes still apply.
-                        ExerciseTargetStore.setTarget(target == ExerciseTarget(exercise) ? nil : target, for: exercise.id)
+                        ExerciseTargetStore.setTarget(target == ExerciseTarget(exercise) ? nil : target,
+                                                      for: exercise.id, preferences: preferences)
                         onChange()
                         dismiss()
                     }

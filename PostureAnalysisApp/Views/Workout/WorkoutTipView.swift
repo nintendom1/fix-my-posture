@@ -132,7 +132,7 @@ private struct LayoutInput: Equatable {
 }
 
 /// Both measurements of the current tip, merged.
-private struct MeasuredTipKey: PreferenceKey {
+private struct MeasuredTipKey: SwiftUI.PreferenceKey {
     static var defaultValue: MeasuredTip?
 
     static func reduce(value: inout MeasuredTip?, nextValue: () -> MeasuredTip?) {

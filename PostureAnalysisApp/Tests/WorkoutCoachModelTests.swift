@@ -76,11 +76,11 @@ final class WorkoutCoachModelTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
-        let first = makeHarness(defaults: defaults)
+        let first = makeHarness(preferences: UserDefaultsPreferences(defaults: defaults))
         first.model.setCoachMuted(true)
         first.model.setMicMuted(true)
 
-        let second = makeHarness(defaults: defaults)
+        let second = makeHarness(preferences: UserDefaultsPreferences(defaults: defaults))
         XCTAssertTrue(second.model.isCoachMuted)
         XCTAssertTrue(second.model.isMicMuted)
         XCTAssertTrue(second.voice.mutedValues.isEmpty, "Construction doesn't operate the voice service.")
@@ -101,7 +101,7 @@ final class WorkoutCoachModelTests: XCTestCase {
     }
 
     private func makeHarness(permissionStatus: CameraAuthorization = .authorized,
-                             defaults: UserDefaults = .standard) -> Harness {
+                             preferences: any AppPreferencesStoring = UserDefaultsPreferences()) -> Harness {
         let clock = ManualClock(now: 10)
         let scheduler = ManualScheduler(clock: clock)
         let camera = FakePoseFrameSource()
@@ -120,7 +120,7 @@ final class WorkoutCoachModelTests: XCTestCase {
             voice: voice,
             clock: clock,
             scheduler: scheduler,
-            defaults: defaults,
+            preferences: preferences,
             exercises: ExerciseCatalog.all,
             initialExercise: .shoulderPress,
             plan: nil

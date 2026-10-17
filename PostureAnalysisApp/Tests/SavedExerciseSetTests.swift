@@ -41,15 +41,18 @@ final class SavedExerciseSetTests: XCTestCase {
     func testRememberedTargetsApplyWithoutChangingDefaults() throws {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: "SavedExerciseSetTests"))
         defaults.removePersistentDomain(forName: "SavedExerciseSetTests")
-        ExerciseTargetStore.setTarget(ExerciseTarget(sets: 3, repMinimum: 12, repMaximum: 15), for: press.id, defaults: defaults)
-        let applied = ExerciseTargetStore.applying(to: [press, curl], defaults: defaults)
+        let preferences = UserDefaultsPreferences(defaults: defaults)
+        ExerciseTargetStore.setTarget(ExerciseTarget(sets: 3, repMinimum: 12, repMaximum: 15),
+                                      for: press.id, preferences: preferences)
+        let applied = ExerciseTargetStore.applying(to: [press, curl], preferences: preferences)
         XCTAssertEqual(applied[0].sets, 3)
         XCTAssertEqual(applied[0].autoCompleteReps, 15)
         XCTAssertEqual(applied[0].targetRangeAnnouncementReps, 12)
         XCTAssertEqual(applied[1].sets, curl.sets, "Other exercises keep their defaults.")
         XCTAssertEqual(press.sets, 2, "The built-in definition never changes.")
 
-        ExerciseTargetStore.setTarget(nil, for: press.id, defaults: defaults)
-        XCTAssertEqual(ExerciseTargetStore.applying(to: [press], defaults: defaults)[0].sets, 2, "Reset restores the default.")
+        ExerciseTargetStore.setTarget(nil, for: press.id, preferences: preferences)
+        XCTAssertEqual(ExerciseTargetStore.applying(to: [press], preferences: preferences)[0].sets, 2,
+                       "Reset restores the default.")
     }
 }
