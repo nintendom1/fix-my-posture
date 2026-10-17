@@ -1,6 +1,6 @@
 # Workout Coach (Beta)
 
-Open **Workout Coach (Beta)** from the main menu and pick an exercise from the list. The first time you pick each exercise, a short guide shows and describes it. Then prop the phone up in portrait, step back so the front camera can see both arms and your shoulders with room overhead, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10) hammer curls (2 sets of 10), an overhead band triceps extension filmed side-on (2 sets of 10), air squats with the whole body in view (2 sets of 15), one-arm dumbbell rows filmed side-on (2 sets of 8–10 each arm), and push-ups with the phone on the floor (2 sets of 10), announces the target range and set completion, gives occasional form tips, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
+Start **Workout Coach (Beta)** from a Train quick-start tile, an exercise detail page, or a routine. The first time an exercise opens, a short guide shows before the camera starts. Then prop the phone up in portrait, step back so the front camera can see the required joints with room to move, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10) hammer curls (2 sets of 10), an overhead band triceps extension filmed side-on (2 sets of 10), air squats with the whole body in view (2 sets of 15), one-arm dumbbell rows filmed side-on (2 sets of 8–10 each arm), and push-ups with the phone on the floor (2 sets of 10), announces the target range and set completion, gives occasional form tips, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
 
 Rep counts, framing checks, and form tips are geometric heuristics from a 2D camera. They are not medical, injury, or performance assessments.
 
@@ -10,15 +10,19 @@ Everything runs on device. Apple Vision estimates the pose, `AVSpeechSynthesizer
 
 ## Architecture
 
-- `Workout/Exercises`: `ExerciseCatalog.all` is the visible exercise list. Each `ExerciseDefinition` supplies a stable `ExerciseID` (for example `shoulder_press`), sets, target reps, required joints, overlay focus segments, the setup line, an `ExerciseGuide`, and an analyzer factory. To add an exercise, add one folder and one catalog line.
+- `Workout/Exercises`: `ExerciseCatalog.all` is the visible exercise list. Each `ExerciseDefinition` supplies a stable `ExerciseID` (for example `shoulder_press`), sets, target reps, required joints, overlay focus segments, the setup line, an `ExerciseGuide`, and an analyzer factory. Exercise definitions, guidance, presentation metadata, and analyzers live here, with one subfolder per exercise.
 - `Workout/Analysis`: `PoseFrame` (reliable, unmirrored pixel pose plus capture timestamp), `ArmGeometry`, `HysteresisPhaseTracker`, `FramingEvaluator`, and the display-only `LandmarkSmoother` (One Euro filter).
-- `Workout/Session`: `WorkoutSession` is a pure reducer, `handle(_ event:at:) -> [WorkoutEffect]`. `WorkoutFramePipeline` owns framing, analyzer updates, overlay smoothing, guide measurements, and tilt debounce. `WorkoutCoachModel` is the main-actor `@Observable` orchestrator behind `WorkoutCoachViewModeling`; its camera, permission, speech, audio, voice, clock, and scheduling dependencies are protocols, so tests can inject fakes without constructing AVFoundation or speech services. `WorkoutCoachFactory.live` wires the on-device implementations used by the app.
-- `Workout/Presentation`: `WorkoutVisualState` and `WorkoutHUDPresenter` derive camera screen state and copy as Foundation-only values. `Features/WorkoutCamera/WorkoutCameraScreen` receives one `WorkoutHUDViewState` and sends `WorkoutIntent` values through the view model. `EdgeToolbarVisibilityController` owns the three-second toolbar window and keeps it visible while VoiceOver is running.
+- `Workout/Session`: `WorkoutSession` is a pure reducer, `handle(_ event:at:) -> [WorkoutEffect]`. `WorkoutFramePipeline` owns framing, analyzer updates, overlay smoothing, guide measurements, and tilt debounce. `WorkoutCoachModel` is the main-actor `@Observable` orchestrator behind `WorkoutCoachViewModeling`; its camera, permission, speech, audio, voice, clock, and scheduling dependencies are protocols, so tests can inject fakes without constructing AVFoundation or speech services. `AppEnvironment` creates `WorkoutCoachFactory`, which wires the on-device implementations when a workout starts.
+- `Workout/Presentation`: `WorkoutVisualState` and `WorkoutHUDPresenter` derive camera screen state and copy as Foundation-only values. `Features/WorkoutCamera/WorkoutCameraScreen` receives one `WorkoutHUDViewState` and sends `WorkoutIntent` values through the view model.
 - `Workout/Coaching`: `CoachingCue` (stable `CoachingCueID` keys such as `press.full_extension`, separate from the wording), the pure `CoachingCueScheduler` (owned by `WorkoutSession`), and the pure `WorkoutTipLayout` with each exercise's `MotionEnvelope`. `Utilities/ProtectedBodyGeometry` supplies the body areas that both posture callouts and workout tips avoid.
 - `Workout/Camera`: `WorkoutCameraController` uses the shared `PortraitCameraSession` configuration, the same configuration as realtime posture correction. It has one serial queue, a 10 Hz gate on sample timestamps, synchronous `FramePoseEstimator` inference, and the existing 0.3 confidence filter. Frames reach the main actor through one lock-protected pending slot: at most one hop is in flight, newer frames replace older ones, and no buffers are retained. Vision code stays in `AppleVisionPoseEstimator`.
-- `Voice`: `SpeechCoach` and `WorkoutAudioSession`.
-- `Features/WorkoutCamera`: `WorkoutCameraScreen` owns camera chrome and confirmation UI; its controls map to `WorkoutIntent`. Shared `HUDPill`, `HUDIconButton`, `EdgeToolbar`, `RepCounter`, and `EdgeGlow` live in `DesignSystem/Components`.
-- `Views/Workout`: `WorkoutCoachView`, `WorkoutJointOverlayView`, `ExerciseGuideView`, `ExerciseDemoFigureView`, `WorkoutGhostOverlayView`, `RepThresholdOverlayView`, and `WorkoutTipView`.
+- `Voice`: `SpeechCoach`, `WorkoutAudioSession`, command parsing, and the on-device recognizer.
+- `Features/WorkoutCamera`: `WorkoutCoachView` composes the camera preview and reducer; `WorkoutCameraScreen` owns camera chrome and confirmation UI, and its controls map to `WorkoutIntent`. The in-camera chooser, joint/ghost/threshold overlays, completion card, hold ring, and form tips are feature-specific views here. `EdgeToolbarVisibilityController` owns the three-second toolbar window and keeps it visible while VoiceOver is running.
+- `Features/VoiceCommands`: `VoiceCommandsHelpView` and `VoiceStatusPresentation` are shared by the Settings and workout help sheets.
+- `Features/WorkoutComplete`: the saved workout summary screen and its view model.
+- `Features/ExerciseDetail`: exercise details and target editing.
+- `DesignSystem/Components`: shared `HUDPill`, `HUDIconButton`, `EdgeToolbar`, `RepCounter`, and `EdgeGlow` components.
+- `Views/`: only shared views remain here, including `ExerciseGuideView` and `ExerciseDemoFigureView` (used by exercise detail and the workout camera), posture report/measurement views, and overlays reused by multiple posture flows.
 
 ## Workout settings
 
@@ -50,7 +54,7 @@ A **Saved Set** is an ordered sequence of exercises, each occurrence with its ow
 
 - **Storage.** `SavedExerciseSet` and `SavedExerciseSetItem` are pure Codable types. Each item has its own UUID, so the same exercise can appear more than once. Items store the exercise by stable `ExerciseID`, not its name. `SavedExerciseSetEntity` (SwiftData, in the app's model container) stores the items as JSON, which keeps their order, so Saved Sets survive restarts. If an exercise is no longer available, the set shows "Needs attention" and runs the rest; nothing is removed silently.
 - **List.** Saved Sets show their exercise count and a ✎ edit button. **Create Saved Set** opens the editor.
-- **Editor** (`SavedSetEditorView`): name; add, remove, and drag to reorder exercises; steppers for each occurrence's sets and rep range; Save, Duplicate ("<name> Copy" with fresh ids), and Delete with confirmation. These overrides apply only in that Saved Set, for that workout.
+- **Editor** (`Features/RoutineEditor/RoutineEditorScreen`): name; add, remove, and drag to reorder exercises; steppers for each occurrence's sets and rep range; Save, Duplicate ("<name> Copy" with fresh ids), and Delete with confirmation. These overrides apply only in that Saved Set, for that workout.
 - **Running one.** The session follows a `WorkoutPlan`, where each occurrence overrides the exercise's sets and reps (`ExerciseDefinition.withTarget`).
   - The HUD shows "Exercise 3 of 5".
   - Finishing an occurrence's last set records it as completed and starts the normal rest with the next exercise already selected: "Shoulder press complete. Up next: hammer curl, 2 sets of 10. Rest up." The HUD shows "Up next: Hammer Curl · 2 sets × 10 reps".
@@ -75,7 +79,7 @@ Ending a workout saves it automatically: End Workout on the completion card, End
   - Speech recognition often writes "weight" as "wait", so "wait", "weigh", and their forms count as weight words too ("wait 17.5 pounds" sets a weight). While a number follows "wait" with no unit yet, nothing runs. "Wait" on its own pauses only after 1 s of quiet (`VoiceCommandParser.weightSoundAlikeSettleTime`), in case a weight is coming. Pausing longer than that between "weight" and the number still pauses the set. A spoken weight waits for the transcript to settle, so "17" doesn't fire before "point five".
 - **Weights** (`WorkoutWeight`) are per dumbbell and per set: a value in the unit given (shown as lb or kg), or a band's name for band exercises (`ExerciseDefinition.equipment`). Bodyweight exercises (squats, push-ups) take no weight.
   - During a workout, the weight in use is recorded with each finished set and carries to the next sets of that exercise until changed. The HUD shows it beside the set count.
-- **History screen.** **History** on the exercise list shows past workouts, newest first. Swipe to delete.
+- **History screen.** Open Workout History from Progress or the recent-workout card on Train. Workouts appear newest first; swipe to delete.
   - Each workout shows its sets. Tap a set's weight (or **Add weight**) to enter or change it per dumbbell in lb or kg, or name the band.
   - **Also for the later sets** copies it to the rest of that exercise. **Remove Weight** clears it.
 
@@ -83,11 +87,8 @@ Ending a workout saves it automatically: End Workout on the completion card, End
 
 Phases: `choosingExercise`, `framing`, `ready`, `exercising`, `paused(user | background | interruption)`, `resting`, `changingExercise(previous)`, `exerciseComplete`, and `ended`.
 
-- **Entry.** Opening the coach shows `WorkoutSelectionView` before the camera starts, with an **All | Saved Sets | Exercises** filter.
-  - Picking an exercise opens the camera with that exercise in `framing`.
-  - Tapping its sets × reps adjusts them, remembered per exercise on this phone (`ExerciseTargetStore`, with Reset to Default; the built-in definition never changes).
-  - Closing the camera screen returns to the list. `choosingExercise` remains only for a session started without an exercise.
-- **Completion.** When the last set of an exercise finishes, a card fades in over the camera (instantly with Reduce Motion). It shows "<Exercise> complete", this round's reps per set and in total, and anything else done in the workout. Its buttons are **Another Round**, **Choose Exercise** (shown when there are other exercises), and **End Workout**. The coach says the same choices: "Say another round, change exercise, or end workout", or "Tap Another Round, Choose Exercise, or End Workout" without voice.
+- **Entry.** Train quick-start tiles, Library exercise details, and routine details start the camera with the selected exercise or plan. Exercise detail lets the user adjust sets and reps; the values are remembered on this phone (`ExerciseTargetStore`, with Reset to Default; the built-in definition never changes). `choosingExercise` remains for a session started without an exercise.
+- **Completion.** When a standalone exercise's last set finishes, a card fades in over the camera (instantly with Reduce Motion). It shows "<Exercise> complete", this round's reps per set and in total, and anything else done in the workout. Its buttons are **Another Round**, **Choose Exercise** (shown when there are other exercises), and **End Workout**. The coach says the same choices: "Say another round, change exercise, or end workout", or "Tap Another Round, Choose Exercise, or End Workout" without voice. A completed Saved Set shows the full workout summary screen.
 - **Changing exercise.** Saying "change exercise" or tapping **Change exercise** in the edge toolbar enters `changingExercise` and shows an exercise chooser over the camera, with each exercise's sets and how many are done. Pick one by voice or tap, or cancel to return to where you were. Picking another one mid-set asks "Discard this set's N reps?" when the set has reps.
 
 Tracking reliability is a separate input. While exercising and unreliable, counting is suspended without changing phase. Framing guidance is spoken once per loss, and counting resumes automatically.
@@ -101,7 +102,7 @@ Tracking reliability is a separate input. While exercising and unreliable, count
 | Next set | While exercising or paused, completes the set and rests. From resting, starts the next set. After the last set, the exercise is complete. |
 | Change exercise | The edge-toolbar chooser selects another exercise. It discards an in-progress set (finished sets are kept per exercise; returning picks up at the next set) and clears the analyzer, smoothing, threshold lines, readings, and feedback, including any tip and the coaching history. The first time an exercise is chosen, its guide opens. |
 | Another round | After the last set, does the same exercise again from set 1. Earlier rounds stay in the summary. Elsewhere it changes nothing and gives a short hint. |
-| End | Asks for confirmation when tapped mid-workout. Then stops the camera, restores other audio, and shows a summary with a Done button. From the completion card, End Workout exits straight back to the exercise list, since the card already showed the results. |
+| End | Asks for confirmation when tapped mid-workout. Then stops the camera, restores other audio, and shows a summary with Done and View History actions. From a standalone exercise's completion card, End Workout returns to Train because the card already showed the results. |
 
 Backgrounding the app or locking the phone pauses an active set with the matching reason and stops the camera and microphone. On return the set stays paused, and the coach says "Paused. Say resume when ready." (or "Tap Resume" without voice control). Camera and audio-session interruptions pause the same way.
 
@@ -376,7 +377,7 @@ Every new exercise ships with full guidance, even when the request only names it
 5. Coaching: corrective cues with stable `CoachingCueID`s, priorities, and emphasized joints; visual-only reminders; and a `MotionEnvelope`. The demonstration should raise no cues.
 6. Voice aliases (`ExerciseDefinition.voiceAliases`); the parser, the help list, and the every-phrase test pick them up.
 7. Docs: the rep rule section, the coaching cues, and physical-device checklist items.
-8. Presentation: short name, muscles, filter groups, gradient token, SF Symbol, equipment and camera-setup lines, and watch items keyed to the exercise's own cue IDs (`ExerciseCatalogTests` enforces this).
+8. Presentation: add the short name, muscles, filter groups, gradient token, SF Symbol, equipment and camera-setup lines, plus watch items keyed to the exercise's own cue IDs in `Workout/Exercises/ExercisePresentation.swift` (`ExerciseCatalogTests` enforces this).
 9. Non-diagnostic wording: never comment on grip, wrist rotation, dumbbell orientation, or injury.
 
 ## Future options
@@ -388,60 +389,72 @@ Every new exercise ships with full guidance, even when the request only names it
 
 Simulator tests cannot validate the camera, Vision detections, speech, or audio ducking. On an iPhone 15 Pro (`make ios`):
 
-1. On a fresh install (deleting the app resets the guide), opening the coach shows the guide before any permission prompt. Read Aloud lowers your music and then restores it. Start Workout leads to the camera. Reopening the coach skips the guide. The ⓘ title reopens it, and doing so mid-set pauses the set.
-2. Grant camera access and follow the framing guidance. Verify the headroom prompt when standing too close, and the left/right prompts.
-3. When ready, the violet ghost arms line up with your shoulders and roughly match your arm length. Holding the dumbbells just above your shoulders shows the Hold ring beside you, filling over about 1 s, and then starts the set. Letting go early hides the ring. During rest it never starts before the timer ends.
-4. Turn on Show Measurements. At the start position, each arm should read below 0.6 and 115° (↓). At the top, above 0.8 and 140° (↑). Do the same press close to the phone and far from it: the readings should be about the same. Each arm's Start segment turns solid at the start, and its Top segment turns solid green only once the wrist passes it with the arm nearly straight. The segments shouldn't drift while you press.
-5. Lean the phone back more than 15°: after about a second, the tilt warning appears and is spoken. Stand it upright and the warning clears.
-6. Do 10 presses and check that the count is exactly 10, with no double counts when pausing near either threshold. A half press must not count, and neither must a rep finished after stepping out of view mid-rep.
-7. Background the app or lock the phone mid-set. The set must be paused on return, with no added reps. Then resume.
-8. Leave the screen idle for longer than the auto-lock interval and confirm it never locks.
-9. With Spotify or Music playing, the music must lower only while the coach speaks and must never stay lowered, including after ending the workout or closing the screen mid-sentence.
-10. Voice, for a whole set without touching the phone: allow the microphone and speech prompts (they follow the camera prompt). Then say "start", "how many reps", "pause", "resume", "next set", and "end workout". Each one shows a "Heard" chip.
-11. The coach never reacts to its own speech, and "stop" pauses rather than ending. Chatting in sentences such as "I might end workout later today" doesn't end the workout.
-12. Turn on airplane mode: voice commands still work, because recognition is on-device.
-13. Deny the microphone or speech permission. The microphone shows "permission needed", tapping it offers Settings, and the buttons still work. Grant it in Settings and return.
-14. During a set, take a phone call or invoke Siri. The set pauses and music isn't left lowered. Afterward voice resumes, and saying "resume" continues the set.
-15. With AirPods playing music, voice commands still work and the music stays in the headphones.
-16. Voice Commands help:
+
+### Guide, setup, and camera behavior
+
+- [ ] **1.** On a fresh install (deleting the app resets the guide), opening the coach shows the guide before any permission prompt. Read Aloud lowers your music and then restores it. Start Workout leads to the camera. Reopening the coach skips the guide. The ⓘ title reopens it, and doing so mid-set pauses the set.
+- [ ] **2.** Grant camera access and follow the framing guidance. Verify the headroom prompt when standing too close, and the left/right prompts.
+- [ ] **3.** When ready, the violet ghost arms line up with your shoulders and roughly match your arm length. Holding the dumbbells just above your shoulders shows the Hold ring beside you, filling over about 1 s, and then starts the set. Letting go early hides the ring. During rest it never starts before the timer ends.
+- [ ] **4.** Turn on Show Measurements. At the start position, each arm should read below 0.6 and 115° (↓). At the top, above 0.8 and 140° (↑). Do the same press close to the phone and far from it: the readings should be about the same. Each arm's Start segment turns solid at the start, and its Top segment turns solid green only once the wrist passes it with the arm nearly straight. The segments shouldn't drift while you press.
+- [ ] **5.** Lean the phone back more than 15°: after about a second, the tilt warning appears and is spoken. Stand it upright and the warning clears.
+- [ ] **6.** Do 10 presses and check that the count is exactly 10, with no double counts when pausing near either threshold. A half press must not count, and neither must a rep finished after stepping out of view mid-rep.
+- [ ] **7.** Background the app or lock the phone mid-set. The set must be paused on return, with no added reps. Then resume.
+- [ ] **8.** Leave the screen idle for longer than the auto-lock interval and confirm it never locks.
+
+### Voice, audio, and permissions
+
+- [ ] **9.** With Spotify or Music playing, the music must lower only while the coach speaks and must never stay lowered, including after ending the workout or closing the screen mid-sentence.
+- [ ] **10.** Voice, for a whole set without touching the phone: allow the microphone and speech prompts (they follow the camera prompt). Then say "start", "how many reps", "pause", "resume", "next set", and "end workout". Each one shows a "Heard" chip.
+- [ ] **11.** The coach never reacts to its own speech, and "stop" pauses rather than ending. Chatting in sentences such as "I might end workout later today" doesn't end the workout.
+- [ ] **12.** Turn on airplane mode: voice commands still work, because recognition is on-device.
+- [ ] **13.** Deny the microphone or speech permission. The microphone shows "permission needed", tapping it offers Settings, and the buttons still work. Grant it in Settings and return.
+- [ ] **14.** During a set, take a phone call or invoke Siri. The set pauses and music isn't left lowered. Afterward voice resumes, and saying "resume" continues the set.
+- [ ] **15.** With AirPods playing music, voice commands still work and the music stays in the headphones.
+- [ ] **16.** Voice Commands help:
     - Mid-set, say "what can I say". The sheet opens, the coach explains it, and reps keep counting; the header's count updates.
     - "How many reps" answers with the sheet still open. "Close" dismisses it. Reopen it and say "pause": it closes and the set pauses.
     - It also opens by long-pressing the microphone and choosing **Voice Commands**.
     - With the microphone or speech permission denied, the sheet shows Open Settings.
-17. On a fresh install:
+- [ ] **17.** On a fresh install:
     - the coach says the "what can I say" tip once after its intro, and not on later opens;
     - while ready, the status line alternates with the commands hint;
     - the guide's **Show Voice Commands** button closes the guide and opens the help.
-18. Sound and microphone:
+- [ ] **18.** Sound and microphone:
     - While the coach speaks, 🎙 stays a microphone (dimmed).
     - Tap 🔊 mid-sentence: speech stops and music returns to full volume immediately. Nothing more is spoken until you tap 🔊 again or say "unmute", which replies "Coach voice on."
     - Say "mute" between lines to mute the coach by voice.
     - Tap 🎙 while it's listening: it turns red, and prompts switch to "Tap". Tap again to resume listening.
     - Say "stop listening": the mic mutes. Long-press 🎙 and choose Voice Commands.
     - Close and reopen the coach: both mutes are remembered, and a muted mic doesn't start listening (no orange recording dot).
-19. Form tips (turn on Show Measurements to see the "Last rep" values):
+
+### Form coaching and overlays
+
+- [ ] **19.** Form tips (turn on Show Measurements to see the "Last rep" values):
     - Do a few half presses: after the second, the coach says and shows "Press all the way up." with your elbows and wrists amber.
     - Drop the weights quickly from the top for a few reps: "Lower with control."
     - Press with one arm clearly behind the other: "Press both arms evenly."
     - From the top, lower only to forehead height and press again, twice: "Lower to just above your shoulders."
     - With your hips in view, lean sideways for a second: "Keep your torso centered." With hips out of view, it never appears.
     - Ten clean reps at the guide's pace bring no corrective cues.
-20. No cue repeats within 10 s. Cues start at least 4 s apart, except when a more important cue replaces the one on screen. A cue never cuts off a voice reply or announcement.
-21. Tips never cover your arms or the HUD during the press, at the bottom or the top of the rep, standing far or close. Standing so close that your body fills the screen, cues are spoken without a tip.
-22. A reminder (for example "Brace your core.") appears at set start, isn't spoken, and another appears about every 25 s while reps stay clean.
-23. Mute the coach: tips still appear, silently. With Reduce Motion on, tips appear and disappear without fading.
-24. Voice commands keep working mid-set while cues are spoken. Saying "repeat that" right after a cue repeats it.
-25. Restarting the set, finishing it, or switching exercise clears the tip and the amber joints immediately.
-26. Exercise list: opening the coach shows the list (shoulder press 2 × 8–10, hammer curl 2 × 10) before any camera prompt. Picking hammer curls the first time opens its guide; Close on the camera screen returns to the list.
-27. Hammer curls, simultaneous: with both arms hanging straight, the Hold ring fills and the set starts. Curl both arms together 10 times; the count reaches 10 and the set completes. The HUD shows "L · R" counts, and each arm's Start line sits below its elbow and its Top line above it, with labels clear of the arms.
-28. Hammer curls, alternating: curl left, then right, and so on. The count goes up once both arms have done a rep ("L 3 · R 2" shows 2). Curling one arm up again from halfway, without hanging straight, doesn't count; after two of those, "Straighten at the bottom." plays. Half curls get "Curl all the way up."
-29. Switching mid-set: during a press set with a few reps, tap **Change exercise** in the edge toolbar and choose Hammer Curl. It asks to discard the reps; confirm, and the curl guide (first time) or setup line follows, with no leftover tip, amber joints, or press lines. Say "change exercise", then "cancel": you're back where you were. Switch back to the press: it resumes at its next set.
-30. Completion: finish both sets of an exercise. The completion card fades in with each set's reps and the total, and the coach names the buttons (no more "push end").
+- [ ] **20.** No cue repeats within 10 s. Cues start at least 4 s apart, except when a more important cue replaces the one on screen. A cue never cuts off a voice reply or announcement.
+- [ ] **21.** Tips never cover your arms or the HUD during the press, at the bottom or the top of the rep, standing far or close. Standing so close that your body fills the screen, cues are spoken without a tip.
+- [ ] **22.** A reminder (for example "Brace your core.") appears at set start, isn't spoken, and another appears about every 25 s while reps stay clean.
+- [ ] **23.** Mute the coach: tips still appear, silently. With Reduce Motion on, tips appear and disappear without fading.
+- [ ] **24.** Voice commands keep working mid-set while cues are spoken. Saying "repeat that" right after a cue repeats it.
+- [ ] **25.** Restarting the set, finishing it, or switching exercise clears the tip and the amber joints immediately.
+
+### Exercise, routine, and history coverage
+
+- [ ] **26.** Exercise launch: start shoulder press from Train quick start and confirm the camera opens after its guide. Open Library, choose hammer curl, and verify the first-use guide appears before the camera prompt. Closing the camera returns to the screen that launched it.
+- [ ] **27.** Hammer curls, simultaneous: with both arms hanging straight, the Hold ring fills and the set starts. Curl both arms together 10 times; the count reaches 10 and the set completes. The HUD shows "L · R" counts, and each arm's Start line sits below its elbow and its Top line above it, with labels clear of the arms.
+- [ ] **28.** Hammer curls, alternating: curl left, then right, and so on. The count goes up once both arms have done a rep ("L 3 · R 2" shows 2). Curling one arm up again from halfway, without hanging straight, doesn't count; after two of those, "Straighten at the bottom." plays. Half curls get "Curl all the way up."
+- [ ] **29.** Switching mid-set: during a press set with a few reps, tap **Change exercise** in the edge toolbar and choose Hammer Curl. It asks to discard the reps; confirm, and the curl guide (first time) or setup line follows, with no leftover tip, amber joints, or press lines. Say "change exercise", then "cancel": you're back where you were. Switch back to the press: it resumes at its next set.
+- [ ] **30.** Completion: finish both sets of a standalone exercise. The completion card fades in with each set's reps and the total, and the coach names the buttons (no more "push end").
     - **Another Round** (or say "another round") starts set 1 again.
     - **Choose Exercise** (or "change exercise") opens the chooser; Cancel returns to the card.
-    - **End Workout** (or "end workout") goes straight back to the exercise list without a second summary.
+    - **End Workout** (or "end workout") returns to Train without a duplicate summary. Finish a Saved Set and confirm its full workout summary appears, with Done returning to Train.
     - Ending mid-set with the stop button still asks for confirmation and shows the summary.
-31. Band triceps extension, side-on:
+- [ ] **31.** Band triceps extension, side-on:
     - Stand side-on with the band under your feet. Framing asks you to stand side-on until one arm is in view.
     - The ghost arm appears on your nearer shoulder, facing your way, with no dumbbells.
     - Holding your hands behind your head fills the Hold ring. Ten extensions count exactly 10.
@@ -449,47 +462,50 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Folding your hands fully behind your head (where the camera can't see them) still counts. The coach doesn't say it can't see you, and the next rep starts.
     - Half extensions get "Straighten both arms fully."
     - Letting the elbows drift forward gets "Keep your elbows pointing up."
-32. Air squats:
+- [ ] **32.** Air squats:
     - Step back until framing stops asking to see your whole body. Standing still doesn't start the set; the status says to say "start".
     - The ghost legs show how low to go.
     - Fifteen squats to thighs-level count exactly 15, and half squats don't count ("Squat a little deeper.").
     - Squatting again from halfway gets "Stand all the way up."
     - Letting the knees cave in gets "Keep your knees in line with your toes."
-33. One-arm row:
+- [ ] **33.** One-arm row:
     - Stand side-on with your left arm nearer the phone, bent forward with a hand on a bench. Holding the dumbbell straight down fills the Hold ring and starts "Set 1 of 2 · Left arm".
     - Row 8–10; at 10 (or "next set") the coach says to switch to your right arm, with no rest timer.
     - Turn around; the ghost turns with you, and the right arm's set starts the same way. After both arms, rest starts.
     - Half pulls get "Pull your elbow up past your back."
     - The summary and completion card list "Set 1 L", "Set 1 R", and so on.
-34. Push-ups:
+- [ ] **34.** Push-ups:
     - Lay the phone on the floor a step in front of your hands, propped to lean back, and get into a plank facing it. No tilt warning appears.
     - The ghost arms rise from your hands. Holding the plank fills the Hold ring.
     - Ten push-ups to the Down line count exactly 10. Shallow ones get "Go a little lower."
     - Dropping fast gets "Lower with control."
-35. Saved Sets:
+- [ ] **35.** Saved Sets:
     - Create "Upper Body" with shoulder press 2 × 8–10, hammer curl 2 × 10, and shoulder press again 1 × 12. Reorder by dragging, save, quit the app, and reopen: it's still there in order. Duplicate it and delete the copy.
     - Start it: the HUD shows "Exercise 1 of 3".
     - After the last press set, rest begins with "Up next: Hammer Curl"; when rest ends, curls are set up, and nothing counts until you start.
     - Say "next exercise" mid-curl: it skips to the second press, which starts at set 1 of 1.
     - The final card lists the press as completed, curls as skipped, and the last press.
-    - On the list, adjust Hammer Curl to 3 × 12, start it, and confirm the set completes at 12. Reset to Default restores 2 × 10.
-36. History:
-    - Finish two press sets and end the workout. History (on the exercise list) shows it, newest first.
+    - In Library, open Hammer Curl and adjust it to 3 × 12, start it, and confirm the set completes at 12. Reset to Default restores 2 × 10.
+- [ ] **36.** History:
+    - Finish two press sets and end the workout. Workout History from Progress shows it, newest first.
     - Open it, add 17.5 lb to set 1 with "Also for the later sets", and set 2 shows 17.5 lb too. Change set 2 to 8 kg and remove it again.
     - Band triceps take a band name, and push-ups and squats show no weight control.
     - Closing the coach after a finished set (without ending) still saves it. Opening and closing without a set saves nothing. Swipe to delete a workout.
-37. Weights by voice:
+- [ ] **37.** Weights by voice:
     - Mid-set, say "my weights are seventeen point five pounds". The coach says "17.5 pounds.", the Heard chip shows it, and the HUD shows 17.5 lb.
     - The next set keeps 17.5 lb. Say "weight 8 kilograms" mid-set, and the history shows 17.5 lb for set 1 and 8 kg for set 2.
     - With band triceps, say "using the red band".
     - With music playing, saying "I lost five pounds" in conversation sets nothing.
     - Mid-set, say "weight 17.5 pounds" (often heard as "wait"): the set doesn't pause, the coach says "17.5 pounds.", and the HUD shows 17.5 lb.
     - Say "wait" on its own: the set pauses after about a second. "Pause" and "stop" still pause right away.
-38. Afterward, confirm realtime posture correction still works.
-39. In realtime posture correction, open the gear menu labeled **Feedback settings**. Check Camera tilt compensation, Horizon line, Alignment targets, and the 2 / 5 / 10 per second refresh rate. Change each value in the menu and in Settings → Camera & framing; both places should show the same value.
-40. Set Rest between sets to **Exercise default** and confirm shoulder press rests for 90 seconds and hammer curls for 60. Set it to **45 seconds** and confirm both exercises show a 45-second countdown and matching progress bar. One-arm rows switch sides without a rest, then rest after the second arm. **Skip rest** still starts the next set immediately.
-41. Set Weight units to **kg**. A new History weight entry starts with kg selected, and saying "my weights are twenty" records 20 kg. Saying "my weights are twenty pounds" records 20 lb. Existing history entries keep their recorded unit and value.
-42. Turn **Start by holding position** off. Holding the shoulder press start position does not begin a set; tapping play and saying "start" do. The ready status says "Tap play to start" without voice and "Say ‘start’ or tap play" when voice is available. Air squats still require an explicit start.
-43. Restore defaults and confirm **Exercise default**, **lb**, and Start by holding on. Verify press rests for 90 seconds and curls for 60 seconds, and holding the press start position still starts the set.
+
+### Posture camera and settings
+
+- [ ] **38.** Afterward, confirm realtime posture correction still works.
+- [ ] **39.** In realtime posture correction, open the gear menu labeled **Feedback settings**. Check Camera tilt compensation, Horizon line, Alignment targets, and the 2 / 5 / 10 per second refresh rate. Change each value in the menu and in Settings → Camera & framing; both places should show the same value.
+- [ ] **40.** Set Rest between sets to **Exercise default** and confirm shoulder press rests for 90 seconds and hammer curls for 60. Set it to **45 seconds** and confirm both exercises show a 45-second countdown and matching progress bar. One-arm rows switch sides without a rest, then rest after the second arm. **Skip rest** still starts the next set immediately.
+- [ ] **41.** Set Weight units to **kg**. A new History weight entry starts with kg selected, and saying "my weights are twenty" records 20 kg. Saying "my weights are twenty pounds" records 20 lb. Existing history entries keep their recorded unit and value.
+- [ ] **42.** Turn **Start by holding position** off. Holding the shoulder press start position does not begin a set; tapping play and saying "start" do. The ready status says "Tap play to start" without voice and "Say ‘start’ or tap play" when voice is available. Air squats still require an explicit start.
+- [ ] **43.** Restore defaults and confirm **Exercise default**, **lb**, and Start by holding on. Verify press rests for 90 seconds and curls for 60 seconds, and holding the press start position still starts the set.
 
 These checks remain manual; a passing simulator run does not imply they were performed.

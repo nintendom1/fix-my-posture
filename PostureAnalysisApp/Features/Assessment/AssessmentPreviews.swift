@@ -1,18 +1,6 @@
 import SwiftUI
 
-// MARK: - SwiftUI Previews for Primary Views
-
-#Preview("Content View - Home") {
-    PostureHomeScreen(state: PostureHomeState(assessments: []), send: { _ in })
-}
-
-#Preview("History View - Empty") {
-    NavigationStack {
-        PostureHistoryScreen(state: PostureHomeState(assessments: []), send: { _ in })
-    }
-}
-
-#Preview("Assessment Detail View") {
+#Preview("Saved Assessment") {
     let dummyLandmarks: [LandmarkType: Landmark] = [
         .leftShoulder: Landmark(type: .leftShoulder, normalizedLocation: CGPoint(x: 0.3, y: 0.8), imageLocation: CGPoint(x: 300, y: 400), confidence: 0.95),
         .rightShoulder: Landmark(type: .rightShoulder, normalizedLocation: CGPoint(x: 0.7, y: 0.8), imageLocation: CGPoint(x: 700, y: 400), confidence: 0.95)
@@ -32,7 +20,7 @@ import SwiftUI
     }
 }
 
-#Preview("Measurement Feedback Cards") {
+#Preview("Measurement Feedback") {
     let profile = DefaultPostureReferenceProvider().currentProfile
     let evaluator = MeasurementFeedbackEvaluator()
     let measurements = [
