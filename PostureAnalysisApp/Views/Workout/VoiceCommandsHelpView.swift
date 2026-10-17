@@ -17,29 +17,46 @@ struct VoiceCommandsHelpView: View {
     let onRetry: () -> Void
     let onOpenSettings: () -> Void
     let onDone: () -> Void
+    var wrapsInNavigationStack = true
+    var isStandaloneHelp = false
 
     @ScaledMetric(relativeTo: .title2) private var chipMinWidth: CGFloat = 150
 
     private var palette: ColorPalette { ColorTokens.palette() }
 
     var body: some View {
-        NavigationStack {
+        Group {
+            if wrapsInNavigationStack {
+                NavigationStack { page }
+            } else {
+                page
+            }
+        }
+        .tint(palette.tabActive)
+        .environment(\.colorScheme, .dark)
+    }
+
+    private var page: some View {
             ZStack {
                 palette.backgroundPrimary.ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-                        statusHeader
-                        soundToggles
-                        if let banner {
+                        if !isStandaloneHelp {
+                            statusHeader
+                            soundToggles
+                        }
+                        if !isStandaloneHelp, let banner {
                             banner
                         }
-                        if !suggestions.isEmpty {
+                        if !isStandaloneHelp, !suggestions.isEmpty {
                             rightNow
                         }
                         ForEach(sections) { section in
                             sectionView(section)
                         }
-                        Text("The coach doesn't listen while it's speaking. Say \u{201C}close\u{201D} to go back.")
+                        Text(isStandaloneHelp
+                             ? "Voice commands are available during workouts when voice commands are turned on."
+                             : "The coach doesn't listen while it's speaking. Say \u{201C}close\u{201D} to go back.")
                             .textStyle(.body)
                             .foregroundStyle(palette.textMuted)
                     }
@@ -59,9 +76,6 @@ struct VoiceCommandsHelpView: View {
                         .accessibilityIdentifier("voiceCommandsDoneButton")
                 }
             }
-        }
-        .tint(palette.tabActive)
-        .environment(\.colorScheme, .dark)
     }
 
     private var statusHeader: some View {

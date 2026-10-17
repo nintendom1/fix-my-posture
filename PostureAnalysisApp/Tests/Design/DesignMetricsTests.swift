@@ -83,6 +83,10 @@ final class DesignMetricsTests: XCTestCase {
             "statusBar": "The iOS status bar belongs to the snapshot window, outside AssessmentScreen.",
             "tabbar": "The native TabView owns the tab bar; AssessmentScreen does not lay it out.",
             "assessment.share": "Share is deferred in this phase."
+        ],
+        "settings": [
+            "statusBar": "The iOS status bar belongs to the snapshot window, outside SettingsScreen.",
+            "settings.reminders.value": "Reminders deferred; the row displays Soon until workout reminders ship."
         ]
     ]
 
@@ -187,6 +191,12 @@ final class DesignMetricsTests: XCTestCase {
     func testAssessmentFrame() throws {
         let result = try SnapshotHost.render(AssessmentFixtures.designTabView(), frameId: "assessment", testCase: self)
         try assertAnchors(frameId: "assessment", actual: result.snapshotMeasuredAnchors)
+    }
+
+    @MainActor
+    func testSettingsFrame() throws {
+        let result = try SnapshotHost.render(SettingsFixtures.screen(), frameId: "settings", testCase: self)
+        try assertAnchors(frameId: "settings", actual: result.snapshotMeasuredAnchors)
     }
 
     @MainActor

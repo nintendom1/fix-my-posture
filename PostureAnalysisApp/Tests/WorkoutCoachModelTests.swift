@@ -88,6 +88,19 @@ final class WorkoutCoachModelTests: XCTestCase {
         XCTAssertEqual(second.voice.mutedValues, [true])
     }
 
+    func testDisabledTiltWarningsNeverSurfaceTiltInWorkoutModel() {
+        let preferences = InMemoryPreferences()
+        preferences.tiltWarningsEnabled = false
+        let harness = makeHarness(preferences: preferences)
+
+        harness.model.onAppear(isApplicationActive: true)
+        harness.camera.emit(.running)
+        harness.tilt.latestTilt = PhoneTilt(pitchDegrees: 20)
+        harness.scheduler.advance(by: 2)
+
+        XCTAssertFalse(harness.model.isPhoneTilted)
+    }
+
     func testVoiceCommandReachesReducer() {
         let harness = makeHarness()
         harness.model.onAppear(isApplicationActive: true)

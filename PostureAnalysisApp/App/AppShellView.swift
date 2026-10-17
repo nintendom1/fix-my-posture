@@ -111,7 +111,7 @@ struct AppShellView: View {
         case .importPosturePhoto(let view):
             PhotoAssessmentFlowScreen(initialView: view, launchSource: .library)
         case .settings:
-            Text("Settings are presented full screen.")
+            settingsScreen
         }
     }
 
@@ -119,7 +119,7 @@ struct AppShellView: View {
     private func fullScreenDestination(for route: AppRoute) -> some View {
         switch route {
         case .settings:
-            TemporarySettingsView(onDone: router.dismissFullScreen)
+            settingsScreen
         case .workout(let exerciseID, let routineID):
             WorkoutCoachView(model: environment.workoutCoachFactory.makeWorkout(
                 exerciseID: exerciseID,
@@ -130,6 +130,14 @@ struct AppShellView: View {
         default:
             EmptyView()
         }
+    }
+
+    private var settingsScreen: some View {
+        SettingsScreen(viewModel: SettingsViewModel(
+            preferences: environment.preferences,
+            router: router,
+            latestAssessmentID: environment.postureHomeViewModel.state.assessments.first?.id
+        ))
     }
 
     private var selectionBinding: Binding<AppTab> {
@@ -223,49 +231,5 @@ private struct RoutineEditorRouteView: View {
 
     var body: some View {
         RoutineEditorScreen(state: viewModel.state, send: viewModel.send)
-    }
-}
-
-private struct TemporarySettingsView: View {
-    @AppStorage(PreferenceKey.cameraTiltCompensationEnabled) private var cameraTiltCompensationEnabled = true
-    @State private var showAcknowledgements = false
-    @State private var showDiagnosticsHelp = false
-    let onDone: () -> Void
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Posture") {
-                    Toggle("Compensate camera tilt", isOn: $cameraTiltCompensationEnabled)
-                }
-                Section("About") {
-                    Button("Acknowledgements") { showAcknowledgements = true }
-                }
-                Section("Developer") {
-                    Button {
-                        showDiagnosticsHelp = true
-                    } label: {
-                        Label("Developer diagnostics", systemImage: "ladybug")
-                    }
-                }
-            }
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        onDone()
-                    }
-                }
-            }
-            .sheet(isPresented: $showAcknowledgements) {
-                AcknowledgementsView()
-            }
-            .alert("Developer diagnostics", isPresented: $showDiagnosticsHelp) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text("Open an assessment report and tap the Developer Diagnostics button.")
-            }
-        }
     }
 }

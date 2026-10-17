@@ -282,6 +282,12 @@
 		A10000012B00000000000291 /* AssessmentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000291 /* AssessmentViewModel.swift */; };
 		A10000012B00000000000292 /* AssessmentScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000292 /* AssessmentScreen.swift */; };
 		A10000012B00000000000293 /* AssessmentRouteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000293 /* AssessmentRouteView.swift */; };
+		A10000012B00000000000294 /* SettingsViewModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000294 /* SettingsViewModelTests.swift */; };
+		A10000012B00000000000295 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000295 /* SettingsViewModel.swift */; };
+		A10000012B00000000000296 /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000296 /* SettingsScreen.swift */; };
+		A10000012B00000000000297 /* SettingsSubpages.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000297 /* SettingsSubpages.swift */; };
+		A10000012B00000000000298 /* SettingsRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000298 /* SettingsRow.swift */; };
+		A10000012B00000000000299 /* SettingsFixtures.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000299 /* SettingsFixtures.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -572,6 +578,12 @@
 		B10000012B00000000000291 /* AssessmentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssessmentViewModel.swift; sourceTree = "<group>"; };
 		B10000012B00000000000292 /* AssessmentScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssessmentScreen.swift; sourceTree = "<group>"; };
 		B10000012B00000000000293 /* AssessmentRouteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssessmentRouteView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000294 /* SettingsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModelTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000295 /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
+		B10000012B00000000000296 /* SettingsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScreen.swift; sourceTree = "<group>"; };
+		B10000012B00000000000297 /* SettingsSubpages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSubpages.swift; sourceTree = "<group>"; };
+		B10000012B00000000000298 /* SettingsRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRow.swift; sourceTree = "<group>"; };
+		B10000012B00000000000299 /* SettingsFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFixtures.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -790,6 +802,7 @@
 				B10000012B00000000000281 /* PostureAssessmentServiceTests.swift */,
 				B10000012B00000000000282 /* PostureHomeViewModelTests.swift */,
 				B10000012B00000000000283 /* AssessmentViewModelTests.swift */,
+				B10000012B00000000000294 /* SettingsViewModelTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1023,6 +1036,7 @@
 				B10000012B00000000000280 /* ProgressHistoryFixtures.swift */,
 				B10000012B00000000000284 /* PostureFixtures.swift */,
 				B10000012B00000000000285 /* AssessmentFixtures.swift */,
+				B10000012B00000000000299 /* SettingsFixtures.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -1106,6 +1120,7 @@
 				B10000012B00000000000255 /* EdgeToolbar.swift */,
 				B10000012B00000000000256 /* RepCounter.swift */,
 				B10000012B00000000000257 /* EdgeGlow.swift */,
+				B10000012B00000000000298 /* SettingsRow.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -1139,6 +1154,7 @@
 				H10000012B00000000000048 /* PhotoAssessment */,
 				H10000012B00000000000049 /* PostureHome */,
 				H10000012B00000000000050 /* Assessment */,
+				H10000012B00000000000051 /* Settings */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -1265,6 +1281,16 @@
 				B10000012B00000000000293 /* AssessmentRouteView.swift */,
 			);
 			path = Assessment;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000051 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000295 /* SettingsViewModel.swift */,
+				B10000012B00000000000296 /* SettingsScreen.swift */,
+				B10000012B00000000000297 /* SettingsSubpages.swift */,
+			);
+			path = Settings;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1560,6 +1586,10 @@
 				A10000012B00000000000291 /* AssessmentViewModel.swift in Sources */,
 				A10000012B00000000000292 /* AssessmentScreen.swift in Sources */,
 				A10000012B00000000000293 /* AssessmentRouteView.swift in Sources */,
+				A10000012B00000000000295 /* SettingsViewModel.swift in Sources */,
+				A10000012B00000000000296 /* SettingsScreen.swift in Sources */,
+				A10000012B00000000000297 /* SettingsSubpages.swift in Sources */,
+				A10000012B00000000000298 /* SettingsRow.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1639,6 +1669,8 @@
 				A10000012B00000000000283 /* AssessmentViewModelTests.swift in TestSources */,
 				A10000012B00000000000284 /* PostureFixtures.swift in TestSources */,
 				A10000012B00000000000285 /* AssessmentFixtures.swift in TestSources */,
+				A10000012B00000000000294 /* SettingsViewModelTests.swift in TestSources */,
+				A10000012B00000000000299 /* SettingsFixtures.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
