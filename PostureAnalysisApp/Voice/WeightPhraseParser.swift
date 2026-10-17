@@ -15,20 +15,35 @@ enum WeightPhraseParser {
     /// What speech recognition commonly writes for "weight".
     static let soundsLikeWeight: Set<String> = ["wait", "waits", "weigh", "weighs", "weighed"]
     private static let cues: Set<String> = Set(["weight", "weights", "using"]).union(soundsLikeWeight)
+    private static let preferredUnitCues: Set<String> = ["weight", "weights", "using"]
     /// Words allowed between the weight word and the unit, other than the number itself.
     private static let joiners: Set<String> = ["is", "are", "of", "at", "the", "a", "about"]
     private static let ones = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven",
                                "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"]
     private static let tens = ["twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90]
 
-    static func parse(_ transcript: String) -> WorkoutWeight? {
+    static func parse(_ transcript: String, preferredUnit: PreferredWeightUnit = .lb) -> WorkoutWeight? {
         let words = tokens(transcript)
         if let band = words.firstIndex(of: "band"), band > 0, bandNames.contains(words[band - 1]) {
             return .band(words[band - 1].capitalized + " band")
         }
-        guard let unitIndex = words.firstIndex(where: { units[$0] != nil }), let unit = units[words[unitIndex]],
-              let cue = words[..<unitIndex].lastIndex(where: cues.contains) else { return nil }
-        let spoken = words[(cue + 1)..<unitIndex].filter { !joiners.contains($0) }
+
+        let unitIndex = words.firstIndex(where: { units[$0] != nil })
+        let cue: Int
+        let spoken: [String]
+        let unit: WeightUnit
+        if let unitIndex {
+            guard let explicitUnit = units[words[unitIndex]],
+                  let weightCue = words[..<unitIndex].lastIndex(where: cues.contains) else { return nil }
+            cue = weightCue
+            spoken = words[(cue + 1)..<unitIndex].filter { !joiners.contains($0) }
+            unit = explicitUnit
+        } else {
+            guard let weightCue = words.lastIndex(where: preferredUnitCues.contains) else { return nil }
+            cue = weightCue
+            spoken = words[(cue + 1)...].filter { !joiners.contains($0) }
+            unit = preferredUnit == .lb ? .pounds : .kilograms
+        }
         guard spoken.allSatisfy(isNumberWord), let value = number(Array(spoken)), value > 0, value < 1000 else { return nil }
         return .mass(value, unit)
     }
@@ -37,7 +52,9 @@ enum WeightPhraseParser {
     /// yet ("wait 17", "weight seventeen point"), so a command shouldn't fire on it.
     static func isInProgress(_ transcript: String) -> Bool {
         let words = tokens(transcript)
-        guard let cue = words.lastIndex(where: cues.contains) else { return false }
+        // Speech recognition often begins with "wait" for "weight". Hold those number-only
+        // partials so they can still become the explicit-unit phrase or the pause command.
+        guard let cue = words.lastIndex(where: soundsLikeWeight.contains) else { return false }
         let rest = words[(cue + 1)...].filter { !joiners.contains($0) }
         return !rest.isEmpty && rest.allSatisfy(isNumberWord)
     }

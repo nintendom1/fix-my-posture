@@ -8,22 +8,27 @@ final class HistoryViewModel {
 
     private let repository: (any WorkoutHistoryRepository)?
     let exerciseCatalog: any ExerciseCatalogProviding
+    private let preferences: any AppPreferencesStoring
     private let now: () -> Date
     private let calendar: Calendar
 
     init(
         repository: (any WorkoutHistoryRepository)?,
         exerciseCatalog: any ExerciseCatalogProviding = LiveExerciseCatalog(),
+        preferences: any AppPreferencesStoring = InMemoryPreferences(),
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .current
     ) {
         self.repository = repository
         self.exerciseCatalog = exerciseCatalog
+        self.preferences = preferences
         self.now = now
         self.calendar = calendar
         state = HistoryState(groups: [])
         refresh()
     }
+
+    var preferredWeightUnit: PreferredWeightUnit { preferences.weightUnit }
 
     func refresh() {
         let records = (try? repository?.list()) ?? []

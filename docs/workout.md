@@ -20,6 +20,15 @@ Everything runs on device. Apple Vision estimates the pose, `AVSpeechSynthesizer
 - `Features/WorkoutCamera`: `WorkoutCameraScreen` owns camera chrome and confirmation UI; its controls map to `WorkoutIntent`. Shared `HUDPill`, `HUDIconButton`, `EdgeToolbar`, `RepCounter`, and `EdgeGlow` live in `DesignSystem/Components`.
 - `Views/Workout`: `WorkoutCoachView`, `WorkoutJointOverlayView`, `ExerciseGuideView`, `ExerciseDemoFigureView`, `WorkoutGhostOverlayView`, `RepThresholdOverlayView`, and `WorkoutTipView`.
 
+## Workout settings
+
+The Settings screen stores rest policy, preferred weight unit, and start-by-holding in `AppPreferencesStoring`. `WorkoutCoachFactory` snapshots them when a workout starts, so changes apply to the next workout. The reducer receives those values through `WorkoutSettings` and remains independent of `UserDefaults`.
+
+- **Rest between sets.** Exercise default uses each exercise's duration (90 seconds for shoulder press; 60 seconds for the others). A fixed choice from 30 to 120 seconds applies to every exercise. One-arm exercises still switch arms without resting, then rest after both sides. The HUD countdown and progress bar use the selected duration. The existing **Skip rest** action still starts the next set immediately.
+- **Weight units.** New History weight entries and spoken mass phrases without a unit use the preferred unit. A spoken unit such as pounds or kilograms takes precedence. Saved weights retain their recorded units and are displayed as recorded; changing this setting never converts existing records.
+- **Start by holding position.** Automatic start is enabled only when the global setting and the exercise both allow it. With it off, the start position never starts a set; the user can tap play or say "start". The ready status names those choices, and exercises such as air squats that already opt out keep their existing behavior.
+- **Camera & framing.** Camera tilt compensation, the horizon line, alignment targets, and feedback refresh rate use the same preferences in Settings and the live-check gear menu.
+
 ## Guidance
 
 The guide and the live overlay share one description of the movement. `ExerciseGuide` holds the steps, the read-aloud walkthrough, the start-position instruction, the counting-threshold lines, and an `ArmMotion`: looping keyframes of upper-arm and forearm elevation. `ArmMotion.place` turns those angles into elbow and wrist points, measuring "outward" as away from the other shoulder. That makes the same keyframes work for the canonical demo figure and for the user's own mirrored body.
@@ -477,5 +486,10 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Mid-set, say "weight 17.5 pounds" (often heard as "wait"): the set doesn't pause, the coach says "17.5 pounds.", and the HUD shows 17.5 lb.
     - Say "wait" on its own: the set pauses after about a second. "Pause" and "stop" still pause right away.
 38. Afterward, confirm realtime posture correction still works.
+39. In realtime posture correction, open the gear menu labeled **Feedback settings**. Check Camera tilt compensation, Horizon line, Alignment targets, and the 2 / 5 / 10 per second refresh rate. Change each value in the menu and in Settings → Camera & framing; both places should show the same value.
+40. Set Rest between sets to **Exercise default** and confirm shoulder press rests for 90 seconds and hammer curls for 60. Set it to **45 seconds** and confirm both exercises show a 45-second countdown and matching progress bar. One-arm rows switch sides without a rest, then rest after the second arm. **Skip rest** still starts the next set immediately.
+41. Set Weight units to **kg**. A new History weight entry starts with kg selected, and saying "my weights are twenty" records 20 kg. Saying "my weights are twenty pounds" records 20 lb. Existing history entries keep their recorded unit and value.
+42. Turn **Start by holding position** off. Holding the shoulder press start position does not begin a set; tapping play and saying "start" do. The ready status says "Tap play to start" without voice and "Say ‘start’ or tap play" when voice is available. Air squats still require an explicit start.
+43. Restore defaults and confirm **Exercise default**, **lb**, and Start by holding on. Verify press rests for 90 seconds and curls for 60 seconds, and holding the press start position still starts the set.
 
 These checks remain manual; a passing simulator run does not imply they were performed.

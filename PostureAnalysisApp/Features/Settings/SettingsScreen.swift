@@ -117,7 +117,7 @@ struct SettingsScreen: View {
                 icon: "scale",
                 title: "Weight units",
                 iconColor: workoutOrange,
-                value: viewModel.weightUnit.rawValue,
+                value: viewModel.weightUnitLabel,
                 showsChevron: true,
                 action: { viewModel.navigate(to: .weightUnit) }
             )

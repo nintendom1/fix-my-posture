@@ -24,7 +24,7 @@ public struct RealtimeCorrectionView: View {
     @AppStorage(PreferenceKey.feedbackRefreshRate) private var feedbackRate = 5
     @AppStorage(PreferenceKey.cameraTiltCompensationEnabled) private var cameraTiltCompensationEnabled = true
     @AppStorage(PreferenceKey.showHorizonLine) private var showHorizonLine = true
-    @State private var showTargets = true
+    @AppStorage(PreferenceKey.showAlignmentTargets) private var showTargets = true
     @State private var controlRects: [CGRect] = []
     @State private var detailsTarget: ReferencePose?
     @State private var showOverlay: Bool = true
@@ -160,14 +160,34 @@ public struct RealtimeCorrectionView: View {
 
                         Spacer()
 
-                        Button(action: { cameraModel.switchCamera() }) {
-                            Image(systemName: "camera.rotate.fill")
-                                .font(.title)
-                                .foregroundColor(.white)
-                                .shadow(radius: 3)
+                        HStack(spacing: 12) {
+                            Menu {
+                                Toggle("Camera tilt compensation", isOn: $cameraTiltCompensationEnabled)
+                                Toggle("Horizon line", isOn: $showHorizonLine)
+                                Toggle("Alignment targets", isOn: $showTargets)
+                                Picker("Feedback refresh rate", selection: $feedbackRate) {
+                                    Text("2 / sec").tag(2)
+                                    Text("5 / sec").tag(5)
+                                    Text("10 / sec").tag(10)
+                                }
+                            } label: {
+                                Image(systemName: "gearshape.fill")
+                                    .font(.title2)
+                                    .foregroundColor(.white)
+                                    .shadow(radius: 3)
+                            }
+                            .accessibilityLabel("Feedback settings")
+                            .accessibilityIdentifier("realtimeFeedbackSettingsMenu")
+
+                            Button(action: { cameraModel.switchCamera() }) {
+                                Image(systemName: "camera.rotate.fill")
+                                    .font(.title)
+                                    .foregroundColor(.white)
+                                    .shadow(radius: 3)
+                            }
+                            .accessibilityIdentifier("switchCameraButton")
+                            .accessibilityLabel("Switch camera")
                         }
-                        .accessibilityIdentifier("switchCameraButton")
-                        .accessibilityLabel("Switch camera")
                     }
                     .padding()
                     .background(GeometryReader { proxy in
@@ -216,14 +236,6 @@ public struct RealtimeCorrectionView: View {
                                 .toggleStyle(SwitchToggleStyle(tint: .green))
                                 .foregroundColor(.white)
                                 .accessibilityIdentifier("realtimeCalloutToggle")
-
-                            Button { showTargets.toggle() } label: {
-                                Image(material: showTargets ? "visibility" : "visibility_off")
-                                    .foregroundStyle(.white)
-                                    .frame(minWidth: 44, minHeight: 44)
-                            }
-                            .accessibilityLabel("Alignment targets")
-                            .accessibilityIdentifier("realtimeTargetsToggle")
 
                             Picker("View", selection: $selectedView) {
                                 ForEach([PostureView.front, .leftSide, .rightSide]) { v in

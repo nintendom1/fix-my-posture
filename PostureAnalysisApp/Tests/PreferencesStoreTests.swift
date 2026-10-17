@@ -41,6 +41,7 @@ final class PreferencesStoreTests: XCTestCase {
 
         preferences.cameraTiltCompensationEnabled = false
         preferences.showHorizonLine = false
+        preferences.showAlignmentTargets = false
         preferences.feedbackRefreshRate = 7
         preferences.workoutCoachShowMeasurements = true
         preferences.workoutCoachCoachMuted = true
@@ -51,6 +52,7 @@ final class PreferencesStoreTests: XCTestCase {
 
         XCTAssertEqual(defaults.object(forKey: "cameraTiltCompensationEnabled") as? Bool, false)
         XCTAssertEqual(defaults.object(forKey: "showHorizonLine") as? Bool, false)
+        XCTAssertEqual(defaults.object(forKey: PreferenceKey.showAlignmentTargets) as? Bool, false)
         XCTAssertEqual(defaults.object(forKey: "feedbackRefreshRate") as? Int, 7)
         XCTAssertEqual(defaults.object(forKey: "workoutCoach.showMeasurements") as? Bool, true)
         XCTAssertEqual(defaults.object(forKey: "workoutCoach.coachMuted") as? Bool, true)
@@ -73,6 +75,7 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertTrue(preferences.cameraTiltCompensationEnabled)
         XCTAssertTrue(preferences.showHorizonLine)
         XCTAssertEqual(preferences.feedbackRefreshRate, 5)
+        XCTAssertTrue(preferences.showAlignmentTargets)
         XCTAssertFalse(preferences.workoutCoachShowMeasurements)
         XCTAssertFalse(preferences.workoutCoachCoachMuted)
         XCTAssertFalse(preferences.workoutCoachMicMuted)
@@ -84,6 +87,18 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertEqual(preferences.weightUnit, .lb)
         XCTAssertTrue(preferences.startByHolding)
         XCTAssertNil(preferences.upNextOverride)
+    }
+
+    func testAlignmentTargetsPreferenceDefaultsOnAndRoundTrips() throws {
+        let suiteName = "PreferencesStoreTests.AlignmentTargets.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = UserDefaultsPreferences(defaults: defaults)
+
+        XCTAssertTrue(preferences.showAlignmentTargets)
+        preferences.showAlignmentTargets = false
+        XCTAssertFalse(UserDefaultsPreferences(defaults: defaults).showAlignmentTargets)
+        XCTAssertEqual(defaults.object(forKey: PreferenceKey.showAlignmentTargets) as? Bool, false)
     }
 
     func testRestPolicyClampsAndRoundTrips() throws {
@@ -117,6 +132,7 @@ final class PreferencesStoreTests: XCTestCase {
 
         preferences.cameraTiltCompensationEnabled = false
         preferences.showHorizonLine = false
+        preferences.showAlignmentTargets = false
         preferences.feedbackRefreshRate = 11
         preferences.workoutCoachShowMeasurements = true
         preferences.workoutCoachCoachMuted = true
@@ -132,6 +148,7 @@ final class PreferencesStoreTests: XCTestCase {
 
         XCTAssertFalse(preferences.cameraTiltCompensationEnabled)
         XCTAssertFalse(preferences.showHorizonLine)
+        XCTAssertFalse(preferences.showAlignmentTargets)
         XCTAssertEqual(preferences.feedbackRefreshRate, 11)
         XCTAssertTrue(preferences.workoutCoachShowMeasurements)
         XCTAssertTrue(preferences.workoutCoachCoachMuted)

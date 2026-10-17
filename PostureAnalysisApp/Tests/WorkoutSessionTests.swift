@@ -49,6 +49,36 @@ final class WorkoutSessionTests: XCTestCase {
         XCTAssertEqual(session.currentSetNumber, 2)
     }
 
+    func testExerciseDefaultRestUsesEachExercisesDuration() {
+        var pressSession = readySession()
+        _ = pressSession.handle(.command(.start), at: 2)
+        _ = pressSession.handle(.command(.nextSet), at: 10)
+        XCTAssertEqual(pressSession.restEndsAt, 100)
+
+        let curl = HammerCurlExercise.definition()
+        var curlSession = readySession(exercise: curl)
+        _ = curlSession.handle(.command(.start), at: 2)
+        _ = curlSession.handle(.command(.nextSet), at: 10)
+        XCTAssertEqual(curlSession.restEndsAt, 70)
+    }
+
+    func testFixedRestAppliesToEveryExerciseAndDrivesRestCountdown() {
+        let settings = WorkoutSettings(restPolicy: .fixed(seconds: 45))
+        var pressSession = readySession(settings: settings)
+        _ = pressSession.handle(.command(.start), at: 2)
+        _ = pressSession.handle(.command(.nextSet), at: 10)
+        XCTAssertEqual(pressSession.restEndsAt, 55)
+        XCTAssertEqual(pressSession.restRemaining(at: 30), 25)
+        _ = pressSession.handle(.tick, at: 54.9)
+        XCTAssertEqual(pressSession.phase, .resting)
+
+        let curl = HammerCurlExercise.definition()
+        var curlSession = readySession(exercise: curl, settings: settings)
+        _ = curlSession.handle(.command(.start), at: 2)
+        _ = curlSession.handle(.command(.nextSet), at: 10)
+        XCTAssertEqual(curlSession.restEndsAt, 55)
+    }
+
     func testStaleRepsAreIgnored() {
         var session = readySession()
         _ = session.handle(.command(.start), at: 2)
@@ -210,6 +240,40 @@ final class WorkoutSessionTests: XCTestCase {
         XCTAssertEqual(session.progress[oneArm.id]?.setReps.count, 4, "One entry per arm per set.")
     }
 
+    func testFixedRestDoesNotRunBetweenOneArmSides() {
+        var oneArm = press
+        oneArm.perSide = true
+        var session = readySession(exercise: oneArm, settings: WorkoutSettings(restPolicy: .fixed(seconds: 45)))
+        _ = session.handle(.command(.start), at: 2)
+        _ = session.handle(.command(.nextSet), at: 3)
+        XCTAssertEqual(session.phase, .ready)
+        XCTAssertNil(session.restEndsAt)
+
+        _ = session.handle(.command(.start), at: 4)
+        _ = session.handle(.command(.nextSet), at: 5)
+        XCTAssertEqual(session.phase, .resting)
+        XCTAssertEqual(session.restEndsAt, 50)
+    }
+
+    func testGlobalHoldToStartOffRequiresStartCommandAndLeavesAirSquatUnchanged() {
+        let noHoldSettings = WorkoutSettings(startByHolding: false)
+        var pressSession = readySession(settings: noHoldSettings)
+        _ = pressSession.handle(.startPositionChanged(true), at: 2)
+        _ = pressSession.handle(.tick, at: 4)
+        XCTAssertEqual(pressSession.phase, .ready)
+        XCTAssertNil(pressSession.startHoldProgress(at: 4))
+        _ = pressSession.handle(.command(.start), at: 5)
+        XCTAssertEqual(pressSession.phase, .exercising)
+
+        let squat = AirSquatExercise.definition()
+        var squatSession = readySession(exercise: squat)
+        _ = squatSession.handle(.startPositionChanged(true), at: 2)
+        _ = squatSession.handle(.tick, at: 4)
+        XCTAssertEqual(squatSession.phase, .ready, "Air squat already opts out of hold-to-start.")
+        _ = squatSession.handle(.command(.start), at: 5)
+        XCTAssertEqual(squatSession.phase, .exercising)
+    }
+
     func testSavedSetRestsThenSelectsTheNextExerciseWithoutCounting() {
         let curl = HammerCurlExercise.definition()
         let plan = WorkoutPlan(name: "Upper Body", items: [
@@ -295,8 +359,12 @@ final class WorkoutSessionTests: XCTestCase {
     }
 
     /// Opened and reliably framed, waiting in ready at t = 1.
-    private func readySession() -> WorkoutSession {
-        var session = WorkoutSession(exercises: [press], initialExercise: press.id)
+    private func readySession(
+        exercise: ExerciseDefinition? = nil,
+        settings: WorkoutSettings = WorkoutSettings()
+    ) -> WorkoutSession {
+        let selected = exercise ?? press
+        var session = WorkoutSession(exercises: [selected], initialExercise: selected.id, settings: settings)
         _ = session.handle(.opened, at: 0)
         _ = session.handle(.framingChanged(FramingStatus(isReliable: true, guidance: nil)), at: 1)
         XCTAssertEqual(session.phase, .ready)

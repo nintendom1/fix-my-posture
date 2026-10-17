@@ -25,6 +25,7 @@ enum PreferredWeightUnit: String, Codable, Equatable {
 enum PreferenceKey {
     static let cameraTiltCompensationEnabled = "cameraTiltCompensationEnabled"
     static let showHorizonLine = "showHorizonLine"
+    static let showAlignmentTargets = "showAlignmentTargets"
     static let feedbackRefreshRate = "feedbackRefreshRate"
 
     static let workoutCoachShowMeasurements = "workoutCoach.showMeasurements"
@@ -48,6 +49,7 @@ enum PreferenceKey {
 protocol AppPreferencesStoring: AnyObject {
     var cameraTiltCompensationEnabled: Bool { get set }
     var showHorizonLine: Bool { get set }
+    var showAlignmentTargets: Bool { get set }
     var feedbackRefreshRate: Int { get set }
 
     var workoutCoachShowMeasurements: Bool { get set }
@@ -82,6 +84,11 @@ final class UserDefaultsPreferences: AppPreferencesStoring {
     var showHorizonLine: Bool {
         get { defaults.object(forKey: PreferenceKey.showHorizonLine) as? Bool ?? true }
         set { defaults.set(newValue, forKey: PreferenceKey.showHorizonLine) }
+    }
+
+    var showAlignmentTargets: Bool {
+        get { defaults.object(forKey: PreferenceKey.showAlignmentTargets) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: PreferenceKey.showAlignmentTargets) }
     }
 
     var feedbackRefreshRate: Int {
@@ -176,6 +183,7 @@ final class UserDefaultsPreferences: AppPreferencesStoring {
 final class InMemoryPreferences: AppPreferencesStoring {
     var cameraTiltCompensationEnabled = true
     var showHorizonLine = true
+    var showAlignmentTargets = true
     var feedbackRefreshRate = 5
 
     var workoutCoachShowMeasurements = false

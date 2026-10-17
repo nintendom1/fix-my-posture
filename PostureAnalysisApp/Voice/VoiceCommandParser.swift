@@ -10,12 +10,14 @@ struct VoiceCommandParser: VoiceCommandParsing {
     static let weightSoundAlikeSettleTime: TimeInterval = 1.0
 
     let aliases: [VoiceCommandAlias]
+    let preferredWeightUnit: PreferredWeightUnit
     /// Each alias with its normalized words, computed once.
     private let entries: [(alias: VoiceCommandAlias, tokens: [String])]
 
-    init(exercises: [ExerciseDefinition]) {
+    init(exercises: [ExerciseDefinition], preferredWeightUnit: PreferredWeightUnit = .lb) {
         aliases = VoiceCommandAlias.standard + VoiceCommandAlias.exerciseSelection(exercises)
         entries = aliases.map { ($0, $0.tokens) }
+        self.preferredWeightUnit = preferredWeightUnit
     }
 
     var vocabulary: [String] {
@@ -25,12 +27,13 @@ struct VoiceCommandParser: VoiceCommandParsing {
     }
 
     func parse(_ transcript: String) -> VoiceCommandMatch? {
+        // Do not let a streaming "wait 17" partial become a preferred-unit weight before its
+        // explicit unit arrives or it settles as the pause command.
+        if WeightPhraseParser.isInProgress(transcript) { return nil }
         // A spoken weight can still grow ("17" then "17.5 pounds"), so it waits for the transcript to settle.
-        if let weight = WeightPhraseParser.parse(transcript) {
+        if let weight = WeightPhraseParser.parse(transcript, preferredUnit: preferredWeightUnit) {
             return VoiceCommandMatch(command: .setWeight(weight), phrase: "Weight \(weight.label)", isPrefixOfLongerPhrase: true)
         }
-        // "Wait 17…" is most likely a weight still being said: nothing runs until it's finished or abandoned.
-        if WeightPhraseParser.isInProgress(transcript) { return nil }
         let words = Self.normalize(transcript)
         guard !words.isEmpty else { return nil }
 
