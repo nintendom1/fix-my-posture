@@ -1,9 +1,15 @@
 import Foundation
 import SwiftData
 
+struct SavedExerciseSetRecord: Equatable {
+    let set: SavedExerciseSet
+    let updatedAt: Date
+}
+
 @MainActor
 protocol RoutineRepository {
     func list() throws -> [SavedExerciseSet]
+    func listWithUpdateDates() throws -> [SavedExerciseSetRecord]
     func save(_ set: SavedExerciseSet) throws
     func duplicate(_ set: SavedExerciseSet) throws -> SavedExerciseSet
     func delete(id: UUID) throws
@@ -23,6 +29,20 @@ final class SwiftDataRoutineRepository: RoutineRepository {
             return try context.fetch(descriptor).map(\.value)
         } catch {
             PersistenceRepositoryLogging.failed("List Saved Sets", error: error)
+            throw error
+        }
+    }
+
+    func listWithUpdateDates() throws -> [SavedExerciseSetRecord] {
+        do {
+            let descriptor = FetchDescriptor<SavedExerciseSetEntity>(
+                sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
+            )
+            return try context.fetch(descriptor).map {
+                SavedExerciseSetRecord(set: $0.value, updatedAt: $0.updatedAt)
+            }
+        } catch {
+            PersistenceRepositoryLogging.failed("List Saved Sets by update time", error: error)
             throw error
         }
     }

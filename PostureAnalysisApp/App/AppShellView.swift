@@ -41,7 +41,10 @@ struct AppShellView: View {
             AuraBackground(tab: auraTab(for: tab))
             switch tab {
             case .train:
-                WorkoutSelectionView(mode: .train)
+                TrainHomeScreen(
+                    state: environment.trainHomeViewModel.state,
+                    send: environment.trainHomeViewModel.send
+                )
             case .routines:
                 WorkoutSelectionView(mode: .routines)
             case .progress:
@@ -56,7 +59,10 @@ struct AppShellView: View {
     private func destination(for route: AppRoute) -> some View {
         switch route {
         case .train:
-            WorkoutSelectionView(mode: .train)
+            TrainHomeScreen(
+                state: environment.trainHomeViewModel.state,
+                send: environment.trainHomeViewModel.send
+            )
         case .routines:
             WorkoutSelectionView(mode: .routines)
         case .routine(let id):
@@ -64,7 +70,7 @@ struct AppShellView: View {
         case .routineEditor(let id):
             RoutineEditorRouteView(id: id)
         case .library:
-            ExerciseLibraryView()
+            WorkoutSelectionView(mode: .library)
         case .exercise(let id):
             ExerciseRouteView(id: id)
         case .workout:
@@ -151,19 +157,6 @@ private struct ProgressTabRootView: View {
             }
         }
         .navigationTitle("Progress")
-    }
-}
-
-private struct ExerciseLibraryView: View {
-    @Environment(\.exerciseCatalog) private var exerciseCatalog
-
-    var body: some View {
-        List(exerciseCatalog.all) { exercise in
-            NavigationLink(value: AppRoute.exercise(id: exercise.id)) {
-                ExerciseSummaryLabel(exercise: exercise)
-            }
-        }
-        .navigationTitle("Library")
     }
 }
 

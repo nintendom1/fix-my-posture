@@ -1,20 +1,11 @@
 import SwiftData
 import SwiftUI
 
-/// The first Workout Coach screen, before the camera starts: Saved Sets and individual exercises.
-/// Starting either opens the coach.
+/// Legacy Saved Set editor list and exercise library list.
 struct WorkoutSelectionView: View {
     enum Mode: Equatable {
-        case train
         case routines
-    }
-
-    enum Filter: String, CaseIterable, Identifiable {
-        case all = "All"
-        case savedSets = "Saved Sets"
-        case exercises = "Exercises"
-
-        var id: Self { self }
+        case library
     }
 
     @Environment(\.appRepositories) private var appRepositories
@@ -22,16 +13,14 @@ struct WorkoutSelectionView: View {
     @Environment(\.exerciseCatalog) private var exerciseCatalog
     @Environment(\.preferences) private var preferences
     @Query(sort: \SavedExerciseSetEntity.createdAt) private var savedSets: [SavedExerciseSetEntity]
-    @State private var filter: Filter = .all
     @State private var editing: SavedSetEditing?
     @State private var adjusting: ExerciseDefinition?
     /// Bumped after sets or reps are adjusted, so rows re-read the remembered targets.
     @State private var targetsVersion = 0
     let mode: Mode
 
-    init(mode: Mode = .train) {
+    init(mode: Mode = .routines) {
         self.mode = mode
-        _filter = State(initialValue: mode == .routines ? .savedSets : .all)
     }
 
     private var catalog: [ExerciseDefinition] { exerciseCatalog.all }
@@ -44,44 +33,10 @@ struct WorkoutSelectionView: View {
 
     var body: some View {
         List {
-            if mode == .train {
-                Section {
-                    Picker("Show", selection: $filter) {
-                        ForEach(Filter.allCases) { Text($0.rawValue).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                }
-            }
-            if mode == .routines || filter != .exercises { savedSetsSection }
-            if mode == .train && filter != .savedSets { exercisesSection }
+            if mode == .routines { savedSetsSection }
+            if mode == .library { exercisesSection }
         }
-        .navigationTitle(mode == .train ? "Workout Coach" : "Saved Sets")
-        .toolbar {
-            if mode == .train {
-                ToolbarItem(placement: .primaryAction) {
-                    HStack {
-                        NavigationLink(value: AppRoute.library) {
-                            Image(systemName: "books.vertical")
-                        }
-                        .accessibilityLabel("Library")
-                        Button {
-                            appRouter?.open(.history)
-                        } label: {
-                            Image(systemName: "clock.arrow.circlepath")
-                        }
-                        .accessibilityIdentifier("workoutHistoryButton")
-                        .accessibilityLabel("History")
-                        Button {
-                            appRouter?.open(.settings)
-                        } label: {
-                            Image(systemName: "gearshape.fill")
-                        }
-                        .accessibilityIdentifier("trainSettingsButton")
-                        .accessibilityLabel("Settings")
-                    }
-                }
-            }
-        }
+        .navigationTitle(mode == .library ? "Exercises" : "Saved Sets")
         .sheet(item: $editing) { editing in
             SavedSetEditorView(set: editing.savedSet, isNew: editing.isNew, catalog: catalog,
                                onSave: save, onDelete: delete, onDuplicate: duplicate)

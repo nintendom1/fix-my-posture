@@ -1,6 +1,17 @@
 import SwiftUI
 
 #if DEBUG
+private struct DesignAnchorMarkerNameKey: EnvironmentKey {
+    static let defaultValue: String? = nil
+}
+
+extension EnvironmentValues {
+    var designAnchorMarkerName: String? {
+        get { self[DesignAnchorMarkerNameKey.self] }
+        set { self[DesignAnchorMarkerNameKey.self] = newValue }
+    }
+}
+
 @MainActor
 public final class DesignAnchorRegistry {
     public static let shared = DesignAnchorRegistry()
@@ -24,18 +35,28 @@ public final class DesignAnchorRegistry {
 
 private struct DesignAnchorModifier: ViewModifier {
     let name: String
+    @Environment(\.designAnchorMarkerName) private var markerName
 
     func body(content: Content) -> some View {
-        content.background {
-            GeometryReader { geometry in
-                let frame = geometry.frame(in: .global)
-                Color.clear
-                    .allowsHitTesting(false)
-                    .onAppear { report(frame) }
-                    .onChange(of: frame) { _, updatedFrame in report(updatedFrame) }
+        content
+            .overlay(alignment: .topLeading) {
+                if markerName == name {
+                    Color(red: 1, green: 0, blue: 1)
+                        .frame(width: 3, height: 3)
+                        .accessibilityHidden(true)
+                        .allowsHitTesting(false)
+                }
             }
-            .allowsHitTesting(false)
-        }
+            .background {
+                GeometryReader { geometry in
+                    let frame = geometry.frame(in: .global)
+                    Color.clear
+                        .allowsHitTesting(false)
+                        .onAppear { report(frame) }
+                        .onChange(of: frame) { _, updatedFrame in report(updatedFrame) }
+                }
+                .allowsHitTesting(false)
+            }
     }
 
     private func report(_ frame: CGRect) {

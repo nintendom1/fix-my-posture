@@ -5,7 +5,15 @@ final class DesignWindow: UIWindow {
     static let fixedSize = CGSize(width: 390, height: 844)
 
     init() {
-        super.init(frame: CGRect(origin: .zero, size: Self.fixedSize))
+        let foregroundScene = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }
+        if let foregroundScene {
+            super.init(windowScene: foregroundScene)
+        } else {
+            super.init(frame: CGRect(origin: .zero, size: Self.fixedSize))
+        }
+        frame = CGRect(origin: .zero, size: Self.fixedSize)
         overrideUserInterfaceStyle = .dark
         traitOverrides.preferredContentSizeCategory = .large
         traitOverrides.displayScale = 3
