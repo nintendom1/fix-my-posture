@@ -5,6 +5,7 @@ import SwiftUI
 struct WorkoutHistoryView: View {
     @Environment(\.appRepositories) private var appRepositories
     @Query(sort: \WorkoutRecordEntity.startedAt, order: .reverse) private var records: [WorkoutRecordEntity]
+    var exerciseCatalog: any ExerciseCatalogProviding = LiveExerciseCatalog()
 
     var body: some View {
         List {
@@ -14,7 +15,7 @@ struct WorkoutHistoryView: View {
             }
             ForEach(records) { entity in
                 NavigationLink {
-                    WorkoutRecordDetailView(entity: entity)
+                    WorkoutRecordDetailView(entity: entity, exerciseCatalog: exerciseCatalog)
                 } label: {
                     WorkoutRecordRow(record: entity.value)
                 }
@@ -51,11 +52,13 @@ private struct WorkoutRecordRow: View {
 struct WorkoutRecordDetailView: View {
     @Environment(\.appRepositories) private var appRepositories
     let entity: WorkoutRecordEntity
+    let exerciseCatalog: any ExerciseCatalogProviding
     @State private var record: WorkoutRecord
     @State private var editing: WeightEditTarget?
 
-    init(entity: WorkoutRecordEntity) {
+    init(entity: WorkoutRecordEntity, exerciseCatalog: any ExerciseCatalogProviding = LiveExerciseCatalog()) {
         self.entity = entity
+        self.exerciseCatalog = exerciseCatalog
         _record = State(initialValue: entity.value)
     }
 
@@ -70,7 +73,7 @@ struct WorkoutRecordDetailView: View {
                 }
             }
             ForEach(record.entries) { entry in
-                let equipment = ExerciseCatalog.definition(for: entry.exerciseID)?.equipment ?? .dumbbells
+                let equipment = exerciseCatalog.exercise(entry.exerciseID)?.equipment ?? .dumbbells
                 Section {
                     ForEach(Array(entry.sets.enumerated()), id: \.offset) { index, set in
                         HStack {

@@ -55,6 +55,20 @@ enum DumbbellRowExercise {
         ExerciseDefinition(
             id: .dumbbellRow,
             displayName: "One-Arm Dumbbell Row",
+            presentation: ExercisePresentation(
+                shortName: "Dumbbell Row",
+                muscles: ["Back", "Biceps"],
+                filterGroups: [.upper, .dumbbells],
+                gradient: ExerciseGradient(token: .row, stops: ["#3a8dff", "#6fd6ff"], angle: 135),
+                symbolName: "dumbbell.fill",
+                equipmentLine: "One dumbbell",
+                cameraSetupLine: "Side-on, one arm at a time",
+                watchesFor: [
+                    WatchItem(cueID: .rowPullHigher, text: "Pulling high enough"),
+                    WatchItem(cueID: .rowStraighten, text: "Full arm extension"),
+                    WatchItem(cueID: .rowBackStill, text: "Torso angle holding steady")
+                ]
+            ),
             spokenName: "one-arm dumbbell row",
             sets: 2,
             targetReps: 8...10,

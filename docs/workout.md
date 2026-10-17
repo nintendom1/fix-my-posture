@@ -366,7 +366,8 @@ Every new exercise ships with full guidance, even when the request only names it
 5. Coaching: corrective cues with stable `CoachingCueID`s, priorities, and emphasized joints; visual-only reminders; and a `MotionEnvelope`. The demonstration should raise no cues.
 6. Voice aliases (`ExerciseDefinition.voiceAliases`); the parser, the help list, and the every-phrase test pick them up.
 7. Docs: the rep rule section, the coaching cues, and physical-device checklist items.
-8. Non-diagnostic wording: never comment on grip, wrist rotation, dumbbell orientation, or injury.
+8. Presentation: short name, muscles, filter groups, gradient token, SF Symbol, equipment and camera-setup lines, and watch items keyed to the exercise's own cue IDs (`ExerciseCatalogTests` enforces this).
+9. Non-diagnostic wording: never comment on grip, wrist rotation, dumbbell orientation, or injury.
 
 ## Future options
 

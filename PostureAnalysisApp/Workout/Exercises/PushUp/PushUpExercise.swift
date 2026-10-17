@@ -51,6 +51,19 @@ enum PushUpExercise {
         ExerciseDefinition(
             id: .pushUp,
             displayName: "Push-Up",
+            presentation: ExercisePresentation(
+                shortName: "Push-Up",
+                muscles: ["Chest", "Triceps"],
+                filterGroups: [.upper, .bodyweight],
+                gradient: ExerciseGradient(token: .pushup, stops: ["#22c38e", "#7be0b4"], angle: 135),
+                symbolName: "figure.strengthtraining.traditional",
+                equipmentLine: "Bodyweight",
+                cameraSetupLine: "Phone on the floor, facing you",
+                watchesFor: [
+                    WatchItem(cueID: .pushUpLower, text: "Lowering far enough"),
+                    WatchItem(cueID: .pushUpFullExtension, text: "Pressing to straight arms")
+                ]
+            ),
             spokenName: "push-up",
             sets: 2,
             targetReps: 10...10,

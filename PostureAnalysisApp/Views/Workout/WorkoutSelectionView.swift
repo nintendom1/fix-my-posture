@@ -22,7 +22,9 @@ struct WorkoutSelectionView: View {
     @State private var adjusting: ExerciseDefinition?
     /// Bumped after sets or reps are adjusted, so rows re-read the remembered targets.
     @State private var targetsVersion = 0
-    var catalog: [ExerciseDefinition] = ExerciseCatalog.all
+    var exerciseCatalog: any ExerciseCatalogProviding = LiveExerciseCatalog()
+
+    private var catalog: [ExerciseDefinition] { exerciseCatalog.all }
 
     /// The catalog with remembered sets and reps applied.
     private var exercises: [ExerciseDefinition] {
@@ -50,7 +52,7 @@ struct WorkoutSelectionView: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     NavigationLink {
-                        WorkoutHistoryView()
+                        WorkoutHistoryView(exerciseCatalog: exerciseCatalog)
                     } label: {
                         Label("History", systemImage: "clock.arrow.circlepath")
                     }
@@ -80,7 +82,8 @@ struct WorkoutSelectionView: View {
                     Button {
                         launch = CoachLaunch(model: WorkoutCoachFactory.live(initialExercise: nil,
                                                                               plan: set.plan(in: catalog),
-                                                                              preferences: preferences))
+                                                                              preferences: preferences,
+                                                                              exerciseCatalog: exerciseCatalog))
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(set.name)
@@ -133,7 +136,8 @@ struct WorkoutSelectionView: View {
                 HStack {
                     Button {
                         launch = CoachLaunch(model: WorkoutCoachFactory.live(initialExercise: exercise.id, plan: nil,
-                                                                              preferences: preferences))
+                                                                              preferences: preferences,
+                                                                              exerciseCatalog: exerciseCatalog))
                     } label: {
                         Text(exercise.displayName)
                             .font(.headline)

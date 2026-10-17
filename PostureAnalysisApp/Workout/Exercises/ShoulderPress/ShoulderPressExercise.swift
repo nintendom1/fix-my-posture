@@ -73,6 +73,22 @@ enum ShoulderPressExercise {
         ExerciseDefinition(
             id: .shoulderPress,
             displayName: "Dumbbell Shoulder Press",
+            presentation: ExercisePresentation(
+                shortName: "Shoulder Press",
+                muscles: ["Shoulders", "Triceps"],
+                filterGroups: [.upper, .dumbbells],
+                gradient: ExerciseGradient(token: .press, stops: ["#7c4dff", "#b06cff"], angle: 135),
+                symbolName: "dumbbell.fill",
+                equipmentLine: "Two dumbbells",
+                cameraSetupLine: "Front, room overhead",
+                watchesFor: [
+                    WatchItem(cueID: .pressFullExtension, text: "Full extension at the top"),
+                    WatchItem(cueID: .pressReturnToStart, text: "Lowering to just above your shoulders"),
+                    WatchItem(cueID: .pressControlledLowering, text: "A controlled descent"),
+                    WatchItem(cueID: .pressEvenArms, text: "Both arms pressing evenly"),
+                    WatchItem(cueID: .pressTorsoCentered, text: "Torso staying centered")
+                ]
+            ),
             spokenName: "dumbbell shoulder press",
             sets: 2,
             targetReps: 8...10,

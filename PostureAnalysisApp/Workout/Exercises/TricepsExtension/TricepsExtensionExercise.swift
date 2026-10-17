@@ -68,6 +68,20 @@ enum TricepsExtensionExercise {
         ExerciseDefinition(
             id: .tricepsExtension,
             displayName: "Band Triceps Extension",
+            presentation: ExercisePresentation(
+                shortName: "Triceps Ext.",
+                muscles: ["Triceps"],
+                filterGroups: [.upper, .band],
+                gradient: ExerciseGradient(token: .triceps, stops: ["#6a5cff", "#5ab0ff"], angle: 135),
+                symbolName: "figure.strengthtraining.traditional",
+                equipmentLine: "Resistance band",
+                cameraSetupLine: "Side-on, room overhead",
+                watchesFor: [
+                    WatchItem(cueID: .tricepsFullExtension, text: "Full extension overhead"),
+                    WatchItem(cueID: .tricepsElbowsUp, text: "Elbows pointing up"),
+                    WatchItem(cueID: .tricepsControlledLowering, text: "Controlled lowering")
+                ]
+            ),
             spokenName: "band triceps extension",
             sets: 2,
             targetReps: 10...10,

@@ -57,6 +57,20 @@ enum AirSquatExercise {
         ExerciseDefinition(
             id: .airSquat,
             displayName: "Air Squat",
+            presentation: ExercisePresentation(
+                shortName: "Air Squat",
+                muscles: ["Legs", "Glutes"],
+                filterGroups: [.lower, .bodyweight],
+                gradient: ExerciseGradient(token: .squat, stops: ["#ff6f91", "#ffa36c"], angle: 135),
+                symbolName: "figure.strengthtraining.traditional",
+                equipmentLine: "Bodyweight",
+                cameraSetupLine: "Front, full body",
+                watchesFor: [
+                    WatchItem(cueID: .squatDeeper, text: "Depth of each squat"),
+                    WatchItem(cueID: .squatKneesOut, text: "Knees tracking outward"),
+                    WatchItem(cueID: .squatStandUp, text: "Standing fully between reps")
+                ]
+            ),
             spokenName: "air squat",
             sets: 2,
             targetReps: 15...15,
