@@ -9,6 +9,11 @@ public enum MeasurementPresentation {
         ![.kneeJointAngle, .kneeAnkleStanceRatio, .shoulderHeightAsymmetry, .hipHeightAsymmetry, .custom].contains(id)
     }
 
+    public static func name(_ measurement: PostureMeasurement) -> String {
+        let name = measurement.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? measurement.measurementID.defaultDisplayName : name
+    }
+
     public static func reading(_ measurement: PostureMeasurement, pose: BodyPose?, view: PostureView, horizonContext: HorizonContext? = nil) -> String {
         let digits = measurement.measurementID == .kneeAnkleStanceRatio ? 2 : 1
         let magnitude = abs(measurement.value)

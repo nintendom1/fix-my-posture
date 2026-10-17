@@ -1,6 +1,6 @@
 enum PendingFrames {
     static let ids: Set<String> = [
-        "posture", "assessment", "settings",
+        "settings",
     ]
 }
 
@@ -10,4 +10,6 @@ enum ImplementedDesignFixtures {
         .union(WorkoutCompleteFixtures.ids)
         .union(ProgressFixtures.ids)
         .union(HistoryFixtures.ids)
+        .union(PostureFixtures.ids)
+        .union(AssessmentFixtures.ids)
 }

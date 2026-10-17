@@ -16,8 +16,10 @@ struct ProgressScreen: View {
                     tabRootHeader(compact: false)
                     VStack(spacing: 18) {
                         weekCard
-                        workoutsChartCard
-                        weightChartCard
+                        if viewModel.state.showsChartPlaceholders {
+                            workoutsChartCard
+                            weightChartCard
+                        }
                         recentSection
                         postureCard
                     }

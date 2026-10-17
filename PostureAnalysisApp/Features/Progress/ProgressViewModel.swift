@@ -11,23 +11,27 @@ final class ProgressViewModel {
     private let router: AppRouter?
     private let now: () -> Date
     private let calendar: Calendar
+    private let showsChartPlaceholders: Bool
 
     init(
         workoutHistory: (any WorkoutHistoryRepository)?,
         assessments: (any AssessmentRepository)?,
         router: AppRouter?,
         now: @escaping () -> Date = Date.init,
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        showsChartPlaceholders: Bool = false
     ) {
         self.workoutHistory = workoutHistory
         self.assessments = assessments
         self.router = router
         self.now = now
         self.calendar = calendar
+        self.showsChartPlaceholders = showsChartPlaceholders
         state = ProgressState(
             weeklyStats: WeeklyStats(records: [], now: now(), calendar: calendar),
             postureAssessmentCount: 0,
-            latestAssessmentDate: nil
+            latestAssessmentDate: nil,
+            showsChartPlaceholders: showsChartPlaceholders
         )
         refresh()
     }
@@ -50,7 +54,8 @@ final class ProgressViewModel {
         state = ProgressState(
             weeklyStats: WeeklyStats(records: records, now: currentDate, calendar: calendar),
             postureAssessmentCount: postureRecords.count,
-            latestAssessmentDate: postureRecords.max(by: { $0.date < $1.date })?.date
+            latestAssessmentDate: postureRecords.max(by: { $0.date < $1.date })?.date,
+            showsChartPlaceholders: showsChartPlaceholders
         )
     }
 }

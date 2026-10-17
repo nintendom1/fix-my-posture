@@ -16,6 +16,7 @@ final class AppEnvironment {
     let routinesViewModel: RoutinesViewModel
     let libraryViewModel: LibraryViewModel
     let progressViewModel: ProgressViewModel
+    let postureHomeViewModel: PostureHomeViewModel
     let persistenceError: String?
 
     init(inMemory: Bool = false) {
@@ -56,6 +57,11 @@ final class AppEnvironment {
                 assessments: repositories.assessments,
                 router: router
             )
+            postureHomeViewModel = PostureHomeViewModel(
+                assessments: repositories.assessments,
+                images: repositories.images,
+                router: router
+            )
             persistenceError = nil
         } catch {
             modelContainer = nil
@@ -86,6 +92,11 @@ final class AppEnvironment {
             progressViewModel = ProgressViewModel(
                 workoutHistory: nil,
                 assessments: nil,
+                router: router
+            )
+            postureHomeViewModel = PostureHomeViewModel(
+                assessments: nil,
+                images: nil,
                 router: router
             )
             persistenceError = error.localizedDescription

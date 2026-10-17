@@ -17,6 +17,7 @@
   ],
   "cameraPreview": { "x": 0, "y": 220, "width": 390, "height": 360 },
   "anchorMasks": {
-    "progress": ["progress.activity", "progress.weight"]
+    "progress": ["progress.activity", "progress.weight"],
+    "assessment": ["assessment.photo", "assessment.share"]
   }
 }

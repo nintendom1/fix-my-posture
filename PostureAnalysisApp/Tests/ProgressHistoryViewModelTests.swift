@@ -28,6 +28,7 @@ final class ProgressHistoryViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.state.weeklyStats.durationLabel, "44m")
         XCTAssertEqual(viewModel.state.recentWorkouts.map(\.name), ["Upper Body", "Quick Strength"])
         XCTAssertEqual(viewModel.state.postureSummary, "3 assessments · latest Oct 10")
+        XCTAssertFalse(viewModel.state.showsChartPlaceholders)
     }
 
     func testProgressActionsOpenHistoryAndSwitchToPostureTab() {

@@ -9,6 +9,9 @@ public struct PostureReportView: View {
     public let measurements: [PostureMeasurement]
     public let horizonContext: HorizonContext?
     public let referenceProvider: PostureReferenceProviding
+    public var imageHeight: CGFloat?
+    public var imageCornerRadius: CGFloat
+    public var showsReportControls: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(PreferenceKey.showHorizonLine) private var showHorizonLine: Bool = true
@@ -32,7 +35,10 @@ public struct PostureReportView: View {
         measurements: [PostureMeasurement] = [],
         sourcePose: BodyPose? = nil,
         horizonContext: HorizonContext? = nil,
-        referenceProvider: PostureReferenceProviding = DefaultPostureReferenceProvider()
+        referenceProvider: PostureReferenceProviding = DefaultPostureReferenceProvider(),
+        imageHeight: CGFloat? = nil,
+        imageCornerRadius: CGFloat = 12,
+        showsReportControls: Bool = true
     ) {
         self.image = image
         self.pose = pose
@@ -41,6 +47,9 @@ public struct PostureReportView: View {
         self.measurements = measurements
         self.horizonContext = horizonContext
         self.referenceProvider = referenceProvider
+        self.imageHeight = imageHeight
+        self.imageCornerRadius = imageCornerRadius
+        self.showsReportControls = showsReportControls
     }
 
     public var body: some View {
@@ -52,7 +61,7 @@ public struct PostureReportView: View {
                         Image(uiImage: uiImg)
                             .resizable()
                             .scaledToFit()
-                            .cornerRadius(12)
+                            .cornerRadius(imageCornerRadius)
 
                         // Horizon Line Overlay
                         if showHorizonLine, let ctx = horizonContext {
@@ -103,11 +112,12 @@ public struct PostureReportView: View {
                         }
                     }
                 }
-                .frame(height: min(max(UIScreen.main.bounds.height - 180, 350), 700))
+                .frame(height: imageHeight ?? min(max(UIScreen.main.bounds.height - 180, 350), 700))
             }
 
             // Controls Section
-            VStack(spacing: 12) {
+            if showsReportControls {
+                VStack(spacing: 12) {
                 if horizonContext != nil {
                     HStack {
                         Toggle("Horizon line", isOn: $showHorizonLine)
@@ -162,12 +172,12 @@ public struct PostureReportView: View {
                             .padding(.horizontal)
                     }
                 }
-            }
+                }
 
-            Text(MeasurementPresentation.convention).font(.caption).padding(.horizontal)
+                Text(MeasurementPresentation.convention).font(.caption).padding(.horizontal)
 
             // Legend
-            HStack(spacing: 20) {
+                HStack(spacing: 20) {
                 HStack(spacing: 6) {
                     Circle()
                         .fill(Color.green)
@@ -185,13 +195,13 @@ public struct PostureReportView: View {
                         .font(.caption)
                         .bold()
                 }
-            }
-            .padding(8)
-            .background(Color(uiColor: .tertiarySystemBackground))
-            .cornerRadius(8)
+                }
+                .padding(8)
+                .background(Color(uiColor: .tertiarySystemBackground))
+                .cornerRadius(8)
 
             // Reference Info & Explanations
-            if showReference || showTargets {
+                if showReference || showTargets {
                 VStack(alignment: .leading, spacing: 8) {
                     let profile = referenceProvider.profile(for: view)
                     Text("Alignment Reference (\(profile.name) v\(profile.version))")
@@ -227,6 +237,7 @@ public struct PostureReportView: View {
                 .background(Color.purple.opacity(0.1))
                 .cornerRadius(10)
                 .padding(.horizontal)
+                }
             }
         }
         .onAppear {

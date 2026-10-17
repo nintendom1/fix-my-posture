@@ -2041,6 +2041,13 @@
           "height": 50,
           "kind": "box"
         },
+        "posture.livePrivacy": {
+          "x": 42,
+          "y": 333,
+          "width": 306,
+          "height": 15,
+          "kind": "text"
+        },
         "posture.photoAssessment": {
           "x": 20,
           "y": 388,
@@ -2072,6 +2079,20 @@
         "posture.assessment.latest": {
           "x": 20,
           "y": 581,
+          "width": 350,
+          "height": 80,
+          "kind": "box"
+        },
+        "posture.assessment.side": {
+          "x": 20,
+          "y": 669,
+          "width": 350,
+          "height": 80,
+          "kind": "box"
+        },
+        "posture.assessment.baseline": {
+          "x": 20,
+          "y": 757,
           "width": 350,
           "height": 80,
           "kind": "box"
@@ -2122,6 +2143,13 @@
           "y": 58,
           "width": 92,
           "height": 36,
+          "kind": "box"
+        },
+        "assessment.share": {
+          "x": 346,
+          "y": 62,
+          "width": 24,
+          "height": 28,
           "kind": "box"
         },
         "assessment.date": {
@@ -2179,6 +2207,97 @@
           "width": 350,
           "height": 58,
           "kind": "box"
+        },
+        "assessment.headTilt.value": {
+          "x": 307.5,
+          "y": 570.5,
+          "width": 62.5,
+          "height": 19,
+          "kind": "text"
+        },
+        "assessment.headTilt.delta": {
+          "x": 263.5,
+          "y": 589.5,
+          "width": 106.5,
+          "height": 14,
+          "kind": "text"
+        },
+        "assessment.headTilt.baseline": {
+          "x": 20,
+          "y": 589.5,
+          "width": 101.5,
+          "height": 14,
+          "kind": "text"
+        },
+        "assessment.shoulderLine.value": {
+          "x": 256,
+          "y": 632.5,
+          "width": 114,
+          "height": 19,
+          "kind": "text"
+        },
+        "assessment.shoulderLine.delta": {
+          "x": 264,
+          "y": 651.5,
+          "width": 106,
+          "height": 14,
+          "kind": "text"
+        },
+        "assessment.shoulderLine.baseline": {
+          "x": 20,
+          "y": 651.5,
+          "width": 138,
+          "height": 14,
+          "kind": "text"
+        },
+        "assessment.torsoDeviation.value": {
+          "x": 292.5,
+          "y": 694.5,
+          "width": 77.5,
+          "height": 19,
+          "kind": "text"
+        },
+        "assessment.torsoDeviation.delta": {
+          "x": 263,
+          "y": 713.5,
+          "width": 107,
+          "height": 14,
+          "kind": "text"
+        },
+        "assessment.torsoDeviation.baseline": {
+          "x": 20,
+          "y": 713.5,
+          "width": 109,
+          "height": 14,
+          "kind": "text"
+        },
+        "assessment.hipLine": {
+          "x": 20,
+          "y": 745,
+          "width": 350,
+          "height": 58,
+          "kind": "box"
+        },
+        "assessment.hipLine.value": {
+          "x": 267.5,
+          "y": 756.5,
+          "width": 102.5,
+          "height": 19,
+          "kind": "text"
+        },
+        "assessment.hipLine.delta": {
+          "x": 305,
+          "y": 775.5,
+          "width": 65,
+          "height": 14,
+          "kind": "text"
+        },
+        "assessment.hipLine.baseline": {
+          "x": 20,
+          "y": 775.5,
+          "width": 129.5,
+          "height": 14,
+          "kind": "text"
         },
         "tabbar": {
           "x": 0,

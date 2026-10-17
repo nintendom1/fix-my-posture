@@ -21,7 +21,8 @@ enum ProgressFixtures {
                         assessments: FixtureAssessmentRepository(assessments: ProgressHistoryFixtures.assessments),
                         router: nil,
                         now: { FixedClock.date },
-                        calendar: FixedClock.calendar
+                        calendar: FixedClock.calendar,
+                        showsChartPlaceholders: true
                     ))
                 }
                 .toolbar(.hidden, for: .navigationBar)
