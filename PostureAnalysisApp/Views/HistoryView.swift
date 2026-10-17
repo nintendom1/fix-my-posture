@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 public struct HistoryView: View {
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.appRepositories) private var appRepositories
     @Query(sort: \AssessmentEntity.date, order: .reverse) private var storedAssessments: [AssessmentEntity]
 
     public var body: some View {
@@ -58,7 +58,7 @@ public struct HistoryView: View {
 
     private func detailView(for entity: AssessmentEntity) -> some View {
         let currentAssessment = convertToDomain(entity)
-        let uiImg = ImageStore.shared.loadImage(relativePath: entity.imageRelativePath)
+        let uiImg = appRepositories?.images.loadImage(relativePath: entity.imageRelativePath)
 
         let baselineEntity = storedAssessments.first(where: { $0.isBaseline && $0.viewRawValue == entity.viewRawValue && $0.id != entity.id })
         let baselineAssessment = baselineEntity.map { convertToDomain($0) }
@@ -124,21 +124,15 @@ public struct HistoryView: View {
 
     private func toggleBaseline(entity: AssessmentEntity) {
         let newValue = !entity.isBaseline
-        if newValue {
-            for item in storedAssessments where item.viewRawValue == entity.viewRawValue {
-                item.isBaseline = false
-            }
-        }
-        entity.isBaseline = newValue
-        try? modelContext.save()
+        try? appRepositories?.assessments.setBaseline(id: entity.id, isBaseline: newValue)
     }
 
     private func deleteAssessment(at offsets: IndexSet) {
+        guard let appRepositories else { return }
         for index in offsets {
             let item = storedAssessments[index]
-            ImageStore.shared.deleteImage(relativePath: item.imageRelativePath)
-            modelContext.delete(item)
+            appRepositories.images.deleteImage(relativePath: item.imageRelativePath)
+            try? appRepositories.assessments.delete(id: item.id)
         }
-        try? modelContext.save()
     }
 }

@@ -54,7 +54,7 @@ A **Saved Set** is an ordered sequence of exercises, each occurrence with its ow
 
 Ending a workout saves it automatically: End Workout on the completion card, End and then Done, or closing the camera screen after finishing a set. A workout with no finished set saves nothing.
 
-- **Storage.** `WorkoutRecord` (pure Codable, built from the session by `WorkoutRecord(session:startedAt:endedAt:)`) is stored by `WorkoutRecordEntity` (SwiftData, entries as JSON).
+- **Storage.** `WorkoutRecord` (pure Codable, built from the session by `WorkoutRecord(session:startedAt:endedAt:)`) is stored by `WorkoutRecordEntity` (SwiftData, entries as JSON). Workouts run from a Saved Set also store that set's UUID as `planID`; individual exercise workouts leave it nil.
   - The record has the start and end time and, for a Saved Set, its name.
   - Each entry is one exercise (or one Saved Set occurrence, marked completed or skipped) with its sets: reps, the arm for one-arm exercises, and the weight.
   - The exercise's name is copied, so history still reads well if the exercise changes.

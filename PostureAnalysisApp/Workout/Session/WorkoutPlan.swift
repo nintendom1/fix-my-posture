@@ -11,8 +11,15 @@ struct WorkoutPlanItem: Equatable, Identifiable {
 
 /// Exercises run one after another, such as a Saved Set.
 struct WorkoutPlan: Equatable {
+    var id: UUID?
     var name: String
     var items: [WorkoutPlanItem]
+
+    init(id: UUID? = nil, name: String, items: [WorkoutPlanItem]) {
+        self.id = id
+        self.name = name
+        self.items = items
+    }
 }
 
 /// What happened to one occurrence in a plan.

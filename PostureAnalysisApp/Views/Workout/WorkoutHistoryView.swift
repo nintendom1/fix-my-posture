@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Saved workouts, newest first. Swipe to delete; open one to add or change its weights.
 struct WorkoutHistoryView: View {
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.appRepositories) private var appRepositories
     @Query(sort: \WorkoutRecordEntity.startedAt, order: .reverse) private var records: [WorkoutRecordEntity]
 
     var body: some View {
@@ -20,8 +20,8 @@ struct WorkoutHistoryView: View {
                 }
             }
             .onDelete { offsets in
-                for index in offsets { modelContext.delete(records[index]) }
-                try? modelContext.save()
+                guard let appRepositories else { return }
+                for index in offsets { try? appRepositories.workoutHistory.delete(id: records[index].id) }
             }
         }
         .navigationTitle("History")
@@ -49,7 +49,7 @@ private struct WorkoutRecordRow: View {
 
 /// One saved workout. Each set's weight can be added, changed, or removed.
 struct WorkoutRecordDetailView: View {
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.appRepositories) private var appRepositories
     let entity: WorkoutRecordEntity
     @State private var record: WorkoutRecord
     @State private var editing: WeightEditTarget?
@@ -127,8 +127,7 @@ struct WorkoutRecordDetailView: View {
         for index in sets where index == target.setIndex || (applyToLater && index > target.setIndex) {
             record.entries[entryIndex].sets[index].weight = weight
         }
-        entity.update(entries: record.entries)
-        try? modelContext.save()
+        try? appRepositories?.workoutHistory.updateWeights(for: record)
     }
 }
 
