@@ -11,7 +11,7 @@ public struct PostureReportView: View {
     public let referenceProvider: PostureReferenceProviding
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @AppStorage("showHorizonLine") private var showHorizonLine: Bool = true
+    @AppStorage(PreferenceKey.showHorizonLine) private var showHorizonLine: Bool = true
 
     @State private var showMeasuredOverlay: Bool = true
     @State private var showReference: Bool = false

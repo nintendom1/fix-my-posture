@@ -21,9 +21,9 @@ public struct RealtimeCorrectionView: View {
 
     @StateObject private var cameraModel = RealtimeCameraModel()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @AppStorage("feedbackRefreshRate") private var feedbackRate = 5
-    @AppStorage("cameraTiltCompensationEnabled") private var cameraTiltCompensationEnabled = true
-    @AppStorage("showHorizonLine") private var showHorizonLine = true
+    @AppStorage(PreferenceKey.feedbackRefreshRate) private var feedbackRate = 5
+    @AppStorage(PreferenceKey.cameraTiltCompensationEnabled) private var cameraTiltCompensationEnabled = true
+    @AppStorage(PreferenceKey.showHorizonLine) private var showHorizonLine = true
     @State private var showTargets = true
     @State private var controlRects: [CGRect] = []
     @State private var detailsTarget: ReferencePose?
@@ -425,7 +425,7 @@ public class CameraPreviewUIView: UIView {
     }
 }
 
-private struct RealtimeControlRects: PreferenceKey {
+private struct RealtimeControlRects: SwiftUI.PreferenceKey {
     static var defaultValue: [CGRect] = []
     static func reduce(value: inout [CGRect], nextValue: () -> [CGRect]) {
         value.append(contentsOf: nextValue())

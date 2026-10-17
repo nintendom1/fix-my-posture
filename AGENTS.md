@@ -13,6 +13,7 @@ A native Swift and SwiftUI iOS application designed for iPhone 15 Pro that analy
 ```text
 PostureAnalysisApp/
 ├── Models/              # Domain models (BodyPose, Landmark, PostureMeasurement, MeasurementID, PostureAssessment)
+├── Preferences/         # Typed AppPreferencesStoring boundary, UserDefaults and in-memory stores, SwiftUI environment key
 ├── DesignSystem/        # Debug-only layout anchors and the motion-policy environment value
 ├── PoseEstimation/      # PoseEstimator protocol & AppleVisionPoseEstimator implementation
 ├── PostureAnalysis/    # PostureAnalyzer geometry calculation engine

@@ -9,6 +9,7 @@ struct WorkoutCoachView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.preferences) private var preferences
     @State private var model: any WorkoutCoachViewModeling
     /// Open the Voice Commands help once the guide finishes dismissing.
     @State private var showVoiceCommandsAfterGuide = false
@@ -209,12 +210,13 @@ struct WorkoutCoachView: View {
     }
 
     private func presentGuideIfUnseen() {
-        guard !model.isGuidePresented, let id = model.session.exerciseID, !WorkoutGuidePreferences.hasSeen(id) else { return }
+        guard !model.isGuidePresented, let id = model.session.exerciseID,
+              !WorkoutGuidePreferences.hasSeen(id, preferences: preferences) else { return }
         presentGuide()
     }
 
     private func guideDismissed() {
-        if let id = model.session.exerciseID { WorkoutGuidePreferences.markSeen(id) }
+        if let id = model.session.exerciseID { WorkoutGuidePreferences.markSeen(id, preferences: preferences) }
         routeIntent(.hideGuide)
         if showVoiceCommandsAfterGuide {
             showVoiceCommandsAfterGuide = false
@@ -272,14 +274,12 @@ struct WorkoutCoachView: View {
 
 /// Remembers which exercise guides were shown, so returning users go straight to setup.
 enum WorkoutGuidePreferences {
-    private static func key(_ id: ExerciseID) -> String { "workoutCoach.guideSeen.\(id.rawValue)" }
-
-    static func hasSeen(_ id: ExerciseID) -> Bool {
-        UserDefaults.standard.bool(forKey: key(id))
+    static func hasSeen(_ id: ExerciseID, preferences: any AppPreferencesStoring) -> Bool {
+        preferences.guideSeen(for: id.rawValue)
     }
 
-    static func markSeen(_ id: ExerciseID) {
-        UserDefaults.standard.set(true, forKey: key(id))
+    static func markSeen(_ id: ExerciseID, preferences: any AppPreferencesStoring) {
+        preferences.setGuideSeen(true, for: id.rawValue)
     }
 }
 

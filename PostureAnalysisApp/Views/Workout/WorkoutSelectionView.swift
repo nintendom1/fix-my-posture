@@ -14,6 +14,7 @@ struct WorkoutSelectionView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.preferences) private var preferences
     @Query(sort: \SavedExerciseSetEntity.createdAt) private var savedSets: [SavedExerciseSetEntity]
     @State private var filter: Filter = .all
     @State private var launch: CoachLaunch?
@@ -26,7 +27,7 @@ struct WorkoutSelectionView: View {
     /// The catalog with remembered sets and reps applied.
     private var exercises: [ExerciseDefinition] {
         _ = targetsVersion
-        return ExerciseTargetStore.applying(to: catalog)
+        return ExerciseTargetStore.applying(to: catalog, preferences: preferences)
     }
 
     var body: some View {
@@ -65,7 +66,7 @@ struct WorkoutSelectionView: View {
                                onSave: save, onDelete: delete, onDuplicate: duplicate)
         }
         .sheet(item: $adjusting) { exercise in
-            ExerciseTargetEditor(exercise: exercise) { targetsVersion += 1 }
+            ExerciseTargetEditor(exercise: exercise, preferences: preferences) { targetsVersion += 1 }
                 .presentationDetents([.medium])
         }
     }
@@ -78,7 +79,8 @@ struct WorkoutSelectionView: View {
                 HStack {
                     Button {
                         launch = CoachLaunch(model: WorkoutCoachFactory.live(initialExercise: nil,
-                                                                              plan: set.plan(in: catalog)))
+                                                                              plan: set.plan(in: catalog),
+                                                                              preferences: preferences))
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(set.name)
@@ -130,7 +132,8 @@ struct WorkoutSelectionView: View {
             ForEach(exercises) { exercise in
                 HStack {
                     Button {
-                        launch = CoachLaunch(model: WorkoutCoachFactory.live(initialExercise: exercise.id, plan: nil))
+                        launch = CoachLaunch(model: WorkoutCoachFactory.live(initialExercise: exercise.id, plan: nil,
+                                                                              preferences: preferences))
                     } label: {
                         Text(exercise.displayName)
                             .font(.headline)

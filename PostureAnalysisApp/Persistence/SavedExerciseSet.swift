@@ -106,25 +106,19 @@ struct ExerciseTarget: Codable, Equatable {
 }
 
 enum ExerciseTargetStore {
-    private static func key(_ id: ExerciseID) -> String { "workoutCoach.target.\(id.rawValue)" }
-
-    static func target(for id: ExerciseID, defaults: UserDefaults = .standard) -> ExerciseTarget? {
-        defaults.data(forKey: key(id)).flatMap { try? JSONDecoder().decode(ExerciseTarget.self, from: $0) }
+    static func target(for id: ExerciseID, preferences: any AppPreferencesStoring) -> ExerciseTarget? {
+        preferences.exerciseTarget(for: id.rawValue)
     }
 
     /// Nil resets the exercise to its default.
-    static func setTarget(_ target: ExerciseTarget?, for id: ExerciseID, defaults: UserDefaults = .standard) {
-        if let target, let data = try? JSONEncoder().encode(target) {
-            defaults.set(data, forKey: key(id))
-        } else {
-            defaults.removeObject(forKey: key(id))
-        }
+    static func setTarget(_ target: ExerciseTarget?, for id: ExerciseID, preferences: any AppPreferencesStoring) {
+        preferences.setExerciseTarget(target, for: id.rawValue)
     }
 
     /// The catalog with each remembered target applied.
-    static func applying(to exercises: [ExerciseDefinition], defaults: UserDefaults = .standard) -> [ExerciseDefinition] {
+    static func applying(to exercises: [ExerciseDefinition], preferences: any AppPreferencesStoring) -> [ExerciseDefinition] {
         exercises.map { exercise in
-            guard let target = target(for: exercise.id, defaults: defaults) else { return exercise }
+            guard let target = target(for: exercise.id, preferences: preferences) else { return exercise }
             return exercise.withTarget(sets: target.sets, reps: target.repMinimum...target.repMaximum)
         }
     }

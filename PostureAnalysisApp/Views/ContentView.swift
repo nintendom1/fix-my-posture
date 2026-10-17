@@ -7,7 +7,7 @@ public struct ContentView: View {
 
     public var referenceProvider: PostureReferenceProviding = DefaultPostureReferenceProvider()
 
-    @AppStorage("cameraTiltCompensationEnabled") private var cameraTiltCompensationEnabled = true
+    @AppStorage(PreferenceKey.cameraTiltCompensationEnabled) private var cameraTiltCompensationEnabled = true
     @State private var selectedPhotoItem: PhotosPickerItem? = nil
     @State private var inputImage: UIImage? = nil
     @State private var currentInputSource: ImageMetadata.ImageSource? = nil

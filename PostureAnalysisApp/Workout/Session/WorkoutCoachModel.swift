@@ -84,7 +84,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     @ObservationIgnored private let audio: AudioSessionControlling?
     @ObservationIgnored private let tiltMonitor: PhoneTiltMonitoring?
     @ObservationIgnored private let voice: VoiceControlling?
-    @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let preferences: any AppPreferencesStoring
     @ObservationIgnored private let clock: Clock
     @ObservationIgnored private let scheduler: Scheduling
 
@@ -104,15 +104,11 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     static let heardChipDuration: TimeInterval = 1.5
     static let tipDuration = CoachingCueScheduler.Configuration().tipDuration
     /// Spoken once per install, after the intro, when voice first works.
-    static let voiceTipKey = "workoutCoach.voiceTipSpoken"
     static let voiceTip = "Say \u{201C}what can I say\u{201D} anytime to see voice commands."
-    static let coachMutedKey = "workoutCoach.coachMuted"
-    static let micMutedKey = "workoutCoach.micMuted"
-    static let showMeasurementsKey = "workoutCoach.showMeasurements"
 
     init(camera: PoseFrameSource, previewProvider: CameraPreviewProviding?, permission: CameraPermissionProviding,
          speech: SpeechCoaching, audio: AudioSessionControlling?, tiltMonitor: PhoneTiltMonitoring?,
-         voice: VoiceControlling?, clock: Clock, scheduler: Scheduling, defaults: UserDefaults,
+         voice: VoiceControlling?, clock: Clock, scheduler: Scheduling, preferences: any AppPreferencesStoring,
          exercises: [ExerciseDefinition], initialExercise: ExerciseID?, plan: WorkoutPlan?) {
         self.camera = camera
         self.previewProvider = previewProvider
@@ -121,12 +117,12 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         self.audio = audio
         self.tiltMonitor = tiltMonitor
         self.voice = voice
-        self.defaults = defaults
+        self.preferences = preferences
         self.clock = clock
         self.scheduler = scheduler
-        isCoachMuted = defaults.bool(forKey: Self.coachMutedKey)
-        isMicMuted = defaults.bool(forKey: Self.micMutedKey)
-        showsMeasurements = defaults.bool(forKey: Self.showMeasurementsKey)
+        isCoachMuted = preferences.workoutCoachCoachMuted
+        isMicMuted = preferences.workoutCoachMicMuted
+        showsMeasurements = preferences.workoutCoachShowMeasurements
         session = WorkoutSession(exercises: exercises, initialExercise: initialExercise, plan: plan)
         now = clock.now
         audio?.onEvent = { [weak self] event in self?.handleAudio(event) }
@@ -228,7 +224,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
             retryVoice()
         case .toggleMeasurements:
             showsMeasurements.toggle()
-            defaults.set(showsMeasurements, forKey: Self.showMeasurementsKey)
+            preferences.workoutCoachShowMeasurements = showsMeasurements
         case .dismissTip:
             setActiveTip(nil)
         case .closeWorkout:
@@ -272,7 +268,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     func setCoachMuted(_ muted: Bool) {
         guard muted != isCoachMuted else { return }
         isCoachMuted = muted
-        defaults.set(muted, forKey: Self.coachMutedKey)
+        preferences.workoutCoachCoachMuted = muted
         if muted {
             // Cut the current line now; this also restores any ducked audio.
             unmuteTipTask?.cancel()
@@ -292,7 +288,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     func setMicMuted(_ muted: Bool) {
         guard muted != isMicMuted else { return }
         isMicMuted = muted
-        defaults.set(muted, forKey: Self.micMutedKey)
+        preferences.workoutCoachMicMuted = muted
         voice?.setMuted(muted)
         didApplyInitialMicMute = true
         if !muted, canCapture { voice?.enable() }
@@ -549,8 +545,8 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
 
     /// Once per install, after the intro and once voice works, mention the help command.
     private func speakVoiceTipIfNeeded() {
-        guard hasOpened, micStatus.isUsable, !isCoachMuted, !defaults.bool(forKey: Self.voiceTipKey) else { return }
-        defaults.set(true, forKey: Self.voiceTipKey)
+        guard hasOpened, micStatus.isUsable, !isCoachMuted, !preferences.workoutCoachVoiceTipSpoken else { return }
+        preferences.workoutCoachVoiceTipSpoken = true
         speech.speak(Utterance(text: Self.voiceTip, isInstruction: false))
     }
 
