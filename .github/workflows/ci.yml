@@ -2,10 +2,10 @@ name: CI Validation
 
 on:
   push:
-    # Feature branches are validated by pull_request to avoid duplicate runs.
+    # Feature branch pushes are covered by pull_request, including stacked PRs.
     branches: [ main ]
   pull_request:
-    branches: [ main ]
+    # Run for every base branch so stacked PRs are validated too.
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

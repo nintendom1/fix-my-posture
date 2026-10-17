@@ -25,27 +25,23 @@ Now, <the new user-visible behavior or capability, and what it enables for the u
 * Format: Must start with the same `Before, ... Now, ...` shape used for commits.
 * The PR Before/Now should summarize the product outcome of the whole branch, not retell every commit.
 * Keep the opening Before/Now user-facing. Avoid helper names, hooks, files, tests, algorithms, state refs, query names, or priority-chain internals unless they are necessary to explain the user outcome.
-* Describe Traveler/Follower impact only when the roles experience different behavior. Prefer one concise sentence over a full role-by-role analysis.
+* Describe separate user impacts only when different groups experience different behavior. Prefer one concise sentence over a role-by-role analysis.
 * Technical details, commit-by-commit notes, test commands, and file changes belong in separate `Summary` or `Testing` sections, not in the opening Before/Now.
 
 ## Good PR Body Example
 
 ```text
-Before, Travelers and Followers opened the app to the Seattle fallback even when the trip had better location context available. This made the map feel disconnected from the current trip unless the user manually centered it.
-Now, Travelers open near their current location when permission is available, while Followers open near the Traveler's live shared location or the most recent valid pin. The map starts closer to the trip automatically, without forcing users to tap center after launch.
+Before, Workout Coach guided only the shoulder press, so people needed another tool to follow a different exercise.
+Now, it guides six exercises and lets people save workout sets and review their history with the weights they used.
 
 ## Summary
-- Added launch-centering behavior for Traveler and Follower map views.
-- Preserved manual centering and follow-mode behavior after launch.
-- For Travelers, fire a single
-navigator.geolocation.getCurrentPosition at mount that is independent
-of the Live pill, so on the native app the map can jump to your current
-fix without you having to enable sharing
-- Followers get their most recent map pin if Traveler GPS is not live.
+- Added guides and rep counting for hammer curls, triceps extensions, air squats, one-arm rows, and push-ups.
+- Added Saved Sets and workout history with weight tracking.
+- Kept workout pose analysis on device.
 
 ## Testing
-- npm run validate
-- Manually verified launch behavior with location permission on and off.
+- ./scripts/validate.sh
+- Manually checked a saved workout and weight entry.
 ```
 
 ## Bad PR Body Pattern

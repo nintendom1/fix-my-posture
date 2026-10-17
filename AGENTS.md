@@ -29,7 +29,8 @@ PostureAnalysisApp/
 ├── LandmarkEditing/     # LandmarkEditingView (manual point repositioning)
 ├── Utilities/           # CoordinateConverter (aspect-correct image pixel transform), PortraitCameraSession, ProtectedBodyGeometry (body areas overlays avoid)
 ├── Assets.xcassets/     # AppIcon (exported from Design/AppIcon; don't edit the PNG by hand)
-└── Tests/               # GeometryTests XCTest suite
+└── Tests/               # XCTest suite for geometry, analyzers, the session reducer, and related behavior
+scripts/                 # validate.sh, run-ios.sh, and pbxproj.py (registers files in the hand-maintained project)
 Design/AppIcon/          # App icon SVG source, export script, Tabler license (see THIRD_PARTY_NOTICES.md)
 ```
 
@@ -58,6 +59,7 @@ Every new Workout Coach exercise ships with full guidance (guide, ghost demo, th
   ```bash
   ./scripts/validate.sh
   ```
+- Register new or renamed Swift files with `python3 scripts/pbxproj.py add|rename`; `validate.sh` runs `check`.
 - **Required Before Every Commit** (run after staging changes):
   ```bash
   gitleaks git . --pre-commit --staged --redact --exit-code=1
@@ -72,4 +74,6 @@ Every new Workout Coach exercise ships with full guidance (guide, ghost demo, th
 - Photo Validation: `docs/validation.md`
 - Developer Diagnostics: `docs/debugging.md`
 - Workout Coach (Beta): `docs/workout.md`
+- Realtime posture: `docs/realtime.md`
+- Commit and PR conventions: `docs/commit-and-pr.md`
 - App icon source & export: `Design/AppIcon/README.md`

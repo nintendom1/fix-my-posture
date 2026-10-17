@@ -11,7 +11,7 @@ if [[ -f ios.local.env ]]; then
     source ios.local.env
 fi
 
-xcrun --find devicectl >/dev/null 2>&1 || fail "Install Xcode 16+ and select it with: sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer"
+xcrun --find devicectl >/dev/null 2>&1 || fail "Install Xcode 16.4+ and select it with: sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer"
 [[ -n "${IOS_DEVICE:-}" ]] || fail "Copy ios.local.env.example to ios.local.env and set IOS_DEVICE using 'make ios-devices'."
 [[ "${IOS_TEAM_ID:-}" =~ ^[A-Z0-9]{10}$ ]] || fail "Set IOS_TEAM_ID in ios.local.env to your 10-character Apple development team ID. See README.md for first-time signing setup."
 [[ -n "${IOS_BUNDLE_ID:-}" && "$IOS_BUNDLE_ID" != com.yourname.PostureAnalysisApp ]] || fail "Set IOS_BUNDLE_ID in ios.local.env to a unique bundle identifier, such as com.yourname.PostureAnalysisApp (replace yourname)."
