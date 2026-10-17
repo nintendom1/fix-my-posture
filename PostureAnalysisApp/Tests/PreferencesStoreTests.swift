@@ -118,6 +118,27 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertEqual(reloaded.restPolicy, .fixed(seconds: 47))
     }
 
+    func testWorkoutReminderSchedulePersistsThroughUserDefaults() throws {
+        let suiteName = "PreferencesStoreTests.WorkoutReminders.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = UserDefaultsPreferences(defaults: defaults)
+        let startDate = Calendar.current.startOfDay(for: Date(timeIntervalSince1970: 1_800_000_000))
+        let settings = WorkoutReminderSettings(
+            enabled: true,
+            recurrence: .everyOtherDay,
+            hour: 19,
+            minute: 25,
+            everyOtherDayStartDate: startDate,
+            weekdays: [2, 5]
+        )
+
+        preferences.workoutReminderSettings = settings
+
+        XCTAssertEqual(UserDefaultsPreferences(defaults: defaults).workoutReminderSettings, settings)
+        XCTAssertNotNil(defaults.data(forKey: PreferenceKey.workoutReminders))
+    }
+
     func testInMemoryAndUserDefaultsPreferencesShareTheSameContract() throws {
         let suiteName = "PreferencesStoreTests.Contract.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))

@@ -83,11 +83,42 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.feedbackRefreshRate, 10)
     }
 
-    func testWorkoutRemindersAreDisabledAndShowSoon() {
-        let viewModel = makeViewModel()
+    func testWorkoutReminderSettingsPersistAndShowTheirSummary() {
+        let preferences = InMemoryPreferences()
+        let viewModel = makeViewModel(preferences: preferences)
 
         XCTAssertFalse(viewModel.workoutRemindersEnabled)
-        XCTAssertEqual(viewModel.workoutRemindersValue, "Soon")
+        XCTAssertEqual(viewModel.workoutRemindersValue, "Off")
+
+        viewModel.updateReminderSettings {
+            $0.enabled = true
+            $0.recurrence = .weekly
+            $0.weekdays = [2, 4, 6]
+            $0.hour = 18
+            $0.minute = 0
+        }
+
+        XCTAssertTrue(viewModel.workoutRemindersEnabled)
+        XCTAssertTrue(viewModel.workoutRemindersValue.hasPrefix("Mon, Wed, Fri · "))
+        XCTAssertEqual(preferences.workoutReminderSettings, viewModel.workoutReminderSettings)
+    }
+
+    func testSwitchingToEveryOtherDayStartsTheCadenceToday() {
+        let preferences = InMemoryPreferences()
+        preferences.workoutReminderSettings = WorkoutReminderSettings(
+            enabled: true,
+            recurrence: .daily,
+            everyOtherDayStartDate: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+        let viewModel = makeViewModel(preferences: preferences)
+
+        viewModel.selectReminderRecurrence(.everyOtherDay)
+
+        XCTAssertEqual(viewModel.workoutReminderSettings.recurrence, .everyOtherDay)
+        XCTAssertEqual(
+            preferences.workoutReminderSettings.everyOtherDayStartDate,
+            Calendar.current.startOfDay(for: Date())
+        )
     }
 
     func testSettingsPagesAcknowledgementsAndDiagnosticsHaveRoutes() {
@@ -96,6 +127,7 @@ final class SettingsViewModelTests: XCTestCase {
             .voiceCommandsHelp,
             .restPolicy,
             .weightUnit,
+            .workoutReminders,
             .cameraAndFraming,
             .postureDisplay,
             .privacy,

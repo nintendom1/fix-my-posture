@@ -109,5 +109,6 @@ Every new Workout Coach exercise ships with full guidance (guide, ghost demo, th
 - Workout Coach (Beta): `docs/workout.md`
 - Design snapshot and layout gate: `docs/design.md`
 - Realtime posture: `docs/realtime.md`
+- Workout reminders: `docs/reminders.md`
 - Commit and PR conventions: `docs/commit-and-pr.md`
 - App icon source & export: `Design/AppIcon/README.md`

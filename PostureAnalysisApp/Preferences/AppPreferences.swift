@@ -39,6 +39,7 @@ enum PreferenceKey {
     static let restPolicy = "settings.restPolicy"
     static let weightUnit = "settings.weightUnit"
     static let tiltWarningsEnabled = "settings.tiltWarningsEnabled"
+    static let workoutReminders = "settings.workoutReminders"
 
     /// New workout flow choices use the train. namespace.
     static let startByHolding = "train.startByHolding"
@@ -66,6 +67,7 @@ protocol AppPreferencesStoring: AnyObject {
     var startByHolding: Bool { get set }
     var upNextOverride: UUID? { get set }
     var tiltWarningsEnabled: Bool { get set }
+    var workoutReminderSettings: WorkoutReminderSettings { get set }
 }
 
 /// UserDefaults-backed preferences. Existing keys and value formats are retained for upgrade compatibility.
@@ -167,6 +169,20 @@ final class UserDefaultsPreferences: AppPreferencesStoring {
         set { defaults.set(newValue, forKey: PreferenceKey.tiltWarningsEnabled) }
     }
 
+    var workoutReminderSettings: WorkoutReminderSettings {
+        get {
+            guard let data = defaults.data(forKey: PreferenceKey.workoutReminders),
+                  let settings = try? JSONDecoder().decode(WorkoutReminderSettings.self, from: data) else {
+                return WorkoutReminderSettings()
+            }
+            return settings.normalized()
+        }
+        set {
+            guard let data = try? JSONEncoder().encode(newValue.normalized()) else { return }
+            defaults.set(data, forKey: PreferenceKey.workoutReminders)
+        }
+    }
+
     var upNextOverride: UUID? {
         get { defaults.string(forKey: PreferenceKey.upNextOverride).flatMap(UUID.init(uuidString:)) }
         set {
@@ -203,6 +219,7 @@ final class InMemoryPreferences: AppPreferencesStoring {
     var startByHolding = true
     var upNextOverride: UUID?
     var tiltWarningsEnabled = true
+    var workoutReminderSettings = WorkoutReminderSettings()
 
     func guideSeen(for exerciseID: String) -> Bool {
         seenGuides.contains(exerciseID)

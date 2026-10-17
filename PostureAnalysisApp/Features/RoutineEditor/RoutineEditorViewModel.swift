@@ -17,18 +17,21 @@ final class RoutineEditorViewModel: RoutineEditorViewModeling {
     private let exerciseCatalog: any ExerciseCatalogProviding
     private let preferences: any AppPreferencesStoring
     private let router: AppRouter
+    private let reminderReconciliation: (any WorkoutReminderReconciliation)?
 
     init(
         id: UUID?,
         routines: (any RoutineRepository)?,
         exerciseCatalog: any ExerciseCatalogProviding,
         preferences: any AppPreferencesStoring,
-        router: AppRouter
+        router: AppRouter,
+        reminderReconciliation: (any WorkoutReminderReconciliation)? = nil
     ) {
         self.routines = routines
         self.exerciseCatalog = exerciseCatalog
         self.preferences = preferences
         self.router = router
+        self.reminderReconciliation = reminderReconciliation
 
         let existing = id.flatMap { targetID in
             (try? routines?.list().first { $0.id == targetID }) ?? nil
@@ -94,6 +97,7 @@ final class RoutineEditorViewModel: RoutineEditorViewModeling {
             guard !state.isNew, let routines else { return }
             do {
                 _ = try routines.duplicate(currentDraft())
+                reminderReconciliation?.reconcile()
                 state.isFinished = true
                 popEditor()
             } catch {
@@ -112,6 +116,7 @@ final class RoutineEditorViewModel: RoutineEditorViewModeling {
             guard state.showsDeleteConfirmation, !state.isNew else { return }
             do {
                 try routines?.delete(id: id)
+                reminderReconciliation?.reconcile()
                 state.showsDeleteConfirmation = false
                 state.isFinished = true
                 popToRoutinesRoot()
@@ -156,6 +161,7 @@ final class RoutineEditorViewModel: RoutineEditorViewModeling {
         let saved = currentDraft()
         do {
             try routines?.save(saved)
+            reminderReconciliation?.reconcile()
             state.isFinished = true
             popEditor()
         } catch {

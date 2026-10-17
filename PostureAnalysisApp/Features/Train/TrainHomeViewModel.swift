@@ -17,6 +17,7 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
     private let exerciseCatalog: any ExerciseCatalogProviding
     private let preferences: any AppPreferencesStoring
     private let router: AppRouter
+    private let reminderReconciliation: (any WorkoutReminderReconciliation)?
     private let now: () -> Date
     private let calendar: Calendar
 
@@ -30,6 +31,7 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
         exerciseCatalog: any ExerciseCatalogProviding,
         preferences: any AppPreferencesStoring,
         router: AppRouter,
+        reminderReconciliation: (any WorkoutReminderReconciliation)? = nil,
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .current
     ) {
@@ -38,6 +40,7 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
         self.exerciseCatalog = exerciseCatalog
         self.preferences = preferences
         self.router = router
+        self.reminderReconciliation = reminderReconciliation
         self.now = now
         self.calendar = calendar
         state = TrainHomeState(
@@ -63,6 +66,7 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
         case .selectRoutine(let id):
             guard state.routineChoices.contains(where: { $0.id == id }) else { return }
             preferences.upNextOverride = id
+            reminderReconciliation?.reconcile()
             state.isRoutinePickerPresented = false
             refresh()
         case .dismissRoutinePicker:
@@ -92,10 +96,11 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
         let choices = savedRoutines
             .map { makeHero(for: $0.set, records: history) }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-        let upNext = RoutineRotation.upNext(
+        let upNext = CurrentUpNextRoutine.select(
             routines: savedRoutines,
             records: history,
-            override: preferences.upNextOverride
+            override: preferences.upNextOverride,
+            catalog: exerciseCatalog.all
         )
         state = TrainHomeState(
             dateLabel: TrainHomeDateFormatter.label(now()),
