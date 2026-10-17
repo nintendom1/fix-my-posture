@@ -13,10 +13,11 @@ Everything runs on device. Apple Vision estimates the pose, `AVSpeechSynthesizer
 - `Workout/Exercises`: `ExerciseCatalog.all` is the visible exercise list. Each `ExerciseDefinition` supplies a stable `ExerciseID` (for example `shoulder_press`), sets, target reps, required joints, overlay focus segments, the setup line, an `ExerciseGuide`, and an analyzer factory. To add an exercise, add one folder and one catalog line.
 - `Workout/Analysis`: `PoseFrame` (reliable, unmirrored pixel pose plus capture timestamp), `ArmGeometry`, `HysteresisPhaseTracker`, `FramingEvaluator`, and the display-only `LandmarkSmoother` (One Euro filter).
 - `Workout/Session`: `WorkoutSession` is a pure reducer, `handle(_ event:at:) -> [WorkoutEffect]`. `WorkoutCoachModel` is the main-actor orchestrator. It depends only on the `PoseFrameSource`, `ExerciseAnalyzing`, and `SpeechCoaching` protocols, so test fakes can be injected.
+- `Workout/Presentation`: `WorkoutVisualState` and `WorkoutHUDPresenter` derive camera screen state and existing HUD copy as Foundation-only values.
 - `Workout/Coaching`: `CoachingCue` (stable `CoachingCueID` keys such as `press.full_extension`, separate from the wording), the pure `CoachingCueScheduler` (owned by `WorkoutSession`), and the pure `WorkoutTipLayout` with each exercise's `MotionEnvelope`. `Utilities/ProtectedBodyGeometry` supplies the body areas that both posture callouts and workout tips avoid.
 - `Workout/Camera`: `WorkoutCameraController` uses the shared `PortraitCameraSession` configuration, the same configuration as realtime posture correction. It has one serial queue, a 10 Hz gate on sample timestamps, synchronous `FramePoseEstimator` inference, and the existing 0.3 confidence filter. Frames reach the main actor through one lock-protected pending slot: at most one hop is in flight, newer frames replace older ones, and no buffers are retained. Vision code stays in `AppleVisionPoseEstimator`.
 - `Voice`: `SpeechCoach` and `WorkoutAudioSession`.
-- `Views/Workout`: `WorkoutCoachView`, `WorkoutHUDView`, `WorkoutJointOverlayView`, `ExerciseGuideView`, `ExerciseDemoFigureView`, `WorkoutGuideOverlayView`, and `WorkoutTipView`.
+- `Views/Workout`: `WorkoutCoachView`, `WorkoutHUDView`, `WorkoutJointOverlayView`, `ExerciseGuideView`, `ExerciseDemoFigureView`, `WorkoutGhostOverlayView`, `RepThresholdOverlayView`, and `WorkoutTipView`.
 
 ## Guidance
 

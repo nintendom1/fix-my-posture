@@ -245,6 +245,23 @@ final class WorkoutSessionTests: XCTestCase {
         XCTAssertEqual(session.planRecords[plan.items[1].id]?.outcome, .completed)
     }
 
+    func testRepEventMetadataUpdatesOnlyWhenDisplayedRepCountIncreases() {
+        var session = readySession()
+        _ = session.handle(.command(.start), at: 2)
+
+        _ = session.handle(.repCompleted(RepEvent(epoch: session.analyzerEpoch, timestamp: 3, sides: [.left])), at: 3)
+        XCTAssertEqual(session.repEventCount, 0)
+        XCTAssertNil(session.lastRepAt)
+
+        _ = session.handle(.repCompleted(RepEvent(epoch: session.analyzerEpoch, timestamp: 4, sides: [.left, .right])), at: 4)
+        XCTAssertEqual(session.repEventCount, 1)
+        XCTAssertEqual(session.lastRepAt, 4)
+
+        _ = session.handle(.repCompleted(RepEvent(epoch: session.analyzerEpoch - 1, timestamp: 5, sides: [.left, .right])), at: 5)
+        XCTAssertEqual(session.repEventCount, 1, "A stale analyzer event isn't a counted rep.")
+        XCTAssertEqual(session.lastRepAt, 4)
+    }
+
     func testSavedSetSkipsAndCountsEachOccurrenceSeparately() {
         let curl = HammerCurlExercise.definition()
         let plan = WorkoutPlan(name: "Mixed", items: [
