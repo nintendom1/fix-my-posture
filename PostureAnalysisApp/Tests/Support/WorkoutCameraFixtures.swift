@@ -158,7 +158,7 @@ private struct WorkoutCameraDesignFixture: View {
                         .frame(width: geometry.size.width, height: geometry.size.height)
                 }
 
-                WorkoutJointOverlayView(overlay: overlay)
+                WorkoutJointOverlayView(overlay: overlay, visualState: state.visual)
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .opacity(state.visual.primary == .lost ? 0.2 : 1)
 

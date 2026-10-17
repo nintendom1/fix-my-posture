@@ -3,8 +3,10 @@ import SwiftUI
 /// Draws only the exercise's focus joints and segments over the mirrored preview.
 struct WorkoutJointOverlayView: View {
     let overlay: WorkoutOverlayState
+    let visualState: WorkoutVisualState
 
-    static let trackedColor = Color.cyan
+    /// Default tracked skeleton tint in the camera's ready and active states.
+    static let trackedColor = Color(hex: 0xB9A2FF)
     static let endPositionColor = Color(red: 0.31, green: 0.87, blue: 0.64)
     static let staleColor = Color.gray.opacity(0.7)
     static let referenceColor = Color.white.opacity(0.45)
@@ -12,6 +14,17 @@ struct WorkoutJointOverlayView: View {
     static let cueColor = Color(red: 1, green: 0.76, blue: 0.24)
     static let jointRadius: CGFloat = 7
     static let limbWidth: CGFloat = 3
+
+    static func stateColor(for visualState: WorkoutVisualState) -> Color {
+        ColorTokens.workoutColors(for: visualState).tint
+    }
+
+    static func jointColor(isStale: Bool, isEmphasized: Bool, isAtEndPosition: Bool) -> Color {
+        if isStale { return staleColor }
+        if isEmphasized { return cueColor }
+        if isAtEndPosition { return endPositionColor }
+        return .white
+    }
 
     var body: some View {
         Canvas { context, size in
@@ -34,7 +47,9 @@ struct WorkoutJointOverlayView: View {
                 } else if segment.style == .reference {
                     color = Self.referenceColor
                 } else {
-                    color = isAtEndPosition(segment.from) && isAtEndPosition(segment.to) ? Self.endPositionColor : Self.trackedColor
+                    color = isAtEndPosition(segment.from) && isAtEndPosition(segment.to)
+                        ? Self.endPositionColor
+                        : Self.stateColor(for: visualState)
                 }
                 context.stroke(path, with: .color(color),
                                style: StrokeStyle(lineWidth: segment.style == .limb ? Self.limbWidth : 2, lineCap: .round))
@@ -60,8 +75,8 @@ struct WorkoutJointOverlayView: View {
     }
 
     private func color(for type: LandmarkType, joint: OverlayJoint) -> Color {
-        if joint.isStale { return Self.staleColor }
-        if overlay.emphasizedJoints.contains(type) { return Self.cueColor }
-        return isAtEndPosition(type) ? Self.endPositionColor : Self.trackedColor
+        Self.jointColor(isStale: joint.isStale,
+                        isEmphasized: overlay.emphasizedJoints.contains(type),
+                        isAtEndPosition: isAtEndPosition(type))
     }
 }

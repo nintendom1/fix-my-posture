@@ -63,6 +63,9 @@ final class DesignMetricsTests: XCTestCase {
         ],
         "camera-tilt": [
             "statusBar": "The iOS status bar belongs to the snapshot window, outside WorkoutCameraScreen."
+        ],
+        "complete": [
+            "statusBar": "The iOS status bar belongs to the snapshot window, outside WorkoutCompleteScreen."
         ]
     ]
 
@@ -138,6 +141,12 @@ final class DesignMetricsTests: XCTestCase {
 
     @MainActor
     func testWorkoutCameraTiltFrame() throws { try assertCameraFrame("camera-tilt") }
+
+    @MainActor
+    func testWorkoutCompleteFrame() throws {
+        let result = try SnapshotHost.render(WorkoutCompleteFixtures.screen(), frameId: "complete", testCase: self)
+        try assertAnchors(frameId: "complete", actual: result.snapshotMeasuredAnchors)
+    }
 
     @MainActor
     func testTrainScrolledBy200KeepsCompactHeaderAndSettingsReachable() throws {

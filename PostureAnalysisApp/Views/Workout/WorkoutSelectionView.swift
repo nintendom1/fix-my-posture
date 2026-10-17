@@ -8,10 +8,11 @@ struct ExerciseSummaryLabel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(exercise.displayName)
-                .font(.headline)
+                .textStyle(.headline)
+                .foregroundStyle(ColorTokens.palette().textPrimary)
             Text(detail ?? "\(exercise.sets) sets × \(exercise.targetLabel) reps")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .textStyle(.caption1)
+                .foregroundStyle(ColorTokens.palette().textSecondary)
         }
         .accessibilityElement(children: .combine)
     }
@@ -25,14 +26,17 @@ struct ExerciseChooserOverlay: View {
     let onSelect: (ExerciseID) -> Void
     let onCancel: () -> Void
 
+    private var palette: ColorPalette { ColorTokens.palette() }
+
     var body: some View {
         VStack(spacing: 12) {
             Text("Choose an exercise")
-                .font(.title3.bold())
+                .textStyle(.title2)
+                .foregroundStyle(palette.textPrimary)
             if let plan = session.plan, session.isFollowingPlan {
                 Text("Choosing another exercise leaves \(plan.name); the rest of it is skipped. Cancel to stay in it.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.caption1)
+                    .foregroundStyle(palette.textMuted)
                     .multilineTextAlignment(.center)
             }
             ForEach(session.exercises) { exercise in
@@ -41,31 +45,34 @@ struct ExerciseChooserOverlay: View {
                         ExerciseSummaryLabel(exercise: exercise, detail: detail(for: exercise))
                         Spacer()
                         if exercise.id == session.exerciseID {
-                            Image(systemName: "checkmark")
-                                .foregroundStyle(WorkoutJointOverlayView.endPositionColor)
+                            Image(material: "check_circle")
+                                .foregroundStyle(palette.success)
                         }
                     }
                     .padding(12)
-                    .frame(maxWidth: .infinity)
-                    .background(.white.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .contentShape(Rectangle())
+                    .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+                    .background(palette.backgroundCard, in: RoundedRectangle(cornerRadius: Metrics.Radius.row, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: Metrics.Radius.row, style: .continuous)
+                        .strokeBorder(exercise.id == session.exerciseID ? palette.tabActive.opacity(0.3) : palette.borderCard, lineWidth: 1))
+                    .contentShape(RoundedRectangle(cornerRadius: Metrics.Radius.row, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("chooseExercise_\(exercise.id.rawValue)")
             }
             if voiceActive {
                 Text("Say an exercise name, or \u{201C}cancel\u{201D}.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.caption1)
+                    .foregroundStyle(palette.textMuted)
             }
-            Button("Cancel", action: onCancel)
-                .buttonStyle(.bordered)
+            CapsuleButton(title: "Cancel", tint: palette.tabActive, action: onCancel)
                 .accessibilityIdentifier("cancelChooseExerciseButton")
         }
         .padding(20)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .frame(maxWidth: 360)
+        .background(Color(hex: 0x1A1526), in: RoundedRectangle(cornerRadius: 32, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 32, style: .continuous)
+            .strokeBorder(palette.borderCard, lineWidth: 1))
+        .shadow(color: .black.opacity(0.4), radius: 24, y: 12)
         .padding(24)
         .environment(\.colorScheme, .dark)
     }

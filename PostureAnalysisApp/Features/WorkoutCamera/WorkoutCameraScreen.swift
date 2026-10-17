@@ -97,9 +97,18 @@ struct WorkoutCameraScreen: View {
                     .ignoresSafeArea()
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
-            .confirmationDialog("End this workout?", isPresented: $confirmingEnd, titleVisibility: .visible) {
-                Button("End Workout", role: .destructive) { sendControl(.endWorkout) }
-                Button("Keep Going", role: .cancel) {}
+            .sheet(isPresented: $confirmingEnd) {
+                EndWorkoutConfirmationSheet(
+                    onEndWorkout: {
+                        confirmingEnd = false
+                        sendControl(.endWorkout)
+                    },
+                    onKeepGoing: { confirmingEnd = false }
+                )
+                .presentationDetents([.height(310)])
+                .presentationCornerRadius(32)
+                .presentationDragIndicator(.hidden)
+                .presentationBackground(Color(hex: 0x1A1526))
             }
             .onAppear { toolbarVisibility.onAppear() }
             .onDisappear { toolbarVisibility.disappear() }
@@ -280,7 +289,7 @@ struct WorkoutCameraScreen: View {
 
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(state.presentation.setSummary ?? "")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(.system(size: 13, weight: .heavy, design: .rounded))
                     .foregroundStyle(ColorTokens.palette().textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
@@ -301,7 +310,7 @@ struct WorkoutCameraScreen: View {
                 Spacer(minLength: 0)
                 if let nextLine = state.presentation.nextLine {
                     Text(nextLine)
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .font(.system(size: 13, weight: .heavy, design: .rounded))
                         .foregroundStyle(ColorTokens.palette().textSecondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.65)
@@ -417,6 +426,62 @@ struct WorkoutCameraScreen: View {
         toolbarVisibility.interact()
         guard let intent = WorkoutCameraControl.intent(for: control, presentation: state.presentation) else { return }
         onIntent(intent)
+    }
+}
+
+private struct EndWorkoutConfirmationSheet: View {
+    let onEndWorkout: () -> Void
+    let onKeepGoing: () -> Void
+
+    private var palette: ColorPalette { ColorTokens.palette() }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Capsule()
+                .fill(Color.white.opacity(0.22))
+                .frame(width: 40, height: 5)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 10)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text("End this workout?")
+                    .font(Typography.title2)
+                    .foregroundStyle(palette.textPrimary)
+                Text("Your finished sets are saved to workout history.")
+                    .font(Typography.body)
+                    .foregroundStyle(palette.textMuted)
+            }
+
+            VStack(spacing: 8) {
+                Button(action: onEndWorkout) {
+                    Label("End Workout", systemImage: "flag.checkered")
+                        .font(.system(size: 16, weight: .black, design: .rounded))
+                        .foregroundStyle(palette.danger)
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .background(palette.danger.opacity(0.12), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .strokeBorder(palette.danger.opacity(0.18), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("confirmEndWorkoutButton")
+
+                Button(action: onKeepGoing) {
+                    Text("Keep Going")
+                        .font(.system(size: 16, weight: .black, design: .rounded))
+                        .foregroundStyle(palette.textPrimary)
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .strokeBorder(palette.borderCard, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Color(hex: 0x1A1526))
+        .environment(\.colorScheme, .dark)
     }
 }
 

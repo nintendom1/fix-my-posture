@@ -20,52 +20,66 @@ struct VoiceCommandsHelpView: View {
 
     @ScaledMetric(relativeTo: .title2) private var chipMinWidth: CGFloat = 150
 
+    private var palette: ColorPalette { ColorTokens.palette() }
+
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    statusHeader
-                    soundToggles
-                    if let banner {
-                        banner
+            ZStack {
+                palette.backgroundPrimary.ignoresSafeArea()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        statusHeader
+                        soundToggles
+                        if let banner {
+                            banner
+                        }
+                        if !suggestions.isEmpty {
+                            rightNow
+                        }
+                        ForEach(sections) { section in
+                            sectionView(section)
+                        }
+                        Text("The coach doesn't listen while it's speaking. Say \u{201C}close\u{201D} to go back.")
+                            .textStyle(.body)
+                            .foregroundStyle(palette.textMuted)
                     }
-                    if !suggestions.isEmpty {
-                        rightNow
-                    }
-                    ForEach(sections) { section in
-                        sectionView(section)
-                    }
-                    Text("The coach doesn't listen while it's speaking. Say \u{201C}close\u{201D} to go back.")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
+                    .padding(20)
                 }
-                .padding(20)
+                .scrollIndicators(.hidden)
             }
             .navigationTitle("Voice Commands")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(palette.backgroundPrimary, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done", action: onDone)
+                        .font(.system(size: 16, weight: .black, design: .rounded))
+                        .tint(palette.tabActive)
                         .accessibilityIdentifier("voiceCommandsDoneButton")
                 }
             }
         }
+        .tint(palette.tabActive)
+        .environment(\.colorScheme, .dark)
     }
 
     private var statusHeader: some View {
         HStack(spacing: 12) {
             Image(systemName: VoiceStatusPresentation.symbol(for: micStatus))
-                .font(.title2)
+                .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundStyle(headerColor)
                 .frame(width: 44, height: 44)
-                .background(Circle().fill(Color.secondary.opacity(0.15)))
+                .background(Circle().fill(Color.white.opacity(0.08)))
             VStack(alignment: .leading, spacing: 2) {
                 Text(VoiceStatusPresentation.label(for: micStatus))
-                    .font(.headline)
+                    .textStyle(.headline)
+                    .foregroundStyle(palette.textPrimary)
                 if let progressLine {
                     Text(progressLine)
-                        .font(.title3.weight(.semibold).monospacedDigit())
-                        .foregroundStyle(.secondary)
+                        .textStyle(.body)
+                        .monospacedDigit()
+                        .foregroundStyle(palette.textSecondary)
                 }
             }
         }
@@ -75,8 +89,8 @@ struct VoiceCommandsHelpView: View {
     /// The HUD's light-on-dark colors adjusted for the sheet background.
     private var headerColor: Color {
         switch micStatus {
-        case .muted: return .red
-        case .coachSpeaking: return .secondary
+        case .muted: return palette.danger
+        case .coachSpeaking: return palette.textMuted
         default: return VoiceStatusPresentation.color(for: micStatus)
         }
     }
@@ -85,15 +99,20 @@ struct VoiceCommandsHelpView: View {
         VStack(spacing: 4) {
             Toggle(isOn: Binding(get: { !isMicMuted }, set: { onSetMicMuted(!$0) })) {
                 Label("Voice commands", systemImage: "mic")
-                    .font(.title3)
+                    .textStyle(.body)
+                    .foregroundStyle(palette.textPrimary)
             }
             Toggle(isOn: Binding(get: { !isCoachMuted }, set: { onSetCoachMuted(!$0) })) {
                 Label("Coach voice", systemImage: "speaker.wave.2")
-                    .font(.title3)
+                    .textStyle(.body)
+                    .foregroundStyle(palette.textPrimary)
             }
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color.secondary.opacity(0.1)))
+        .tint(palette.tabActive)
+        .background(palette.backgroundCard, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
+            .strokeBorder(palette.borderCard, lineWidth: 1))
     }
 
     /// Recovery for permission, failure, and pauses; nil while voice is working.
@@ -119,33 +138,39 @@ struct VoiceCommandsHelpView: View {
         return AnyView(
             VStack(alignment: .leading, spacing: 10) {
                 Text(message)
-                    .font(.body)
+                    .textStyle(.body)
+                    .foregroundStyle(palette.textPrimary)
                 Button(button.title, action: button.action)
-                    .buttonStyle(.borderedProminent)
+                    .font(.system(size: 15, weight: .black, design: .rounded))
+                    .foregroundStyle(palette.warning)
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 14).fill(Color.orange.opacity(0.15)))
+            .background(palette.warning.opacity(0.12), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(palette.warning.opacity(0.2), lineWidth: 1))
         )
     }
 
     private var rightNow: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Right now")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
+                .textStyle(.eyebrow)
+                .foregroundStyle(palette.textMuted)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: chipMinWidth), spacing: 10, alignment: .leading)],
                       alignment: .leading, spacing: 10) {
                 ForEach(suggestions) { entry in
                     Text("\u{201C}\(entry.title)\u{201D}")
-                        .font(.title2.bold())
+                        .textStyle(.title2)
+                        .foregroundStyle(palette.textPrimary)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.accentColor.opacity(0.15)))
+                        .background(palette.brand.opacity(0.14), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .strokeBorder(palette.tabActive.opacity(0.2), lineWidth: 1))
                 }
             }
         }
@@ -156,29 +181,37 @@ struct VoiceCommandsHelpView: View {
     private func sectionView(_ section: VoiceCommandHelp.Section) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(section.title)
-                .font(.headline)
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-            ForEach(section.entries) { entry in
+                .textStyle(.eyebrow)
+                .foregroundStyle(palette.textMuted)
+            VStack(spacing: 8) {
+              ForEach(section.entries) { entry in
                 VStack(alignment: .leading, spacing: 4) {
                     Text("\u{201C}\(entry.title)\u{201D}")
-                        .font(.title2.bold())
+                        .textStyle(.title2)
+                        .foregroundStyle(palette.textPrimary)
                     Text(entry.detail)
-                        .font(.body)
-                        .foregroundStyle(.secondary)
+                        .textStyle(.body)
+                        .foregroundStyle(palette.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                     if !entry.alternates.isEmpty {
                         Text("Also: " + entry.alternates.map { "\u{201C}\($0)\u{201D}" }.joined(separator: ", "))
-                            .font(.callout)
+                            .textStyle(.caption1)
+                            .foregroundStyle(palette.textMuted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     if entry.isDestructive {
                         Label("Say it on its own", systemImage: "exclamationmark.bubble")
-                            .font(.callout)
-                            .foregroundStyle(.orange)
+                            .textStyle(.caption1)
+                            .foregroundStyle(palette.warning)
                     }
                 }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(palette.backgroundCard, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(palette.borderCard, lineWidth: 1))
                 .accessibilityElement(children: .combine)
+              }
             }
         }
     }
