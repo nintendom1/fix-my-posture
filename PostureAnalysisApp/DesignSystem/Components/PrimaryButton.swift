@@ -20,16 +20,18 @@ struct PrimaryButton: View {
 
     let title: String
     var icon: String? = nil
+    var iconFontSize: CGFloat = 24
+    var contentSpacing: CGFloat = Metrics.Spacing.xSmall
     var variant: Variant = .gradient
     var size: Size = .standard
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: Metrics.Spacing.xSmall) {
+            HStack(spacing: contentSpacing) {
                 if let icon {
                     Image(systemName: icon)
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .font(.system(size: iconFontSize, weight: .bold, design: .rounded))
                 }
                 Text(title)
                     .font(.system(size: 18, weight: .black, design: .rounded))

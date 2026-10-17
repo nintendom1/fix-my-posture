@@ -25,6 +25,7 @@ design-snapshots:
 		-derivedDataPath build/design/snapshots \
 		-parallel-testing-enabled NO \
 		-only-testing:PostureAnalysisAppTests/DesignHarnessTests \
+		-only-testing:PostureAnalysisAppTests/DesignMetricsTests/testTrainFrame \
 		CODE_SIGNING_ALLOWED=NO
 
 design-diff:

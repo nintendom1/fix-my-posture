@@ -12,6 +12,7 @@ final class AppEnvironment {
     let repositories: AppRepositories?
     let exerciseCatalog: any ExerciseCatalogProviding
     let workoutCoachFactory: WorkoutCoachFactory
+    let trainHomeViewModel: TrainHomeViewModel
     let persistenceError: String?
 
     init(inMemory: Bool = false) {
@@ -29,6 +30,13 @@ final class AppEnvironment {
                 exerciseCatalog: exerciseCatalog,
                 routines: repositories.routines
             )
+            trainHomeViewModel = TrainHomeViewModel(
+                routines: repositories.routines,
+                workoutHistory: repositories.workoutHistory,
+                exerciseCatalog: exerciseCatalog,
+                preferences: preferences,
+                router: router
+            )
             persistenceError = nil
         } catch {
             modelContainer = nil
@@ -37,6 +45,13 @@ final class AppEnvironment {
                 preferences: preferences,
                 exerciseCatalog: exerciseCatalog,
                 routines: nil
+            )
+            trainHomeViewModel = TrainHomeViewModel(
+                routines: nil,
+                workoutHistory: nil,
+                exerciseCatalog: exerciseCatalog,
+                preferences: preferences,
+                router: router
             )
             persistenceError = error.localizedDescription
         }

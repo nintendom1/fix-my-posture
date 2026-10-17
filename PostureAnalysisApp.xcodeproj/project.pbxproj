@@ -209,6 +209,11 @@
 		A10000012B00000000000212 /* TabBarStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000212 /* TabBarStyle.swift */; };
 		A10000012B00000000000213 /* TabBarAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000213 /* TabBarAppearance.swift */; };
 		A10000012B00000000000214 /* StickyCTA.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000214 /* StickyCTA.swift */; };
+		A10000012B00000000000215 /* TrainHomeViewModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000215 /* TrainHomeViewModelTests.swift */; };
+		A10000012B00000000000216 /* TrainHomeFixtures.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000216 /* TrainHomeFixtures.swift */; };
+		A10000012B00000000000217 /* TrainHomeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000217 /* TrainHomeState.swift */; };
+		A10000012B00000000000218 /* TrainHomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000218 /* TrainHomeViewModel.swift */; };
+		A10000012B00000000000219 /* TrainHomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000219 /* TrainHomeScreen.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -426,6 +431,11 @@
 		B10000012B00000000000212 /* TabBarStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabBarStyle.swift; sourceTree = "<group>"; };
 		B10000012B00000000000213 /* TabBarAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabBarAppearance.swift; sourceTree = "<group>"; };
 		B10000012B00000000000214 /* StickyCTA.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickyCTA.swift; sourceTree = "<group>"; };
+		B10000012B00000000000215 /* TrainHomeViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainHomeViewModelTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000216 /* TrainHomeFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainHomeFixtures.swift; sourceTree = "<group>"; };
+		B10000012B00000000000217 /* TrainHomeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainHomeState.swift; sourceTree = "<group>"; };
+		B10000012B00000000000218 /* TrainHomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainHomeViewModel.swift; sourceTree = "<group>"; };
+		B10000012B00000000000219 /* TrainHomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainHomeScreen.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -473,6 +483,7 @@
 				H10000012B00000000000028 /* DesignSystem */,
 				H10000012B00000000000032 /* Preferences */,
 				H10000012B00000000000037 /* App */,
+				H10000012B00000000000038 /* Features */,
 			);
 			path = PostureAnalysisApp;
 			sourceTree = "<group>";
@@ -627,6 +638,7 @@
 				B10000012B00000000000205 /* TabBarStyleTests.swift */,
 				B10000012B00000000000206 /* StickyCTALayoutTests.swift */,
 				B10000012B00000000000207 /* AppShellSmokeTests.swift */,
+				B10000012B00000000000215 /* TrainHomeViewModelTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -852,6 +864,7 @@
 				B10000012B00000000000146 /* SnapshotHost.swift */,
 				B10000012B00000000000147 /* FixedClock.swift */,
 				H10000012B00000000000031 /* Fakes */,
+				B10000012B00000000000216 /* TrainHomeFixtures.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -942,6 +955,24 @@
 				B10000012B00000000000214 /* StickyCTA.swift */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000038 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				H10000012B00000000000039 /* Train */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000039 /* Train */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000217 /* TrainHomeState.swift */,
+				B10000012B00000000000218 /* TrainHomeViewModel.swift */,
+				B10000012B00000000000219 /* TrainHomeScreen.swift */,
+			);
+			path = Train;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1192,6 +1223,9 @@
 				A10000012B00000000000212 /* TabBarStyle.swift in Sources */,
 				A10000012B00000000000213 /* TabBarAppearance.swift in Sources */,
 				A10000012B00000000000214 /* StickyCTA.swift in Sources */,
+				A10000012B00000000000217 /* TrainHomeState.swift in Sources */,
+				A10000012B00000000000218 /* TrainHomeViewModel.swift in Sources */,
+				A10000012B00000000000219 /* TrainHomeScreen.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1243,6 +1277,8 @@
 				A10000012B00000000000205 /* TabBarStyleTests.swift in TestSources */,
 				A10000012B00000000000206 /* StickyCTALayoutTests.swift in TestSources */,
 				A10000012B00000000000207 /* AppShellSmokeTests.swift in TestSources */,
+				A10000012B00000000000215 /* TrainHomeViewModelTests.swift in TestSources */,
+				A10000012B00000000000216 /* TrainHomeFixtures.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
