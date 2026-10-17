@@ -6,9 +6,9 @@ struct ExerciseGuideView: View {
     /// Shows "Start Workout" before the coach has started, "Back to Workout" afterwards.
     let hasStarted: Bool
     let isSpeaking: Bool
-    let onReadAloud: () -> Void
-    let onStopReading: () -> Void
-    let onShowVoiceCommands: () -> Void
+    let onReadAloud: (() -> Void)?
+    let onStopReading: (() -> Void)?
+    let onShowVoiceCommands: (() -> Void)?
     let onDone: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -63,13 +63,15 @@ struct ExerciseGuideView: View {
                 .buttonStyle(.borderedProminent)
                 .accessibilityIdentifier("exerciseGuideDoneButton")
 
-                Button(action: isSpeaking ? onStopReading : onReadAloud) {
-                    Label(isSpeaking ? "Stop Reading" : "Read Aloud",
-                          systemImage: isSpeaking ? "stop.circle" : "speaker.wave.2")
-                        .frame(maxWidth: .infinity, minHeight: 36)
+                if let readingAction = isSpeaking ? onStopReading : onReadAloud {
+                    Button(action: readingAction) {
+                        Label(isSpeaking ? "Stop Reading" : "Read Aloud",
+                              systemImage: isSpeaking ? "stop.circle" : "speaker.wave.2")
+                            .frame(maxWidth: .infinity, minHeight: 36)
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("exerciseGuideReadAloudButton")
                 }
-                .buttonStyle(.bordered)
-                .accessibilityIdentifier("exerciseGuideReadAloudButton")
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
@@ -148,9 +150,11 @@ struct ExerciseGuideView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Voice commands: say \u{201C}what can I say\u{201D} anytime.", systemImage: "mic")
                 .font(.subheadline)
-            Button("Show Voice Commands", action: onShowVoiceCommands)
-                .buttonStyle(.bordered)
-                .accessibilityIdentifier("exerciseGuideVoiceCommandsButton")
+            if let onShowVoiceCommands {
+                Button("Show Voice Commands", action: onShowVoiceCommands)
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("exerciseGuideVoiceCommandsButton")
+            }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)

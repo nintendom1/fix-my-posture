@@ -54,13 +54,13 @@ struct VoiceCommandsHelpView: View {
 
     private var statusHeader: some View {
         HStack(spacing: 12) {
-            Image(systemName: MicrophoneStatusView.symbol(for: micStatus))
+            Image(systemName: VoiceStatusPresentation.symbol(for: micStatus))
                 .font(.title2)
                 .foregroundStyle(headerColor)
                 .frame(width: 44, height: 44)
                 .background(Circle().fill(Color.secondary.opacity(0.15)))
             VStack(alignment: .leading, spacing: 2) {
-                Text(MicrophoneStatusView.label(for: micStatus))
+                Text(VoiceStatusPresentation.label(for: micStatus))
                     .font(.headline)
                 if let progressLine {
                     Text(progressLine)
@@ -77,7 +77,7 @@ struct VoiceCommandsHelpView: View {
         switch micStatus {
         case .muted: return .red
         case .coachSpeaking: return .secondary
-        default: return MicrophoneStatusView.color(for: micStatus)
+        default: return VoiceStatusPresentation.color(for: micStatus)
         }
     }
 

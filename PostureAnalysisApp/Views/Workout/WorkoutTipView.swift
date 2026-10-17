@@ -6,6 +6,7 @@ import SwiftUI
 struct WorkoutTipBubble: View {
     let cue: CoachingCue
     var compact = false
+    var borderTint: Color? = nil
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -28,7 +29,8 @@ struct WorkoutTipBubble: View {
     }
 
     private var accent: Color {
-        cue.kind == .corrective ? WorkoutJointOverlayView.cueColor : .white.opacity(0.7)
+        if let borderTint { return borderTint }
+        return cue.kind == .corrective ? WorkoutJointOverlayView.cueColor : .white.opacity(0.7)
     }
 }
 
@@ -41,6 +43,7 @@ struct WorkoutTipOverlayView: View {
     let protectedRects: [CGRect]
     /// HUD regions, in the same space.
     let hudRects: [CGRect]
+    var borderTint: Color? = nil
 
     static let wideWidth: CGFloat = 320
     static let narrowWidth: CGFloat = 120
@@ -59,7 +62,7 @@ struct WorkoutTipOverlayView: View {
                     measuring(tip, width: Self.narrowWidth, isWide: false)
                 }
                 if let tip, let placed, placed.id == tip.id {
-                    WorkoutTipBubble(cue: tip.cue, compact: placed.isCompact)
+                    WorkoutTipBubble(cue: tip.cue, compact: placed.isCompact, borderTint: borderTint)
                         .frame(width: placed.frame.width, height: placed.frame.height)
                         .position(x: placed.frame.midX, y: placed.frame.midY)
                         .transition(.opacity)
@@ -85,7 +88,7 @@ struct WorkoutTipOverlayView: View {
 
     /// An invisible copy that reports the tip's size when offered `width`.
     private func measuring(_ tip: CoachingTip, width: CGFloat, isWide: Bool) -> some View {
-        WorkoutTipBubble(cue: tip.cue, compact: !isWide)
+        WorkoutTipBubble(cue: tip.cue, compact: !isWide, borderTint: borderTint)
             .background(GeometryReader { proxy in
                 Color.clear.preference(key: MeasuredTipKey.self, value: MeasuredTip(
                     id: tip.id, wide: isWide ? proxy.size : nil, narrow: isWide ? nil : proxy.size))

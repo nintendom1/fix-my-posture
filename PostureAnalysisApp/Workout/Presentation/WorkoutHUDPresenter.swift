@@ -55,6 +55,39 @@ struct WorkoutHUDExercise: Equatable {
     let setsAndRepsLabel: String
     let equipment: ExerciseEquipment
     let countsArmsIndependently: Bool
+    let targetReps: ClosedRange<Int>
+    let restSeconds: Int
+
+    init(id: ExerciseID, displayName: String, targetLabel: String, startsByHolding: Bool,
+         startPositionInstruction: String, sets: Int, setsAndRepsLabel: String,
+         equipment: ExerciseEquipment, countsArmsIndependently: Bool,
+         targetReps: ClosedRange<Int> = 1...1, restSeconds: Int = 60) {
+        self.id = id
+        self.displayName = displayName
+        self.targetLabel = targetLabel
+        self.startsByHolding = startsByHolding
+        self.startPositionInstruction = startPositionInstruction
+        self.sets = sets
+        self.setsAndRepsLabel = setsAndRepsLabel
+        self.equipment = equipment
+        self.countsArmsIndependently = countsArmsIndependently
+        self.targetReps = targetReps
+        self.restSeconds = restSeconds
+    }
+
+    init(exercise: ExerciseDefinition) {
+        self.init(id: exercise.id,
+                  displayName: exercise.displayName,
+                  targetLabel: exercise.targetLabel,
+                  startsByHolding: exercise.startsByHolding,
+                  startPositionInstruction: exercise.guide.startPositionInstruction,
+                  sets: exercise.sets,
+                  setsAndRepsLabel: exercise.setsAndRepsLabel,
+                  equipment: exercise.equipment,
+                  countsArmsIndependently: exercise.countsArmsIndependently,
+                  targetReps: exercise.targetReps,
+                  restSeconds: exercise.restSeconds)
+    }
 }
 
 struct WorkoutHUDInputs: Equatable {
@@ -67,10 +100,13 @@ struct WorkoutHUDInputs: Equatable {
     let repEventCount: Int
     let isRestingBeforeNextExercise: Bool
     let planPositionLabel: String?
+    let planName: String?
+    let nextPlanExercise: WorkoutHUDExercise?
 
     init(visual: WorkoutVisualInputs, exercise: WorkoutHUDExercise?, voiceCommandsAvailable: Bool,
          currentSetNumber: Int, currentSide: BodySide?, repCount: Int, repEventCount: Int,
-         isRestingBeforeNextExercise: Bool, planPositionLabel: String?) {
+         isRestingBeforeNextExercise: Bool, planPositionLabel: String?,
+         planName: String? = nil, nextPlanExercise: WorkoutHUDExercise? = nil) {
         self.visual = visual
         self.exercise = exercise
         self.voiceCommandsAvailable = voiceCommandsAvailable
@@ -80,32 +116,33 @@ struct WorkoutHUDInputs: Equatable {
         self.repEventCount = repEventCount
         self.isRestingBeforeNextExercise = isRestingBeforeNextExercise
         self.planPositionLabel = planPositionLabel
+        self.planName = planName
+        self.nextPlanExercise = nextPlanExercise
     }
 
     init(session: WorkoutSession, visual: WorkoutVisualInputs, voiceCommandsAvailable: Bool) {
         self.init(
             visual: visual,
-            exercise: session.exercise.map {
-                WorkoutHUDExercise(
-                    id: $0.id,
-                    displayName: $0.displayName,
-                    targetLabel: $0.targetLabel,
-                    startsByHolding: $0.startsByHolding,
-                    startPositionInstruction: $0.guide.startPositionInstruction,
-                    sets: $0.sets,
-                    setsAndRepsLabel: $0.setsAndRepsLabel,
-                    equipment: $0.equipment,
-                    countsArmsIndependently: $0.countsArmsIndependently
-                )
-            },
+            exercise: session.exercise.map(WorkoutHUDExercise.init(exercise:)),
             voiceCommandsAvailable: voiceCommandsAvailable,
             currentSetNumber: session.currentSetNumber,
             currentSide: session.currentSide,
             repCount: session.repCount,
             repEventCount: session.repEventCount,
             isRestingBeforeNextExercise: session.isRestingBeforeNextExercise,
-            planPositionLabel: session.planPositionLabel
+            planPositionLabel: session.planPositionLabel,
+            planName: session.isFollowingPlan ? session.plan?.name : nil,
+            nextPlanExercise: Self.nextPlanExercise(in: session)
         )
+    }
+
+    private static func nextPlanExercise(in session: WorkoutSession) -> WorkoutHUDExercise? {
+        guard session.isFollowingPlan, let plan = session.plan else { return nil }
+        for item in plan.items.dropFirst(session.planIndex + 1) {
+            guard let definition = session.exercises.first(where: { $0.id == item.exerciseID }) else { continue }
+            return WorkoutHUDExercise(exercise: definition.withTarget(sets: item.sets, reps: item.targetReps))
+        }
+        return nil
     }
 }
 
@@ -125,6 +162,19 @@ struct WorkoutHUDPresentation: Equatable {
     let isSetInProgress: Bool
     let canAdvanceSet: Bool
     let canEndWorkout: Bool
+    let pillLabel: String
+    let pillIcon: String
+    let instructionText: String?
+    let subtitle: String?
+    let restCountdownText: String?
+    let primaryAction: WorkoutIntent?
+    let primaryActionLabel: String?
+    let primaryActionIcon: String?
+    let setSummary: String?
+    let nextLine: String?
+    let counterText: String
+    let counterTargetText: String?
+    let progressValue: Double
 }
 
 /// Pure display rules for the camera HUD and Voice Commands progress header.
@@ -229,6 +279,37 @@ enum WorkoutHUDPresenter {
             progressLine = nil
         }
 
+        let semanticState = WorkoutVisualState.derive(inputs.visual)
+        let cameraCopy = cameraCopy(for: semanticState, inputs: inputs)
+        let restCountdownText = semanticState.primary == .rest
+            ? inputs.visual.restRemaining.map(format)
+            : nil
+        let primaryAction = primaryAction(for: semanticState.primary)
+        let primaryActionLabel = primaryLabel(for: semanticState.primary)
+        let primaryActionIcon = primaryIcon(for: semanticState.primary)
+
+        let setSummary = exercise.map { value in
+            let side = inputs.currentSide.map { $0 == .left ? " · Left arm" : " · Right arm" } ?? ""
+            return "Set \(inputs.currentSetNumber) of \(value.sets) · target \(value.targetLabel)\(side)"
+        }
+        let nextLine = nextLine(for: inputs, phase: phase)
+        let subtitle: String?
+        if let planName = inputs.planName, let position = inputs.planPositionLabel {
+            subtitle = "\(planName) · \(position.replacingOccurrences(of: "Exercise", with: "exercise"))"
+        } else if let setSummary {
+            subtitle = setSummary
+        } else {
+            subtitle = nil
+        }
+        let progressValue: Double
+        if semanticState.primary == .rest, let exercise, let remaining = inputs.visual.restRemaining {
+            progressValue = min(max(1 - remaining / Double(max(1, exercise.restSeconds)), 0), 1)
+        } else if let exercise {
+            progressValue = min(max(Double(inputs.repCount) / Double(max(1, exercise.targetReps.upperBound)), 0), 1)
+        } else {
+            progressValue = 0
+        }
+
         return WorkoutHUDPresentation(statusText: statusText,
                                       statusTone: statusTone,
                                       primaryButton: primaryButton,
@@ -241,7 +322,87 @@ enum WorkoutHUDPresenter {
                                       repEventCount: inputs.repEventCount,
                                       isSetInProgress: isSetInProgress(phase),
                                       canAdvanceSet: canAdvanceSet(phase),
-                                      canEndWorkout: phase != .ended)
+                                      canEndWorkout: phase != .ended,
+                                      pillLabel: semanticState.label,
+                                      pillIcon: semanticState.iconName,
+                                      instructionText: cameraCopy,
+                                      subtitle: subtitle,
+                                      restCountdownText: restCountdownText,
+                                      primaryAction: primaryAction,
+                                      primaryActionLabel: primaryActionLabel,
+                                      primaryActionIcon: primaryActionIcon,
+                                      setSummary: setSummary,
+                                      nextLine: nextLine,
+                                      counterText: restCountdownText ?? "\(inputs.repCount)",
+                                      counterTargetText: restCountdownText == nil ? exercise.map { "/ \($0.targetReps.upperBound)" } : nil,
+                                      progressValue: progressValue)
+    }
+
+    private static func cameraCopy(for state: WorkoutVisualState, inputs: WorkoutHUDInputs) -> String? {
+        switch state.primary {
+        case .ready:
+            guard let exercise = inputs.exercise else { return nil }
+            return exercise.startsByHolding ? exercise.startPositionInstruction : "Tap Start to begin"
+        case .active:
+            return inputs.exercise?.id == .shoulderPress ? "Breathe out as you press." : nil
+        case .paused:
+            return "Say “resume” or tap play"
+        case .tip:
+            return state.activeTip?.text
+        case .rest:
+            return nextLine(for: inputs, phase: inputs.visual.phase) ?? "Rest up"
+        case .lost:
+            return "Step back so both arms are in view"
+        case .tilt:
+            return "The phone is tilted. Stand it upright."
+        case .complete:
+            return nil
+        }
+    }
+
+    private static func primaryAction(for state: WorkoutVisualState.Primary) -> WorkoutIntent? {
+        switch state {
+        case .ready: return .start
+        case .active, .tip, .lost, .tilt: return .pause
+        case .paused: return .resume
+        case .rest: return .nextSet
+        case .complete: return nil
+        }
+    }
+
+    private static func primaryLabel(for state: WorkoutVisualState.Primary) -> String? {
+        switch state {
+        case .ready: return "Start set"
+        case .active, .tip, .lost, .tilt: return "Pause"
+        case .paused: return "Resume"
+        case .rest: return "Skip rest"
+        case .complete: return nil
+        }
+    }
+
+    private static func primaryIcon(for state: WorkoutVisualState.Primary) -> String? {
+        switch state {
+        case .ready, .paused: return "play_arrow"
+        case .active, .tip, .lost, .tilt: return "pause"
+        case .rest: return "skip_next"
+        case .complete: return nil
+        }
+    }
+
+    private static func nextLine(for inputs: WorkoutHUDInputs, phase: WorkoutPhase) -> String? {
+        guard let exercise = inputs.exercise else { return nil }
+        if inputs.isRestingBeforeNextExercise {
+            return "Next: set 1 of \(exercise.sets) · \(exercise.targetLabel) reps"
+        }
+        if phase == .resting {
+            return "Next: set \(inputs.currentSetNumber) of \(exercise.sets) · \(exercise.targetLabel) reps"
+        }
+        if let next = inputs.nextPlanExercise {
+            let displayName = next.displayName.replacingOccurrences(of: "One-Arm ", with: "")
+            return "Next: \(displayName)"
+        }
+        guard inputs.currentSetNumber < exercise.sets else { return nil }
+        return "Next: set \(inputs.currentSetNumber + 1) of \(exercise.sets) · \(exercise.targetLabel) reps"
     }
 
     static func format(_ seconds: TimeInterval) -> String {

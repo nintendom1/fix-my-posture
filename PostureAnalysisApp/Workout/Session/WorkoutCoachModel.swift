@@ -45,7 +45,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
             session: session,
             now: now,
             isPhoneTilted: isPhoneTilted,
-            activeTip: activeTip.map { WorkoutVisualTip(id: $0.id, kind: $0.cue.kind) },
+            activeTip: activeTip.map { WorkoutVisualTip(id: $0.id, kind: $0.cue.kind, text: $0.cue.text) },
             hasPose: hasPoseFrame
         )
         let visual = WorkoutVisualState.derive(visualInputs)
@@ -71,6 +71,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
             formReadings: formReadings,
             isPhoneTilted: isPhoneTilted,
             micStatus: micStatus,
+            isMicMuted: isMicMuted,
             heardPhrase: heardPhrase,
             isCoachMuted: isCoachMuted,
             showsMeasurements: showsMeasurements

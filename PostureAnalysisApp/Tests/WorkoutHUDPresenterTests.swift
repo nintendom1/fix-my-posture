@@ -161,6 +161,74 @@ final class WorkoutHUDPresenterTests: XCTestCase {
         XCTAssertNil(noExercise.setLabel)
     }
 
+    func testCameraPresentationAddsStatePillCountdownActionsAndPlanCopy() {
+        let ready = WorkoutHUDPresenter.derive(makeInputs(readySession(), now: 2))
+        XCTAssertEqual(ready.pillLabel, "Get in position")
+        XCTAssertEqual(ready.pillIcon, "accessibility_new")
+        XCTAssertEqual(ready.instructionText, "Hold the dumbbells just above your shoulders")
+        XCTAssertEqual(ready.primaryAction, .start)
+        XCTAssertEqual(ready.primaryActionLabel, "Start set")
+        XCTAssertEqual(ready.primaryActionIcon, "play_arrow")
+        XCTAssertEqual(ready.setSummary, "Set 1 of 2 · target 8–10")
+        XCTAssertEqual(ready.nextLine, "Next: set 2 of 2 · 8–10 reps")
+        XCTAssertEqual(ready.counterTargetText, "/ 10")
+
+        let active = WorkoutHUDPresenter.derive(makeInputs(exercisingSession(), now: 3))
+        XCTAssertEqual(active.pillLabel, "Counting")
+        XCTAssertEqual(active.pillIcon, "graphic_eq")
+        XCTAssertEqual(active.primaryAction, .pause)
+        XCTAssertEqual(active.primaryActionLabel, "Pause")
+
+        let pausedSession = exercisingSession { _ = $0.handle(.command(.pause), at: 3) }
+        let paused = WorkoutHUDPresenter.derive(makeInputs(pausedSession, now: 3))
+        XCTAssertEqual(paused.pillLabel, "Paused")
+        XCTAssertEqual(paused.pillIcon, "pause_circle")
+        XCTAssertEqual(paused.instructionText, "Say “resume” or tap play")
+        XCTAssertEqual(paused.primaryAction, .resume)
+        XCTAssertEqual(paused.primaryActionLabel, "Resume")
+
+        let tipInput = makeInputs(exercisingSession(), now: 3,
+                                  activeTip: WorkoutVisualTip(id: 1, kind: .corrective, text: "Press all the way up."))
+        let tip = WorkoutHUDPresenter.derive(tipInput)
+        XCTAssertEqual(tip.pillLabel, "Form tip")
+        XCTAssertEqual(tip.pillIcon, "tips_and_updates")
+        XCTAssertEqual(tip.instructionText, "Press all the way up.")
+        XCTAssertEqual(tip.primaryAction, .pause)
+
+        let restingSession = exercisingSession { _ = $0.handle(.command(.nextSet), at: 3) }
+        let resting = WorkoutHUDPresenter.derive(makeInputs(restingSession, now: 35))
+        XCTAssertEqual(resting.pillLabel, "Resting")
+        XCTAssertEqual(resting.pillIcon, "self_improvement")
+        XCTAssertEqual(resting.restCountdownText, "0:58")
+        XCTAssertEqual(resting.primaryAction, .nextSet)
+        XCTAssertEqual(resting.primaryActionLabel, "Skip rest")
+        XCTAssertEqual(resting.primaryActionIcon, "skip_next")
+        XCTAssertEqual(resting.nextLine, "Next: set 2 of 2 · 8–10 reps")
+
+        let lost = WorkoutHUDPresenter.derive(makeInputs(exercisingSession(), now: 3, hasPose: false))
+        XCTAssertEqual(lost.pillLabel, "Tracking lost")
+        XCTAssertEqual(lost.pillIcon, "visibility_off")
+        XCTAssertEqual(lost.primaryAction, .pause)
+
+        let tilted = WorkoutHUDPresenter.derive(makeInputs(readySession(), now: 2, isPhoneTilted: true))
+        XCTAssertEqual(tilted.pillLabel, "Check the phone")
+        XCTAssertEqual(tilted.pillIcon, "screen_rotation")
+        XCTAssertEqual(tilted.instructionText, "The phone is tilted. Stand it upright.")
+
+        let plan = WorkoutHUDPresenter.derive(makeInputs(fourExercisePlanSession(), now: 2))
+        XCTAssertEqual(plan.subtitle, "Upper Body · exercise 1 of 4")
+        XCTAssertEqual(plan.nextLine, "Next: Hammer Curl")
+        XCTAssertEqual(tilted.primaryAction, .pause)
+        XCTAssertEqual(tilted.primaryActionLabel, "Pause")
+
+        var endedSession = exercisingSession()
+        _ = endedSession.handle(.command(.endWorkout), at: 4)
+        let ended = WorkoutHUDPresenter.derive(makeInputs(endedSession, now: 5))
+        XCTAssertEqual(ended.pillLabel, "Complete")
+        XCTAssertEqual(ended.pillIcon, "check_circle")
+        XCTAssertNil(ended.primaryAction)
+    }
+
     private func session(exercise: ExerciseDefinition? = nil,
                          mutate: (inout WorkoutSession) -> Void = { _ in }) -> WorkoutSession {
         let selected = exercise ?? press
@@ -225,41 +293,33 @@ final class WorkoutHUDPresenterTests: XCTestCase {
     }
 
     private func makeInputs(_ session: WorkoutSession, now: TimeInterval,
-                            voiceCommandsAvailable: Bool = false) -> WorkoutHUDInputs {
+                            voiceCommandsAvailable: Bool = false,
+                            activeTip: WorkoutVisualTip? = nil,
+                            isPhoneTilted: Bool = false,
+                            hasPose: Bool = true) -> WorkoutHUDInputs {
         let visual = WorkoutVisualInputs(
             phase: session.phase,
             isCounting: session.isCounting,
             framing: session.framing,
             restRemaining: session.restRemaining(at: now),
-            isPhoneTilted: false,
-            activeTip: nil,
-            hasPose: true,
+            isPhoneTilted: isPhoneTilted,
+            activeTip: activeTip,
+            hasPose: hasPose,
             now: now,
             lastRepAt: session.lastRepAt
         )
-        let exercise = session.exercise.map {
-            WorkoutHUDExercise(
-                id: $0.id,
-                displayName: $0.displayName,
-                targetLabel: $0.targetLabel,
-                startsByHolding: $0.startsByHolding,
-                startPositionInstruction: $0.guide.startPositionInstruction,
-                sets: $0.sets,
-                setsAndRepsLabel: $0.setsAndRepsLabel,
-                equipment: $0.equipment,
-                countsArmsIndependently: $0.countsArmsIndependently
-            )
-        }
-        return WorkoutHUDInputs(
-            visual: visual,
-            exercise: exercise,
-            voiceCommandsAvailable: voiceCommandsAvailable,
-            currentSetNumber: session.currentSetNumber,
-            currentSide: session.currentSide,
-            repCount: session.repCount,
-            repEventCount: session.repEventCount,
-            isRestingBeforeNextExercise: session.isRestingBeforeNextExercise,
-            planPositionLabel: session.planPositionLabel
-        )
+        return WorkoutHUDInputs(session: session, visual: visual,
+                                voiceCommandsAvailable: voiceCommandsAvailable)
+    }
+
+    private func fourExercisePlanSession() -> WorkoutSession {
+        let exercises = [press, HammerCurlExercise.definition(), TricepsExtensionExercise.definition(), DumbbellRowExercise.definition()]
+        let plan = WorkoutPlan(name: "Upper Body", items: exercises.map {
+            WorkoutPlanItem(id: UUID(), exerciseID: $0.id, sets: 2, targetReps: $0.targetReps)
+        })
+        var result = WorkoutSession(exercises: exercises, initialExercise: nil, plan: plan)
+        _ = result.handle(.opened, at: 0)
+        _ = result.handle(.framingChanged(FramingStatus(isReliable: true, guidance: nil)), at: 1)
+        return result
     }
 }

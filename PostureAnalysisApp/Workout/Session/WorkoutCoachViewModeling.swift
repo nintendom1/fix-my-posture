@@ -24,6 +24,7 @@ struct WorkoutHUDViewState: Equatable {
     let formReadings: [FormReading]
     let isPhoneTilted: Bool
     let micStatus: VoiceStatus
+    let isMicMuted: Bool
     let heardPhrase: String?
     let isCoachMuted: Bool
     let showsMeasurements: Bool

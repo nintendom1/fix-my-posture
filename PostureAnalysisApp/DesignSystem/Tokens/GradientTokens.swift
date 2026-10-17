@@ -22,6 +22,14 @@ enum GradientTokens {
         angle: 135,
         cssStops: ["#7c4dff 0%", "#c04bd8 100%"]
     )
+    static let workoutAttention = linearGradient(
+        angle: 135,
+        cssStops: ["#ff9f43 0%", "#ffc46b 100%"]
+    )
+    static let workoutLost = linearGradient(
+        angle: 135,
+        cssStops: ["#ff5a6e 0%", "#ff9a8a 100%"]
+    )
     static let progress = linearGradient(
         angle: 150,
         cssStops: ["#4a2bd8 0%", "#7c4dff 50%", "#2fb8a0 130%"]
