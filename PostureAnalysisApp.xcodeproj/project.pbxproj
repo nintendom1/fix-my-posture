@@ -151,6 +151,13 @@
 		A10000012B00000000000154 /* WorkoutVisualState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000154 /* WorkoutVisualState.swift */; };
 		A10000012B00000000000155 /* WorkoutHUDPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000155 /* WorkoutHUDPresenter.swift */; };
 		A10000012B00000000000156 /* RepThresholdOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000156 /* RepThresholdOverlayView.swift */; };
+		A10000012B00000000000157 /* WorkoutServiceFakes.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000157 /* WorkoutServiceFakes.swift */; };
+		A10000012B00000000000158 /* WorkoutCoachModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000158 /* WorkoutCoachModelTests.swift */; };
+		A10000012B00000000000159 /* ClockAndScheduling.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000159 /* ClockAndScheduling.swift */; };
+		A10000012B00000000000160 /* CameraPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000160 /* CameraPermission.swift */; };
+		A10000012B00000000000161 /* CameraPreviewProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000161 /* CameraPreviewProviding.swift */; };
+		A10000012B00000000000162 /* AudioSessionControlling.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000162 /* AudioSessionControlling.swift */; };
+		A10000012B00000000000163 /* VoiceControlling.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000163 /* VoiceControlling.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -310,6 +317,13 @@
 		B10000012B00000000000154 /* WorkoutVisualState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutVisualState.swift; sourceTree = "<group>"; };
 		B10000012B00000000000155 /* WorkoutHUDPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHUDPresenter.swift; sourceTree = "<group>"; };
 		B10000012B00000000000156 /* RepThresholdOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepThresholdOverlayView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000157 /* WorkoutServiceFakes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutServiceFakes.swift; sourceTree = "<group>"; };
+		B10000012B00000000000158 /* WorkoutCoachModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCoachModelTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000159 /* ClockAndScheduling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClockAndScheduling.swift; sourceTree = "<group>"; };
+		B10000012B00000000000160 /* CameraPermission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPermission.swift; sourceTree = "<group>"; };
+		B10000012B00000000000161 /* CameraPreviewProviding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreviewProviding.swift; sourceTree = "<group>"; };
+		B10000012B00000000000162 /* AudioSessionControlling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionControlling.swift; sourceTree = "<group>"; };
+		B10000012B00000000000163 /* VoiceControlling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceControlling.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -493,6 +507,7 @@
 				H10000012B00000000000029 /* Support */,
 				B10000012B00000000000152 /* WorkoutVisualStateTests.swift */,
 				B10000012B00000000000153 /* WorkoutHUDPresenterTests.swift */,
+				B10000012B00000000000158 /* WorkoutCoachModelTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -566,6 +581,7 @@
 				B10000012B00000000000066 /* WorkoutCoachModel.swift */,
 				B10000012B00000000000125 /* WorkoutPlan.swift */,
 				B10000012B00000000000130 /* WorkoutWeight.swift */,
+				B10000012B00000000000159 /* ClockAndScheduling.swift */,
 			);
 			path = Session;
 			sourceTree = "<group>";
@@ -576,6 +592,8 @@
 				B10000012B00000000000067 /* PoseFrameSource.swift */,
 				B10000012B00000000000068 /* WorkoutCameraController.swift */,
 				B10000012B00000000000078 /* PhoneTiltMonitor.swift */,
+				B10000012B00000000000160 /* CameraPermission.swift */,
+				B10000012B00000000000161 /* CameraPreviewProviding.swift */,
 			);
 			path = Camera;
 			sourceTree = "<group>";
@@ -592,6 +610,8 @@
 				B10000012B00000000000090 /* VoiceCommandHelp.swift */,
 				B10000012B00000000000135 /* WeightPhraseParser.swift */,
 				B10000012B00000000000082 /* VoiceCommandParsing.swift */,
+				B10000012B00000000000162 /* AudioSessionControlling.swift */,
+				B10000012B00000000000163 /* VoiceControlling.swift */,
 			);
 			path = Voice;
 			sourceTree = "<group>";
@@ -701,6 +721,7 @@
 				B10000012B00000000000145 /* DesignWindow.swift */,
 				B10000012B00000000000146 /* SnapshotHost.swift */,
 				B10000012B00000000000147 /* FixedClock.swift */,
+				H10000012B00000000000031 /* Fakes */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -712,6 +733,14 @@
 				B10000012B00000000000155 /* WorkoutHUDPresenter.swift */,
 			);
 			path = Presentation;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000031 /* Fakes */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000157 /* WorkoutServiceFakes.swift */,
+			);
+			path = Fakes;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -918,6 +947,11 @@
 				A10000012B00000000000082 /* VoiceCommandParsing.swift in Sources */,
 				A10000012B00000000000077 /* WorkoutGhostOverlayView.swift in Sources */,
 				A10000012B00000000000156 /* RepThresholdOverlayView.swift in Sources */,
+				A10000012B00000000000159 /* ClockAndScheduling.swift in Sources */,
+				A10000012B00000000000160 /* CameraPermission.swift in Sources */,
+				A10000012B00000000000161 /* CameraPreviewProviding.swift in Sources */,
+				A10000012B00000000000162 /* AudioSessionControlling.swift in Sources */,
+				A10000012B00000000000163 /* VoiceControlling.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -955,6 +989,8 @@
 				A10000012B00000000000151 /* DesignCoverageTests.swift in TestSources */,
 				A10000012B00000000000152 /* WorkoutVisualStateTests.swift in TestSources */,
 				A10000012B00000000000153 /* WorkoutHUDPresenterTests.swift in TestSources */,
+				A10000012B00000000000157 /* WorkoutServiceFakes.swift in TestSources */,
+				A10000012B00000000000158 /* WorkoutCoachModelTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

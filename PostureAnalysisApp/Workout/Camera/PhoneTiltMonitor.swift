@@ -8,6 +8,7 @@ struct PhoneTilt: Equatable {
     var pitchDegrees: Double
 }
 
+@MainActor
 protocol PhoneTiltMonitoring: AnyObject {
     /// Nil when motion data is unavailable.
     var latestTilt: PhoneTilt? { get }
@@ -65,13 +66,13 @@ final class CoreMotionTiltMonitor: PhoneTiltMonitoring {
         manager.stopDeviceMotionUpdates()
     }
 
-    var latestTilt: PhoneTilt? {
+    @MainActor var latestTilt: PhoneTilt? {
         lock.lock()
         defer { lock.unlock() }
         return tilt
     }
 
-    func start() {
+    @MainActor func start() {
         guard manager.isDeviceMotionAvailable, !manager.isDeviceMotionActive else { return }
         manager.deviceMotionUpdateInterval = 0.1
         manager.startDeviceMotionUpdates(to: queue) { [weak self] motion, _ in
@@ -84,7 +85,7 @@ final class CoreMotionTiltMonitor: PhoneTiltMonitoring {
         }
     }
 
-    func stop() {
+    @MainActor func stop() {
         manager.stopDeviceMotionUpdates()
         lock.lock()
         tilt = nil

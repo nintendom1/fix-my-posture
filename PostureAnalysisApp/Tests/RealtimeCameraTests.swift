@@ -267,16 +267,3 @@ private final class FakeCaptureService: RealtimeCaptureService {
         starts[start].targetReceive?(starts[start].generation, target)
     }
 }
-
-@MainActor
-private final class FakeCameraPermission: RealtimeCameraPermission {
-    var status: AVAuthorizationStatus
-    var completion: (@MainActor (Bool) -> Void)?
-    init(status: AVAuthorizationStatus) { self.status = status }
-    func request(_ completion: @escaping @MainActor (Bool) -> Void) { self.completion = completion }
-    func complete(granted: Bool) {
-        status = granted ? .authorized : .denied
-        completion?(granted)
-        completion = nil
-    }
-}

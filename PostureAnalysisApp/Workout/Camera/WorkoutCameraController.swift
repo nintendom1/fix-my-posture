@@ -6,10 +6,11 @@ import Foundation
 /// Configuration and synchronous inference run on one serial queue at 10 Hz. Frames reach the main actor
 /// through a single pending slot: at most one hop is in flight, newer frames replace older ones, and no
 /// camera buffers are retained.
-final class WorkoutCameraController: NSObject, PoseFrameSource, AVCaptureVideoDataOutputSampleBufferDelegate {
+final class WorkoutCameraController: NSObject, PoseFrameSource, CameraPreviewProviding, AVCaptureVideoDataOutputSampleBufferDelegate {
     static let frameRate = 10
 
     let session = AVCaptureSession()
+    @MainActor var previewSession: AVCaptureSession? { session }
     private let queue = DispatchQueue(label: "com.postureanalysis.workoutCapture", qos: .userInitiated)
     private let output = AVCaptureVideoDataOutput()
     private let estimator: FramePoseEstimator

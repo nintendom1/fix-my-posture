@@ -4,7 +4,7 @@ import SwiftUI
 /// disc shows muted. Tapping mutes or unmutes (or opens help when voice needs fixing); long-press
 /// offers Voice Commands.
 struct MicrophoneStatusView: View {
-    let status: WorkoutVoiceController.Status
+    let status: VoiceStatus
     let onTap: () -> Void
     let onShowCommands: () -> Void
 
@@ -32,7 +32,7 @@ struct MicrophoneStatusView: View {
         .accessibilityIdentifier("workoutMicrophoneButton")
     }
 
-    static func symbol(for status: WorkoutVoiceController.Status) -> String {
+    static func symbol(for status: VoiceStatus) -> String {
         switch status {
         case .listening, .coachSpeaking: return "mic.fill"
         case .muted, .needsPermission, .unavailable: return "mic.slash.fill"
@@ -40,7 +40,7 @@ struct MicrophoneStatusView: View {
         }
     }
 
-    static func color(for status: WorkoutVoiceController.Status) -> Color {
+    static func color(for status: VoiceStatus) -> Color {
         switch status {
         case .listening: return WorkoutJointOverlayView.endPositionColor
         // Still a microphone, just dimmed: listening resumes when the coach finishes.
@@ -52,7 +52,7 @@ struct MicrophoneStatusView: View {
     }
 
     /// The current state, for the help header and VoiceOver.
-    static func label(for status: WorkoutVoiceController.Status) -> String {
+    static func label(for status: VoiceStatus) -> String {
         switch status {
         case .listening: return "Listening for voice commands"
         case .coachSpeaking: return "Listening resumes after the coach speaks"
@@ -64,7 +64,7 @@ struct MicrophoneStatusView: View {
         }
     }
 
-    static func hint(for status: WorkoutVoiceController.Status) -> String {
+    static func hint(for status: VoiceStatus) -> String {
         switch status {
         case .listening, .coachSpeaking: return "Mutes the microphone. Touch and hold for voice commands."
         case .muted: return "Turns the microphone back on."

@@ -7,7 +7,7 @@ struct VoiceCommandsHelpView: View {
     let sections: [VoiceCommandHelp.Section]
     /// Commands that make sense right now.
     let suggestions: [VoiceCommandHelp.Entry]
-    let micStatus: WorkoutVoiceController.Status
+    let micStatus: VoiceStatus
     let isMicMuted: Bool
     let isCoachMuted: Bool
     let onSetMicMuted: (Bool) -> Void

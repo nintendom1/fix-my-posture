@@ -17,7 +17,7 @@ struct WorkoutHUDView: View {
     /// The last rep's form values, shown with the measurements for tuning cue thresholds.
     let formReadings: [FormReading]
     let isPhoneTilted: Bool
-    let micStatus: WorkoutVoiceController.Status
+    let micStatus: VoiceStatus
     let heardPhrase: String?
     @Binding var showMeasurements: Bool
     let onClose: () -> Void
