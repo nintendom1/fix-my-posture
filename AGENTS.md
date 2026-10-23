@@ -116,6 +116,7 @@ Every new Workout Coach exercise ships with full guidance (guide, ghost demo, th
 - Realtime posture: `docs/realtime.md`
 - Workout reminders: `docs/reminders.md`
 - Notification character scenarios (generated table of every state, art, and copy line): `docs/notification-scenarios.md`
+- Character notification planner and selection rules: `docs/notifications.md`
 - Commit and PR conventions: `docs/commit-and-pr.md`
 - App icon source & export: `Design/AppIcon/README.md`
 - Notification character art pipeline and scenario data: `Design/NotificationCharacter/README.md`
