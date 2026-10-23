@@ -42,3 +42,67 @@ The same notice is shown in the app under **Settings (gear) → Acknowledgements
 - **Source file:** `chibis_600x400.psd` from [Female Character Chibi Sprite](https://dicortesia.itch.io/female-character-chibi) by dicortesia
 - **Original characters:** [Female Character Sprite for Visual Novel](https://sutemo.itch.io/female-character) by Sutemo, which the chibi pack is based on
 - **Terms:** neither author ships a license file. Their itch.io pages allow personal and commercial use and alteration, and forbid reselling the artwork on its own (the chibi pack also forbids NFT use). Credit is appreciated. The terms are quoted as read on 2026-10-22 in `Design/NotificationCharacter/Source/README.md`. No license this repository may have covers the PSD.
+
+## Exercise Photography
+
+Each bundled exercise thumbnail is a cropped/resized derivative of the specific photograph below. Only crop and resize were used; no AI generation or generative alteration was performed. These credits and exact-source links also appear under **Settings → Acknowledgements → Exercise Photography**.
+
+### Air Squat
+
+- **Asset:** `ExerciseThumbnails/air_squat`
+- **Photographer:** Polina Tankilevitch
+- **Source:** Pexels; [exact original source page](https://www.pexels.com/photo/women-working-out-in-the-room-6516212/)
+- **Source ID:** 6516212
+- **License/status:** Pexels License
+- **Processing:** cropped/resized derivative, 512 × 512 JPEG.
+
+### Dumbbell Row
+
+- **Asset:** `ExerciseThumbnails/dumbbell_row`
+- **Photographer:** Airam Dato-on
+- **Source:** Pexels; [exact original source page](https://www.pexels.com/photo/woman-lifting-weights-in-a-gym-13106582/)
+- **Source ID:** 13106582
+- **License/status:** Pexels License
+- **Processing:** cropped/resized derivative, 512 × 512 JPEG.
+
+### Hammer Curl
+
+- **Asset:** `ExerciseThumbnails/hammer_curl`
+- **Photographer:** Staff Sgt. Lucas Vega
+- **Source:** DVIDS / U.S. Marine Corps; [exact original source page](https://www.dvidshub.net/image/6272440/okinawa-marine-maintains-physical-readiness-covid-19-environment)
+- **Source ID:** 6272440; VIRIN 200710-M-CX982-0165
+- **License/status:** U.S. government work; public domain in the United States
+- **Processing:** cropped/resized derivative, 512 × 512 JPEG.
+
+### Push-Up
+
+- **Asset:** `ExerciseThumbnails/push_up`
+- **Photographer:** Polina Tankilevitch
+- **Source:** Pexels; [exact original source page](https://www.pexels.com/photo/woman-doing-push-up-6516167/)
+- **Source ID:** 6516167
+- **License/status:** Pexels License
+- **Processing:** cropped/resized derivative, 512 × 512 JPEG.
+
+### Shoulder Press
+
+- **Asset:** `ExerciseThumbnails/shoulder_press`
+- **Photographer:** Senior Airman Greydon Furstenau
+- **Source:** U.S. Air Force / Wikimedia Commons; [exact original source page](https://commons.wikimedia.org/wiki/File:Discipline_in_motion,_Incirlik_Airman_inspires_others_through_fitness_(9444781).jpg)
+- **Source ID:** 9444781; VIRIN 251104-F-XM554-1092
+- **License/status:** U.S. government work; public domain in the United States
+- **Processing:** cropped/resized derivative, 512 × 512 JPEG.
+
+### Triceps Extension
+
+- **Asset:** `ExerciseThumbnails/triceps_extension`
+- **Photographer:** Miguel González
+- **Source:** Pexels; [exact original source page](https://www.pexels.com/photo/a-woman-lifting-a-dumbbell-14623619/)
+- **Source ID:** 14623619
+- **License/status:** Pexels License
+- **Processing:** cropped/resized derivative, 512 × 512 JPEG.
+
+The Pexels photographs are used under the [Pexels License](https://www.pexels.com/license/). The two government photographs are official-duty U.S. government works identified as public domain in the United States on their source pages; see the [DVIDS use limitations](https://www.dvidshub.net/about/copyright). Their use does not imply endorsement by the photographers, depicted people, Pexels, Wikimedia, or the U.S. military.
+
+The appearance of U.S. Department of War (DoW) visual information does not imply or constitute DoW endorsement.
+
+See [the exercise thumbnail source manifest](PostureAnalysisApp/Assets.xcassets/ExerciseThumbnails/SOURCES.md) for exact asset mappings, retrieval details, crop coordinates, and final file checksums.

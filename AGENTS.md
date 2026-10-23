@@ -55,7 +55,7 @@ PostureAnalysisApp/
 ├── LandmarkEditing/             # Manual posture landmark adjustment
 ├── Utilities/                   # Coordinate conversion, camera setup, image normalization, geometry
 ├── Views/                       # Shared, still-used views reused across feature folders
-├── Assets.xcassets/             # App icon asset; source is in Design/AppIcon
+├── Assets.xcassets/             # App icon, notification art, and exercise-photo assets
 └── Tests/
     ├── Support/                 # Snapshot host, fixtures, fixed clock, and shared test support
     ├── Fakes/                   # Test fakes
@@ -82,6 +82,12 @@ Design/NotificationCharacter/    # Chibi source PSD, characters.json, notificati
 ## Adding a Workout Exercise
 
 Every new Workout Coach exercise ships with full guidance (guide, ghost demo, threshold lines, hold ring, coaching cues, docs, and checklist items) even when a request only names the exercise. Follow the *Adding an exercise* checklist in `docs/workout.md`.
+
+## Exercise Photography
+
+Exercise thumbnails use vetted real photography. Never replace them with an unvetted source or AI-generated or generatively altered imagery. Only crop and resize approved photographs; preserve instructional/form visuals such as `ExerciseDemoFigureView`.
+
+Whenever an exercise thumbnail is added, replaced, removed, renamed, or materially changed, update as applicable: its asset-catalog entry, `PostureAnalysisApp/Assets.xcassets/ExerciseThumbnails/SOURCES.md`, `THIRD_PARTY_NOTICES.md`, and the in-app Exercise Photography acknowledgements (backed by `ExercisePhotography`). Keep exercise IDs, asset names, exact original-source links, photographer credits, license/status, and processing notes synchronized. Keep only final cropped/resized derivatives in the repository. If a source, provenance, or usable crop cannot be verified, stop and report the problem rather than substituting another image.
 
 ## Useful Validation & Build Commands
 
@@ -119,4 +125,5 @@ Every new Workout Coach exercise ships with full guidance (guide, ghost demo, th
 - Character notification planner and selection rules: `docs/notifications.md`
 - Commit and PR conventions: `docs/commit-and-pr.md`
 - App icon source & export: `Design/AppIcon/README.md`
+- Exercise photography sources & crop records: `PostureAnalysisApp/Assets.xcassets/ExerciseThumbnails/SOURCES.md`
 - Notification character art pipeline and scenario data: `Design/NotificationCharacter/README.md`

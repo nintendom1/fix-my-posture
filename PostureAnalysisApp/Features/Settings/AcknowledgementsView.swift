@@ -50,7 +50,7 @@ struct AcknowledgementsView: View {
                         .font(.title3.weight(.semibold))
                     Text("The app icon is a modified version of the Tabler Icons \u{201C}body-scan\u{201D} glyph.")
                         .font(.body)
-                    // Plain text rather than a link: the app never opens network connections.
+                    // Keep the existing icon notice as selectable text.
                     Text(Self.tablerURL)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -61,6 +61,30 @@ struct AcknowledgementsView: View {
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(RoundedRectangle(cornerRadius: 12).fill(Color.secondary.opacity(0.12)))
+
+                    Divider()
+                    Text("Exercise Photography")
+                        .font(.title3.weight(.semibold))
+                    Text("These photographs are cropped and resized for exercise thumbnails.")
+                        .font(.body)
+                    ForEach(ExercisePhotography.all) { photograph in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(photograph.exerciseName)
+                                .font(.headline)
+                            Text("\(photograph.photographer) / \(photograph.source)")
+                                .font(.subheadline)
+                            Text(photograph.license)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                            // The system browser opens only after an explicit tap.
+                            Link("Original photograph — \(photograph.exerciseName)", destination: photograph.sourceURL)
+                                .font(.subheadline)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    Text("The appearance of U.S. Department of War (DoW) visual information does not imply or constitute DoW endorsement.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
                 .padding(20)
             }
