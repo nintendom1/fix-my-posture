@@ -326,6 +326,9 @@
 		A10000012B00000000000336 /* NotificationPlannerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000336 /* NotificationPlannerTests.swift */; };
 		A10000012B00000000000337 /* NotificationSlotSchedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000337 /* NotificationSlotSchedule.swift */; };
 		A10000012B00000000000338 /* NotificationPolicyBoundaryTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000338 /* NotificationPolicyBoundaryTests.swift */; };
+		A10000012B00000000000339 /* MemoryWorkoutReminderScheduler.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000339 /* MemoryWorkoutReminderScheduler.swift */; };
+		A10000012B00000000000340 /* CharacterReminderCoordinatorTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000340 /* CharacterReminderCoordinatorTests.swift */; };
+		A10000012B00000000000341 /* WorkoutRemindersSettingsPageTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000341 /* WorkoutRemindersSettingsPageTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -660,6 +663,9 @@
 		B10000012B00000000000336 /* NotificationPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPlannerTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000337 /* NotificationSlotSchedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSlotSchedule.swift; sourceTree = "<group>"; };
 		B10000012B00000000000338 /* NotificationPolicyBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPolicyBoundaryTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000339 /* MemoryWorkoutReminderScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryWorkoutReminderScheduler.swift; sourceTree = "<group>"; };
+		B10000012B00000000000340 /* CharacterReminderCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterReminderCoordinatorTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000341 /* WorkoutRemindersSettingsPageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutRemindersSettingsPageTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -888,6 +894,8 @@
 				B10000012B00000000000335 /* NotificationCopyPickerTests.swift */,
 				B10000012B00000000000336 /* NotificationPlannerTests.swift */,
 				B10000012B00000000000338 /* NotificationPolicyBoundaryTests.swift */,
+				B10000012B00000000000340 /* CharacterReminderCoordinatorTests.swift */,
+				B10000012B00000000000341 /* WorkoutRemindersSettingsPageTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1414,6 +1422,7 @@
 			children = (
 				B10000012B00000000000157 /* WorkoutServiceFakes.swift */,
 				B10000012B00000000000325 /* FakePreviewScheduler.swift */,
+				B10000012B00000000000339 /* MemoryWorkoutReminderScheduler.swift */,
 			);
 			path = Fakes;
 			sourceTree = "<group>";
@@ -1879,6 +1888,9 @@
 				A10000012B00000000000335 /* NotificationCopyPickerTests.swift in TestSources */,
 				A10000012B00000000000336 /* NotificationPlannerTests.swift in TestSources */,
 				A10000012B00000000000338 /* NotificationPolicyBoundaryTests.swift in TestSources */,
+				A10000012B00000000000339 /* MemoryWorkoutReminderScheduler.swift in TestSources */,
+				A10000012B00000000000340 /* CharacterReminderCoordinatorTests.swift in TestSources */,
+				A10000012B00000000000341 /* WorkoutRemindersSettingsPageTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

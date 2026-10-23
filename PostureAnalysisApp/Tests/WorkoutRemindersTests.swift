@@ -343,6 +343,7 @@ final class WorkoutRemindersTests: XCTestCase {
     ) -> WorkoutReminderSettings {
         WorkoutReminderSettings(
             enabled: enabled,
+            style: .plain,
             recurrence: recurrence,
             hour: hour,
             minute: minute,
@@ -453,29 +454,6 @@ final class WorkoutRemindersTests: XCTestCase {
             dateComponents: DateComponents(hour: 8),
             repeats: true
         )
-    }
-}
-
-@MainActor
-private final class MemoryWorkoutReminderScheduler: WorkoutReminderScheduling {
-    var status: WorkoutReminderAuthorizationStatus
-    var requests: [WorkoutReminderNotificationRequest] = []
-    private(set) var authorizationRequestCount = 0
-
-    init(status: WorkoutReminderAuthorizationStatus = .authorized) {
-        self.status = status
-    }
-
-    func authorizationStatus() async -> WorkoutReminderAuthorizationStatus { status }
-
-    func requestAuthorization() async -> WorkoutReminderAuthorizationStatus {
-        authorizationRequestCount += 1
-        if status == .notDetermined { status = .authorized }
-        return status
-    }
-
-    func replaceRequests(_ requests: [WorkoutReminderNotificationRequest]) async {
-        self.requests = requests
     }
 }
 

@@ -83,3 +83,7 @@ Only the first workout of a calendar day receives an acknowledgment. `Notificati
 The planner visits calendar days from today forward until it has considered 14 planned days or has made 60 requests. Each day is summarized using the same saved records and an `asOf` at that day's start, so future planned days project as misses. If today's planned session is already complete, no notification is scheduled today. After three consecutive missed planned days only the reminder slot remains. Once the last workout is 14 calendar days behind, planning stops for that day and every later day. Fire dates use local wall-clock components and are sorted chronologically.
 
 All thresholds and limits live in `NotificationPolicy`. The scenario copy and art source is documented in [notification-scenarios.md](notification-scenarios.md).
+
+## Where it runs
+
+`WorkoutReminderCoordinator.reconcileNow()` invokes the planner for Character-style real reminders and maps planned content into the existing local notification scheduler. After a workout save, the coordinator first reconciles the remaining reminder plan, then selects and schedules an acknowledgment through that scheduler. Plain reminders keep using `WorkoutReminderScheduleBuilder`.

@@ -16,9 +16,24 @@ enum WorkoutReminderRecurrence: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum WorkoutReminderStyle: String, Codable, CaseIterable, Identifiable {
+    case character
+    case plain
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .character: "Character"
+        case .plain: "Plain"
+        }
+    }
+}
+
 /// The one user-configurable workout reminder schedule.
 struct WorkoutReminderSettings: Codable, Equatable {
     var enabled: Bool
+    var style: WorkoutReminderStyle
     var recurrence: WorkoutReminderRecurrence
     var hour: Int
     var minute: Int
@@ -28,6 +43,7 @@ struct WorkoutReminderSettings: Codable, Equatable {
 
     init(
         enabled: Bool = false,
+        style: WorkoutReminderStyle = .character,
         recurrence: WorkoutReminderRecurrence = .daily,
         hour: Int = 18,
         minute: Int = 0,
@@ -35,11 +51,34 @@ struct WorkoutReminderSettings: Codable, Equatable {
         weekdays: Set<Int> = [2, 4, 6]
     ) {
         self.enabled = enabled
+        self.style = style
         self.recurrence = recurrence
         self.hour = hour
         self.minute = minute
         self.everyOtherDayStartDate = everyOtherDayStartDate
         self.weekdays = weekdays
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case enabled
+        case style
+        case recurrence
+        case hour
+        case minute
+        case everyOtherDayStartDate
+        case weekdays
+    }
+
+    /// Reads reminder settings written before character/plain selection existed.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = try container.decode(Bool.self, forKey: .enabled)
+        style = try container.decodeIfPresent(WorkoutReminderStyle.self, forKey: .style) ?? .character
+        recurrence = try container.decode(WorkoutReminderRecurrence.self, forKey: .recurrence)
+        hour = try container.decode(Int.self, forKey: .hour)
+        minute = try container.decode(Int.self, forKey: .minute)
+        everyOtherDayStartDate = try container.decode(Date.self, forKey: .everyOtherDayStartDate)
+        weekdays = try container.decode(Set<Int>.self, forKey: .weekdays)
     }
 
     func normalized(calendar: Calendar = .current) -> Self {
@@ -118,6 +157,40 @@ struct WorkoutReminderNotificationRequest: Equatable {
     let target: WorkoutReminderTarget
     let dateComponents: DateComponents
     let repeats: Bool
+    let imageAssetName: String?
+    let categoryIdentifier: String?
+
+    init(
+        identifier: String,
+        title: String,
+        body: String,
+        target: WorkoutReminderTarget,
+        dateComponents: DateComponents,
+        repeats: Bool,
+        imageAssetName: String? = nil,
+        categoryIdentifier: String? = nil
+    ) {
+        self.identifier = identifier
+        self.title = title
+        self.body = body
+        self.target = target
+        self.dateComponents = dateComponents
+        self.repeats = repeats
+        self.imageAssetName = imageAssetName
+        self.categoryIdentifier = categoryIdentifier
+    }
+}
+
+/// A post-workout character response, kept outside the reminder identifier namespace.
+struct WorkoutAcknowledgmentRequest: Equatable {
+    static let identifierPrefix = "fixMyPosture.workoutAcknowledgment."
+
+    let identifier: String
+    let title: String
+    let body: String
+    let imageAssetName: String?
+    let categoryIdentifier: String?
+    let delaySeconds: Int
 }
 
 /// Builds the bounded set of local calendar notifications for the supported v1 recurrences.

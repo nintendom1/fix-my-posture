@@ -43,7 +43,8 @@ final class AppEnvironment {
                 routines: repositories.routines,
                 workoutHistory: repositories.workoutHistory,
                 exerciseCatalog: exerciseCatalog,
-                router: router
+                router: router,
+                scenarioCatalog: notificationScenarioCatalog
             )
             modelContainer = container
             self.repositories = repositories
@@ -94,7 +95,8 @@ final class AppEnvironment {
                 routines: nil,
                 workoutHistory: nil,
                 exerciseCatalog: exerciseCatalog,
-                router: router
+                router: router,
+                scenarioCatalog: notificationScenarioCatalog
             )
             workoutReminderCoordinator = reminderCoordinator
             workoutCoachFactory = WorkoutCoachFactory(

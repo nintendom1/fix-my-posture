@@ -40,6 +40,7 @@ enum PreferenceKey {
     static let weightUnit = "settings.weightUnit"
     static let tiltWarningsEnabled = "settings.tiltWarningsEnabled"
     static let workoutReminders = "settings.workoutReminders"
+    static let characterNotificationIntroDate = "reminders.characterIntroDate"
 
     /// New workout flow choices use the train. namespace.
     static let startByHolding = "train.startByHolding"
@@ -81,6 +82,7 @@ protocol AppPreferencesStoring: AnyObject {
     var upNextOverride: UUID? { get set }
     var tiltWarningsEnabled: Bool { get set }
     var workoutReminderSettings: WorkoutReminderSettings { get set }
+    var characterNotificationIntroDate: Date? { get set }
     var notificationPreviewDelaySeconds: Int { get set }
 }
 
@@ -197,6 +199,22 @@ final class UserDefaultsPreferences: AppPreferencesStoring {
         }
     }
 
+    var characterNotificationIntroDate: Date? {
+        get {
+            guard let timestamp = defaults.object(forKey: PreferenceKey.characterNotificationIntroDate) as? Double else {
+                return nil
+            }
+            return Date(timeIntervalSince1970: timestamp)
+        }
+        set {
+            guard let newValue else {
+                defaults.removeObject(forKey: PreferenceKey.characterNotificationIntroDate)
+                return
+            }
+            defaults.set(newValue.timeIntervalSince1970, forKey: PreferenceKey.characterNotificationIntroDate)
+        }
+    }
+
     var notificationPreviewDelaySeconds: Int {
         get {
             NotificationPreviewDelay.clamped(
@@ -243,6 +261,7 @@ final class InMemoryPreferences: AppPreferencesStoring {
     var upNextOverride: UUID?
     var tiltWarningsEnabled = true
     var workoutReminderSettings = WorkoutReminderSettings()
+    var characterNotificationIntroDate: Date?
 
     private var storedNotificationPreviewDelay = NotificationPreviewDelay.defaultSeconds
     var notificationPreviewDelaySeconds: Int {

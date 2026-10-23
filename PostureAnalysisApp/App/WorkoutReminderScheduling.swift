@@ -12,11 +12,17 @@ protocol WorkoutReminderScheduling {
     func authorizationStatus() async -> WorkoutReminderAuthorizationStatus
     func requestAuthorization() async -> WorkoutReminderAuthorizationStatus
     func replaceRequests(_ requests: [WorkoutReminderNotificationRequest]) async
+    func scheduleAcknowledgment(_ request: WorkoutAcknowledgmentRequest) async
 }
 
 @MainActor
 protocol WorkoutReminderReconciliation: AnyObject {
     func reconcile()
+    func workoutSaved(_ record: WorkoutRecord)
+}
+
+extension WorkoutReminderReconciliation {
+    func workoutSaved(_ record: WorkoutRecord) {}
 }
 
 @MainActor
@@ -62,6 +68,13 @@ final class UserNotificationWorkoutReminderScheduler: WorkoutReminderScheduling 
             content.sound = .default
             content.threadIdentifier = WorkoutReminderScheduleBuilder.identifierPrefix
             content.userInfo = request.target.payload
+            if let categoryIdentifier = request.categoryIdentifier {
+                content.categoryIdentifier = categoryIdentifier
+            }
+            if let imageAssetName = request.imageAssetName,
+               let attachment = NotificationAttachmentFactory.makeAttachment(assetName: imageAssetName) {
+                content.attachments = [attachment]
+            }
             let trigger = UNCalendarNotificationTrigger(
                 dateMatching: request.dateComponents,
                 repeats: request.repeats
@@ -75,6 +88,42 @@ final class UserNotificationWorkoutReminderScheduler: WorkoutReminderScheduling 
             } catch {
                 // A later app activation or settings change retries the bounded schedule.
             }
+        }
+    }
+
+    /// Replaces any queued workout acknowledgment with the newest saved session response.
+    func scheduleAcknowledgment(_ request: WorkoutAcknowledgmentRequest) async {
+        let pending = await center.pendingNotificationRequests()
+        let oldIdentifiers = pending
+            .map(\.identifier)
+            .filter { $0.hasPrefix(WorkoutAcknowledgmentRequest.identifierPrefix) }
+        center.removePendingNotificationRequests(withIdentifiers: oldIdentifiers)
+
+        let content = UNMutableNotificationContent()
+        content.title = request.title
+        content.body = request.body
+        content.sound = .default
+        content.userInfo = [:]
+        if let categoryIdentifier = request.categoryIdentifier {
+            content.categoryIdentifier = categoryIdentifier
+        }
+        content.threadIdentifier = WorkoutAcknowledgmentRequest.identifierPrefix
+        if let imageAssetName = request.imageAssetName,
+           let attachment = NotificationAttachmentFactory.makeAttachment(assetName: imageAssetName) {
+            content.attachments = [attachment]
+        }
+        let trigger = UNTimeIntervalNotificationTrigger(
+            timeInterval: TimeInterval(max(1, request.delaySeconds)),
+            repeats: false
+        )
+        do {
+            try await center.add(UNNotificationRequest(
+                identifier: request.identifier,
+                content: content,
+                trigger: trigger
+            ))
+        } catch {
+            // A later saved workout can replace and retry the pending acknowledgment.
         }
     }
 
@@ -141,12 +190,17 @@ final class WorkoutReminderAppDelegate: NSObject, UIApplicationDelegate, UNUserN
         NotificationCategory.showsInForeground(categoryIdentifier) ? [.banner, .list, .sound] : []
     }
 
+    /// Returns nil for targetless notifications such as workout acknowledgments.
+    static func workoutTarget(from userInfo: [AnyHashable: Any]) -> WorkoutReminderTarget? {
+        WorkoutReminderTarget(userInfo: userInfo)
+    }
+
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        let target = WorkoutReminderTarget(userInfo: response.notification.request.content.userInfo)
+        let target = Self.workoutTarget(from: response.notification.request.content.userInfo)
         if let target {
             Task { @MainActor in
                 WorkoutReminderNotificationBridge.shared.receive(target)
