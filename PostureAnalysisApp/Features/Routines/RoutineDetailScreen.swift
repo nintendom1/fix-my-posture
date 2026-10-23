@@ -190,7 +190,7 @@ private struct SequenceStepView: View {
             .frame(width: 28, height: 78)
 
             HStack(spacing: 12) {
-                ExercisePlaceholderTile()
+                ExerciseThumbnailView(exerciseID: step.exerciseID)
                     .frame(width: 56, height: 56)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -248,25 +248,6 @@ private struct RoutineReorderGrip: View {
         .foregroundStyle(ColorTokens.palette().textSubtle)
         .frame(width: 12, height: 14)
         .accessibilityHidden(true)
-    }
-}
-
-private struct ExercisePlaceholderTile: View {
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white.opacity(0.035))
-            Canvas { context, size in
-                let spacing: CGFloat = 16
-                for offset in stride(from: -size.height, through: size.width, by: spacing) {
-                    var path = Path()
-                    path.move(to: CGPoint(x: offset, y: size.height))
-                    path.addLine(to: CGPoint(x: offset + size.height, y: 0))
-                    context.stroke(path, with: .color(.white.opacity(0.035)), lineWidth: 9)
-                }
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 

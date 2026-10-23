@@ -3,6 +3,24 @@ import XCTest
 @testable import PostureAnalysisApp
 
 final class ExerciseCatalogTests: XCTestCase {
+    func testEveryExerciseHasOneBundledSquarePhotograph() throws {
+        let photographs = ExercisePhotography.all
+        XCTAssertEqual(Set(photographs.map(\.id)), Set(ExerciseCatalog.all.map(\.id)))
+        XCTAssertEqual(Set(photographs.map(\.id)).count, photographs.count)
+        XCTAssertEqual(Set(photographs.map(\.assetName)).count, photographs.count)
+
+        for exercise in ExerciseCatalog.all {
+            let photograph = try XCTUnwrap(ExercisePhotography.photograph(for: exercise.id))
+            let image = try XCTUnwrap(UIImage(named: photograph.assetName), "Missing asset for \(exercise.id.rawValue)")
+            let pixels = try XCTUnwrap(image.cgImage)
+            XCTAssertEqual(pixels.width, 512)
+            XCTAssertEqual(pixels.height, 512)
+            XCTAssertEqual(photograph.sourceURL.scheme, "https")
+        }
+
+        XCTAssertNil(ExercisePhotography.photograph(for: ExerciseID(rawValue: "unavailable")))
+    }
+
     func testEveryCatalogExerciseHasCorePresentationData() {
         XCTAssertFalse(ExerciseCatalog.all.isEmpty)
 

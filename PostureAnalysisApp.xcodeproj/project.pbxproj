@@ -334,6 +334,8 @@
 		A10000012B00000000000344 /* NotificationDiagnosticsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000344 /* NotificationDiagnosticsProvider.swift */; };
 		A10000012B00000000000345 /* NotificationDiagnosticsTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000345 /* NotificationDiagnosticsTests.swift */; };
 		A10000012B00000000000346 /* MemoryNotificationEventLog.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000346 /* MemoryNotificationEventLog.swift */; };
+		A10000012B00000000000347 /* ExercisePhotography.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000347 /* ExercisePhotography.swift */; };
+		A10000012B00000000000348 /* ExerciseThumbnailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000348 /* ExerciseThumbnailView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -676,6 +678,8 @@
 		B10000012B00000000000344 /* NotificationDiagnosticsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationDiagnosticsProvider.swift; sourceTree = "<group>"; };
 		B10000012B00000000000345 /* NotificationDiagnosticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationDiagnosticsTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000346 /* MemoryNotificationEventLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryNotificationEventLog.swift; sourceTree = "<group>"; };
+		B10000012B00000000000347 /* ExercisePhotography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExercisePhotography.swift; sourceTree = "<group>"; };
+		B10000012B00000000000348 /* ExerciseThumbnailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseThumbnailView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -948,6 +952,7 @@
 				H10000012B00000000000026 /* PushUp */,
 				B10000012B00000000000187 /* ExercisePresentation.swift */,
 				B10000012B00000000000301 /* ExerciseFilter.swift */,
+				B10000012B00000000000347 /* ExercisePhotography.swift */,
 			);
 			path = Exercises;
 			sourceTree = "<group>";
@@ -1216,6 +1221,7 @@
 				B10000012B00000000000256 /* RepCounter.swift */,
 				B10000012B00000000000257 /* EdgeGlow.swift */,
 				B10000012B00000000000298 /* SettingsRow.swift */,
+				B10000012B00000000000348 /* ExerciseThumbnailView.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -1810,6 +1816,8 @@
 				A10000012B00000000000342 /* NotificationEventLog.swift in Sources */,
 				A10000012B00000000000343 /* NotificationDiagnosticsSnapshot.swift in Sources */,
 				A10000012B00000000000344 /* NotificationDiagnosticsProvider.swift in Sources */,
+				A10000012B00000000000347 /* ExercisePhotography.swift in Sources */,
+				A10000012B00000000000348 /* ExerciseThumbnailView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

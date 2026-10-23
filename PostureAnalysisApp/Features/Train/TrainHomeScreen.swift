@@ -352,18 +352,9 @@ private struct ExerciseTileView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ZStack(alignment: .bottomLeading) {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(GradientTokens.linearGradient(from: exercise.gradient))
-                Image(systemName: exercise.symbolName)
-                    .font(.system(size: 30, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.88))
-                    .accessibilityHidden(true)
-                    .padding(8)
-            }
-            .frame(height: 88)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .designAnchor(thumbAnchor)
+            ExerciseThumbnailView(exerciseID: exercise.id)
+                .frame(height: 88)
+                .designAnchor(thumbAnchor)
 
             Text(exercise.name)
                 .font(.system(size: 15, weight: .heavy, design: .rounded))

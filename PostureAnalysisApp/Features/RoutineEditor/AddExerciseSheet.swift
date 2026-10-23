@@ -105,9 +105,7 @@ struct AddExerciseSheet: View {
     private func exerciseRow(_ exercise: AddExercisePresentation) -> some View {
         Button { send(.addExercise(exercise.exerciseID)) } label: {
             HStack(spacing: 12) {
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    .fill(GradientTokens.linearGradient(from: exercise.gradient))
-                    .opacity(0.85)
+                ExerciseThumbnailView(exerciseID: exercise.exerciseID, cornerRadius: 13)
                     .frame(width: 48, height: 48)
 
                 VStack(alignment: .leading, spacing: 3) {

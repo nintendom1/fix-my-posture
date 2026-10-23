@@ -142,12 +142,8 @@ struct LibraryScreen: View {
 
     private func exerciseRow(_ exercise: LibraryExerciseRow) -> some View {
         HStack(spacing: 12) {
-            ZStack {
-                GradientTokens.linearGradient(from: exercise.gradient)
-            }
-            .frame(width: 56, height: 56)
-            .opacity(0.85)
-            .clipShape(RoundedRectangle(cornerRadius: Metrics.Radius.thumbnail, style: .continuous))
+            ExerciseThumbnailView(exerciseID: exercise.id)
+                .frame(width: 56, height: 56)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(exercise.name)
