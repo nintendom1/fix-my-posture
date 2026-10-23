@@ -159,8 +159,8 @@ Every state the notification character can be in, with the art and copy it uses.
 - **Copy:**
   1. A whole week!
   2. Seven days. I knew we could do it.
-  3. One full week together. That’s real.
-  4. Week one: done. Look at us.
+  3. One full week together. Hooray!
+  4. Week one: done. Look at us!
 
 ### 8. established-streak-reminder
 
