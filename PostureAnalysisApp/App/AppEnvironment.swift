@@ -22,6 +22,8 @@ final class AppEnvironment {
     /// Loaded once; nil when the app's scenario data set is missing or invalid.
     let notificationScenarioCatalog: NotificationScenarioCatalog?
     let notificationScenarioError: String?
+    /// Plain-text record of what the notification code decided and what iOS accepted, for diagnosing the phone.
+    let notificationEventLog = FileNotificationEventLog()
 
     init(inMemory: Bool = false) {
         router = AppRouter()
@@ -43,7 +45,9 @@ final class AppEnvironment {
                 routines: repositories.routines,
                 workoutHistory: repositories.workoutHistory,
                 exerciseCatalog: exerciseCatalog,
-                router: router
+                router: router,
+                scenarioCatalog: notificationScenarioCatalog,
+                eventLog: notificationEventLog
             )
             modelContainer = container
             self.repositories = repositories
@@ -94,7 +98,9 @@ final class AppEnvironment {
                 routines: nil,
                 workoutHistory: nil,
                 exerciseCatalog: exerciseCatalog,
-                router: router
+                router: router,
+                scenarioCatalog: notificationScenarioCatalog,
+                eventLog: notificationEventLog
             )
             workoutReminderCoordinator = reminderCoordinator
             workoutCoachFactory = WorkoutCoachFactory(
@@ -148,7 +154,10 @@ final class AppEnvironment {
             catalog: notificationScenarioCatalog,
             loadError: notificationScenarioError,
             preferences: preferences,
-            scheduler: UserNotificationPreviewScheduler()
+            scheduler: UserNotificationPreviewScheduler(),
+            diagnostics: UserNotificationDiagnosticsProvider(eventLog: notificationEventLog),
+            diagnosticsReportURL: FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("notification-diagnostics.txt")
         )
     }
 

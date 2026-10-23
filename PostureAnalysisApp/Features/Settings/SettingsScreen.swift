@@ -336,26 +336,35 @@ private struct WorkoutRemindersSettingsPage: View {
                                 settingDivider
                             }
                             dateRow(title: "Time", selection: timeBinding, components: .hourAndMinute)
+                            settingDivider
+                            stylePicker
                         }
                     }
                     .background(ColorTokens.palette().backgroundCard)
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
-                    if viewModel.workoutRemindersEnabled && viewModel.reminderAuthorization == .denied {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Notifications are turned off for Fix My Posture.")
-                                .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                .foregroundStyle(ColorTokens.palette().textMuted)
-                            Button("Open Notification Settings", action: viewModel.openNotificationSettings)
-                                .font(.system(size: 15, weight: .heavy, design: .rounded))
-                                .foregroundStyle(ColorTokens.palette().tabActive)
-                        }
-                        .padding(.horizontal, 4)
-                    } else if viewModel.workoutRemindersEnabled {
-                        Text("Reminders are scheduled on this iPhone and can be changed at any time.")
+                    if viewModel.workoutRemindersEnabled {
+                        Text(styleFooter)
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
                             .foregroundStyle(ColorTokens.palette().textSubtle)
                             .padding(.horizontal, 4)
+
+                        if viewModel.reminderAuthorization == .denied {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Notifications are turned off for Fix My Posture.")
+                                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(ColorTokens.palette().textMuted)
+                                Button("Open Notification Settings", action: viewModel.openNotificationSettings)
+                                    .font(.system(size: 15, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(ColorTokens.palette().tabActive)
+                            }
+                            .padding(.horizontal, 4)
+                        } else {
+                            Text("Reminders are scheduled on this iPhone and can be changed at any time.")
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .foregroundStyle(ColorTokens.palette().textSubtle)
+                                .padding(.horizontal, 4)
+                        }
                     }
                 }
                 .padding(20)
@@ -394,6 +403,37 @@ private struct WorkoutRemindersSettingsPage: View {
         }
         .frame(minHeight: 52)
         .padding(.horizontal, 16)
+    }
+
+    private var stylePicker: some View {
+        HStack {
+            Text("Style")
+                .font(.system(size: 16, weight: .heavy, design: .rounded))
+                .foregroundStyle(ColorTokens.palette().textPrimary)
+            Spacer(minLength: 8)
+            Picker("Style", selection: Binding(
+                get: { viewModel.workoutReminderSettings.style },
+                set: { style in viewModel.updateReminderSettings { $0.style = style } }
+            )) {
+                ForEach(WorkoutReminderStyle.allCases) { style in
+                    Text(style.title).tag(style)
+                }
+            }
+            .pickerStyle(.menu)
+            .tint(ColorTokens.palette().textMuted)
+            .accessibilityIdentifier("workoutReminderStylePicker")
+        }
+        .frame(minHeight: 52)
+        .padding(.horizontal, 16)
+    }
+
+    private var styleFooter: String {
+        switch viewModel.workoutReminderSettings.style {
+        case .character:
+            "Your character sends messages that change with your streak, may follow up later in the day, and replies after you finish a workout."
+        case .plain:
+            "One reminder at your chosen time."
+        }
     }
 
     private var weekdayPicker: some View {

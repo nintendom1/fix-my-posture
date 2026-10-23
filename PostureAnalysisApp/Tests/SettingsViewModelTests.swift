@@ -103,6 +103,26 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(preferences.workoutReminderSettings, viewModel.workoutReminderSettings)
     }
 
+    func testChangingReminderStylePersistsAndReconciles() {
+        let preferences = InMemoryPreferences()
+        preferences.workoutReminderSettings = WorkoutReminderSettings(
+            enabled: true,
+            style: .character
+        )
+        let reminderManager = MemoryWorkoutReminderManager()
+        let viewModel = SettingsViewModel(
+            preferences: preferences,
+            router: AppRouter(),
+            reminderManager: reminderManager
+        )
+
+        viewModel.updateReminderSettings { $0.style = .plain }
+
+        XCTAssertEqual(preferences.workoutReminderSettings.style, .plain)
+        XCTAssertEqual(viewModel.workoutReminderSettings.style, .plain)
+        XCTAssertEqual(reminderManager.reconcileCount, 1)
+    }
+
     func testSwitchingToEveryOtherDayStartsTheCadenceToday() {
         let preferences = InMemoryPreferences()
         preferences.workoutReminderSettings = WorkoutReminderSettings(
@@ -178,5 +198,20 @@ final class SettingsViewModelTests: XCTestCase {
         preferences: any AppPreferencesStoring = InMemoryPreferences()
     ) -> SettingsViewModel {
         SettingsViewModel(preferences: preferences, router: AppRouter())
+    }
+
+    @MainActor
+    private final class MemoryWorkoutReminderManager: WorkoutReminderManaging {
+        private(set) var reconcileCount = 0
+
+        func reconcile() {
+            reconcileCount += 1
+        }
+
+        func workoutSaved(_ record: WorkoutRecord) {}
+
+        func enable() async {}
+
+        func authorizationStatus() async -> WorkoutReminderAuthorizationStatus { .authorized }
     }
 }

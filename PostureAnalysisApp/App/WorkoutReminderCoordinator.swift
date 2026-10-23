@@ -66,6 +66,8 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
     private let exerciseCatalog: any ExerciseCatalogProviding
     private let router: AppRouter
     private let scheduler: any WorkoutReminderScheduling
+    private let scenarioCatalog: NotificationScenarioCatalog?
+    private let eventLog: any NotificationEventRecording
     private let now: () -> Date
     private let calendar: Calendar
     /// Each reconciliation waits for the previous one so overlapping triggers cannot interleave remove and add.
@@ -78,6 +80,8 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
         exerciseCatalog: any ExerciseCatalogProviding,
         router: AppRouter,
         scheduler: (any WorkoutReminderScheduling)? = nil,
+        scenarioCatalog: NotificationScenarioCatalog? = try? NotificationScenarioCatalog.bundled(),
+        eventLog: any NotificationEventRecording = NoNotificationEventLog(),
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .current
     ) {
@@ -86,25 +90,43 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
         self.workoutHistory = workoutHistory
         self.exerciseCatalog = exerciseCatalog
         self.router = router
-        self.scheduler = scheduler ?? UserNotificationWorkoutReminderScheduler()
+        self.eventLog = eventLog
+        self.scheduler = scheduler ?? UserNotificationWorkoutReminderScheduler(eventLog: eventLog)
+        self.scenarioCatalog = scenarioCatalog
         self.now = now
         self.calendar = calendar
     }
 
     func reconcile() {
-        enqueueReconciliation(requestAuthorizationIfNeeded: false)
+        enqueueReconciliation {
+            await self.reconcileNow(requestAuthorizationIfNeeded: false)
+        }
     }
 
     func enable() async {
-        await enqueueReconciliation(requestAuthorizationIfNeeded: true).value
+        await enqueueReconciliation {
+            await self.reconcileNow(requestAuthorizationIfNeeded: true)
+        }.value
+    }
+
+    func workoutSaved(_ record: WorkoutRecord) {
+        enqueueReconciliation {
+            self.eventLog.record(
+                "workoutSaved: workout ended \(record.endedAt.eventLogDescription(in: self.calendar.timeZone))"
+            )
+            await self.reconcileNow()
+            await self.acknowledge(record)
+        }
     }
 
     @discardableResult
-    private func enqueueReconciliation(requestAuthorizationIfNeeded: Bool) -> Task<Void, Never> {
+    private func enqueueReconciliation(
+        operation: @escaping @MainActor () async -> Void
+    ) -> Task<Void, Never> {
         let previous = latestReconciliation
         let task = Task {
             await previous?.value
-            await reconcileNow(requestAuthorizationIfNeeded: requestAuthorizationIfNeeded)
+            await operation()
         }
         latestReconciliation = task
         return task
@@ -117,6 +139,7 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
     func reconcileNow(requestAuthorizationIfNeeded: Bool = false) async {
         let settings = preferences.workoutReminderSettings
         guard settings.enabled else {
+            eventLog.record("reconcile: reminders are off, cleared pending reminders")
             await scheduler.replaceRequests([])
             return
         }
@@ -126,24 +149,60 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
             authorization = await scheduler.requestAuthorization()
         }
         guard authorization == .authorized else {
+            eventLog.record("reconcile: notifications are not authorized (\(authorization)), cleared pending reminders")
             await scheduler.replaceRequests([])
             return
         }
 
         let recommendation = currentRecommendation()
         guard let recommendation else {
+            eventLog.record("reconcile: no workout to recommend, cleared pending reminders")
             await scheduler.replaceRequests([])
             return
         }
 
-        let copy = notificationCopy(for: recommendation)
-        let requests = WorkoutReminderScheduleBuilder.requests(
-            settings: settings,
-            title: "Time for exercise",
-            body: copy,
-            target: recommendation.target,
-            now: now(),
-            calendar: calendar
+        let currentTime = now()
+        let requests: [WorkoutReminderNotificationRequest]
+        if settings.style == .character, let scenarioCatalog {
+            let records = (try? workoutHistory?.list()) ?? []
+            let introDate = preferences.characterNotificationIntroDate
+            let isFirstEverNotification = introDate.map { $0 > currentTime } ?? true
+            let planned = NotificationPlanner.plan(
+                records: records,
+                settings: settings,
+                now: currentTime,
+                calendar: calendar,
+                suggestion: notificationSuggestion(for: recommendation),
+                isFirstEverNotification: isFirstEverNotification,
+                catalog: scenarioCatalog
+            )
+            requests = planned.map { notification in
+                WorkoutReminderNotificationRequest(
+                    identifier: notification.identifier,
+                    title: notification.content.title,
+                    body: notification.content.body,
+                    target: recommendation.target,
+                    dateComponents: notification.fireDate,
+                    repeats: false,
+                    imageAssetName: notification.content.imageAssetName,
+                    categoryIdentifier: notification.content.categoryIdentifier
+                )
+            }
+            // Only a reminder slot can carry the introduction. If today's earliest remaining slot is a
+            // follow-up, leave the date unset so the next day's reminder still introduces the character.
+            if isFirstEverNotification,
+               let earliest = planned.first,
+               earliest.slot == .reminder,
+               let date = calendar.date(from: earliest.fireDate) {
+                preferences.characterNotificationIntroDate = date
+            }
+        } else {
+            requests = plainRequests(for: recommendation, settings: settings, now: currentTime)
+        }
+        let firstFire = requests.first.flatMap { calendar.date(from: $0.dateComponents) }
+        eventLog.record(
+            "reconcile: \(settings.style.rawValue) style, scheduling \(requests.count) reminders, "
+                + "first at \(firstFire?.eventLogDescription(in: calendar.timeZone) ?? "none")"
         )
         await scheduler.replaceRequests(requests)
     }
@@ -182,6 +241,43 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
         )
     }
 
+    private func plainRequests(
+        for recommendation: WorkoutReminderRecommendation,
+        settings: WorkoutReminderSettings,
+        now: Date
+    ) -> [WorkoutReminderNotificationRequest] {
+        WorkoutReminderScheduleBuilder.requests(
+            settings: settings,
+            title: "Time for exercise",
+            body: notificationCopy(for: recommendation),
+            target: recommendation.target,
+            now: now,
+            calendar: calendar
+        )
+    }
+
+    /// Notes why no acknowledgment was scheduled, so a missing reply can be explained from the log.
+    private func skipAcknowledgment(_ reason: String) {
+        eventLog.record("ack: skipped, \(reason)")
+    }
+
+    /// Creates the compact suggestion value used inside character notification copy.
+    private func notificationSuggestion(for recommendation: WorkoutReminderRecommendation) -> String {
+        switch recommendation {
+        case .routine(let routine):
+            let estimate = RoutineEstimator.minutes(
+                for: routine,
+                exercises: exerciseCatalog.all,
+                restPolicy: preferences.restPolicy
+            )
+            return "\(routine.name) · about \(estimate) min"
+        case .exercise(let exercise):
+            let target = "\(exercise.sets) × \(exercise.targetLabel)" + (exercise.perSide ? " / side" : "")
+            return "\(exercise.presentation.shortName) · \(target)"
+        }
+    }
+
+    /// Preserves the established punctuation and phrasing used by plain-mode reminders.
     private func notificationCopy(for recommendation: WorkoutReminderRecommendation) -> String {
         switch recommendation {
         case .routine(let routine):
@@ -195,6 +291,54 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
             let target = "\(exercise.sets) × \(exercise.targetLabel)" + (exercise.perSide ? " / side" : "")
             return "How about \(exercise.presentation.shortName)? · \(target)"
         }
+    }
+
+    /// Selects and schedules a character acknowledgment after the reminder schedule has been refreshed.
+    private func acknowledge(_ record: WorkoutRecord) async {
+        let settings = preferences.workoutReminderSettings
+        guard settings.enabled else { return skipAcknowledgment("reminders are off") }
+        guard settings.style == .character else { return skipAcknowledgment("style is Plain") }
+        guard let scenarioCatalog else { return skipAcknowledgment("scenario data is missing") }
+        let authorization = await scheduler.authorizationStatus()
+        guard authorization == .authorized else {
+            return skipAcknowledgment("notifications are not authorized (\(authorization))")
+        }
+
+        var records = (try? workoutHistory?.list()) ?? []
+        if !records.contains(where: { $0.id == record.id }) {
+            records.append(record)
+        }
+        guard let selection = NotificationScenarioSelector.acknowledgment(
+            for: record,
+            records: records,
+            settings: settings,
+            calendar: calendar
+        ) else { return skipAcknowledgment("not the first workout of the day") }
+        guard let scenario = scenarioCatalog.scenario(id: selection.scenarioID) else {
+            return skipAcknowledgment("unknown scenario \(selection.scenarioID)")
+        }
+
+        let dayNumber = NotificationCopyPicker.dayNumber(for: record.endedAt, calendar: calendar)
+        let variant = NotificationCopyPicker.variant(
+            scenarioID: scenario.id,
+            dayNumber: dayNumber,
+            slotIndex: 0
+        )
+        guard let content = NotificationContentBuilder.make(
+            scenario: scenario,
+            variant: variant,
+            values: selection.values
+        ) else { return skipAcknowledgment("no content for \(scenario.id)") }
+
+        eventLog.record("ack: scheduling \(scenario.id) variant \(variant) in \(NotificationPolicy.standard.acknowledgmentDelaySeconds)s")
+        await scheduler.scheduleAcknowledgment(WorkoutAcknowledgmentRequest(
+            identifier: WorkoutAcknowledgmentRequest.identifierPrefix + record.id.uuidString,
+            title: content.title,
+            body: content.body,
+            imageAssetName: content.imageAssetName,
+            categoryIdentifier: content.categoryIdentifier,
+            delaySeconds: NotificationPolicy.standard.acknowledgmentDelaySeconds
+        ))
     }
 
     private func startAdvertisedTargetIfValid(_ target: WorkoutReminderTarget) -> Bool {

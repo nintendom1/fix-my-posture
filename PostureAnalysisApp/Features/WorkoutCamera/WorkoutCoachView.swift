@@ -232,7 +232,7 @@ struct WorkoutCoachView: View {
         guard let history = appRepositories?.workoutHistory else { return }
         do {
             try WorkoutHistorySaver.save(record, using: history, preferences: preferences)
-            workoutReminderReconciliation?.reconcile()
+            workoutReminderReconciliation?.workoutSaved(record)
         } catch {
             // A failed history save is retried only through the existing workout flow.
         }

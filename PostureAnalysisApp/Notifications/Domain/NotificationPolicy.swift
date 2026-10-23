@@ -105,7 +105,7 @@ struct NotificationPolicy: Equatable {
         self.habitualIgnoreThreshold = 2
         self.notificationFreeLookback = 3
         self.perfectWeekMinimumPlannedDays = 3
-        self.acknowledgmentDelaySeconds = 3
+        self.acknowledgmentDelaySeconds = 1
     }
 
     /// Returns whether a streak is an explicit or later hundred-day milestone.

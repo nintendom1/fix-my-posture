@@ -139,6 +139,53 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertNotNil(defaults.data(forKey: PreferenceKey.workoutReminders))
     }
 
+    func testWorkoutReminderSettingsDecodeLegacyJSONAndRoundTripPlainStyle() throws {
+        let legacyJSON = #"{"enabled":true,"recurrence":"daily","hour":18,"minute":30,"everyOtherDayStartDate":0,"weekdays":[2,4,6]}"#
+        let legacySettings = try JSONDecoder().decode(
+            WorkoutReminderSettings.self,
+            from: Data(legacyJSON.utf8)
+        )
+
+        XCTAssertTrue(legacySettings.enabled)
+        XCTAssertEqual(legacySettings.style, .character)
+
+        var plainSettings = legacySettings
+        plainSettings.style = .plain
+        let encoded = try JSONEncoder().encode(plainSettings)
+        XCTAssertEqual(try JSONDecoder().decode(WorkoutReminderSettings.self, from: encoded), plainSettings)
+    }
+
+    func testUserDefaultsReadsLegacyWorkoutReminderSettingsWithoutStyle() throws {
+        let suiteName = "PreferencesStoreTests.LegacyWorkoutReminders.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let legacyJSON = #"{"enabled":true,"recurrence":"daily","hour":18,"minute":30,"everyOtherDayStartDate":0,"weekdays":[2,4,6]}"#
+        defaults.set(Data(legacyJSON.utf8), forKey: PreferenceKey.workoutReminders)
+
+        let settings = UserDefaultsPreferences(defaults: defaults).workoutReminderSettings
+
+        XCTAssertTrue(settings.enabled)
+        XCTAssertEqual(settings.style, .character)
+    }
+
+    func testCharacterNotificationIntroDateUsesUnixTimestampAndRemovesWhenNil() throws {
+        let suiteName = "PreferencesStoreTests.CharacterIntroDate.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = UserDefaultsPreferences(defaults: defaults)
+        let introDate = Date(timeIntervalSince1970: 1_800_000_000)
+
+        XCTAssertNil(preferences.characterNotificationIntroDate)
+        preferences.characterNotificationIntroDate = introDate
+        XCTAssertEqual(defaults.object(forKey: "reminders.characterIntroDate") as? Double,
+                       introDate.timeIntervalSince1970)
+        XCTAssertEqual(UserDefaultsPreferences(defaults: defaults).characterNotificationIntroDate, introDate)
+
+        preferences.characterNotificationIntroDate = nil
+        XCTAssertNil(defaults.object(forKey: "reminders.characterIntroDate"))
+        XCTAssertNil(preferences.characterNotificationIntroDate)
+    }
+
     func testNotificationPreviewDelayDefaultsToFiveClampsAndKeepsItsKey() throws {
         let suiteName = "PreferencesStoreTests.PreviewDelay.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -192,6 +239,8 @@ final class PreferencesStoreTests: XCTestCase {
         preferences.weightUnit = .kg
         preferences.startByHolding = false
         preferences.upNextOverride = overrideID
+        let expectedIntroDate = Date(timeIntervalSince1970: 1_750_000_000)
+        preferences.characterNotificationIntroDate = expectedIntroDate
 
         XCTAssertFalse(preferences.cameraTiltCompensationEnabled)
         XCTAssertFalse(preferences.showHorizonLine)
@@ -208,6 +257,7 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertEqual(preferences.weightUnit, .kg)
         XCTAssertFalse(preferences.startByHolding)
         XCTAssertEqual(preferences.upNextOverride, overrideID)
+        XCTAssertEqual(preferences.characterNotificationIntroDate, expectedIntroDate)
 
         preferences.restPolicy = .fixed(seconds: 60)
         XCTAssertEqual(preferences.restPolicy, .fixed(seconds: 60))
@@ -215,8 +265,10 @@ final class PreferencesStoreTests: XCTestCase {
         preferences.setGuideSeen(false, for: "contract_exercise")
         preferences.setExerciseTarget(nil, for: "contract_exercise")
         preferences.upNextOverride = nil
+        preferences.characterNotificationIntroDate = nil
         XCTAssertFalse(preferences.guideSeen(for: "contract_exercise"))
         XCTAssertNil(preferences.exerciseTarget(for: "contract_exercise"))
         XCTAssertNil(preferences.upNextOverride)
+        XCTAssertNil(preferences.characterNotificationIntroDate)
     }
 }

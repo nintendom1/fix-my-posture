@@ -6,7 +6,7 @@ struct NotificationScenario: Codable, Equatable, Identifiable {
     enum Kind: String, Codable {
         /// Scheduled ahead of time as a reminder.
         case nudge
-        /// Sent a few seconds after a workout is saved.
+        /// Sent about a second after a workout is saved.
         case acknowledgment
     }
 

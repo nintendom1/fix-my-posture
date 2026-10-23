@@ -23,6 +23,8 @@ final class NotificationPreviewViewModel {
     private(set) var authorization: WorkoutReminderAuthorizationStatus = .notDetermined
     private(set) var sendState: SendState = .idle
     private(set) var isBusy = false
+    /// What iOS holds for this app's notifications; nil until refreshed or when diagnostics are unavailable.
+    private(set) var diagnostics: NotificationDiagnosticsSnapshot?
 
     /// Seconds between tapping Send and the notification arriving, saved between launches.
     var delaySeconds: Int {
@@ -38,6 +40,8 @@ final class NotificationPreviewViewModel {
     private let scheduler: any NotificationPreviewScheduling
     private let openSettings: () -> Void
     private let sleep: (Duration) async -> Void
+    private let diagnosticsProvider: (any NotificationDiagnosticsProviding)?
+    private let diagnosticsReportURL: URL?
 
     init(
         catalog: NotificationScenarioCatalog?,
@@ -45,7 +49,9 @@ final class NotificationPreviewViewModel {
         preferences: any AppPreferencesStoring,
         scheduler: any NotificationPreviewScheduling,
         openSettings: @escaping () -> Void = NotificationPreviewViewModel.openSystemSettings,
-        sleep: @escaping (Duration) async -> Void = { try? await Task.sleep(for: $0) }
+        sleep: @escaping (Duration) async -> Void = { try? await Task.sleep(for: $0) },
+        diagnostics: (any NotificationDiagnosticsProviding)? = nil,
+        diagnosticsReportURL: URL? = nil
     ) {
         scenarios = catalog?.scenarios ?? []
         self.loadError = catalog == nil ? (loadError ?? "The notification scenarios could not be loaded.") : nil
@@ -55,6 +61,8 @@ final class NotificationPreviewViewModel {
         self.scheduler = scheduler
         self.openSettings = openSettings
         self.sleep = sleep
+        diagnosticsProvider = diagnostics
+        self.diagnosticsReportURL = diagnosticsReportURL
         delaySeconds = preferences.notificationPreviewDelaySeconds
     }
 
@@ -101,6 +109,18 @@ final class NotificationPreviewViewModel {
         openSettings()
     }
 
+    var hasDiagnostics: Bool { diagnosticsProvider != nil }
+
+    /// Reads what iOS currently holds and, when a report location is set, writes it there as plain text.
+    func refreshDiagnostics() async {
+        guard let diagnosticsProvider else { return }
+        let snapshot = await diagnosticsProvider.snapshot()
+        diagnostics = snapshot
+        if let diagnosticsReportURL {
+            try? snapshot.report.write(to: diagnosticsReportURL, atomically: true, encoding: .utf8)
+        }
+    }
+
     /// Schedules the selected notification after the saved delay, asking for permission first if needed.
     func send() async {
         guard let preview, !isBusy else { return }
@@ -130,6 +150,7 @@ final class NotificationPreviewViewModel {
             await sleep(.seconds(1))
         }
         sendState = .sent
+        await refreshDiagnostics()
     }
 
     private func resetFinishedState() {
