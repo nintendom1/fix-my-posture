@@ -314,6 +314,18 @@
 		A10000012B00000000000324 /* NotificationPreviewViewModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000324 /* NotificationPreviewViewModelTests.swift */; };
 		A10000012B00000000000325 /* FakePreviewScheduler.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000325 /* FakePreviewScheduler.swift */; };
 		A10000012B00000000000326 /* NotificationPreviewScreenTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000326 /* NotificationPreviewScreenTests.swift */; };
+		A10000012B00000000000327 /* NotificationPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000327 /* NotificationPolicy.swift */; };
+		A10000012B00000000000328 /* PlannedDays.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000328 /* PlannedDays.swift */; };
+		A10000012B00000000000329 /* PlannedDaysStreak.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000329 /* PlannedDaysStreak.swift */; };
+		A10000012B00000000000330 /* NotificationCopyPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000330 /* NotificationCopyPicker.swift */; };
+		A10000012B00000000000331 /* NotificationScenarioSelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000331 /* NotificationScenarioSelector.swift */; };
+		A10000012B00000000000332 /* NotificationPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000332 /* NotificationPlanner.swift */; };
+		A10000012B00000000000333 /* NotificationStreakTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000333 /* NotificationStreakTests.swift */; };
+		A10000012B00000000000334 /* NotificationSelectorTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000334 /* NotificationSelectorTests.swift */; };
+		A10000012B00000000000335 /* NotificationCopyPickerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000335 /* NotificationCopyPickerTests.swift */; };
+		A10000012B00000000000336 /* NotificationPlannerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000336 /* NotificationPlannerTests.swift */; };
+		A10000012B00000000000337 /* NotificationSlotSchedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000337 /* NotificationSlotSchedule.swift */; };
+		A10000012B00000000000338 /* NotificationPolicyBoundaryTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000338 /* NotificationPolicyBoundaryTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -636,6 +648,18 @@
 		B10000012B00000000000324 /* NotificationPreviewViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPreviewViewModelTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000325 /* FakePreviewScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakePreviewScheduler.swift; sourceTree = "<group>"; };
 		B10000012B00000000000326 /* NotificationPreviewScreenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPreviewScreenTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000327 /* NotificationPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPolicy.swift; sourceTree = "<group>"; };
+		B10000012B00000000000328 /* PlannedDays.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannedDays.swift; sourceTree = "<group>"; };
+		B10000012B00000000000329 /* PlannedDaysStreak.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannedDaysStreak.swift; sourceTree = "<group>"; };
+		B10000012B00000000000330 /* NotificationCopyPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationCopyPicker.swift; sourceTree = "<group>"; };
+		B10000012B00000000000331 /* NotificationScenarioSelector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationScenarioSelector.swift; sourceTree = "<group>"; };
+		B10000012B00000000000332 /* NotificationPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPlanner.swift; sourceTree = "<group>"; };
+		B10000012B00000000000333 /* NotificationStreakTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationStreakTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000334 /* NotificationSelectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSelectorTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000335 /* NotificationCopyPickerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationCopyPickerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000336 /* NotificationPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPlannerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000337 /* NotificationSlotSchedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSlotSchedule.swift; sourceTree = "<group>"; };
+		B10000012B00000000000338 /* NotificationPolicyBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPolicyBoundaryTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -859,6 +883,11 @@
 				B10000012B00000000000323 /* NotificationContentBuilderTests.swift */,
 				B10000012B00000000000324 /* NotificationPreviewViewModelTests.swift */,
 				B10000012B00000000000326 /* NotificationPreviewScreenTests.swift */,
+				B10000012B00000000000333 /* NotificationStreakTests.swift */,
+				B10000012B00000000000334 /* NotificationSelectorTests.swift */,
+				B10000012B00000000000335 /* NotificationCopyPickerTests.swift */,
+				B10000012B00000000000336 /* NotificationPlannerTests.swift */,
+				B10000012B00000000000338 /* NotificationPolicyBoundaryTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1405,6 +1434,13 @@
 				B10000012B00000000000314 /* NotificationScenario.swift */,
 				B10000012B00000000000315 /* NotificationScenarioCatalog.swift */,
 				B10000012B00000000000316 /* NotificationContentBuilder.swift */,
+				B10000012B00000000000327 /* NotificationPolicy.swift */,
+				B10000012B00000000000328 /* PlannedDays.swift */,
+				B10000012B00000000000329 /* PlannedDaysStreak.swift */,
+				B10000012B00000000000330 /* NotificationCopyPicker.swift */,
+				B10000012B00000000000331 /* NotificationScenarioSelector.swift */,
+				B10000012B00000000000332 /* NotificationPlanner.swift */,
+				B10000012B00000000000337 /* NotificationSlotSchedule.swift */,
 			);
 			path = Domain;
 			sourceTree = "<group>";
@@ -1740,6 +1776,13 @@
 				A10000012B00000000000320 /* NotificationPreviewViewModel.swift in Sources */,
 				A10000012B00000000000321 /* NotificationPreviewScreen.swift in Sources */,
 				A10000012B00000000000317 /* NotificationScenarioCatalogLoading.swift in Sources */,
+				A10000012B00000000000327 /* NotificationPolicy.swift in Sources */,
+				A10000012B00000000000328 /* PlannedDays.swift in Sources */,
+				A10000012B00000000000329 /* PlannedDaysStreak.swift in Sources */,
+				A10000012B00000000000330 /* NotificationCopyPicker.swift in Sources */,
+				A10000012B00000000000331 /* NotificationScenarioSelector.swift in Sources */,
+				A10000012B00000000000332 /* NotificationPlanner.swift in Sources */,
+				A10000012B00000000000337 /* NotificationSlotSchedule.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1831,6 +1874,11 @@
 				A10000012B00000000000324 /* NotificationPreviewViewModelTests.swift in TestSources */,
 				A10000012B00000000000325 /* FakePreviewScheduler.swift in TestSources */,
 				A10000012B00000000000326 /* NotificationPreviewScreenTests.swift in TestSources */,
+				A10000012B00000000000333 /* NotificationStreakTests.swift in TestSources */,
+				A10000012B00000000000334 /* NotificationSelectorTests.swift in TestSources */,
+				A10000012B00000000000335 /* NotificationCopyPickerTests.swift in TestSources */,
+				A10000012B00000000000336 /* NotificationPlannerTests.swift in TestSources */,
+				A10000012B00000000000338 /* NotificationPolicyBoundaryTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
