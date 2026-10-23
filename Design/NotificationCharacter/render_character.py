@@ -9,7 +9,8 @@ PSD's own layers or from a gradient described in the config.
     python3 render_character.py --list                               # characters, crops, backgrounds, layer choices
     python3 render_character.py --character canonical --crop close-up
     python3 render_character.py --examples                           # rewrite the committed example PNGs
-    python3 render_character.py --check                              # fail if a committed example is stale
+    python3 render_character.py --assets                             # rewrite the app's notification images, data set, docs
+    python3 render_character.py --check                              # fail if an example or generated asset is stale
 
 Needs psd-tools and Pillow from requirements.txt; `make notification-character` sets up a venv for them.
 """
@@ -18,6 +19,7 @@ import argparse
 import hashlib
 import json
 import re
+import shutil
 import string
 import sys
 from pathlib import Path
@@ -26,6 +28,10 @@ DESIGN_DIR = Path(__file__).resolve().parent
 REPO_ROOT = DESIGN_DIR.parent.parent
 CONFIG_PATH = DESIGN_DIR / "characters.json"
 DEFAULT_OUT_DIR = REPO_ROOT / "build/notification-character"
+
+# The sibling module is imported by path so the tests, which load this file by path, find it too.
+sys.path.insert(0, str(DESIGN_DIR))
+import notification_scenarios as scenarios  # noqa: E402
 
 TOP_LEVEL_KEYS = ("source", "layerMap", "backgrounds", "crops", "characters", "examples")
 HEX_COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
@@ -281,9 +287,13 @@ def make_background(background, size):
 
 def render(config, psd, index, character, crop):
     """Flattened RGB portrait for a character name and crop name."""
+    return render_spec(config, psd, index, resolve_character(config, character), crop)
+
+
+def render_spec(config, psd, index, spec, crop):
+    """Flattened RGB portrait for resolved character settings and a crop name."""
     from PIL import Image
 
-    spec = resolve_character(config, character)
     if crop not in config["crops"]:
         raise RenderError(f"Unknown crop '{crop}'. Choices: {', '.join(config['crops'])}.")
     paths = character_layer_paths(config, spec)
@@ -371,6 +381,67 @@ def check_examples(config, psd, index):
     return len(config["examples"])
 
 
+def load_scenario_data(config):
+    """The validated notification scenarios and the exact bytes of their source file."""
+    try:
+        data = scenarios.load_scenarios()
+        scenarios.validate(data, crop_presets=list(config["crops"]))
+    except scenarios.ScenarioError as error:
+        raise RenderError(str(error))
+    return data, scenarios.SCENARIOS_PATH.read_bytes()
+
+
+def asset_render_inputs(config, data, asset):
+    """Resolved settings and crop preset for one app image: the canonical character in that expression and outfit."""
+    spec = resolve_character(config, "canonical")
+    spec["expression"] = asset["expression"]
+    spec["outfit"] = data["outfits"][asset["outfit"]]
+    return spec, data["cropPresets"][asset["crop"]]
+
+
+def asset_png_path(asset):
+    return scenarios.IMAGE_FOLDER / f"{asset['name']}.imageset" / f"{asset['name']}.png"
+
+
+def write_assets(config, psd, index, data, source_bytes):
+    """Write the app's notification images, scenario data set, and docs, removing images no scenario uses."""
+    assets = scenarios.required_assets(data)
+    expected_folders = {f"{asset['name']}.imageset" for asset in assets}
+    if scenarios.IMAGE_FOLDER.is_dir():
+        for folder in scenarios.IMAGE_FOLDER.glob("*.imageset"):
+            if folder.name not in expected_folders:
+                shutil.rmtree(folder)
+    for path, content in scenarios.text_artifacts(data, source_bytes).items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+    for asset in assets:
+        spec, crop = asset_render_inputs(config, data, asset)
+        save_png(render_spec(config, psd, index, spec, crop), asset_png_path(asset))
+    print(f"Wrote {len(assets)} images, the scenario data set, and {scenarios.DOCS_PATH.relative_to(REPO_ROOT)}")
+
+
+def check_assets(config, psd, index, data, source_bytes):
+    """Compare generated text files exactly and images by decoded pixels. Returns the image count."""
+    from PIL import Image, ImageChops
+
+    stale = scenarios.stale_text_artifacts(data, source_bytes)
+    assets = scenarios.required_assets(data)
+    for asset in assets:
+        committed = asset_png_path(asset)
+        if not committed.is_file():
+            stale.append(f"{committed.relative_to(REPO_ROOT)} is missing")
+            continue
+        spec, crop = asset_render_inputs(config, data, asset)
+        fresh = render_spec(config, psd, index, spec, crop)
+        with Image.open(committed) as existing:
+            existing = existing.convert("RGB")
+        if existing.size != fresh.size or ImageChops.difference(existing, fresh).getbbox() is not None:
+            stale.append(f"{committed.relative_to(REPO_ROOT)} does not match a fresh render")
+    if stale:
+        raise RenderError("Stale generated assets:\n  " + "\n  ".join(stale) + "\nRun with --assets and commit the result.")
+    return len(assets)
+
+
 def parse_args(argv):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--list", action="store_true", help="list characters, crops, backgrounds, and layer choices")
@@ -378,11 +449,14 @@ def parse_args(argv):
     parser.add_argument("--crop", help="crop preset name from characters.json")
     parser.add_argument("--out", type=Path, help="output PNG path (default build/notification-character/<character>-<crop>.png)")
     parser.add_argument("--examples", action="store_true", help="rewrite the committed example PNGs")
-    parser.add_argument("--check", action="store_true", help="fail if a committed example differs from a fresh render")
+    parser.add_argument("--assets", action="store_true",
+                        help="rewrite the app's notification images, scenario data set, and docs from notification-scenarios.json")
+    parser.add_argument("--check", action="store_true",
+                        help="fail if a committed example or generated asset differs from a fresh render")
     args = parser.parse_args(argv)
-    modes = [args.list, args.examples, args.check, bool(args.character or args.crop)]
+    modes = [args.list, args.examples, args.assets, args.check, bool(args.character or args.crop)]
     if sum(modes) != 1:
-        parser.error("choose exactly one of --list, --examples, --check, or --character with --crop")
+        parser.error("choose exactly one of --list, --examples, --assets, --check, or --character with --crop")
     if (args.character or args.crop) and not (args.character and args.crop):
         parser.error("--character and --crop go together")
     if args.out and not args.character:
@@ -401,9 +475,15 @@ def main(argv=None):
             list_choices(config, index)
         elif args.examples:
             write_examples(config, psd, index)
+        elif args.assets:
+            data, source_bytes = load_scenario_data(config)
+            write_assets(config, psd, index, data, source_bytes)
         elif args.check:
             count = check_examples(config, psd, index)
+            data, source_bytes = load_scenario_data(config)
+            image_count = check_assets(config, psd, index, data, source_bytes)
             print(f"{count} example(s) match the PSD and characters.json.")
+            print(f"{image_count} notification image(s), the scenario data set, and the docs match notification-scenarios.json.")
         else:
             out = args.out or DEFAULT_OUT_DIR / f"{args.character}-{args.crop}.png"
             save_png(render(config, psd, index, args.character, args.crop), out)

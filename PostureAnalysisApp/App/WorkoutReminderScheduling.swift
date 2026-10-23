@@ -128,6 +128,19 @@ final class WorkoutReminderAppDelegate: NSObject, UIApplicationDelegate, UNUserN
         return true
     }
 
+    /// Called only while the app is open. Without this, iOS delivers the notification silently.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler(Self.foregroundPresentation(forCategory: notification.request.content.categoryIdentifier))
+    }
+
+    static func foregroundPresentation(forCategory categoryIdentifier: String) -> UNNotificationPresentationOptions {
+        NotificationCategory.showsInForeground(categoryIdentifier) ? [.banner, .list, .sound] : []
+    }
+
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,

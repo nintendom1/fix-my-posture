@@ -139,6 +139,32 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertNotNil(defaults.data(forKey: PreferenceKey.workoutReminders))
     }
 
+    func testNotificationPreviewDelayDefaultsToFiveClampsAndKeepsItsKey() throws {
+        let suiteName = "PreferencesStoreTests.PreviewDelay.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = UserDefaultsPreferences(defaults: defaults)
+
+        XCTAssertEqual(preferences.notificationPreviewDelaySeconds, 5)
+
+        preferences.notificationPreviewDelaySeconds = 14
+        XCTAssertEqual(defaults.object(forKey: "dev.notificationPreviewDelay") as? Int, 14)
+        XCTAssertEqual(UserDefaultsPreferences(defaults: defaults).notificationPreviewDelaySeconds, 14)
+
+        preferences.notificationPreviewDelaySeconds = 0
+        XCTAssertEqual(preferences.notificationPreviewDelaySeconds, 1)
+        preferences.notificationPreviewDelaySeconds = 500
+        XCTAssertEqual(preferences.notificationPreviewDelaySeconds, 20)
+
+        defaults.set(-3, forKey: "dev.notificationPreviewDelay")
+        XCTAssertEqual(preferences.notificationPreviewDelaySeconds, 1, "an out-of-range saved value is clamped on read")
+
+        let inMemory = InMemoryPreferences()
+        XCTAssertEqual(inMemory.notificationPreviewDelaySeconds, 5)
+        inMemory.notificationPreviewDelaySeconds = 99
+        XCTAssertEqual(inMemory.notificationPreviewDelaySeconds, 20)
+    }
+
     func testInMemoryAndUserDefaultsPreferencesShareTheSameContract() throws {
         let suiteName = "PreferencesStoreTests.Contract.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))

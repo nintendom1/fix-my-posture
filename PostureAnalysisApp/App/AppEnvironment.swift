@@ -19,11 +19,21 @@ final class AppEnvironment {
     let progressViewModel: ProgressViewModel
     let postureHomeViewModel: PostureHomeViewModel
     let persistenceError: String?
+    /// Loaded once; nil when the app's scenario data set is missing or invalid.
+    let notificationScenarioCatalog: NotificationScenarioCatalog?
+    let notificationScenarioError: String?
 
     init(inMemory: Bool = false) {
         router = AppRouter()
         preferences = inMemory ? InMemoryPreferences() : UserDefaultsPreferences()
         exerciseCatalog = LiveExerciseCatalog()
+        do {
+            notificationScenarioCatalog = try NotificationScenarioCatalog.bundled()
+            notificationScenarioError = nil
+        } catch {
+            notificationScenarioCatalog = nil
+            notificationScenarioError = error.localizedDescription
+        }
 
         do {
             let container = try AppModelContainer.make(inMemory: inMemory)
@@ -131,6 +141,15 @@ final class AppEnvironment {
         WorkoutReminderNotificationBridge.shared.install { [weak reminderCoordinator] target in
             reminderCoordinator?.handleTap(target)
         }
+    }
+
+    func makeNotificationPreviewViewModel() -> NotificationPreviewViewModel {
+        NotificationPreviewViewModel(
+            catalog: notificationScenarioCatalog,
+            loadError: notificationScenarioError,
+            preferences: preferences,
+            scheduler: UserNotificationPreviewScheduler()
+        )
     }
 
     func makeRoutineDetailViewModel(id: UUID) -> RoutineDetailViewModel {

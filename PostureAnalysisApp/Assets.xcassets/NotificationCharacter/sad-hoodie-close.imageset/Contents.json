@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "sad-hoodie-close.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
