@@ -111,7 +111,9 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
 
     func workoutSaved(_ record: WorkoutRecord) {
         enqueueReconciliation {
-            self.eventLog.record("workoutSaved: workout ended \(record.endedAt.eventLogDescription)")
+            self.eventLog.record(
+                "workoutSaved: workout ended \(record.endedAt.eventLogDescription(in: self.calendar.timeZone))"
+            )
             await self.reconcileNow()
             await self.acknowledge(record)
         }
@@ -200,7 +202,7 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
         let firstFire = requests.first.flatMap { calendar.date(from: $0.dateComponents) }
         eventLog.record(
             "reconcile: \(settings.style.rawValue) style, scheduling \(requests.count) reminders, "
-                + "first at \(firstFire?.eventLogDescription ?? "none")"
+                + "first at \(firstFire?.eventLogDescription(in: calendar.timeZone) ?? "none")"
         )
         await scheduler.replaceRequests(requests)
     }

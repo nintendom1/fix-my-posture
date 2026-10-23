@@ -60,10 +60,16 @@ final class FileNotificationEventLog: NotificationEventRecording {
 }
 
 extension Date {
-    /// A local date and time such as "2026-10-24 08:18:00", used in notification logs and reports.
+    /// A date and time such as "2026-10-24 08:18:00" in the device's time zone, for logs and reports.
     var eventLogDescription: String {
+        eventLogDescription(in: .current)
+    }
+
+    /// The same text in a given time zone, so a log line matches the calendar of the code that wrote it.
+    func eventLogDescription(in timeZone: TimeZone) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timeZone
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         return formatter.string(from: self)
     }
