@@ -1,7 +1,11 @@
-.PHONY: ios ios-devices design-reference design-snapshots design-diff design-check
+.PHONY: ios ios-devices design-reference design-snapshots design-diff design-check notification-character notification-character-check
 
 DESIGN_BUNDLE := fix-my-posture-mobile-app-design/project/Fix My Posture Redesign.dc.html
 DESIGN_DESTINATION ?= platform=iOS Simulator,name=iPhone 15 Pro
+
+CHARACTER_DIR := Design/NotificationCharacter
+CHARACTER_VENV := build/notification-character/venv
+CHARACTER_ARGS ?= --examples
 
 ios:
 	@bash scripts/run-ios.sh
@@ -58,3 +62,19 @@ design-diff:
 
 design-check: design-reference design-snapshots design-diff
 	@if [ -f build/design/diff/summary.json ]; then cat build/design/diff/summary.json; fi
+
+# Pinned psd-tools and Pillow live in an ignored venv, rebuilt whenever requirements.txt changes.
+$(CHARACTER_VENV)/.installed: $(CHARACTER_DIR)/requirements.txt
+	python3 -m venv $(CHARACTER_VENV)
+	$(CHARACTER_VENV)/bin/pip install --quiet --disable-pip-version-check -r $(CHARACTER_DIR)/requirements.txt
+	@touch $@
+
+# make notification-character                                             rewrite the committed example PNGs
+# make notification-character CHARACTER_ARGS="--character canonical --crop close-up"
+# make notification-character CHARACTER_ARGS=--list                       show valid characters, crops, layers
+notification-character: $(CHARACTER_VENV)/.installed
+	$(CHARACTER_VENV)/bin/python $(CHARACTER_DIR)/render_character.py $(CHARACTER_ARGS)
+
+notification-character-check: $(CHARACTER_VENV)/.installed
+	$(CHARACTER_VENV)/bin/python $(CHARACTER_DIR)/render_character.py --check
+	$(CHARACTER_VENV)/bin/python -m unittest discover -s scripts/tests -q

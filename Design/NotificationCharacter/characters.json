@@ -1,0 +1,71 @@
+{
+  "source": {
+    "file": "Source/chibis_600x400.psd",
+    "sha256": "d0a47af46065ba5bbfe34b987f31a80f44742458f291c832ae4e9d6f139d34cd",
+    "canvas": [400, 600]
+  },
+  "layerMap": {
+    "hairBack": "hair back/{style}/{color}",
+    "hairFront": "hair front/{style}/{color}",
+    "expression": "face/{name}",
+    "skin": "body/{name}",
+    "blush": "body/blush/{name}",
+    "outfit": "outfit/{name}",
+    "accessories": "accessories/{name}"
+  },
+  "backgrounds": {
+    "fmp-dark-purple": {
+      "type": "linear-gradient",
+      "from": [0.09, 0.06],
+      "to": [0.94, 0.95],
+      "stops": [
+        [0.0, "#120B27"],
+        [0.42, "#211243"],
+        [0.74, "#3A1E73"],
+        [1.0, "#552CA2"]
+      ]
+    },
+    "fmp-app-dark": {
+      "type": "solid",
+      "color": "#0E0B16"
+    }
+  },
+  "crops": {
+    "head-and-shoulders": {
+      "box": [30, 50, 350, 350],
+      "size": 512
+    },
+    "close-up": {
+      "box": [116, 150, 180, 180],
+      "size": 512
+    }
+  },
+  "characters": {
+    "canonical": {
+      "hairBack": { "style": "long", "color": "silver" },
+      "hairFront": { "style": "long", "color": "silver" },
+      "expression": "smile",
+      "skin": "skin2",
+      "blush": "blush1",
+      "outfit": "hoodie",
+      "accessories": [],
+      "background": "fmp-dark-purple"
+    },
+    "canonical-sad": {
+      "extends": "canonical",
+      "expression": "sad"
+    }
+  },
+  "examples": [
+    {
+      "character": "canonical",
+      "crop": "head-and-shoulders",
+      "file": "Examples/canonical-head-and-shoulders.png"
+    },
+    {
+      "character": "canonical-sad",
+      "crop": "close-up",
+      "file": "Examples/canonical-sad-close-up.png"
+    }
+  ]
+}

@@ -35,3 +35,10 @@ SOFTWARE.
 ```
 
 The same notice is shown in the app under **Settings (gear) → Acknowledgements**.
+
+## Chibi character sprites: dicortesia, based on Sutemo
+
+- **Used in:** the source art for the notification character portraits. `Design/NotificationCharacter/Source/chibis_600x400.psd` is kept unmodified in this repository, and `Design/NotificationCharacter/` renders portraits from its layers. No portrait ships in the app yet. The in-app Acknowledgements entry is added when one does.
+- **Source file:** `chibis_600x400.psd` from [Female Character Chibi Sprite](https://dicortesia.itch.io/female-character-chibi) by dicortesia
+- **Original characters:** [Female Character Sprite for Visual Novel](https://sutemo.itch.io/female-character) by Sutemo, which the chibi pack is based on
+- **Terms:** neither author ships a license file. Their itch.io pages allow personal and commercial use and alteration, and forbid reselling the artwork on its own (the chibi pack also forbids NFT use). Credit is appreciated. The terms are quoted as read on 2026-10-22 in `Design/NotificationCharacter/Source/README.md`. No license this repository may have covers the PSD.

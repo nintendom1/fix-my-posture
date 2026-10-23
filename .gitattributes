@@ -1,0 +1,2 @@
+# Source art is opaque binary: never diff, merge, or convert line endings.
+*.psd binary
