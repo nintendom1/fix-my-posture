@@ -67,6 +67,7 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
     private let router: AppRouter
     private let scheduler: any WorkoutReminderScheduling
     private let scenarioCatalog: NotificationScenarioCatalog?
+    private let eventLog: any NotificationEventRecording
     private let now: () -> Date
     private let calendar: Calendar
     /// Each reconciliation waits for the previous one so overlapping triggers cannot interleave remove and add.
@@ -80,6 +81,7 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
         router: AppRouter,
         scheduler: (any WorkoutReminderScheduling)? = nil,
         scenarioCatalog: NotificationScenarioCatalog? = try? NotificationScenarioCatalog.bundled(),
+        eventLog: any NotificationEventRecording = NoNotificationEventLog(),
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .current
     ) {
@@ -88,7 +90,8 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
         self.workoutHistory = workoutHistory
         self.exerciseCatalog = exerciseCatalog
         self.router = router
-        self.scheduler = scheduler ?? UserNotificationWorkoutReminderScheduler()
+        self.eventLog = eventLog
+        self.scheduler = scheduler ?? UserNotificationWorkoutReminderScheduler(eventLog: eventLog)
         self.scenarioCatalog = scenarioCatalog
         self.now = now
         self.calendar = calendar
@@ -108,6 +111,7 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
 
     func workoutSaved(_ record: WorkoutRecord) {
         enqueueReconciliation {
+            self.eventLog.record("workoutSaved: workout ended \(record.endedAt.eventLogDescription)")
             await self.reconcileNow()
             await self.acknowledge(record)
         }
@@ -133,6 +137,7 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
     func reconcileNow(requestAuthorizationIfNeeded: Bool = false) async {
         let settings = preferences.workoutReminderSettings
         guard settings.enabled else {
+            eventLog.record("reconcile: reminders are off, cleared pending reminders")
             await scheduler.replaceRequests([])
             return
         }
@@ -142,12 +147,14 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
             authorization = await scheduler.requestAuthorization()
         }
         guard authorization == .authorized else {
+            eventLog.record("reconcile: notifications are not authorized (\(authorization)), cleared pending reminders")
             await scheduler.replaceRequests([])
             return
         }
 
         let recommendation = currentRecommendation()
         guard let recommendation else {
+            eventLog.record("reconcile: no workout to recommend, cleared pending reminders")
             await scheduler.replaceRequests([])
             return
         }
@@ -190,6 +197,11 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
         } else {
             requests = plainRequests(for: recommendation, settings: settings, now: currentTime)
         }
+        let firstFire = requests.first.flatMap { calendar.date(from: $0.dateComponents) }
+        eventLog.record(
+            "reconcile: \(settings.style.rawValue) style, scheduling \(requests.count) reminders, "
+                + "first at \(firstFire?.eventLogDescription ?? "none")"
+        )
         await scheduler.replaceRequests(requests)
     }
 
@@ -242,6 +254,11 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
         )
     }
 
+    /// Notes why no acknowledgment was scheduled, so a missing reply can be explained from the log.
+    private func skipAcknowledgment(_ reason: String) {
+        eventLog.record("ack: skipped, \(reason)")
+    }
+
     /// Creates the compact suggestion value used inside character notification copy.
     private func notificationSuggestion(for recommendation: WorkoutReminderRecommendation) -> String {
         switch recommendation {
@@ -277,10 +294,13 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
     /// Selects and schedules a character acknowledgment after the reminder schedule has been refreshed.
     private func acknowledge(_ record: WorkoutRecord) async {
         let settings = preferences.workoutReminderSettings
-        guard settings.enabled,
-              settings.style == .character,
-              let scenarioCatalog,
-              await scheduler.authorizationStatus() == .authorized else { return }
+        guard settings.enabled else { return skipAcknowledgment("reminders are off") }
+        guard settings.style == .character else { return skipAcknowledgment("style is Plain") }
+        guard let scenarioCatalog else { return skipAcknowledgment("scenario data is missing") }
+        let authorization = await scheduler.authorizationStatus()
+        guard authorization == .authorized else {
+            return skipAcknowledgment("notifications are not authorized (\(authorization))")
+        }
 
         var records = (try? workoutHistory?.list()) ?? []
         if !records.contains(where: { $0.id == record.id }) {
@@ -291,8 +311,10 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
             records: records,
             settings: settings,
             calendar: calendar
-        ),
-        let scenario = scenarioCatalog.scenario(id: selection.scenarioID) else { return }
+        ) else { return skipAcknowledgment("not the first workout of the day") }
+        guard let scenario = scenarioCatalog.scenario(id: selection.scenarioID) else {
+            return skipAcknowledgment("unknown scenario \(selection.scenarioID)")
+        }
 
         let dayNumber = NotificationCopyPicker.dayNumber(for: record.endedAt, calendar: calendar)
         let variant = NotificationCopyPicker.variant(
@@ -304,8 +326,9 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
             scenario: scenario,
             variant: variant,
             values: selection.values
-        ) else { return }
+        ) else { return skipAcknowledgment("no content for \(scenario.id)") }
 
+        eventLog.record("ack: scheduling \(scenario.id) variant \(variant) in \(NotificationPolicy.standard.acknowledgmentDelaySeconds)s")
         await scheduler.scheduleAcknowledgment(WorkoutAcknowledgmentRequest(
             identifier: WorkoutAcknowledgmentRequest.identifierPrefix + record.id.uuidString,
             title: content.title,

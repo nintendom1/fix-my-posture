@@ -329,6 +329,11 @@
 		A10000012B00000000000339 /* MemoryWorkoutReminderScheduler.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000339 /* MemoryWorkoutReminderScheduler.swift */; };
 		A10000012B00000000000340 /* CharacterReminderCoordinatorTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000340 /* CharacterReminderCoordinatorTests.swift */; };
 		A10000012B00000000000341 /* WorkoutRemindersSettingsPageTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000341 /* WorkoutRemindersSettingsPageTests.swift */; };
+		A10000012B00000000000342 /* NotificationEventLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000342 /* NotificationEventLog.swift */; };
+		A10000012B00000000000343 /* NotificationDiagnosticsSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000343 /* NotificationDiagnosticsSnapshot.swift */; };
+		A10000012B00000000000344 /* NotificationDiagnosticsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000344 /* NotificationDiagnosticsProvider.swift */; };
+		A10000012B00000000000345 /* NotificationDiagnosticsTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000345 /* NotificationDiagnosticsTests.swift */; };
+		A10000012B00000000000346 /* MemoryNotificationEventLog.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000346 /* MemoryNotificationEventLog.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -666,6 +671,11 @@
 		B10000012B00000000000339 /* MemoryWorkoutReminderScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryWorkoutReminderScheduler.swift; sourceTree = "<group>"; };
 		B10000012B00000000000340 /* CharacterReminderCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterReminderCoordinatorTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000341 /* WorkoutRemindersSettingsPageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutRemindersSettingsPageTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000342 /* NotificationEventLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationEventLog.swift; sourceTree = "<group>"; };
+		B10000012B00000000000343 /* NotificationDiagnosticsSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationDiagnosticsSnapshot.swift; sourceTree = "<group>"; };
+		B10000012B00000000000344 /* NotificationDiagnosticsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationDiagnosticsProvider.swift; sourceTree = "<group>"; };
+		B10000012B00000000000345 /* NotificationDiagnosticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationDiagnosticsTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000346 /* MemoryNotificationEventLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryNotificationEventLog.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -896,6 +906,7 @@
 				B10000012B00000000000338 /* NotificationPolicyBoundaryTests.swift */,
 				B10000012B00000000000340 /* CharacterReminderCoordinatorTests.swift */,
 				B10000012B00000000000341 /* WorkoutRemindersSettingsPageTests.swift */,
+				B10000012B00000000000345 /* NotificationDiagnosticsTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1423,6 +1434,7 @@
 				B10000012B00000000000157 /* WorkoutServiceFakes.swift */,
 				B10000012B00000000000325 /* FakePreviewScheduler.swift */,
 				B10000012B00000000000339 /* MemoryWorkoutReminderScheduler.swift */,
+				B10000012B00000000000346 /* MemoryNotificationEventLog.swift */,
 			);
 			path = Fakes;
 			sourceTree = "<group>";
@@ -1450,6 +1462,8 @@
 				B10000012B00000000000331 /* NotificationScenarioSelector.swift */,
 				B10000012B00000000000332 /* NotificationPlanner.swift */,
 				B10000012B00000000000337 /* NotificationSlotSchedule.swift */,
+				B10000012B00000000000342 /* NotificationEventLog.swift */,
+				B10000012B00000000000343 /* NotificationDiagnosticsSnapshot.swift */,
 			);
 			path = Domain;
 			sourceTree = "<group>";
@@ -1459,6 +1473,7 @@
 			children = (
 				B10000012B00000000000318 /* NotificationAttachmentFactory.swift */,
 				B10000012B00000000000319 /* NotificationPreviewScheduling.swift */,
+				B10000012B00000000000344 /* NotificationDiagnosticsProvider.swift */,
 			);
 			path = Delivery;
 			sourceTree = "<group>";
@@ -1792,6 +1807,9 @@
 				A10000012B00000000000331 /* NotificationScenarioSelector.swift in Sources */,
 				A10000012B00000000000332 /* NotificationPlanner.swift in Sources */,
 				A10000012B00000000000337 /* NotificationSlotSchedule.swift in Sources */,
+				A10000012B00000000000342 /* NotificationEventLog.swift in Sources */,
+				A10000012B00000000000343 /* NotificationDiagnosticsSnapshot.swift in Sources */,
+				A10000012B00000000000344 /* NotificationDiagnosticsProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1891,6 +1909,8 @@
 				A10000012B00000000000339 /* MemoryWorkoutReminderScheduler.swift in TestSources */,
 				A10000012B00000000000340 /* CharacterReminderCoordinatorTests.swift in TestSources */,
 				A10000012B00000000000341 /* WorkoutRemindersSettingsPageTests.swift in TestSources */,
+				A10000012B00000000000345 /* NotificationDiagnosticsTests.swift in TestSources */,
+				A10000012B00000000000346 /* MemoryNotificationEventLog.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

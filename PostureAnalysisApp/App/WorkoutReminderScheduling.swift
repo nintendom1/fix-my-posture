@@ -35,9 +35,14 @@ protocol WorkoutReminderManaging: WorkoutReminderReconciliation {
 @MainActor
 final class UserNotificationWorkoutReminderScheduler: WorkoutReminderScheduling {
     private let center: UNUserNotificationCenter
+    private let eventLog: any NotificationEventRecording
 
-    init(center: UNUserNotificationCenter = .current()) {
+    init(
+        center: UNUserNotificationCenter = .current(),
+        eventLog: any NotificationEventRecording = NoNotificationEventLog()
+    ) {
         self.center = center
+        self.eventLog = eventLog
     }
 
     func authorizationStatus() async -> WorkoutReminderAuthorizationStatus {
@@ -61,6 +66,7 @@ final class UserNotificationWorkoutReminderScheduler: WorkoutReminderScheduling 
             .filter { $0.hasPrefix(WorkoutReminderScheduleBuilder.identifierPrefix) }
         center.removePendingNotificationRequests(withIdentifiers: oldIdentifiers)
 
+        var refusedCount = 0
         for request in requests {
             let content = UNMutableNotificationContent()
             content.title = request.title
@@ -87,8 +93,16 @@ final class UserNotificationWorkoutReminderScheduler: WorkoutReminderScheduling 
                 ))
             } catch {
                 // A later app activation or settings change retries the bounded schedule.
+                refusedCount += 1
+                eventLog.record("replaceRequests: iOS refused \(request.identifier): \(error.localizedDescription)")
             }
         }
+        let queued = await center.pendingNotificationRequests()
+            .filter { $0.identifier.hasPrefix(WorkoutReminderScheduleBuilder.identifierPrefix) }
+        eventLog.record(
+            "replaceRequests: removed \(oldIdentifiers.count), asked iOS to add \(requests.count), "
+                + "refused \(refusedCount), queued now \(queued.count)"
+        )
     }
 
     /// Replaces any queued workout acknowledgment with the newest saved session response.
@@ -122,8 +136,10 @@ final class UserNotificationWorkoutReminderScheduler: WorkoutReminderScheduling 
                 content: content,
                 trigger: trigger
             ))
+            eventLog.record("ack: queued \(request.identifier) to fire in \(request.delaySeconds)s")
         } catch {
             // A later saved workout can replace and retry the pending acknowledgment.
+            eventLog.record("ack: iOS refused \(request.identifier): \(error.localizedDescription)")
         }
     }
 

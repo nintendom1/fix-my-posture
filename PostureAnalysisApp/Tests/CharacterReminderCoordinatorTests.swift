@@ -215,6 +215,86 @@ final class CharacterReminderCoordinatorTests: XCTestCase {
         XCTAssertEqual(preferences.characterNotificationIntroDate, reminderDate)
     }
 
+    func testReconcileLogsWhatItScheduled() async throws {
+        let preferences = InMemoryPreferences()
+        preferences.workoutReminderSettings = settings(style: .character)
+        let log = MemoryNotificationEventLog()
+        let coordinator = makeCoordinator(
+            preferences: preferences, scenarioCatalog: try NotificationScenarioCatalog.bundled(),
+            eventLog: log, now: { self.date(2026, 10, 17, hour: 10) }
+        )
+
+        await coordinator.reconcileNow()
+
+        XCTAssertTrue(log.contains("reconcile: character style, scheduling 14 reminders, first at 2026-10-17 18:00:00"))
+    }
+
+    func testReconcileLogsWhyNothingWasScheduled() async throws {
+        let off = InMemoryPreferences()
+        off.workoutReminderSettings = settings(enabled: false, style: .character)
+        let offLog = MemoryNotificationEventLog()
+        await makeCoordinator(preferences: off, eventLog: offLog).reconcileNow()
+        XCTAssertTrue(offLog.contains("reconcile: reminders are off"))
+
+        let on = InMemoryPreferences()
+        on.workoutReminderSettings = settings(style: .character)
+        let deniedLog = MemoryNotificationEventLog()
+        await makeCoordinator(
+            preferences: on, scheduler: MemoryWorkoutReminderScheduler(status: .denied), eventLog: deniedLog
+        ).reconcileNow()
+        XCTAssertTrue(deniedLog.contains("reconcile: notifications are not authorized (denied)"))
+    }
+
+    func testAMissingAcknowledgmentIsExplainedInTheLog() async throws {
+        let scenarioCatalog = try NotificationScenarioCatalog.bundled()
+        let record = workout(endedAt: date(2026, 10, 17, hour: 17))
+        let earlierToday = workout(endedAt: date(2026, 10, 17, hour: 8))
+        let cases: [(reason: String, settings: WorkoutReminderSettings, status: WorkoutReminderAuthorizationStatus,
+                     records: [WorkoutRecord])] = [
+            ("reminders are off", settings(enabled: false, style: .character), .authorized, [record]),
+            ("style is Plain", settings(style: .plain), .authorized, [record]),
+            ("notifications are not authorized (denied)", settings(style: .character), .denied, [record]),
+            ("not the first workout of the day", settings(style: .character), .authorized, [earlierToday, record])
+        ]
+        for testCase in cases {
+            let preferences = InMemoryPreferences()
+            preferences.workoutReminderSettings = testCase.settings
+            let scheduler = MemoryWorkoutReminderScheduler(status: testCase.status)
+            let log = MemoryNotificationEventLog()
+            let coordinator = makeCoordinator(
+                preferences: preferences, workoutHistory: ReminderHistoryRepository(records: testCase.records),
+                scheduler: scheduler, scenarioCatalog: scenarioCatalog, eventLog: log,
+                now: { self.date(2026, 10, 17, hour: 17) }
+            )
+
+            await assertNoAcknowledgmentAfterSave(coordinator, scheduler: scheduler, record: record)
+
+            XCTAssertTrue(log.contains("ack: skipped, \(testCase.reason)"), testCase.reason)
+        }
+    }
+
+    func testAScheduledAcknowledgmentIsLogged() async throws {
+        let preferences = InMemoryPreferences()
+        preferences.workoutReminderSettings = settings(style: .character)
+        let record = workout(endedAt: date(2026, 10, 17, hour: 17))
+        let scheduler = MemoryWorkoutReminderScheduler()
+        let log = MemoryNotificationEventLog()
+        let coordinator = makeCoordinator(
+            preferences: preferences, workoutHistory: ReminderHistoryRepository(records: [record]),
+            scheduler: scheduler, scenarioCatalog: try NotificationScenarioCatalog.bundled(), eventLog: log,
+            now: { self.date(2026, 10, 17, hour: 17) }
+        )
+        let scheduled = expectation(description: "acknowledgment scheduled")
+        scheduler.onScheduleAcknowledgment = { scheduled.fulfill() }
+
+        coordinator.workoutSaved(record)
+        await fulfillment(of: [scheduled], timeout: 2)
+
+        XCTAssertTrue(log.contains("workoutSaved: workout ended 2026-10-17 17:00:00"))
+        XCTAssertTrue(log.contains("ack: scheduling first-completed-session variant"))
+        XCTAssertTrue(log.contains("in 3s"))
+    }
+
     func testDisabledDeniedAndMissingRecommendationCharacterModesScheduleNothing() async throws {
         let scenarioCatalog = try NotificationScenarioCatalog.bundled()
 
@@ -460,6 +540,7 @@ final class CharacterReminderCoordinatorTests: XCTestCase {
         exerciseCatalog: any ExerciseCatalogProviding = LiveExerciseCatalog(),
         scheduler: MemoryWorkoutReminderScheduler? = nil,
         scenarioCatalog: NotificationScenarioCatalog? = try? NotificationScenarioCatalog.bundled(),
+        eventLog: (any NotificationEventRecording)? = nil,
         now: @escaping () -> Date = { Date(timeIntervalSince1970: 0) }
     ) -> WorkoutReminderCoordinator {
         WorkoutReminderCoordinator(
@@ -470,6 +551,7 @@ final class CharacterReminderCoordinatorTests: XCTestCase {
             router: AppRouter(),
             scheduler: scheduler ?? MemoryWorkoutReminderScheduler(),
             scenarioCatalog: scenarioCatalog,
+            eventLog: eventLog ?? NoNotificationEventLog(),
             now: now,
             calendar: calendar
         )

@@ -12,6 +12,7 @@ struct NotificationPreviewScreen: View {
             } else {
                 previewCard
                 controlsCard
+                if viewModel.hasDiagnostics { diagnosticsCard }
                 Text(explanation)
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundStyle(ColorTokens.palette().textSubtle)
@@ -23,10 +24,16 @@ struct NotificationPreviewScreen: View {
         .safeAreaInset(edge: .bottom) {
             if viewModel.loadError == nil { sendBar }
         }
-        .task { await viewModel.refreshAuthorization() }
+        .task {
+            await viewModel.refreshAuthorization()
+            await viewModel.refreshDiagnostics()
+        }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
-            Task { await viewModel.refreshAuthorization() }
+            Task {
+                await viewModel.refreshAuthorization()
+                await viewModel.refreshDiagnostics()
+            }
         }
     }
 
@@ -112,6 +119,59 @@ struct NotificationPreviewScreen: View {
             }
             .accessibilityIdentifier("notificationPreviewDelayStepper")
         }
+    }
+
+    // MARK: Diagnostics
+
+    private var diagnosticsCard: some View {
+        card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("On this iPhone")
+                        .font(.system(size: 16, weight: .heavy, design: .rounded))
+                        .foregroundStyle(ColorTokens.palette().textPrimary)
+                    Spacer(minLength: 8)
+                    Button("Refresh") { Task { await viewModel.refreshDiagnostics() } }
+                        .font(.system(size: 14, weight: .heavy, design: .rounded))
+                        .foregroundStyle(ColorTokens.palette().tabActive)
+                        .accessibilityIdentifier("notificationDiagnosticsRefreshButton")
+                }
+                if let diagnostics = viewModel.diagnostics {
+                    diagnosticsLine(diagnostics.settings.joined(separator: " · "), muted: true)
+                    diagnosticsLine(
+                        "Reminders queued: \(diagnostics.pendingReminders.count) · "
+                            + "Replies or previews queued: \(diagnostics.pending.count - diagnostics.pendingReminders.count) · "
+                            + "Delivered: \(diagnostics.delivered.count)"
+                    )
+                    ForEach(Array(diagnostics.pending.prefix(5).enumerated()), id: \.offset) { _, pending in
+                        diagnosticsLine("\(pending.fireDate.map(shortDate) ?? "no date") · \(pending.title)", muted: true)
+                    }
+                    if diagnostics.pending.count > 5 {
+                        diagnosticsLine("and \(diagnostics.pending.count - 5) more", muted: true)
+                    }
+                    ForEach(Array(diagnostics.recentEvents.suffix(6).enumerated()), id: \.offset) { _, event in
+                        Text(event)
+                            .font(.system(size: 11, weight: .regular, design: .monospaced))
+                            .foregroundStyle(ColorTokens.palette().textSubtle)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                } else {
+                    diagnosticsLine("Reading…", muted: true)
+                }
+            }
+        }
+        .accessibilityIdentifier("notificationDiagnosticsCard")
+    }
+
+    private func diagnosticsLine(_ text: String, muted: Bool = false) -> some View {
+        Text(text)
+            .font(.system(size: 13, weight: .semibold, design: .rounded))
+            .foregroundStyle(muted ? ColorTokens.palette().textMuted : ColorTokens.palette().textPrimary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func shortDate(_ date: Date) -> String {
+        date.formatted(date: .abbreviated, time: .shortened)
     }
 
     // MARK: Scenarios
