@@ -12,7 +12,7 @@ The Train screen and reminders share `CurrentUpNextRoutine.select`, which filter
 
 Notification copy uses the routine duration estimate or the exercise's saved target where available. Each reminder carries `workoutReminder.targetType` and `workoutReminder.targetID`, identifying the exact advertised routine UUID or stable exercise ID.
 
-In Character mode, saving the first workout of a calendar day schedules one acknowledgment after 3 seconds, when reminders are enabled and notification authorization is available. It uses the acknowledgment scenario for the saved record, carries no workout target, and has a `fixMyPosture.workoutAcknowledgment.` identifier. A newer workout acknowledgment replaces a pending one. Reminder reconciliation does not remove it. Plain mode does not send acknowledgments.
+In Character mode, saving the first workout of a calendar day schedules one acknowledgment after 1 second (the shortest delay iOS allows), when reminders are enabled and notification authorization is available. It uses the acknowledgment scenario for the saved record, carries no workout target, and has a `fixMyPosture.workoutAcknowledgment.` identifier. A newer workout acknowledgment replaces a pending one. Reminder reconciliation does not remove it. Plain mode does not send acknowledgments.
 
 ## Taps and reconciliation
 

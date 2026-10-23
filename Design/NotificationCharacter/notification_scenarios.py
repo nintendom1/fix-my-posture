@@ -209,7 +209,7 @@ def render_docs(data):
         " `make notification-character`.",
         "",
         "- **nudge**: scheduled ahead of time as a reminder.",
-        "- **acknowledgment**: sent a few seconds after a workout is saved.",
+        "- **acknowledgment**: sent about a second after a workout is saved.",
         "- **crop**: `portrait` is head and shoulders. `close` is the tighter face crop used for heavier moments.",
         "- **art**: the first entry is the primary image. Other entries are alternates, chosen by variant.",
         f"- {len(scenarios)} scenarios, {len(names)} portrait images, "

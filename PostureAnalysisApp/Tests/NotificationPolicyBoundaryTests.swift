@@ -324,8 +324,9 @@ final class NotificationPolicyBoundaryTests: XCTestCase {
         XCTAssertEqual(try planner(run(-1, length: 10), today: 0, policy: uncapped).count, 90)
     }
 
-    func testAcknowledgmentArrivesThreeSecondsAfterTheWorkoutIsSaved() {
-        XCTAssertEqual(NotificationPolicy.standard.acknowledgmentDelaySeconds, 3)
+    func testAcknowledgmentArrivesOneSecondAfterTheWorkoutIsSaved() {
+        // One second is the shortest delay iOS allows for a time-interval notification.
+        XCTAssertEqual(NotificationPolicy.standard.acknowledgmentDelaySeconds, 1)
     }
 }
 

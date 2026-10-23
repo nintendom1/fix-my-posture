@@ -5,7 +5,7 @@
 Every state the notification character can be in, with the art and copy it uses. The JSON file is the source of truth; the app loads it at runtime and this page, the portrait images and the app's data set are generated from it. To add or change a scenario, edit `Design/NotificationCharacter/notification-scenarios.json` and run `make notification-character`.
 
 - **nudge**: scheduled ahead of time as a reminder.
-- **acknowledgment**: sent a few seconds after a workout is saved.
+- **acknowledgment**: sent about a second after a workout is saved.
 - **crop**: `portrait` is head and shoulders. `close` is the tighter face crop used for heavier moments.
 - **art**: the first entry is the primary image. Other entries are alternates, chosen by variant.
 - 35 scenarios, 27 portrait images, 124 copy lines.

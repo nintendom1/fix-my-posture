@@ -292,7 +292,7 @@ final class CharacterReminderCoordinatorTests: XCTestCase {
 
         XCTAssertTrue(log.contains("workoutSaved: workout ended 2026-10-17 17:00:00"))
         XCTAssertTrue(log.contains("ack: scheduling first-completed-session variant"))
-        XCTAssertTrue(log.contains("in 3s"))
+        XCTAssertTrue(log.contains("in 1s"))
     }
 
     func testDisabledDeniedAndMissingRecommendationCharacterModesScheduleNothing() async throws {
@@ -333,7 +333,7 @@ final class CharacterReminderCoordinatorTests: XCTestCase {
         XCTAssertTrue(noRecommendationScheduler.requests.isEmpty)
     }
 
-    func testAcknowledgmentUsesCharacterCategoryPrefixAndThreeSecondDelay() async throws {
+    func testAcknowledgmentUsesCharacterCategoryPrefixAndOneSecondDelay() async throws {
         let scenarioCatalog = try NotificationScenarioCatalog.bundled()
         let preferences = InMemoryPreferences()
         preferences.workoutReminderSettings = settings(style: .character)
@@ -357,7 +357,7 @@ final class CharacterReminderCoordinatorTests: XCTestCase {
         XCTAssertEqual(request.identifier,
                        WorkoutAcknowledgmentRequest.identifierPrefix + record.id.uuidString)
         XCTAssertTrue(request.identifier.hasPrefix(WorkoutAcknowledgmentRequest.identifierPrefix))
-        XCTAssertEqual(request.delaySeconds, 3)
+        XCTAssertEqual(request.delaySeconds, 1)
         XCTAssertEqual(request.categoryIdentifier, NotificationCategory.acknowledgment)
         XCTAssertNotNil(request.imageAssetName)
         XCTAssertNil(WorkoutReminderAppDelegate.workoutTarget(from: [:]))
