@@ -59,6 +59,7 @@ PostureAnalysisApp/
 scripts/design/                  # Reference extraction/rendering, anchors, masks, and pixel diff
 Design/Metrics/                  # Committed metrics generated from the local design bundle
 Design/AppIcon/                  # App icon SVG source, export script, and notices
+Design/NotificationCharacter/    # Chibi source PSD, characters.json, and the PNG portrait renderer
 ```
 
 ## Architecture
@@ -112,3 +113,4 @@ Every new Workout Coach exercise ships with full guidance (guide, ghost demo, th
 - Workout reminders: `docs/reminders.md`
 - Commit and PR conventions: `docs/commit-and-pr.md`
 - App icon source & export: `Design/AppIcon/README.md`
+- Notification character art pipeline: `Design/NotificationCharacter/README.md`

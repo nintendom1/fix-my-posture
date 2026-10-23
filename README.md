@@ -130,6 +130,10 @@ The app icon is exported from a hand-written SVG in `Design/AppIcon/`; see
 modified Tabler Icons `body-scan` (MIT). The license is in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and in the app under **gear → Acknowledgements**.
 
+Notification character portraits are rendered from a third-party chibi PSD by a script in
+`Design/NotificationCharacter/`; see [its README](Design/NotificationCharacter/README.md) to render or change a
+character. The artwork's credits and terms are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
 ## Known Limitations & Design Boundary
 
 - **Non-Diagnostic**: The app produces objective geometric metrics and is not a medical device or diagnostic tool for spinal/musculoskeletal disorders.

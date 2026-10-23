@@ -1,0 +1,6 @@
+# Pinned so the same inputs always give the same pixels. numpy 2.4 supports Python 3.11 through 3.14.
+# Bumping Pillow or psd-tools can change resampling or compositing: re-run `--examples` and review the diff.
+psd-tools==1.26.0
+Pillow==13.0.0
+numpy==2.4.6
+attrs==26.1.0
