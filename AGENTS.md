@@ -23,6 +23,7 @@ PostureAnalysisApp/
 │   ├── ExerciseDetail/          # Exercise details and target editing
 │   ├── History/                 # Workout history and weight editing
 │   ├── Library/                 # Exercise library
+│   ├── NotificationPreview/     # Developer page that sends any character notification after a delay
 │   ├── PhotoAssessment/         # Camera/library import and photo assessment flow
 │   ├── PostureHome/             # Posture tab and saved assessment history
 │   ├── Progress/                # Workout progress and stats
@@ -37,6 +38,9 @@ PostureAnalysisApp/
 ├── PoseEstimation/              # PoseEstimator protocol and AppleVisionPoseEstimator
 ├── PostureAnalysis/             # PostureAnalyzer, PostureAssessmentService, and measurement presentation
 ├── ImageImport/                 # PhotoValidator and ViewClassifier
+├── Notifications/               # Character notification scenarios, content building, and delivery adapters
+│   ├── Domain/                  # Foundation-only scenario models, catalog, templates, and content builder
+│   └── Delivery/                # Attachment creation and UserNotifications adapters
 ├── Persistence/
 │   ├── Schema/                  # Versioned SwiftData schema and migration plan
 │   └── Repositories/            # Assessment, routine, workout-history, and image-store boundaries
@@ -59,7 +63,7 @@ PostureAnalysisApp/
 scripts/design/                  # Reference extraction/rendering, anchors, masks, and pixel diff
 Design/Metrics/                  # Committed metrics generated from the local design bundle
 Design/AppIcon/                  # App icon SVG source, export script, and notices
-Design/NotificationCharacter/    # Chibi source PSD, characters.json, and the PNG portrait renderer
+Design/NotificationCharacter/    # Chibi source PSD, characters.json, notification-scenarios.json, and the PNG renderer
 ```
 
 ## Architecture
@@ -111,6 +115,7 @@ Every new Workout Coach exercise ships with full guidance (guide, ghost demo, th
 - Design snapshot and layout gate: `docs/design.md`
 - Realtime posture: `docs/realtime.md`
 - Workout reminders: `docs/reminders.md`
+- Notification character scenarios (generated table of every state, art, and copy line): `docs/notification-scenarios.md`
 - Commit and PR conventions: `docs/commit-and-pr.md`
 - App icon source & export: `Design/AppIcon/README.md`
-- Notification character art pipeline: `Design/NotificationCharacter/README.md`
+- Notification character art pipeline and scenario data: `Design/NotificationCharacter/README.md`

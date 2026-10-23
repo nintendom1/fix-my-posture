@@ -1,8 +1,9 @@
 # Notification Character Assets
 
 Renders flattened PNG portraits of the notification character from the layers of a third-party chibi
-PSD. Every pixel comes from the PSD or from a gradient in the config, without generative AI. Nothing in
-this folder ships in the app yet; the PNGs in `Examples/` only document the workflow.
+PSD. Every pixel comes from the PSD or from a gradient in the config, without generative AI. The PNGs in
+`Examples/` only document the workflow. The notification images the app ships are generated from
+`notification-scenarios.json` (see [Notification scenarios](#notification-scenarios)).
 
 <p>
   <img src="Examples/canonical-head-and-shoulders.png" width="256" alt="canonical character, head-and-shoulders crop">
@@ -13,6 +14,8 @@ this folder ships in the app yet; the PNGs in `Examples/` only document the work
 Source/chibis_600x400.psd   unmodified upstream artwork; provenance and terms in Source/README.md
 characters.json             all choices: layer map, backgrounds, crops, characters, examples
 render_character.py         the renderer
+notification-scenarios.json every notification state: art, title, copy (source of truth for the app)
+notification_scenarios.py   validates the scenarios and generates the data set and docs (standard library only)
 requirements.txt            pinned psd-tools, Pillow, numpy
 Examples/                   committed renders that --check keeps honest
 ```
@@ -20,9 +23,10 @@ Examples/                   committed renders that --check keeps honest
 ## Render a portrait
 
 ```bash
+make notification-character                           # rewrite the example PNGs and the app's notification assets
 make notification-character CHARACTER_ARGS=--list     # valid characters, crops, backgrounds, layer choices
 make notification-character CHARACTER_ARGS="--character canonical --crop close-up"
-make notification-character-check                     # examples still match the PSD and config, plus the unit tests
+make notification-character-check                     # everything still matches the PSD and config, plus the unit tests
 ```
 
 The first run builds a venv at `build/notification-character/venv` (ignored by git) from the pinned
@@ -96,8 +100,30 @@ PNG belongs in `Examples/`. Production assets belong in the app's asset catalog 
   ascending `stops`. `fmp-dark-purple` reuses the app icon's base gradient (`Design/AppIcon/README.md`).
   `fmp-app-dark` is the app's `#0E0B16` background color.
 
+## Notification scenarios
+
+`notification-scenarios.json` describes every state the notification character can be in: its art
+(`expression`, `outfit`, `crop`), a short title, interchangeable copy lines, and sample numbers for the
+developer preview. It is the single source of truth. `make notification-character` generates from it:
+
+- `PostureAnalysisApp/Assets.xcassets/NotificationCharacter/<expression>-<outfit>-<crop>.imageset`, one 512×512
+  image per distinct art entry plus every expression in both crops in the hoodie (27 images, about 5 MB).
+  `portrait` is the `head-and-shoulders` crop and `close` is `close-up`. Outfit names map to PSD layers in the
+  file's `outfits` table.
+- `PostureAnalysisApp/Assets.xcassets/NotificationScenarios.dataset`, the copy of the JSON the app loads.
+- [`docs/notification-scenarios.md`](../../docs/notification-scenarios.md), a readable table of every scenario.
+
+Never edit those generated files by hand. `--check` and the unit tests fail when they are stale. To change
+copy or art, edit the JSON, run `make notification-character`, and commit the JSON with the regenerated files.
+To add a scenario, add an entry with a unique kebab-case `id`, a `kind` (`nudge` or `acknowledgment`), the art
+and copy, and a `sample` for any `{token}` it uses (`streak`, `record`, `remaining`, `days`; `{suggestion}`
+needs no sample). Validation rejects unknown tokens, missing samples, unknown outfits, overlong lines, and
+fewer copy lines than art entries (otherwise an alternate image could never be previewed).
+
 ## Tests
 
 `scripts/tests/test_notification_character.py` validates the config, the PSD hash, and the committed
 examples' PNG structure with only the standard library, so `./scripts/validate.sh` and CI run them.
 The render tests need the venv's packages and skip without them. `make notification-character-check` runs everything.
+`scripts/tests/test_notification_scenarios.py` does the same for the scenarios: schema validation, the generated data
+set, docs and image metadata run everywhere, and the pixel comparison of all 27 images needs the venv.

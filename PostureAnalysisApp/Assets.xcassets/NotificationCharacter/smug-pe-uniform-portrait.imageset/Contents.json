@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "smug-pe-uniform-portrait.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

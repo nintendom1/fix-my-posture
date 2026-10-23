@@ -290,6 +290,10 @@ struct SettingsScreen: View {
             AcknowledgementsView(wrapsInNavigationStack: false)
         case .developerDiagnostics:
             SettingsDeveloperDiagnosticsPage(viewModel: viewModel)
+        case .notificationPreview:
+            if let preview = viewModel.notificationPreview {
+                NotificationPreviewScreen(viewModel: preview)
+            }
         }
     }
 

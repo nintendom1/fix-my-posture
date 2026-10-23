@@ -133,7 +133,8 @@ final class SettingsViewModelTests: XCTestCase {
             .privacy,
             .about,
             .acknowledgements,
-            .developerDiagnostics
+            .developerDiagnostics,
+            .notificationPreview
         ]
 
         for destination in destinations {

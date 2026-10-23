@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "smug-hoodie-close.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

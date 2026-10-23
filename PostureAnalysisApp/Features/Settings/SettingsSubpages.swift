@@ -168,7 +168,7 @@ struct SettingsDeveloperDiagnosticsPage: View {
 
     var body: some View {
         SettingsSubpage(title: "Developer diagnostics") {
-            Text("Diagnostics are available from an assessment report. Open a saved report and tap Developer Diagnostics.")
+            Text("Diagnostics are available from an assessment report. Open a saved report and tap Developer Diagnostics. Notification preview sends any character notification to this iPhone.")
                 .font(.system(size: 16, weight: .bold, design: .rounded))
                 .foregroundStyle(ColorTokens.palette().textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -181,6 +181,15 @@ struct SettingsDeveloperDiagnosticsPage: View {
                     .foregroundStyle(ColorTokens.palette().tabActive)
                     .frame(maxWidth: .infinity, minHeight: 52)
                     .background(ColorTokens.palette().backgroundCard, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+
+            if viewModel.notificationPreview != nil {
+                Button("Notification preview") { viewModel.navigate(to: .notificationPreview) }
+                    .font(.system(size: 16, weight: .heavy, design: .rounded))
+                    .foregroundStyle(ColorTokens.palette().tabActive)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .background(ColorTokens.palette().backgroundCard, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .accessibilityIdentifier("settingsNotificationPreviewButton")
             }
         }
     }
@@ -206,7 +215,7 @@ struct SettingsTextPage: View {
     }
 }
 
-private struct SettingsSubpage<Content: View>: View {
+struct SettingsSubpage<Content: View>: View {
     let title: String
     @ViewBuilder let content: Content
 

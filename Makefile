@@ -5,7 +5,7 @@ DESIGN_DESTINATION ?= platform=iOS Simulator,name=iPhone 15 Pro
 
 CHARACTER_DIR := Design/NotificationCharacter
 CHARACTER_VENV := build/notification-character/venv
-CHARACTER_ARGS ?= --examples
+CHARACTER_ARGS ?=
 
 ios:
 	@bash scripts/run-ios.sh
@@ -69,11 +69,16 @@ $(CHARACTER_VENV)/.installed: $(CHARACTER_DIR)/requirements.txt
 	$(CHARACTER_VENV)/bin/pip install --quiet --disable-pip-version-check -r $(CHARACTER_DIR)/requirements.txt
 	@touch $@
 
-# make notification-character                                             rewrite the committed example PNGs
+# make notification-character                                             rewrite the example PNGs and the app's notification assets
 # make notification-character CHARACTER_ARGS="--character canonical --crop close-up"
 # make notification-character CHARACTER_ARGS=--list                       show valid characters, crops, layers
 notification-character: $(CHARACTER_VENV)/.installed
+ifeq ($(strip $(CHARACTER_ARGS)),)
+	$(CHARACTER_VENV)/bin/python $(CHARACTER_DIR)/render_character.py --examples
+	$(CHARACTER_VENV)/bin/python $(CHARACTER_DIR)/render_character.py --assets
+else
 	$(CHARACTER_VENV)/bin/python $(CHARACTER_DIR)/render_character.py $(CHARACTER_ARGS)
+endif
 
 notification-character-check: $(CHARACTER_VENV)/.installed
 	$(CHARACTER_VENV)/bin/python $(CHARACTER_DIR)/render_character.py --check

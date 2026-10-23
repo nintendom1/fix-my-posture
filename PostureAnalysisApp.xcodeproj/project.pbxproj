@@ -301,6 +301,19 @@
 		A10000012B00000000000311 /* WorkoutReminderScheduling.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000311 /* WorkoutReminderScheduling.swift */; };
 		A10000012B00000000000312 /* WorkoutReminderCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000312 /* WorkoutReminderCoordinator.swift */; };
 		A10000012B00000000000313 /* WorkoutRemindersTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000313 /* WorkoutRemindersTests.swift */; };
+		A10000012B00000000000314 /* NotificationScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000314 /* NotificationScenario.swift */; };
+		A10000012B00000000000315 /* NotificationScenarioCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000315 /* NotificationScenarioCatalog.swift */; };
+		A10000012B00000000000316 /* NotificationContentBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000316 /* NotificationContentBuilder.swift */; };
+		A10000012B00000000000317 /* NotificationScenarioCatalogLoading.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000317 /* NotificationScenarioCatalogLoading.swift */; };
+		A10000012B00000000000318 /* NotificationAttachmentFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000318 /* NotificationAttachmentFactory.swift */; };
+		A10000012B00000000000319 /* NotificationPreviewScheduling.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000319 /* NotificationPreviewScheduling.swift */; };
+		A10000012B00000000000320 /* NotificationPreviewViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000320 /* NotificationPreviewViewModel.swift */; };
+		A10000012B00000000000321 /* NotificationPreviewScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000321 /* NotificationPreviewScreen.swift */; };
+		A10000012B00000000000322 /* NotificationScenarioCatalogTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000322 /* NotificationScenarioCatalogTests.swift */; };
+		A10000012B00000000000323 /* NotificationContentBuilderTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000323 /* NotificationContentBuilderTests.swift */; };
+		A10000012B00000000000324 /* NotificationPreviewViewModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000324 /* NotificationPreviewViewModelTests.swift */; };
+		A10000012B00000000000325 /* FakePreviewScheduler.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000325 /* FakePreviewScheduler.swift */; };
+		A10000012B00000000000326 /* NotificationPreviewScreenTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000326 /* NotificationPreviewScreenTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -610,6 +623,19 @@
 		B10000012B00000000000311 /* WorkoutReminderScheduling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutReminderScheduling.swift; sourceTree = "<group>"; };
 		B10000012B00000000000312 /* WorkoutReminderCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutReminderCoordinator.swift; sourceTree = "<group>"; };
 		B10000012B00000000000313 /* WorkoutRemindersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutRemindersTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000314 /* NotificationScenario.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationScenario.swift; sourceTree = "<group>"; };
+		B10000012B00000000000315 /* NotificationScenarioCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationScenarioCatalog.swift; sourceTree = "<group>"; };
+		B10000012B00000000000316 /* NotificationContentBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationContentBuilder.swift; sourceTree = "<group>"; };
+		B10000012B00000000000317 /* NotificationScenarioCatalogLoading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationScenarioCatalogLoading.swift; sourceTree = "<group>"; };
+		B10000012B00000000000318 /* NotificationAttachmentFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationAttachmentFactory.swift; sourceTree = "<group>"; };
+		B10000012B00000000000319 /* NotificationPreviewScheduling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPreviewScheduling.swift; sourceTree = "<group>"; };
+		B10000012B00000000000320 /* NotificationPreviewViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPreviewViewModel.swift; sourceTree = "<group>"; };
+		B10000012B00000000000321 /* NotificationPreviewScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPreviewScreen.swift; sourceTree = "<group>"; };
+		B10000012B00000000000322 /* NotificationScenarioCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationScenarioCatalogTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000323 /* NotificationContentBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationContentBuilderTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000324 /* NotificationPreviewViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPreviewViewModelTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000325 /* FakePreviewScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakePreviewScheduler.swift; sourceTree = "<group>"; };
+		B10000012B00000000000326 /* NotificationPreviewScreenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPreviewScreenTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -658,6 +684,7 @@
 				H10000012B00000000000032 /* Preferences */,
 				H10000012B00000000000037 /* App */,
 				H10000012B00000000000038 /* Features */,
+				H10000012B00000000000055 /* Notifications */,
 			);
 			path = PostureAnalysisApp;
 			sourceTree = "<group>";
@@ -828,6 +855,10 @@
 				B10000012B00000000000304 /* RoutineEstimatorTests.swift */,
 				H10000012B00000000000054 /* Fakes */,
 				B10000012B00000000000313 /* WorkoutRemindersTests.swift */,
+				B10000012B00000000000322 /* NotificationScenarioCatalogTests.swift */,
+				B10000012B00000000000323 /* NotificationContentBuilderTests.swift */,
+				B10000012B00000000000324 /* NotificationPreviewViewModelTests.swift */,
+				B10000012B00000000000326 /* NotificationPreviewScreenTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1175,6 +1206,7 @@
 				H10000012B00000000000051 /* Settings */,
 				H10000012B00000000000052 /* RealtimePosture */,
 				H10000012B00000000000053 /* VoiceCommands */,
+				H10000012B00000000000058 /* NotificationPreview */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -1352,8 +1384,47 @@
 			isa = PBXGroup;
 			children = (
 				B10000012B00000000000157 /* WorkoutServiceFakes.swift */,
+				B10000012B00000000000325 /* FakePreviewScheduler.swift */,
 			);
 			path = Fakes;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000055 /* Notifications */ = {
+			isa = PBXGroup;
+			children = (
+				H10000012B00000000000056 /* Domain */,
+				H10000012B00000000000057 /* Delivery */,
+				B10000012B00000000000317 /* NotificationScenarioCatalogLoading.swift */,
+			);
+			path = Notifications;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000056 /* Domain */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000314 /* NotificationScenario.swift */,
+				B10000012B00000000000315 /* NotificationScenarioCatalog.swift */,
+				B10000012B00000000000316 /* NotificationContentBuilder.swift */,
+			);
+			path = Domain;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000057 /* Delivery */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000318 /* NotificationAttachmentFactory.swift */,
+				B10000012B00000000000319 /* NotificationPreviewScheduling.swift */,
+			);
+			path = Delivery;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000058 /* NotificationPreview */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000320 /* NotificationPreviewViewModel.swift */,
+				B10000012B00000000000321 /* NotificationPreviewScreen.swift */,
+			);
+			path = NotificationPreview;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1661,6 +1732,14 @@
 				A10000012B00000000000310 /* WorkoutReminderSettings.swift in Sources */,
 				A10000012B00000000000311 /* WorkoutReminderScheduling.swift in Sources */,
 				A10000012B00000000000312 /* WorkoutReminderCoordinator.swift in Sources */,
+				A10000012B00000000000314 /* NotificationScenario.swift in Sources */,
+				A10000012B00000000000315 /* NotificationScenarioCatalog.swift in Sources */,
+				A10000012B00000000000316 /* NotificationContentBuilder.swift in Sources */,
+				A10000012B00000000000318 /* NotificationAttachmentFactory.swift in Sources */,
+				A10000012B00000000000319 /* NotificationPreviewScheduling.swift in Sources */,
+				A10000012B00000000000320 /* NotificationPreviewViewModel.swift in Sources */,
+				A10000012B00000000000321 /* NotificationPreviewScreen.swift in Sources */,
+				A10000012B00000000000317 /* NotificationScenarioCatalogLoading.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1747,6 +1826,11 @@
 				A10000012B00000000000304 /* RoutineEstimatorTests.swift in TestSources */,
 				A10000012B00000000000157 /* WorkoutServiceFakes.swift in TestSources */,
 				A10000012B00000000000313 /* WorkoutRemindersTests.swift in TestSources */,
+				A10000012B00000000000322 /* NotificationScenarioCatalogTests.swift in TestSources */,
+				A10000012B00000000000323 /* NotificationContentBuilderTests.swift in TestSources */,
+				A10000012B00000000000324 /* NotificationPreviewViewModelTests.swift in TestSources */,
+				A10000012B00000000000325 /* FakePreviewScheduler.swift in TestSources */,
+				A10000012B00000000000326 /* NotificationPreviewScreenTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

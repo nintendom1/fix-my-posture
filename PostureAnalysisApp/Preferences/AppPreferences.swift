@@ -44,6 +44,19 @@ enum PreferenceKey {
     /// New workout flow choices use the train. namespace.
     static let startByHolding = "train.startByHolding"
     static let upNextOverride = "train.upNextOverride"
+
+    /// Developer tools use the dev. namespace.
+    static let notificationPreviewDelay = "dev.notificationPreviewDelay"
+}
+
+/// Limits for the developer notification preview's send delay. iOS needs at least one second.
+enum NotificationPreviewDelay {
+    static let range = 1...20
+    static let defaultSeconds = 5
+
+    static func clamped(_ seconds: Int) -> Int {
+        min(max(seconds, range.lowerBound), range.upperBound)
+    }
 }
 
 /// The single typed boundary for the app's UserDefaults preferences.
@@ -68,6 +81,7 @@ protocol AppPreferencesStoring: AnyObject {
     var upNextOverride: UUID? { get set }
     var tiltWarningsEnabled: Bool { get set }
     var workoutReminderSettings: WorkoutReminderSettings { get set }
+    var notificationPreviewDelaySeconds: Int { get set }
 }
 
 /// UserDefaults-backed preferences. Existing keys and value formats are retained for upgrade compatibility.
@@ -183,6 +197,15 @@ final class UserDefaultsPreferences: AppPreferencesStoring {
         }
     }
 
+    var notificationPreviewDelaySeconds: Int {
+        get {
+            NotificationPreviewDelay.clamped(
+                defaults.object(forKey: PreferenceKey.notificationPreviewDelay) as? Int ?? NotificationPreviewDelay.defaultSeconds
+            )
+        }
+        set { defaults.set(NotificationPreviewDelay.clamped(newValue), forKey: PreferenceKey.notificationPreviewDelay) }
+    }
+
     var upNextOverride: UUID? {
         get { defaults.string(forKey: PreferenceKey.upNextOverride).flatMap(UUID.init(uuidString:)) }
         set {
@@ -220,6 +243,12 @@ final class InMemoryPreferences: AppPreferencesStoring {
     var upNextOverride: UUID?
     var tiltWarningsEnabled = true
     var workoutReminderSettings = WorkoutReminderSettings()
+
+    private var storedNotificationPreviewDelay = NotificationPreviewDelay.defaultSeconds
+    var notificationPreviewDelaySeconds: Int {
+        get { storedNotificationPreviewDelay }
+        set { storedNotificationPreviewDelay = NotificationPreviewDelay.clamped(newValue) }
+    }
 
     func guideSeen(for exerciseID: String) -> Bool {
         seenGuides.contains(exerciseID)

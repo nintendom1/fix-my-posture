@@ -13,6 +13,7 @@ enum SettingsDestination: Hashable {
     case about
     case acknowledgements
     case developerDiagnostics
+    case notificationPreview
 }
 
 @MainActor
@@ -77,6 +78,8 @@ final class SettingsViewModel {
     private(set) var reminderAuthorization: WorkoutReminderAuthorizationStatus = .notDetermined
 
     let latestAssessmentID: UUID?
+    /// The developer notification preview, when it could be built.
+    let notificationPreview: NotificationPreviewViewModel?
 
     private let preferences: any AppPreferencesStoring
     private let router: AppRouter
@@ -86,12 +89,14 @@ final class SettingsViewModel {
         preferences: any AppPreferencesStoring,
         router: AppRouter,
         reminderManager: (any WorkoutReminderManaging)? = nil,
-        latestAssessmentID: UUID? = nil
+        latestAssessmentID: UUID? = nil,
+        notificationPreview: NotificationPreviewViewModel? = nil
     ) {
         self.preferences = preferences
         self.router = router
         self.reminderManager = reminderManager
         self.latestAssessmentID = latestAssessmentID
+        self.notificationPreview = notificationPreview
         spokenCoachingEnabled = !preferences.workoutCoachCoachMuted
         voiceCommandsEnabled = !preferences.workoutCoachMicMuted
         restPolicy = preferences.restPolicy

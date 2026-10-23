@@ -1,0 +1,614 @@
+{
+  "version": 1,
+  "sampleSuggestion": "Shoulder Day · about 12 min",
+  "tokens": {
+    "suggestion": "The routine or exercise being advertised, such as \"Shoulder Day · about 12 min\".",
+    "streak": "The current streak in planned days. For streak-broken it is the length that just ended.",
+    "record": "The longest streak before the current one.",
+    "remaining": "Sessions still needed to beat the record.",
+    "days": "Calendar days since the last saved workout."
+  },
+  "cropPresets": {
+    "portrait": "head-and-shoulders",
+    "close": "close-up"
+  },
+  "outfits": {
+    "hoodie": "hoodie",
+    "pajamas": "pjs",
+    "pe-uniform": "pe uniform",
+    "coat": "coat",
+    "sundress": "sundress"
+  },
+  "baselineAssets": {
+    "expressions": ["normal", "smile", "smile2", "sad", "annoyed", "sleepy", "smug", "delighted", "laugh", "angry"],
+    "outfit": "hoodie",
+    "crops": ["portrait", "close"]
+  },
+  "scenarios": [
+    {
+      "id": "never-established-history",
+      "name": "Never established history",
+      "kind": "nudge",
+      "trigger": "The user has never developed a meaningful streak or recurring habit.",
+      "tone": "Inviting rather than guilt-driven. Establish the idea that this can become something shared.",
+      "art": [{ "expression": "smile", "outfit": "hoodie", "crop": "portrait" }],
+      "title": "{suggestion}",
+      "copy": [
+        "Hey. Want to start one with me?",
+        "A streak starts with one day. Want it to be today?",
+        "No pressure. Want to see how far we can take this?",
+        "I’d like to do this with you. Ready when you are."
+      ],
+      "sample": {}
+    },
+    {
+      "id": "first-ever-notification",
+      "name": "First-ever notification",
+      "kind": "nudge",
+      "trigger": "The character is appearing to the user for the first time.",
+      "tone": "Warm introduction. No guilt, because no relationship has been established yet.",
+      "art": [{ "expression": "smile", "outfit": "hoodie", "crop": "portrait" }],
+      "title": "{suggestion}",
+      "copy": [
+        "Hi. Want to do this together?",
+        "Hi! I’ll check in now and then. Want to start with one today?",
+        "Hello. I’m here whenever you want to get started."
+      ],
+      "sample": {}
+    },
+    {
+      "id": "ordinary-daily-reminder",
+      "name": "Ordinary daily reminder",
+      "kind": "nudge",
+      "trigger": "Today’s session is incomplete and there is no meaningful streak pressure.",
+      "tone": "Friendly and low-pressure.",
+      "art": [{ "expression": "smile", "outfit": "hoodie", "crop": "portrait" }],
+      "title": "{suggestion}",
+      "copy": [
+        "Want to get today’s one in?",
+        "Ready for today’s session?",
+        "Got a few minutes for today’s one?",
+        "Today’s session is waiting. Want to knock it out?",
+        "No rush. Want to do today’s now?"
+      ],
+      "sample": {}
+    },
+    {
+      "id": "neutral-check-in",
+      "name": "Neutral check-in",
+      "kind": "nudge",
+      "trigger": "Today’s session is incomplete and the user has recently been consistent.",
+      "tone": "Quietly expectant.",
+      "art": [{ "expression": "normal", "outfit": "hoodie", "crop": "portrait" }],
+      "title": "{suggestion}",
+      "copy": [
+        "Still planning to do this today?",
+        "Checking in. Today’s session is still open.",
+        "Is today still on?",
+        "Quiet one today. Still on for it?"
+      ],
+      "sample": {}
+    },
+    {
+      "id": "early-streak-forming",
+      "name": "Early streak forming",
+      "kind": "nudge",
+      "trigger": "Roughly 2 to 4 consecutive planned days are complete.",
+      "tone": "Reinforce momentum without overstating it.",
+      "art": [
+        { "expression": "smile", "outfit": "hoodie", "crop": "portrait" },
+        { "expression": "normal", "outfit": "hoodie", "crop": "portrait" }
+      ],
+      "title": "{streak}-day streak",
+      "copy": [
+        "We’re getting a streak going.",
+        "{streak} in a row so far. Let’s keep it moving.",
+        "Look at that. {streak} days. Don’t stop now.",
+        "This is turning into something."
+      ],
+      "sample": { "streak": 3 }
+    },
+    {
+      "id": "almost-one-week",
+      "name": "Almost one week",
+      "kind": "nudge",
+      "trigger": "One session away from a 7-day streak.",
+      "tone": "Goal-gradient pressure.",
+      "art": [{ "expression": "normal", "outfit": "hoodie", "crop": "portrait" }],
+      "title": "{streak}-day streak",
+      "copy": [
+        "One more and we make it a week.",
+        "{streak} down. One more and it’s a full week.",
+        "A week is one session away.",
+        "So close to a week. Let’s finish it."
+      ],
+      "sample": { "streak": 6 }
+    },
+    {
+      "id": "one-week-milestone",
+      "name": "One-week milestone",
+      "kind": "acknowledgment",
+      "trigger": "A 7-day streak was just achieved.",
+      "tone": "Strong positive reinforcement.",
+      "art": [{ "expression": "delighted", "outfit": "hoodie", "crop": "portrait" }],
+      "title": "A whole week",
+      "copy": [
+        "A whole week!",
+        "Seven days. I knew we could do it.",
+        "One full week together. That’s real.",
+        "Week one: done. Look at us."
+      ],
+      "sample": {}
+    },
+    {
+      "id": "established-streak-reminder",
+      "name": "Established streak reminder",
+      "kind": "nudge",
+      "trigger": "A meaningful streak exists but is not yet in immediate danger.",
+      "tone": "Make the streak feel shared.",
+      "art": [{ "expression": "smile", "outfit": "hoodie", "crop": "portrait" }],
+      "title": "{streak}-day streak",
+      "copy": [
+        "Let’s keep this going.",
+        "We’ve got something good going. Let’s keep it.",
+        "Day after day. Ready for today’s?",
+        "Our streak’s at {streak}. Let’s protect it."
+      ],
+      "sample": { "streak": 12 }
+    },
+    {
+      "id": "established-streak-at-risk",
+      "name": "Established streak at risk",
+      "kind": "nudge",
+      "trigger": "A meaningful streak exists and the session is still incomplete later in the day.",
+      "tone": "Relational guilt.",
+      "art": [{ "expression": "sad", "outfit": "hoodie", "crop": "close" }],
+      "title": "{streak}-day streak",
+      "copy": [
+        "{streak} days and you’re really going to leave me hanging?",
+        "We’re at {streak} days. Please don’t let it slip.",
+        "I’ve been counting. {streak} days. Don’t stop now.",
+        "It would be a shame to lose {streak} days over today."
+      ],
+      "sample": { "streak": 26 }
+    },
+    {
+      "id": "high-value-streak-at-risk",
+      "name": "High-value streak at risk",
+      "kind": "nudge",
+      "trigger": "A long or personal-best-adjacent streak is at risk and the session is incomplete.",
+      "tone": "Stronger concern.",
+      "art": [{ "expression": "sad", "outfit": "hoodie", "crop": "close" }],
+      "title": "{streak}-day streak",
+      "copy": [
+        "Don’t make me watch {streak} days disappear.",
+        "{streak} days. I’m not ready to lose that.",
+        "We’re too far in to quit now. {streak} days."
+      ],
+      "sample": { "streak": 31 }
+    },
+    {
+      "id": "first-ignored-reminder",
+      "name": "First ignored reminder",
+      "kind": "nudge",
+      "trigger": "An earlier reminder was dismissed or ignored and the task remains incomplete.",
+      "tone": "Minimal, watchful follow-up.",
+      "art": [{ "expression": "normal", "outfit": "hoodie", "crop": "close" }],
+      "title": "{suggestion}",
+      "copy": [
+        "…still here.",
+        "Still waiting.",
+        "Hey. Still here.",
+        "Just a gentle second knock."
+      ],
+      "sample": {}
+    },
+    {
+      "id": "repeated-ignored-reminder",
+      "name": "Repeated ignored reminder",
+      "kind": "nudge",
+      "trigger": "Multiple reminders were ignored during the same relevant window.",
+      "tone": "Mildly confrontational but playful.",
+      "art": [{ "expression": "annoyed", "outfit": "hoodie", "crop": "close" }],
+      "title": "{suggestion}",
+      "copy": [
+        "Oh. We’re doing this again.",
+        "That’s a few reminders now.",
+        "I can do this all evening, you know.",
+        "Ignoring me won’t make today’s session go away."
+      ],
+      "sample": {}
+    },
+    {
+      "id": "strong-repeated-dismissal",
+      "name": "Strong repeated-dismissal reminder",
+      "kind": "nudge",
+      "trigger": "An established streak plus repeated ignored reminders.",
+      "tone": "Earned social pressure.",
+      "art": [{ "expression": "annoyed", "outfit": "hoodie", "crop": "close" }],
+      "title": "{streak}-day streak",
+      "copy": [
+        "You know I’m going to keep asking, right?",
+        "{streak} days of work, and you’re ignoring me?",
+        "I’m not going anywhere. Neither is your streak, if you move."
+      ],
+      "sample": { "streak": 26 }
+    },
+    {
+      "id": "late-night-reminder",
+      "name": "Late-night reminder",
+      "kind": "nudge",
+      "trigger": "The session is incomplete late in the evening.",
+      "tone": "Contextual, low-key guilt.",
+      "art": [{ "expression": "sleepy", "outfit": "pajamas", "crop": "portrait" }],
+      "title": "{suggestion}",
+      "copy": [
+        "I was going to sleep, you know.",
+        "It’s late. One quick session and we’re both done.",
+        "Stayed up for this. Let’s make it quick.",
+        "Almost bedtime. Want to squeeze today’s in?"
+      ],
+      "sample": {}
+    },
+    {
+      "id": "late-night-streak-at-risk",
+      "name": "Late-night streak at risk",
+      "kind": "nudge",
+      "trigger": "A meaningful streak, late night, and the session is incomplete.",
+      "tone": "Combine streak loss with the relationship.",
+      "art": [
+        { "expression": "sleepy", "outfit": "pajamas", "crop": "close" },
+        { "expression": "sad", "outfit": "pajamas", "crop": "close" }
+      ],
+      "title": "{streak}-day streak",
+      "copy": [
+        "You’re really making me stay up for this?",
+        "{streak} days and it’s this late. Please.",
+        "I’m half asleep and still here for our {streak} days."
+      ],
+      "sample": { "streak": 26 }
+    },
+    {
+      "id": "final-streak-warning",
+      "name": "Final streak warning",
+      "kind": "nudge",
+      "trigger": "Near the end of the useful reminder window, and a meaningful streak would be lost.",
+      "tone": "Concerned rather than angry. Keep copy short and direct.",
+      "art": [
+        { "expression": "sad", "outfit": "hoodie", "crop": "close" },
+        { "expression": "sad", "outfit": "pajamas", "crop": "close" }
+      ],
+      "title": "{streak}-day streak",
+      "copy": [
+        "Last chance for today.",
+        "Almost out of time.",
+        "Please. Just one set.",
+        "It’s almost over for today."
+      ],
+      "sample": { "streak": 26 }
+    },
+    {
+      "id": "rare-escalation",
+      "name": "Rare escalation",
+      "kind": "nudge",
+      "trigger": "A very long streak, repeated ignored reminders, and imminent loss.",
+      "tone": "Use extremely rarely so it keeps its novelty. Comedic frustration rather than hostility.",
+      "art": [{ "expression": "angry", "outfit": "hoodie", "crop": "close" }],
+      "title": "{streak}-day streak",
+      "copy": [
+        "{streak} days and THIS is how it ends?!",
+        "I did not wait all day for this.",
+        "Okay. I’m officially mad. Go. Now."
+      ],
+      "sample": { "streak": 52 }
+    },
+    {
+      "id": "session-completed",
+      "name": "Session completed",
+      "kind": "acknowledgment",
+      "trigger": "The user finishes an ordinary session.",
+      "tone": "Warm acknowledgment.",
+      "art": [{ "expression": "smile2", "outfit": "hoodie", "crop": "portrait" }],
+      "title": "Nice work",
+      "copy": [
+        "There we go.",
+        "Done. Nice and steady.",
+        "That’s today’s. Good job.",
+        "Session logged. Proud of you."
+      ],
+      "sample": {}
+    },
+    {
+      "id": "session-completed-after-reminders",
+      "name": "Session completed after reminders",
+      "kind": "acknowledgment",
+      "trigger": "The user completes a session after one or more escalating reminders.",
+      "tone": "Playful recognition.",
+      "art": [
+        { "expression": "smug", "outfit": "hoodie", "crop": "portrait" },
+        { "expression": "smile2", "outfit": "hoodie", "crop": "portrait" }
+      ],
+      "title": "Nice work",
+      "copy": [
+        "Knew you’d do it.",
+        "Took a few nudges. Worth it.",
+        "See? Not so bad.",
+        "Look who showed up."
+      ],
+      "sample": {}
+    },
+    {
+      "id": "streak-preserved-last-minute",
+      "name": "Streak preserved at last minute",
+      "kind": "acknowledgment",
+      "trigger": "A session was completed shortly before the streak would have broken.",
+      "tone": "Relief and celebration.",
+      "art": [{ "expression": "delighted", "outfit": "hoodie", "crop": "portrait" }],
+      "title": "{streak}-day streak",
+      "copy": [
+        "Okay. That was way too close.",
+        "Phew. {streak} days, saved with no time to spare.",
+        "I almost lost it. Don’t do that to me again."
+      ],
+      "sample": { "streak": 14 }
+    },
+    {
+      "id": "streak-broken",
+      "name": "Streak broken",
+      "kind": "nudge",
+      "trigger": "A meaningful streak actually ended.",
+      "tone": "Briefly acknowledge the loss rather than pretending it did not matter.",
+      "art": [{ "expression": "sad", "outfit": "hoodie", "crop": "close" }],
+      "title": "Our {streak}-day streak ended",
+      "copy": [
+        "We lost {streak} days. That one hurt.",
+        "It’s over. {streak} days, gone. Let’s not dwell.",
+        "I’m not going to pretend that didn’t matter."
+      ],
+      "sample": { "streak": 26 }
+    },
+    {
+      "id": "immediate-post-break",
+      "name": "Immediate post-break",
+      "kind": "nudge",
+      "trigger": "The first appropriate contact after a streak break.",
+      "tone": "Brief disappointment, then a transition toward recovery.",
+      "art": [
+        { "expression": "sad", "outfit": "hoodie", "crop": "portrait" },
+        { "expression": "normal", "outfit": "hoodie", "crop": "portrait" }
+      ],
+      "title": "{suggestion}",
+      "copy": [
+        "Okay. Yesterday’s behind us. Ready to start over?",
+        "It’s fine. Really. Want to start a new one?",
+        "A fresh start is still a start.",
+        "That’s over now. Want to begin again?"
+      ],
+      "sample": {}
+    },
+    {
+      "id": "restart-after-broken-streak",
+      "name": "Restart after broken streak",
+      "kind": "acknowledgment",
+      "trigger": "The first new session after a streak break.",
+      "tone": "Reassuring reset.",
+      "art": [{ "expression": "smile2", "outfit": "hoodie", "crop": "portrait" }],
+      "title": "Day 1",
+      "copy": [
+        "Day 1. I’m still here.",
+        "Back at it. Day 1.",
+        "Fresh start. I’m glad you came back."
+      ],
+      "sample": {}
+    },
+    {
+      "id": "second-day-after-restart",
+      "name": "Second day after restart",
+      "kind": "acknowledgment",
+      "trigger": "The user follows through again after restarting.",
+      "tone": "Reinforce recovery rather than dwelling on the loss.",
+      "art": [{ "expression": "smile", "outfit": "hoodie", "crop": "portrait" }],
+      "title": "Day 2",
+      "copy": [
+        "Day 2. We’re moving again.",
+        "Two days. Look at that.",
+        "That’s the comeback. Day 2."
+      ],
+      "sample": {}
+    },
+    {
+      "id": "long-absence",
+      "name": "Long absence",
+      "kind": "nudge",
+      "trigger": "The user has not engaged for an extended period.",
+      "tone": "Avoid pretending the streak still matters.",
+      "art": [
+        { "expression": "normal", "outfit": "hoodie", "crop": "portrait" },
+        { "expression": "sad", "outfit": "hoodie", "crop": "portrait" }
+      ],
+      "title": "{suggestion}",
+      "copy": [
+        "Hey. It’s been a while.",
+        "{days} days. I’ve missed this.",
+        "No guilt. Just checking in. Ready to try again?",
+        "It’s been {days} days. Want to ease back in?"
+      ],
+      "sample": { "days": 12 }
+    },
+    {
+      "id": "comeback-after-long-absence",
+      "name": "Comeback after long absence",
+      "kind": "acknowledgment",
+      "trigger": "The user returns and completes a session after a long absence.",
+      "tone": "A relationship cue.",
+      "art": [{ "expression": "smile2", "outfit": "hoodie", "crop": "portrait" }],
+      "title": "Welcome back",
+      "copy": [
+        "There you are.",
+        "You came back. Good.",
+        "Missed you. Nice to see you here."
+      ],
+      "sample": {}
+    },
+    {
+      "id": "new-personal-best-streak",
+      "name": "New personal-best streak",
+      "kind": "acknowledgment",
+      "trigger": "The streak exceeds the user’s prior record.",
+      "tone": "Competitive.",
+      "art": [
+        { "expression": "smug", "outfit": "hoodie", "crop": "portrait" },
+        { "expression": "smug", "outfit": "pe-uniform", "crop": "portrait" }
+      ],
+      "title": "New record",
+      "copy": [
+        "Okay. New record. Now how far are we taking it?",
+        "{streak} days. That’s a personal best.",
+        "Beat the old record of {record}. Let’s go further."
+      ],
+      "sample": { "streak": 32, "record": 31 }
+    },
+    {
+      "id": "approaching-personal-best",
+      "name": "Approaching personal best",
+      "kind": "nudge",
+      "trigger": "One or a few sessions from the previous record.",
+      "tone": "Goal-gradient pressure.",
+      "art": [{ "expression": "smug", "outfit": "hoodie", "crop": "portrait" }],
+      "title": "{streak}-day streak",
+      "copy": [
+        "{remaining} more and you beat your record.",
+        "Your record is {record}. We’re close.",
+        "{remaining} to go. Don’t blink."
+      ],
+      "sample": { "streak": 29, "record": 31, "remaining": 3 }
+    },
+    {
+      "id": "major-streak-milestone",
+      "name": "Major streak milestone",
+      "kind": "acknowledgment",
+      "trigger": "A 14, 30, 50, or 100-day streak, and so on.",
+      "tone": "Celebrate visibly. Major milestones can justify rarer visual variation.",
+      "art": [
+        { "expression": "laugh", "outfit": "hoodie", "crop": "portrait" },
+        { "expression": "delighted", "outfit": "hoodie", "crop": "portrait" },
+        { "expression": "laugh", "outfit": "sundress", "crop": "portrait" },
+        { "expression": "delighted", "outfit": "sundress", "crop": "portrait" }
+      ],
+      "title": "{streak} days!",
+      "copy": [
+        "{streak} days! Can you believe it?",
+        "{streak}. I’m so proud of us.",
+        "{streak} days. That’s no accident.",
+        "{streak} days. Look what we built."
+      ],
+      "sample": { "streak": 30 }
+    },
+    {
+      "id": "perfect-week",
+      "name": "Perfect week",
+      "kind": "acknowledgment",
+      "trigger": "The user completed every planned session that week.",
+      "tone": "Keep this state relatively special.",
+      "art": [
+        { "expression": "delighted", "outfit": "hoodie", "crop": "portrait" },
+        { "expression": "laugh", "outfit": "hoodie", "crop": "portrait" }
+      ],
+      "title": "Perfect week",
+      "copy": [
+        "Perfect week.",
+        "Every planned session, done. Perfect week.",
+        "Not one missed. That’s a perfect week."
+      ],
+      "sample": {}
+    },
+    {
+      "id": "weekly-recovery",
+      "name": "Weekly recovery",
+      "kind": "acknowledgment",
+      "trigger": "The user had misses earlier in the week but completed the remaining planned sessions.",
+      "tone": "Recognize the recovery.",
+      "art": [{ "expression": "smile2", "outfit": "hoodie", "crop": "portrait" }],
+      "title": "Week back on track",
+      "copy": [
+        "You pulled the week back.",
+        "Rough start, strong finish. Nicely done.",
+        "Missed a few, then made it up. I’ll take that."
+      ],
+      "sample": {}
+    },
+    {
+      "id": "morning-reminder",
+      "name": "Morning reminder",
+      "kind": "nudge",
+      "trigger": "Morning is an appropriate user-selected reminder time.",
+      "tone": "Fresh and low-pressure.",
+      "art": [
+        { "expression": "smile", "outfit": "hoodie", "crop": "portrait" },
+        { "expression": "smile", "outfit": "coat", "crop": "portrait" }
+      ],
+      "title": "{suggestion}",
+      "copy": [
+        "Want to get it out of the way early?",
+        "Morning. Want to start the day with it?",
+        "Early session? Then the rest of the day is free.",
+        "Good morning. Today’s session is ready when you are."
+      ],
+      "sample": {}
+    },
+    {
+      "id": "weekend-reminder",
+      "name": "Weekend reminder",
+      "kind": "nudge",
+      "trigger": "The scheduled session occurs on a weekend.",
+      "tone": "Slightly more casual. Don’t over-specialize unless useful.",
+      "art": [
+        { "expression": "smile", "outfit": "hoodie", "crop": "portrait" },
+        { "expression": "normal", "outfit": "hoodie", "crop": "portrait" }
+      ],
+      "title": "{suggestion}",
+      "copy": [
+        "Weekend session? An easy way to start the day.",
+        "It’s the weekend. Still want to fit this in?",
+        "No rush today. Whenever you’re ready."
+      ],
+      "sample": {}
+    },
+    {
+      "id": "first-completed-session",
+      "name": "First completed session",
+      "kind": "acknowledgment",
+      "trigger": "The user completes their first tracked session.",
+      "tone": "Establish a positive association immediately.",
+      "art": [
+        { "expression": "delighted", "outfit": "hoodie", "crop": "portrait" },
+        { "expression": "smile2", "outfit": "hoodie", "crop": "portrait" }
+      ],
+      "title": "First session done",
+      "copy": [
+        "First one done. That’s how it starts.",
+        "You did it. The first one is the hardest.",
+        "Look at that. One down."
+      ],
+      "sample": {}
+    },
+    {
+      "id": "notification-free-success",
+      "name": "Notification after notification-free success",
+      "kind": "acknowledgment",
+      "trigger": "The user has been completing sessions before reminders fire.",
+      "tone": "Reinforce self-initiation.",
+      "art": [
+        { "expression": "smile", "outfit": "hoodie", "crop": "portrait" },
+        { "expression": "smug", "outfit": "hoodie", "crop": "portrait" }
+      ],
+      "title": "Nice work",
+      "copy": [
+        "You beat me to it again.",
+        "Done before I could even ask. I like this.",
+        "Didn’t even need a reminder. Impressive."
+      ],
+      "sample": {}
+    }
+  ]
+}
