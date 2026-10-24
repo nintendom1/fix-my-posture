@@ -127,3 +127,15 @@ examples' PNG structure with only the standard library, so `./scripts/validate.s
 The render tests need the venv's packages and skip without them. `make notification-character-check` runs everything.
 `scripts/tests/test_notification_scenarios.py` does the same for the scenarios: schema validation, the generated data
 set, docs and image metadata run everywhere, and the pixel comparison of all 27 images needs the venv.
+
+## Persona content
+
+`persona-content.json` is the source of truth for the app's persona copy library: its nine tones, sample values for
+tokens, familiarity variants, content entries, and art choices. `persona_content.py` validates that file with only the
+Python standard library. The renderer checks persona art against the PSD's expression choices and the outfit and crop
+keys in `notification-scenarios.json`.
+
+`make notification-character` generates `PostureAnalysisApp/Assets.xcassets/PersonaContent.dataset` and
+[`docs/persona-content.md`](../../docs/persona-content.md). Persona portraits share the `NotificationCharacter`
+asset catalog with scenario portraits; the renderer and `--check` use the deduplicated union so an image used by either
+source remains available. `make notification-character-check` checks the generated files and rendered pixels.

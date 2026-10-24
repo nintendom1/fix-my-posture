@@ -49,8 +49,22 @@ def asset_name(expression, outfit, crop):
     return f"{expression}-{outfit}-{crop}"
 
 
-def validate(data, crop_presets=None):
-    """Check the scenario data for internal consistency. `crop_presets` are the renderer's crop names."""
+# The `face` layers of the pinned PSD (see characters.json `source.sha256`). Standard-library checks cannot open the
+# PSD, so they validate against this list; a renderer test asserts it still equals the PSD's `face` group.
+PSD_EXPRESSIONS = (
+    "angry", "annoyed", "delighted", "laugh", "normal", "sad", "shocked", "sleepy", "smile", "smile2", "smug",
+)
+
+
+def known_expressions(expression_choices=None):
+    """Valid expression names: the renderer's PSD `face` children when supplied, else `PSD_EXPRESSIONS`."""
+    if expression_choices is not None:
+        return tuple(expression_choices)
+    return PSD_EXPRESSIONS
+
+
+def validate(data, crop_presets=None, expression_choices=None):
+    """Check scenario data; crop presets and expressions may come from the renderer's PSD index."""
     for key in ("version", "sampleSuggestion", "tokens", "cropPresets", "outfits", "baselineAssets", "scenarios"):
         if key not in data:
             raise ScenarioError(f"notification-scenarios.json is missing '{key}'.")
@@ -60,6 +74,7 @@ def validate(data, crop_presets=None):
         raise ScenarioError(f"'tokens' must document exactly: {', '.join(TOKENS)}.")
 
     crops, outfits = data["cropPresets"], data["outfits"]
+    expressions = set(known_expressions(expression_choices))
     if set(crops) != {"portrait", "close"}:
         raise ScenarioError("'cropPresets' must map exactly 'portrait' and 'close'.")
     if crop_presets is not None:
@@ -74,6 +89,10 @@ def validate(data, crop_presets=None):
             raise ScenarioError(f"{where}: art needs exactly expression, outfit, and crop.")
         if not isinstance(art["expression"], str) or not art["expression"]:
             raise ScenarioError(f"{where}: expression must be a non-empty string.")
+        if art["expression"] not in expressions:
+            raise ScenarioError(
+                f"{where}: unknown expression '{art['expression']}'. Choices: {', '.join(sorted(expressions))}."
+            )
         if art["outfit"] not in outfits:
             raise ScenarioError(f"{where}: unknown outfit '{art['outfit']}'. Choices: {', '.join(outfits)}.")
         if art["crop"] not in crops:

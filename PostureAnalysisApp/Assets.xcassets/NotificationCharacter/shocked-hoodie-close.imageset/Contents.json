@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "shocked-hoodie-close.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
