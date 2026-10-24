@@ -26,6 +26,23 @@ final class PostureHomeViewModelTests: XCTestCase {
         XCTAssertTrue(router.path(for: .posture).isEmpty)
     }
 
+    func testPersonaIntroReadsSharedPreferencesAgainOnAppearance() {
+        let preferences = InMemoryPreferences()
+        preferences.workoutReminderSettings = WorkoutReminderSettings(enabled: true, style: .character)
+        let viewModel = PostureHomeViewModel(
+            assessments: MemoryAssessmentRepository(assessments: []),
+            images: MemoryImageStore(),
+            router: AppRouter(),
+            preferences: preferences
+        )
+        XCTAssertTrue(viewModel.state.showsPersonaIntro)
+
+        preferences.personaIntroCardDismissed = true
+        viewModel.send(.appeared)
+
+        XCTAssertFalse(viewModel.state.showsPersonaIntro)
+    }
+
     func testPhotoFlowCarriesTheSelectedView() {
         let router = AppRouter()
         let viewModel = PostureHomeViewModel(assessments: MemoryAssessmentRepository(assessments: []), images: MemoryImageStore(), router: router)

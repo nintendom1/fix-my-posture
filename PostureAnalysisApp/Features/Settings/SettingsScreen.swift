@@ -294,6 +294,10 @@ struct SettingsScreen: View {
             if let preview = viewModel.notificationPreview {
                 NotificationPreviewScreen(viewModel: preview)
             }
+        case .personaDebug:
+            if let personaDebug = viewModel.personaDebug {
+                PersonaDebugScreen(viewModel: personaDebug)
+            }
         }
     }
 
@@ -349,6 +353,10 @@ private struct WorkoutRemindersSettingsPage: View {
                             .foregroundStyle(ColorTokens.palette().textSubtle)
                             .padding(.horizontal, 4)
 
+                        if viewModel.workoutReminderSettings.style == .character {
+                            extraPersonableCard
+                        }
+
                         if viewModel.reminderAuthorization == .denied {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Notifications are turned off for Fix My Posture.")
@@ -377,6 +385,16 @@ private struct WorkoutRemindersSettingsPage: View {
         .toolbarBackground(Color(hex: 0x0E0B16), for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .task { await viewModel.refreshReminderAuthorization() }
+        .alert("Reset Persona?", isPresented: personaResetConfirmationBinding) {
+            Button("Reset", role: .destructive) {
+                Task { await viewModel.confirmPersonaReset() }
+            }
+            Button("Cancel", role: .cancel) {
+                viewModel.cancelPersonaReset()
+            }
+        } message: {
+            Text("She’ll get to know you again from scratch. Your workouts, assessments, and settings stay.")
+        }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             Task { await viewModel.refreshReminderAuthorization() }
@@ -403,6 +421,47 @@ private struct WorkoutRemindersSettingsPage: View {
         }
         .frame(minHeight: 52)
         .padding(.horizontal, 16)
+    }
+
+    private var extraPersonableCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SettingsRow(
+                icon: "visibility",
+                title: "Extra Personable",
+                iconColor: reminderOrange,
+                toggle: Binding(
+                    get: { viewModel.extraPersonableEnabled },
+                    set: { viewModel.extraPersonableEnabled = $0 }
+                )
+            )
+            Text("She may occasionally notice progress, habits, and patterns from your workout and posture history.")
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundStyle(ColorTokens.palette().textSubtle)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 14)
+
+            SettingsRow(
+                icon: "restart_alt",
+                title: "Reset Persona",
+                iconColor: reminderOrange,
+                showsSeparator: true,
+                action: viewModel.requestPersonaReset
+            )
+            .accessibilityIdentifier("settingsResetPersona")
+        }
+        .background(ColorTokens.palette().backgroundCard)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .accessibilityIdentifier("settingsExtraPersonableCard")
+    }
+
+    private var personaResetConfirmationBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.isPersonaResetConfirmationPresented },
+            set: { isPresented in
+                if !isPresented { viewModel.cancelPersonaReset() }
+            }
+        )
     }
 
     private var stylePicker: some View {

@@ -21,12 +21,6 @@ protocol WorkoutReminderScheduling {
     func removeAllPersonaRequests() async
 }
 
-extension WorkoutReminderScheduling {
-    func replacePersonaRequests(_ requests: [PersonaNotificationRequest]) async {}
-    func addPersonaRequest(_ request: PersonaNotificationRequest) async {}
-    func removeAllPersonaRequests() async {}
-}
-
 @MainActor
 protocol WorkoutReminderReconciliation: AnyObject {
     func reconcile()
@@ -43,10 +37,6 @@ protocol WorkoutReminderManaging: WorkoutReminderReconciliation {
     func authorizationStatus() async -> WorkoutReminderAuthorizationStatus
     /// Reset Persona: sets the reset date, clears persona traces, keeps history and the Extra Personable setting.
     func resetPersona() async
-}
-
-extension WorkoutReminderManaging {
-    func resetPersona() async {}
 }
 
 /// The only adapter that talks to UserNotifications for workout reminders.
@@ -161,6 +151,70 @@ final class UserNotificationWorkoutReminderScheduler: WorkoutReminderScheduling 
         }
     }
 
+    /// Replaces pending projected persona requests; immediate ones (`immediatePrefix`) stay.
+    func replacePersonaRequests(_ requests: [PersonaNotificationRequest]) async {
+        let pending = await center.pendingNotificationRequests()
+        let oldIdentifiers = pending.map(\.identifier).filter { $0.hasPrefix(PersonaNotificationRequest.projectedPrefix) }
+        center.removePendingNotificationRequests(withIdentifiers: oldIdentifiers)
+        var refusedCount = 0
+        for request in requests where !(await add(request)) {
+            refusedCount += 1
+        }
+        eventLog.record("persona: removed \(oldIdentifiers.count) projected, added \(requests.count), refused \(refusedCount)")
+    }
+
+    func addPersonaRequest(_ request: PersonaNotificationRequest) async {
+        center.removePendingNotificationRequests(withIdentifiers: [request.identifier])
+        if await add(request) {
+            eventLog.record("persona: queued \(request.identifier) (\(request.interruption.rawValue))")
+        }
+    }
+
+    func removeAllPersonaRequests() async {
+        let pending = await center.pendingNotificationRequests()
+        let identifiers = pending.map(\.identifier).filter { $0.hasPrefix(PersonaNotificationRequest.identifierPrefix) }
+        guard !identifiers.isEmpty else { return }
+        center.removePendingNotificationRequests(withIdentifiers: identifiers)
+        eventLog.record("persona: removed \(identifiers.count) pending persona requests")
+    }
+
+    /// Adds one persona request. Persona notifications are Active or Passive, never Time Sensitive.
+    private func add(_ request: PersonaNotificationRequest) async -> Bool {
+        let content = UNMutableNotificationContent()
+        content.title = request.title
+        content.body = request.body
+        content.categoryIdentifier = request.categoryIdentifier
+        content.threadIdentifier = PersonaNotificationRequest.identifierPrefix
+        content.userInfo = request.userInfo
+        content.interruptionLevel = Self.interruptionLevel(for: request.interruption)
+        content.sound = request.interruption == .active ? .default : nil
+        if let imageAssetName = request.imageAssetName,
+           let attachment = NotificationAttachmentFactory.makeAttachment(assetName: imageAssetName) {
+            content.attachments = [attachment]
+        }
+        let trigger: UNNotificationTrigger
+        switch request.trigger {
+        case .after(let seconds):
+            trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(max(1, seconds)), repeats: false)
+        case .at(let components):
+            trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        }
+        do {
+            try await center.add(UNNotificationRequest(identifier: request.identifier, content: content, trigger: trigger))
+            return true
+        } catch {
+            eventLog.record("persona: iOS refused \(request.identifier): \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    static func interruptionLevel(for interruption: NotificationInterruption) -> UNNotificationInterruptionLevel {
+        switch interruption {
+        case .active: .active
+        case .passive: .passive
+        }
+    }
+
     private static func map(_ status: UNAuthorizationStatus) -> WorkoutReminderAuthorizationStatus {
         switch status {
         case .notDetermined:
@@ -182,8 +236,26 @@ final class WorkoutReminderNotificationBridge {
 
     private var pendingTarget: WorkoutReminderTarget?
     private var handler: ((WorkoutReminderTarget) -> Void)?
+    private var pendingEngagement: [PersonaEngagementEvent] = []
+    private var engagementHandler: ((PersonaEngagementEvent) -> Void)?
 
     private init() {}
+
+    /// Installs the persona engagement recorder and delivers any taps or dismissals buffered before launch finished.
+    func installEngagement(handler: @escaping (PersonaEngagementEvent) -> Void) {
+        engagementHandler = handler
+        let buffered = pendingEngagement
+        pendingEngagement = []
+        buffered.forEach(handler)
+    }
+
+    func receive(engagement: PersonaEngagementEvent) {
+        guard let engagementHandler else {
+            pendingEngagement.append(engagement)
+            return
+        }
+        engagementHandler(engagement)
+    }
 
     func install(handler: @escaping (WorkoutReminderTarget) -> Void) {
         self.handler = handler
@@ -208,6 +280,7 @@ final class WorkoutReminderAppDelegate: NSObject, UIApplicationDelegate, UNUserN
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        NotificationCategoryRegistrar.register()
         return true
     }
 
@@ -217,11 +290,43 @@ final class WorkoutReminderAppDelegate: NSObject, UIApplicationDelegate, UNUserN
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        completionHandler(Self.foregroundPresentation(forCategory: notification.request.content.categoryIdentifier))
+        let content = notification.request.content
+        completionHandler(Self.foregroundPresentation(
+            forCategory: content.categoryIdentifier,
+            interruptionLevel: content.interruptionLevel
+        ))
     }
 
-    static func foregroundPresentation(forCategory categoryIdentifier: String) -> UNNotificationPresentationOptions {
-        NotificationCategory.showsInForeground(categoryIdentifier) ? [.banner, .list, .sound] : []
+    /// Acknowledgments and persona notifications show over the app; passive persona notifications stay silent.
+    static func foregroundPresentation(
+        forCategory categoryIdentifier: String,
+        interruptionLevel: UNNotificationInterruptionLevel = .active
+    ) -> UNNotificationPresentationOptions {
+        guard NotificationCategory.showsInForeground(categoryIdentifier) else { return [] }
+        if categoryIdentifier == NotificationCategory.persona && interruptionLevel == .passive {
+            return [.banner, .list]
+        }
+        return [.banner, .list, .sound]
+    }
+
+    /// A persona tap or dismissal as an engagement event, or nil for other notifications and actions.
+    static func personaEngagement(
+        categoryIdentifier: String,
+        actionIdentifier: String,
+        userInfo: [AnyHashable: Any],
+        date: Date
+    ) -> PersonaEngagementEvent? {
+        guard categoryIdentifier == NotificationCategory.persona,
+              let traceText = userInfo[PersonaNotificationRequest.UserInfoKey.traceID] as? String,
+              let traceID = UUID(uuidString: traceText),
+              let key = userInfo[PersonaNotificationRequest.UserInfoKey.observationKey] as? String else { return nil }
+        let kind: PersonaEngagementEvent.Kind
+        switch actionIdentifier {
+        case UNNotificationDefaultActionIdentifier: kind = .tapped
+        case UNNotificationDismissActionIdentifier: kind = .dismissed
+        default: return nil
+        }
+        return PersonaEngagementEvent(traceID: traceID, observationKey: key, kind: kind, date: date)
     }
 
     /// Returns nil for targetless notifications such as workout acknowledgments.
@@ -234,8 +339,20 @@ final class WorkoutReminderAppDelegate: NSObject, UIApplicationDelegate, UNUserN
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        let target = Self.workoutTarget(from: response.notification.request.content.userInfo)
-        if let target {
+        let content = response.notification.request.content
+        if let engagement = Self.personaEngagement(
+            categoryIdentifier: content.categoryIdentifier,
+            actionIdentifier: response.actionIdentifier,
+            userInfo: content.userInfo,
+            date: Date()
+        ) {
+            Task { @MainActor in
+                WorkoutReminderNotificationBridge.shared.receive(engagement: engagement)
+            }
+        }
+        // Only opening a notification routes to its workout; a dismissal never does.
+        if response.actionIdentifier == UNNotificationDefaultActionIdentifier,
+           let target = Self.workoutTarget(from: content.userInfo) {
             Task { @MainActor in
                 WorkoutReminderNotificationBridge.shared.receive(target)
             }

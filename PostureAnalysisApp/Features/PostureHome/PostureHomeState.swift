@@ -10,6 +10,7 @@ struct PostureHomeAssessmentRow: Equatable, Identifiable {
 struct PostureHomeState: Equatable {
     let assessments: [PostureHomeAssessmentRow]
     var errorMessage: String? = nil
+    var showsPersonaIntro = false
 }
 
 enum PostureHomeIntent: Equatable {
@@ -20,6 +21,8 @@ enum PostureHomeIntent: Equatable {
     case startPhotoAssessment(view: PostureView)
     case openAssessment(UUID)
     case openHistory
+    case dismissPersonaIntro
+    case openPersonaSettings
     case setBaseline(id: UUID, isBaseline: Bool)
     case deleteAssessment(id: UUID)
 }

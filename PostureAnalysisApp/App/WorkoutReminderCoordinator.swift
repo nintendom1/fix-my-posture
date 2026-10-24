@@ -70,6 +70,12 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
     private let eventLog: any NotificationEventRecording
     private let now: () -> Date
     private let calendar: Calendar
+    private let assessments: (any AssessmentRepository)?
+    private let personaCatalog: PersonaContentCatalog?
+    private let personaTraces: (any PersonaTraceStoring)?
+    private let quietHours: any QuietHoursProviding
+    private let personaPolicy: PersonaPolicy
+    private let isAppActive: () -> Bool
     /// Each reconciliation waits for the previous one so overlapping triggers cannot interleave remove and add.
     private var latestReconciliation: Task<Void, Never>?
 
@@ -83,7 +89,13 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
         scenarioCatalog: NotificationScenarioCatalog? = try? NotificationScenarioCatalog.bundled(),
         eventLog: any NotificationEventRecording = NoNotificationEventLog(),
         now: @escaping () -> Date = Date.init,
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        assessments: (any AssessmentRepository)? = nil,
+        personaCatalog: PersonaContentCatalog? = nil,
+        personaTraces: (any PersonaTraceStoring)? = nil,
+        quietHours: any QuietHoursProviding = FixedQuietHours(),
+        personaPolicy: PersonaPolicy = .standard,
+        isAppActive: @escaping () -> Bool = { true }
     ) {
         self.preferences = preferences
         self.routines = routines
@@ -95,6 +107,12 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
         self.scenarioCatalog = scenarioCatalog
         self.now = now
         self.calendar = calendar
+        self.assessments = assessments
+        self.personaCatalog = personaCatalog
+        self.personaTraces = personaTraces
+        self.quietHours = quietHours
+        self.personaPolicy = personaPolicy
+        self.isAppActive = isAppActive
     }
 
     func reconcile() {
@@ -114,7 +132,8 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
             self.eventLog.record(
                 "workoutSaved: workout ended \(record.endedAt.eventLogDescription(in: self.calendar.timeZone))"
             )
-            await self.reconcileNow()
+            // The acknowledgment step evaluates the persona once, with the saved workout as its trigger.
+            await self.reconcileNow(evaluatesPersona: false)
             await self.acknowledge(record)
         }
     }
@@ -136,11 +155,12 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
         await scheduler.authorizationStatus()
     }
 
-    func reconcileNow(requestAuthorizationIfNeeded: Bool = false) async {
+    func reconcileNow(requestAuthorizationIfNeeded: Bool = false, evaluatesPersona: Bool = true) async {
         let settings = preferences.workoutReminderSettings
         guard settings.enabled else {
             eventLog.record("reconcile: reminders are off, cleared pending reminders")
             await scheduler.replaceRequests([])
+            await clearPersonaRequests()
             return
         }
 
@@ -151,6 +171,7 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
         guard authorization == .authorized else {
             eventLog.record("reconcile: notifications are not authorized (\(authorization)), cleared pending reminders")
             await scheduler.replaceRequests([])
+            await clearPersonaRequests()
             return
         }
 
@@ -158,6 +179,7 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
         guard let recommendation else {
             eventLog.record("reconcile: no workout to recommend, cleared pending reminders")
             await scheduler.replaceRequests([])
+            if evaluatesPersona { await reconcilePersona() }
             return
         }
 
@@ -205,6 +227,7 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
                 + "first at \(firstFire?.eventLogDescription(in: calendar.timeZone) ?? "none")"
         )
         await scheduler.replaceRequests(requests)
+        if evaluatesPersona { await reconcilePersona() }
     }
 
     /// Called by the notification delegate after the router is ready.
@@ -293,7 +316,8 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
         }
     }
 
-    /// Selects and schedules a character acknowledgment after the reminder schedule has been refreshed.
+    /// Selects and schedules a character acknowledgment after the reminder schedule has been refreshed, and evaluates
+    /// Extra Personable with the saved workout as its trigger: persona content rides on the acknowledgment when one fires.
     private func acknowledge(_ record: WorkoutRecord) async {
         let settings = preferences.workoutReminderSettings
         guard settings.enabled else { return skipAcknowledgment("reminders are off") }
@@ -308,29 +332,31 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
         if !records.contains(where: { $0.id == record.id }) {
             records.append(record)
         }
-        guard let selection = NotificationScenarioSelector.acknowledgment(
-            for: record,
-            records: records,
-            settings: settings,
-            calendar: calendar
-        ) else { return skipAcknowledgment("not the first workout of the day") }
-        guard let scenario = scenarioCatalog.scenario(id: selection.scenarioID) else {
-            return skipAcknowledgment("unknown scenario \(selection.scenarioID)")
+        let selected = acknowledgmentContent(for: record, records: records, settings: settings, catalog: scenarioCatalog)
+        let personaPlan = await applyPersonaPlan(trigger: .workoutSaved(record), records: records, acknowledgmentWillFire: selected != nil)
+        guard let selected else { return }
+        var content = selected.content
+
+        switch personaPlan?.immediate {
+        case .fold(.replace(let persona))?:
+            content = CharacterNotificationContent(
+                scenarioID: content.scenarioID, kind: content.kind, title: persona.title, body: persona.body,
+                imageAssetName: persona.imageAssetName, artLabel: persona.artLabel
+            )
+            eventLog.record("persona: replaced the acknowledgment with \(persona.scenarioID)")
+        case .fold(.append(let line))?:
+            content = CharacterNotificationContent(
+                scenarioID: content.scenarioID, kind: content.kind, title: content.title, body: content.body + "\n" + line,
+                imageAssetName: content.imageAssetName, artLabel: content.artLabel
+            )
+            eventLog.record("persona: added a line to the acknowledgment")
+        default:
+            break
         }
 
-        let dayNumber = NotificationCopyPicker.dayNumber(for: record.endedAt, calendar: calendar)
-        let variant = NotificationCopyPicker.variant(
-            scenarioID: scenario.id,
-            dayNumber: dayNumber,
-            slotIndex: 0
+        eventLog.record(
+            "ack: scheduling \(content.scenarioID) variant \(selected.variant) in \(NotificationPolicy.standard.acknowledgmentDelaySeconds)s"
         )
-        guard let content = NotificationContentBuilder.make(
-            scenario: scenario,
-            variant: variant,
-            values: selection.values
-        ) else { return skipAcknowledgment("no content for \(scenario.id)") }
-
-        eventLog.record("ack: scheduling \(scenario.id) variant \(variant) in \(NotificationPolicy.standard.acknowledgmentDelaySeconds)s")
         await scheduler.scheduleAcknowledgment(WorkoutAcknowledgmentRequest(
             identifier: WorkoutAcknowledgmentRequest.identifierPrefix + record.id.uuidString,
             title: content.title,
@@ -339,6 +365,151 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
             categoryIdentifier: content.categoryIdentifier,
             delaySeconds: NotificationPolicy.standard.acknowledgmentDelaySeconds
         ))
+    }
+
+    /// The day's acknowledgment content, or nil (with a logged reason) when none should fire.
+    private func acknowledgmentContent(
+        for record: WorkoutRecord,
+        records: [WorkoutRecord],
+        settings: WorkoutReminderSettings,
+        catalog: NotificationScenarioCatalog
+    ) -> (content: CharacterNotificationContent, variant: Int)? {
+        guard let selection = NotificationScenarioSelector.acknowledgment(
+            for: record,
+            records: records,
+            settings: settings,
+            calendar: calendar
+        ) else {
+            skipAcknowledgment("not the first workout of the day")
+            return nil
+        }
+        guard let scenario = catalog.scenario(id: selection.scenarioID) else {
+            skipAcknowledgment("unknown scenario \(selection.scenarioID)")
+            return nil
+        }
+        let dayNumber = NotificationCopyPicker.dayNumber(for: record.endedAt, calendar: calendar)
+        let variant = NotificationCopyPicker.variant(scenarioID: scenario.id, dayNumber: dayNumber, slotIndex: 0)
+        guard let content = NotificationContentBuilder.make(scenario: scenario, variant: variant, values: selection.values) else {
+            skipAcknowledgment("no content for \(scenario.id)")
+            return nil
+        }
+        return (content, variant)
+    }
+
+    // MARK: Extra Personable
+
+    /// Projected persona evaluation on reconciliation: replaces pending projected persona requests.
+    private func reconcilePersona() async {
+        let records = (try? workoutHistory?.list()) ?? []
+        _ = await applyPersonaPlan(trigger: .reconcile, records: records, acknowledgmentWillFire: false)
+    }
+
+    /// Removes every pending persona request when the persona cannot speak.
+    private func clearPersonaRequests() async {
+        guard personaTraces != nil else { return }
+        await scheduler.removeAllPersonaRequests()
+    }
+
+    /// Builds the context, runs the planner, records traces, and schedules standalone requests. Returns the plan so the
+    /// acknowledgment can apply a fold. Returns nil when Extra Personable is unavailable (no content or trace store).
+    @discardableResult
+    private func applyPersonaPlan(
+        trigger: PersonaTrigger,
+        records: [WorkoutRecord],
+        acknowledgmentWillFire: Bool
+    ) async -> PersonaPlan? {
+        guard let personaCatalog, let personaTraces else { return nil }
+        let currentTime = now()
+        let state = personaTraces.load()
+        let context = personaContext(trigger: trigger, records: records, state: state, acknowledgmentWillFire: acknowledgmentWillFire, now: currentTime)
+        guard context.isActive else {
+            eventLog.record("persona: off (Extra Personable \(context.extraPersonableEnabled ? "on" : "off")), cleared persona requests")
+            await scheduler.removeAllPersonaRequests()
+            return nil
+        }
+        let plan = PersonaPlanner.plan(context: context, quietHours: quietHours, catalog: personaCatalog, policy: personaPolicy)
+        var updated = state
+        updated.replacePending(with: plan.traces, now: currentTime, policy: personaPolicy)
+        personaTraces.save(updated)
+
+        if case .standalone(let request)? = plan.immediate {
+            await scheduler.addPersonaRequest(request)
+        }
+        await scheduler.replacePersonaRequests(plan.scheduled)
+        eventLog.record(
+            "persona: \(trigger == .reconcile ? "reconcile" : "workout saved"), immediate \(Self.describe(plan.immediate)), "
+                + "scheduled \(plan.scheduled.count), suppressed \(plan.traces.filter { $0.suppressionReason != nil }.count)"
+        )
+        return plan
+    }
+
+    private static func describe(_ immediate: PersonaImmediate?) -> String {
+        switch immediate {
+        case nil: "none"
+        case .fold(.replace)?: "fold-replace"
+        case .fold(.append)?: "fold-append"
+        case .standalone(let request)?: "standalone \(request.interruption.rawValue)"
+        case .inAppOnly?: "in-app only"
+        }
+    }
+
+    private func personaContext(
+        trigger: PersonaTrigger,
+        records: [WorkoutRecord],
+        state: PersonaTraceState,
+        acknowledgmentWillFire: Bool,
+        now currentTime: Date
+    ) -> PersonaContext {
+        PersonaContextBuilder.build(
+            history: personaHistory(records: records),
+            settings: preferences.workoutReminderSettings,
+            extraPersonableEnabled: preferences.extraPersonableEnabled,
+            personaResetDate: preferences.personaResetDate,
+            traceState: state,
+            trigger: trigger,
+            acknowledgmentWillFire: acknowledgmentWillFire,
+            appIsActive: isAppActive(),
+            now: currentTime,
+            calendar: calendar,
+            policy: personaPolicy
+        )
+    }
+
+    private func personaHistory(records: [WorkoutRecord]) -> PersonaHistory {
+        let savedRoutines = (try? routines?.list()) ?? []
+        let exercises = exerciseCatalog.all
+        return PersonaHistory(
+            records: records,
+            assessments: (try? assessments?.list()) ?? [],
+            routineNames: Dictionary(savedRoutines.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first }),
+            routineMinutes: Dictionary(
+                savedRoutines.map { ($0.id, RoutineEstimator.minutes(for: $0, exercises: exercises, restPolicy: preferences.restPolicy)) },
+                uniquingKeysWith: { first, _ in first }
+            ),
+            exerciseNames: Dictionary(exercises.map { ($0.id, $0.displayName) }, uniquingKeysWith: { first, _ in first })
+        )
+    }
+
+    /// Records a persona notification tap or dismissal. Frequency signal only.
+    func recordPersonaEngagement(_ event: PersonaEngagementEvent) {
+        guard let personaTraces else { return }
+        var state = personaTraces.load()
+        state.record(event, policy: personaPolicy)
+        personaTraces.save(state)
+        eventLog.record("persona: \(event.kind.rawValue) \(event.observationKey)")
+    }
+
+    /// Reset Persona: familiarity starts over from now; history and the Extra Personable setting stay.
+    func resetPersona() async {
+        await enqueueReconciliation {
+            self.preferences.personaResetDate = self.now()
+            if let personaTraces = self.personaTraces {
+                personaTraces.save(.empty)
+            }
+            await self.scheduler.removeAllPersonaRequests()
+            self.eventLog.record("persona: reset")
+            await self.reconcileNow()
+        }.value
     }
 
     private func startAdvertisedTargetIfValid(_ target: WorkoutReminderTarget) -> Bool {
@@ -362,5 +533,42 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
         case .exercise(let exercise):
             router.open(.workout(exerciseID: exercise.id, routineID: nil))
         }
+    }
+}
+
+extension WorkoutReminderCoordinator: PersonaDebugProviding {
+    func personaStatus() -> PersonaStatus {
+        guard personaTraces != nil else { return .inactive }
+        let currentTime = now()
+        let state = personaTraces?.load() ?? .empty
+        let records = (try? workoutHistory?.list()) ?? []
+        let context = personaContext(trigger: .reconcile, records: records, state: state, acknowledgmentWillFire: false, now: currentTime)
+        let today = calendar.startOfDay(for: currentTime)
+        let firedToday = state.fired(asOf: currentTime).filter {
+            $0.delivery.isStandalone && $0.fireDate.map { calendar.isDate($0, inSameDayAs: today) } == true
+        }
+        return PersonaStatus(
+            extraPersonableEnabled: preferences.extraPersonableEnabled,
+            isActive: context.isActive && personaCatalog != nil,
+            familiarity: context.familiarity,
+            trajectory: context.trajectory,
+            cooling: PersonaCooling.level(engagement: state.engagement, sent: state.fired(asOf: currentTime), now: currentTime, policy: personaPolicy),
+            standaloneCountToday: firedToday.count,
+            dailyCap: personaPolicy.dailyStandaloneCap,
+            pendingCount: state.sent.filter { $0.isPending(asOf: currentTime) }.count,
+            quietHoursSummary: quietHours.summary,
+            isQuietNow: quietHours.quietInterval(containing: currentTime, calendar: calendar) != nil,
+            personaResetDate: preferences.personaResetDate
+        )
+    }
+
+    func personaTraceState() -> PersonaTraceState {
+        personaTraces?.load() ?? .empty
+    }
+
+    func runPersonaDetectorsNow() async {
+        await enqueueReconciliation {
+            await self.reconcileNow()
+        }.value
     }
 }

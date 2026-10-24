@@ -14,6 +14,7 @@ enum SettingsDestination: Hashable {
     case acknowledgements
     case developerDiagnostics
     case notificationPreview
+    case personaDebug
 }
 
 @MainActor
@@ -75,11 +76,21 @@ final class SettingsViewModel {
         }
     }
 
+    var extraPersonableEnabled: Bool {
+        didSet {
+            preferences.extraPersonableEnabled = extraPersonableEnabled
+            reminderManager?.reconcile()
+        }
+    }
+
     private(set) var reminderAuthorization: WorkoutReminderAuthorizationStatus = .notDetermined
+    private(set) var isPersonaResetConfirmationPresented = false
 
     let latestAssessmentID: UUID?
     /// The developer notification preview, when it could be built.
     let notificationPreview: NotificationPreviewViewModel?
+    /// The developer persona diagnostics page, when its dependencies are available.
+    let personaDebug: PersonaDebugViewModel?
 
     private let preferences: any AppPreferencesStoring
     private let router: AppRouter
@@ -90,13 +101,15 @@ final class SettingsViewModel {
         router: AppRouter,
         reminderManager: (any WorkoutReminderManaging)? = nil,
         latestAssessmentID: UUID? = nil,
-        notificationPreview: NotificationPreviewViewModel? = nil
+        notificationPreview: NotificationPreviewViewModel? = nil,
+        personaDebug: PersonaDebugViewModel? = nil
     ) {
         self.preferences = preferences
         self.router = router
         self.reminderManager = reminderManager
         self.latestAssessmentID = latestAssessmentID
         self.notificationPreview = notificationPreview
+        self.personaDebug = personaDebug
         spokenCoachingEnabled = !preferences.workoutCoachCoachMuted
         voiceCommandsEnabled = !preferences.workoutCoachMicMuted
         restPolicy = preferences.restPolicy
@@ -108,6 +121,7 @@ final class SettingsViewModel {
         feedbackRefreshRate = preferences.feedbackRefreshRate
         tiltWarningsEnabled = preferences.tiltWarningsEnabled
         workoutReminderSettings = preferences.workoutReminderSettings
+        extraPersonableEnabled = preferences.extraPersonableEnabled
     }
 
     var workoutRemindersEnabled: Bool {
@@ -165,6 +179,19 @@ final class SettingsViewModel {
             }
             settings.recurrence = recurrence
         }
+    }
+
+    func requestPersonaReset() {
+        isPersonaResetConfirmationPresented = true
+    }
+
+    func confirmPersonaReset() async {
+        isPersonaResetConfirmationPresented = false
+        await reminderManager?.resetPersona()
+    }
+
+    func cancelPersonaReset() {
+        isPersonaResetConfirmationPresented = false
     }
 
     func refreshReminderAuthorization() async {

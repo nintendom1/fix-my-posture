@@ -16,6 +16,13 @@ struct PostureHomeScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     tabRootHeader(compact: false)
+                    if state.showsPersonaIntro {
+                        PersonaIntroCard(
+                            onDismiss: { send(.dismissPersonaIntro) },
+                            onOpenSettings: { send(.openPersonaSettings) }
+                        )
+                        .padding(.top, 14)
+                    }
                     liveCard.padding(.top, 14)
                     photoAssessmentSection.padding(.top, 18)
                     assessmentsSection.padding(.top, 18)

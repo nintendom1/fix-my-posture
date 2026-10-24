@@ -9,15 +9,18 @@ final class PostureHomeViewModel {
     private let assessments: (any AssessmentRepository)?
     private let images: (any ImageStoring)?
     private let router: AppRouter
+    private let preferences: any AppPreferencesStoring
 
     init(
         assessments: (any AssessmentRepository)?,
         images: (any ImageStoring)?,
-        router: AppRouter
+        router: AppRouter,
+        preferences: any AppPreferencesStoring = InMemoryPreferences()
     ) {
         self.assessments = assessments
         self.images = images
         self.router = router
+        self.preferences = preferences
         state = PostureHomeState(assessments: [])
         refresh()
     }
@@ -38,12 +41,21 @@ final class PostureHomeViewModel {
             router.open(.assessment(id: id))
         case .openHistory:
             router.open(.postureHistory)
+        case .dismissPersonaIntro:
+            preferences.personaIntroCardDismissed = true
+            state.showsPersonaIntro = false
+        case .openPersonaSettings:
+            router.open(.settings)
         case .setBaseline(let id, let isBaseline):
             do {
                 try assessments?.setBaseline(id: id, isBaseline: isBaseline)
                 refresh()
             } catch {
-                state = PostureHomeState(assessments: state.assessments, errorMessage: error.localizedDescription)
+                state = PostureHomeState(
+                    assessments: state.assessments,
+                    errorMessage: error.localizedDescription,
+                    showsPersonaIntro: state.showsPersonaIntro
+                )
             }
         case .deleteAssessment(let id):
             guard state.assessments.contains(where: { $0.id == id }) else { return }
@@ -54,7 +66,11 @@ final class PostureHomeViewModel {
                 try assessments?.delete(id: id)
                 refresh()
             } catch {
-                state = PostureHomeState(assessments: state.assessments, errorMessage: error.localizedDescription)
+                state = PostureHomeState(
+                    assessments: state.assessments,
+                    errorMessage: error.localizedDescription,
+                    showsPersonaIntro: state.showsPersonaIntro
+                )
             }
         }
     }
@@ -62,10 +78,25 @@ final class PostureHomeViewModel {
     private func refresh() {
         do {
             let values = try assessments?.list() ?? []
-            state = PostureHomeState(assessments: values.sorted { $0.date > $1.date }.map(makeRow))
+            state = PostureHomeState(
+                assessments: values.sorted { $0.date > $1.date }.map(makeRow),
+                showsPersonaIntro: shouldShowPersonaIntro
+            )
         } catch {
-            state = PostureHomeState(assessments: [], errorMessage: error.localizedDescription)
+            state = PostureHomeState(
+                assessments: [],
+                errorMessage: error.localizedDescription,
+                showsPersonaIntro: shouldShowPersonaIntro
+            )
         }
+    }
+
+    private var shouldShowPersonaIntro: Bool {
+        let reminderSettings = preferences.workoutReminderSettings
+        return reminderSettings.enabled
+            && reminderSettings.style == .character
+            && preferences.extraPersonableEnabled
+            && !preferences.personaIntroCardDismissed
     }
 
     private func makeRow(_ assessment: PostureAssessment) -> PostureHomeAssessmentRow {

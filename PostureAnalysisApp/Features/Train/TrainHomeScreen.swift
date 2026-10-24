@@ -23,6 +23,12 @@ struct TrainHomeScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                         tabRootHeader(compact: false)
+                        if state.showsPersonaIntro {
+                            PersonaIntroCard(
+                                onDismiss: { send(.dismissPersonaIntro) },
+                                onOpenSettings: { send(.openPersonaSettings) }
+                            )
+                        }
                         hero
                         quickStart
                         if let lastWorkout = state.lastWorkout {
