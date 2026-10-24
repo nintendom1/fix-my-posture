@@ -22,6 +22,8 @@ final class PersonaDebugViewModelTests: XCTestCase {
         }
         let provider = FakePersonaDebugProvider(state: PersonaTraceState(sent: sent, suppressed: suppressed))
         let viewModel = makeViewModel(provider: provider)
+        XCTAssertTrue(viewModel.sent.isEmpty, "nothing loads until the page appears")
+        viewModel.refresh()
 
         XCTAssertEqual(viewModel.sent.count, 10)
         XCTAssertEqual(viewModel.sent.first?.identifier, "sent-11")
@@ -42,6 +44,7 @@ final class PersonaDebugViewModelTests: XCTestCase {
             suppressed: [unrelated, suppressed]
         ))
         let viewModel = makeViewModel(provider: provider)
+        viewModel.refresh()
 
         XCTAssertEqual(viewModel.otherCandidates(for: selected).map(\.id), [suppressed.id])
     }

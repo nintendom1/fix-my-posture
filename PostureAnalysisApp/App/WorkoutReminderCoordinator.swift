@@ -322,7 +322,6 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
         let settings = preferences.workoutReminderSettings
         guard settings.enabled else { return skipAcknowledgment("reminders are off") }
         guard settings.style == .character else { return skipAcknowledgment("style is Plain") }
-        guard let scenarioCatalog else { return skipAcknowledgment("scenario data is missing") }
         let authorization = await scheduler.authorizationStatus()
         guard authorization == .authorized else {
             return skipAcknowledgment("notifications are not authorized (\(authorization))")
@@ -332,7 +331,14 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
         if !records.contains(where: { $0.id == record.id }) {
             records.append(record)
         }
-        let selected = acknowledgmentContent(for: record, records: records, settings: settings, catalog: scenarioCatalog)
+        // The persona evaluates every save, even when the scenario data (and so the acknowledgment) is unavailable.
+        let selected: (content: CharacterNotificationContent, variant: Int)?
+        if let scenarioCatalog {
+            selected = acknowledgmentContent(for: record, records: records, settings: settings, catalog: scenarioCatalog)
+        } else {
+            skipAcknowledgment("scenario data is missing")
+            selected = nil
+        }
         let personaPlan = await applyPersonaPlan(trigger: .workoutSaved(record), records: records, acknowledgmentWillFire: selected != nil)
         guard let selected else { return }
         var content = selected.content
@@ -404,10 +410,20 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
         _ = await applyPersonaPlan(trigger: .reconcile, records: records, acknowledgmentWillFire: false)
     }
 
-    /// Removes every pending persona request when the persona cannot speak.
+    /// Removes every pending persona request when the persona cannot speak, and forgets their pending traces so they
+    /// never read later as delivered-but-ignored messages (which would trigger cooling) or block their keys.
     private func clearPersonaRequests() async {
-        guard personaTraces != nil else { return }
+        guard let personaTraces else { return }
+        dropPendingTraces(in: personaTraces)
         await scheduler.removeAllPersonaRequests()
+    }
+
+    private func dropPendingTraces(in store: any PersonaTraceStoring) {
+        var state = store.load()
+        let currentTime = now()
+        guard state.sent.contains(where: { $0.isPending(asOf: currentTime) }) else { return }
+        state.sent.removeAll { $0.isPending(asOf: currentTime) }
+        store.save(state)
     }
 
     /// Builds the context, runs the planner, records traces, and schedules standalone requests. Returns the plan so the
@@ -423,13 +439,18 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
         let state = personaTraces.load()
         let context = personaContext(trigger: trigger, records: records, state: state, acknowledgmentWillFire: acknowledgmentWillFire, now: currentTime)
         guard context.isActive else {
-            eventLog.record("persona: off (Extra Personable \(context.extraPersonableEnabled ? "on" : "off")), cleared persona requests")
+            if state.sent.contains(where: { $0.isPending(asOf: currentTime) }) {
+                eventLog.record("persona: off (Extra Personable \(context.extraPersonableEnabled ? "on" : "off")), cleared persona requests")
+            }
+            dropPendingTraces(in: personaTraces)
             await scheduler.removeAllPersonaRequests()
             return nil
         }
         let plan = PersonaPlanner.plan(context: context, quietHours: quietHours, catalog: personaCatalog, policy: personaPolicy)
         var updated = state
         updated.replacePending(with: plan.traces, now: currentTime, policy: personaPolicy)
+        // Traces are saved as sent before iOS accepts the request; a refusal is logged by the adapter and, like a refused
+        // reminder, is not retried until the next reconciliation.
         personaTraces.save(updated)
 
         if case .standalone(let request)? = plan.immediate {
@@ -538,9 +559,9 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
 
 extension WorkoutReminderCoordinator: PersonaDebugProviding {
     func personaStatus() -> PersonaStatus {
-        guard personaTraces != nil else { return .inactive }
+        guard let personaTraces else { return .inactive }
         let currentTime = now()
-        let state = personaTraces?.load() ?? .empty
+        let state = personaTraces.load()
         let records = (try? workoutHistory?.list()) ?? []
         let context = personaContext(trigger: .reconcile, records: records, state: state, acknowledgmentWillFire: false, now: currentTime)
         let today = calendar.startOfDay(for: currentTime)

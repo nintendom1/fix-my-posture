@@ -108,6 +108,16 @@ final class PersonaCopyComposerTests: XCTestCase {
         }
         XCTAssertEqual(seen.count, 4)
         XCTAssertTrue(seen.values.allSatisfy { $0 == ["", "o", "c", "oc"] }, "\(seen)")
+
+        // With several openers and closers, every one of them is reachable.
+        let wider = makeCatalog(entry: entry, fragments: PersonaFragments(
+            openers: [PersonaCopyVariant(text: "Oh."), PersonaCopyVariant(text: "Well.")],
+            closers: [PersonaCopyVariant(text: "Noted."), PersonaCopyVariant(text: "Seen."), PersonaCopyVariant(text: "Ha.")]
+        ))
+        let bodies = (0..<48).compactMap { compose(wider, variant: $0)?.content.body }
+        for fragment in ["Oh.", "Well.", "Noted.", "Seen.", "Ha."] {
+            XCTAssertTrue(bodies.contains { $0.contains(fragment) }, "\(fragment) never composed")
+        }
     }
 
     func testNegativeToneBelowEstablishedFallsBackToTheDefaultTone() throws {

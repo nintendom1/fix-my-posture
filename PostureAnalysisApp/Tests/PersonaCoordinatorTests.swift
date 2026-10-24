@@ -134,6 +134,87 @@ final class PersonaCoordinatorTests: XCTestCase {
         XCTAssertEqual(scheduler.personaReplacementHistory.count, 2)
     }
 
+    func testOneSaveEvaluatesThePersonaOnceAfterTheReminderReplan() async {
+        let prior = [1, 5, 9].map { rows(day: $0, lb: 15) }
+        let saved = rows(day: 12, lb: 20)
+        let scheduler = MemoryWorkoutReminderScheduler()
+        var order: [String] = []
+        scheduler.onReplaceRequests = { order.append("reminders") }
+        scheduler.onReplacePersonaRequests = { order.append("persona") }
+        let coordinator = makeCoordinator(history: PersonaHistoryRepository(records: prior + [saved]), scheduler: scheduler,
+                                          traces: MemoryPersonaTraceStore(), now: { saved.endedAt })
+
+        let acknowledged = expectation(description: "acknowledgment")
+        scheduler.onScheduleAcknowledgment = { acknowledged.fulfill() }
+        coordinator.workoutSaved(saved)
+        await fulfillment(of: [acknowledged], timeout: 2)
+
+        XCTAssertEqual(order, ["reminders", "persona"])
+    }
+
+    func testQuietHoursDeferAnImmediateMessageWhenTheAppIsInactive() async throws {
+        let prior = [1, 5, 9].map { rows(day: $0, lb: 15) }
+        let earlier = rows(day: 12, hour: 18, lb: 15)
+        let lateNight = PersonaFixtures.record(
+            endingAt: PersonaFixtures.date(day: 12, hour: 23),
+            entries: [PersonaFixtures.entry(PersonaFixtures.rows, sets: [PersonaFixtures.set(10, lb: 20)])]
+        )
+        let scheduler = MemoryWorkoutReminderScheduler()
+        let traces = MemoryPersonaTraceStore()
+        let coordinator = makeCoordinator(history: PersonaHistoryRepository(records: prior + [earlier, lateNight]),
+                                          scheduler: scheduler, traces: traces, now: { lateNight.endedAt }, appIsActive: false)
+
+        let sent = expectation(description: "deferred persona request")
+        scheduler.onAddPersonaRequest = { sent.fulfill() }
+        coordinator.workoutSaved(lateNight)
+        await fulfillment(of: [sent], timeout: 2)
+
+        let request = try XCTUnwrap(scheduler.immediatePersonaRequests.first)
+        XCTAssertEqual(request.trigger, .at(DateComponents(year: 2026, month: 10, day: 13, hour: 8, minute: 0)))
+        XCTAssertTrue(request.identifier.hasPrefix(PersonaNotificationRequest.immediatePrefix + "2026-10-13."))
+        XCTAssertTrue(traces.state.sent.contains { $0.quietDeferred && $0.identifier == request.identifier })
+    }
+
+    func testTurningOffAfterRequestsExistClearsThemAndTheirPendingTraces() async throws {
+        let saturdays = [date(day: 10), date(day: 3), date(day: 26, month: 9), date(day: 19, month: 9)]
+        let preferences = characterPreferences()
+        var now = date(day: 17, hour: 8)
+        let scheduler = MemoryWorkoutReminderScheduler()
+        let traces = MemoryPersonaTraceStore()
+        let coordinator = makeCoordinator(preferences: preferences,
+                                          history: PersonaHistoryRepository(records: saturdays.map { PersonaFixtures.record(endingAt: $0) }),
+                                          scheduler: scheduler, traces: traces, now: { now })
+        await coordinator.reconcileNow()
+        XCTAssertFalse(scheduler.personaRequests.isEmpty)
+        XCTAssertTrue(traces.state.sent.contains { $0.isPending(asOf: now) })
+
+        preferences.extraPersonableEnabled = false
+        await coordinator.reconcileNow()
+        XCTAssertTrue(scheduler.personaRequests.isEmpty)
+        XCTAssertFalse(traces.state.sent.contains { $0.isPending(asOf: now) }, "pending traces go with their requests")
+
+        now = date(day: 27, hour: 8)
+        preferences.extraPersonableEnabled = true
+        XCTAssertEqual(coordinator.personaStatus().cooling, .none, "requests that never fired are not ignored messages")
+        XCTAssertEqual(coordinator.personaStatus().pendingCount, 0)
+    }
+
+    func testTheBridgeBuffersEngagementUntilTheRecorderIsInstalled() {
+        let bridge = WorkoutReminderNotificationBridge()
+        let event = PersonaEngagementEvent(traceID: UUID(), observationKey: "k", kind: .dismissed, date: date(day: 17))
+        var received: [PersonaEngagementEvent] = []
+        bridge.receive(engagement: event)
+        bridge.installEngagement { received.append($0) }
+        XCTAssertEqual(received, [event])
+        bridge.receive(engagement: event)
+        XCTAssertEqual(received.count, 2)
+    }
+
+    func testOnlyOpeningANotificationRoutesToAWorkout() {
+        XCTAssertTrue(WorkoutReminderAppDelegate.shouldRouteToWorkout(actionIdentifier: UNNotificationDefaultActionIdentifier))
+        XCTAssertFalse(WorkoutReminderAppDelegate.shouldRouteToWorkout(actionIdentifier: UNNotificationDismissActionIdentifier))
+    }
+
     // MARK: Reset, engagement, status
 
     func testResetPersonaStartsFamiliarityOverAndKeepsHistoryAndTheSetting() async throws {
@@ -238,7 +319,8 @@ final class PersonaCoordinatorTests: XCTestCase {
         history: PersonaHistoryRepository? = nil,
         scheduler: MemoryWorkoutReminderScheduler? = nil,
         traces: MemoryPersonaTraceStore?,
-        now: @escaping () -> Date
+        now: @escaping () -> Date,
+        appIsActive: Bool = true
     ) -> WorkoutReminderCoordinator {
         WorkoutReminderCoordinator(
             preferences: preferences ?? characterPreferences(),
@@ -252,7 +334,7 @@ final class PersonaCoordinatorTests: XCTestCase {
             calendar: calendar,
             personaCatalog: PersonaFixtures.catalog(),
             personaTraces: traces,
-            isAppActive: { true }
+            isAppActive: { appIsActive }
         )
     }
 

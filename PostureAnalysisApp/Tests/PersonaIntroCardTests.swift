@@ -51,7 +51,7 @@ final class PersonaIntroCardTests: XCTestCase {
     }
 
     @MainActor
-    func testOpenPersonaSettingsRoutesToTheSettingsTabFromBothTabs() {
+    func testOpenPersonaSettingsPresentsSettingsWithoutSwitchingTabs() {
         let preferences = InMemoryPreferences()
         let trainRouter = AppRouter()
         makeTrainViewModel(preferences: preferences, router: trainRouter).send(.openPersonaSettings)
@@ -60,7 +60,7 @@ final class PersonaIntroCardTests: XCTestCase {
 
         let postureRouter = AppRouter(selectedTab: .posture)
         makePostureViewModel(preferences: preferences, router: postureRouter).send(.openPersonaSettings)
-        XCTAssertEqual(postureRouter.selectedTab, .train)
+        XCTAssertEqual(postureRouter.selectedTab, .posture, "closing Settings returns to the Posture tab")
         XCTAssertEqual(postureRouter.presentedFullScreenRoute, .settings)
     }
 
