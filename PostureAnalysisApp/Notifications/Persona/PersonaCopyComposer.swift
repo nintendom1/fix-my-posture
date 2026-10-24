@@ -4,7 +4,7 @@ import Foundation
 struct PersonaComposition: Equatable {
     let content: CharacterNotificationContent
     /// `contentKey#t<titleIndex>b<bodyIndex>` plus `o<index>` for an opener and `c<index>` or `i<index>` for a closer
-    /// or intro fragment, such as `achievement.pr.weight#t0b1o2`.
+    /// or intro fragment, such as `achievement.pr.weight#t0b1o2`. `tF` means the fallback title was used.
     let templateID: String
 }
 
@@ -69,21 +69,23 @@ enum PersonaCopyComposer {
         let combination = v % combinationCount
         let titleLine = selection.titles.isEmpty ? nil : selection.titles[combination % titleCount]
         let title = titleLine?.text ?? NotificationContentBuilder.fallbackTitle
-        let titleIndex = titleLine?.index ?? selection.fallbackTitleIndex ?? 0
+        let titleMarker = titleLine.map { "\($0.index)" } ?? "F"
         let bodyLine = selection.bodies[combination / titleCount]
 
         let fragments = catalog.fragments
         let openers = renderedLines(fragments.openers, tone: selection.tone, familiarity: familiarity, values: values)
         let closers = renderedLines(fragments.closers, tone: selection.tone, familiarity: familiarity, values: values)
         let intros = renderedLines(fragments.intro, tone: selection.tone, familiarity: familiarity, values: values)
-        let pattern = v % 4
-        var opener: RenderedLine? = (pattern == 1 || pattern == 3) ? selectedLine(openers, variant: v) : nil
+        // The fragment cycle advances once per full pass over the title × body pairs, so every pair meets every pattern.
+        let fragmentStep = v / combinationCount
+        let pattern = fragmentStep % 4
+        var opener: RenderedLine? = (pattern == 1 || pattern == 3) ? selectedLine(openers, variant: fragmentStep) : nil
         var trailing: TrailingFragment?
-        let selectedIntro = intro ? selectedLine(intros, variant: v) : nil
+        let selectedIntro = intro ? selectedLine(intros, variant: fragmentStep) : nil
         if let selectedIntro {
             trailing = .intro(selectedIntro)
         } else if pattern == 2 || pattern == 3 {
-            trailing = selectedLine(closers, variant: v).map(TrailingFragment.closer)
+            trailing = selectedLine(closers, variant: fragmentStep).map(TrailingFragment.closer)
         }
 
         if bodyLength(opener: opener, body: bodyLine.text, trailing: trailing) > maximumBodyLength {
@@ -103,7 +105,7 @@ enum PersonaCopyComposer {
         let body = joinedBody(opener: opener, body: bodyLine.text, trailing: trailing)
         guard let art = catalog.art(for: contentKey, tone: selection.tone) else { return nil }
 
-        var templateID = "\(contentKey)#t\(titleIndex)b\(bodyLine.index)"
+        var templateID = "\(contentKey)#t\(titleMarker)b\(bodyLine.index)"
         if let opener { templateID += "o\(opener.index)" }
         switch trailing {
         case .closer(let line): templateID += "c\(line.index)"
@@ -152,8 +154,12 @@ enum PersonaCopyComposer {
         familiarity: PersonaFamiliarity,
         values: [String: String]
     ) -> ToneSelection? {
-        selection(entry: entry, tone: requestedTone, familiarity: familiarity, values: values)
-            ?? selection(entry: entry, tone: entry.defaultTone, familiarity: familiarity, values: values)
+        // Annoyed and disappointed need established familiarity (VOICE.md); below it, use the default tone.
+        let requestedAllowed = !requestedTone.isNegative || familiarity >= .established
+        let requested = requestedAllowed
+            ? selection(entry: entry, tone: requestedTone, familiarity: familiarity, values: values)
+            : nil
+        return requested ?? selection(entry: entry, tone: entry.defaultTone, familiarity: familiarity, values: values)
     }
 
     private static func selection(

@@ -454,6 +454,108 @@ final class PersonaDetectorTests: XCTestCase {
         })
     }
 
+    // MARK: Threshold sides added after the PR 2 review
+
+    func testWeightPRMediumEqualWeightAndBandOnlySessions() throws {
+        let prior = (1...3).map { makeRecord(id: $0, daysAgo: $0 + 2, entries: [rowSet(8, lb: 20)]) }
+        let small = makeRecord(id: 10, daysAgo: 0, entries: [rowSet(8, lb: 21)])
+        let smallPR = try XCTUnwrap(achievement(context(records: prior + [small], trigger: small)).first { $0.key.kind == "pr.weight" })
+        XCTAssertEqual(smallPR.salience, .medium, "a 5 % PR is medium")
+
+        let equal = makeRecord(id: 11, daysAgo: 0, entries: [rowSet(8, lb: 20)])
+        XCTAssertFalse(achievement(context(records: prior + [equal], trigger: equal)).contains { $0.key.kind == "pr.weight" })
+
+        let bandOnly = (1...3).map { id in
+            makeRecord(id: 20 + id, daysAgo: id + 2, entries: [PersonaFixtures.entry(PersonaFixtures.rows, sets: [PersonaFixtures.set(10, band: "Red band")])])
+        }
+        let oneMass = makeRecord(id: 30, daysAgo: 8, entries: [rowSet(8, lb: 20)])
+        let afterBands = makeRecord(id: 31, daysAgo: 0, entries: [rowSet(8, lb: 25)])
+        XCTAssertFalse(achievement(context(records: bandOnly + [oneMass, afterBands], trigger: afterBands))
+            .contains { $0.key.kind == "pr.weight" }, "band sessions do not count toward the three earlier sessions")
+    }
+
+    func testRepPRComparesWithinTheWeightClassAndIgnoresDeloads() throws {
+        let prior = [
+            makeRecord(id: 1, daysAgo: 5, entries: [rowSet(12, lb: 20)]),
+            makeRecord(id: 2, daysAgo: 4, entries: [rowSet(8, lb: 30)]),
+            makeRecord(id: 3, daysAgo: 3, entries: [rowSet(10, lb: 20)]),
+        ]
+        let between = makeRecord(id: 10, daysAgo: 0, entries: [rowSet(10, lb: 25)])
+        let rep = try XCTUnwrap(achievement(context(records: prior + [between], trigger: between)).first { $0.key.kind == "pr.reps" })
+        XCTAssertEqual(rep.values["count"], "10")
+        XCTAssertTrue(rep.evidence.lines.contains("Previous best 8 reps"))
+
+        let atUsual = makeRecord(id: 11, daysAgo: 0, entries: [rowSet(10, lb: 20)])
+        XCTAssertFalse(achievement(context(records: prior + [atUsual], trigger: atUsual)).contains { $0.key.kind == "pr.reps" })
+
+        let deload = makeRecord(id: 12, daysAgo: 0, entries: [rowSet(15, lb: 5)])
+        XCTAssertFalse(achievement(context(records: prior + [deload], trigger: deload)).contains { $0.key.kind == "pr.reps" },
+                       "lighter than anything used before is not a record")
+    }
+
+    func testWeekdayPatternAtFourWeeksIsEmerging() throws {
+        let records = [21, 14, 7, 0].enumerated().map { makeRecord(id: $0.offset + 1, daysAgo: $0.element) }
+        let trigger = try XCTUnwrap(records.last)
+        let result = try XCTUnwrap(pattern(context(records: records, trigger: trigger)).first { $0.key.kind == "weekday" })
+        XCTAssertEqual(result.salience, .medium)
+        XCTAssertEqual(result.evidence.strength, 3)
+        XCTAssertEqual(result.contentKey, "pattern.weekday")
+    }
+
+    func testComebackNeedsTenPriorWorkoutsForHighAndTheFirstWorkoutOfTheDay() throws {
+        let nine = (0..<9).map { makeRecord(id: $0 + 1, daysAgo: 40 + $0) }
+        let back = makeRecord(id: 50, daysAgo: 0)
+        let comeback = try XCTUnwrap(lapse(context(records: nine + [back], trigger: back)).first { $0.key.kind == "comeback" })
+        XCTAssertEqual(comeback.salience, .medium, "nine earlier workouts is not enough for high")
+
+        let morning = makeRecord(id: 51, daysAgo: 0, hour: 8)
+        let evening = makeRecord(id: 52, daysAgo: 0, hour: 18)
+        XCTAssertFalse(lapse(context(records: nine + [morning, evening], trigger: evening)).contains { $0.key.kind == "comeback" })
+    }
+
+    func testRoutineRepeatEmitsOnlyAtThreeAndFiveWithinTheWindow() {
+        let plan = identifier(900)
+        let four = (0..<4).map { makeRecord(id: $0 + 1, daysAgo: 3 - $0, planID: plan, planName: "Upper") }
+        XCTAssertFalse(pattern(context(records: four, trigger: four.last)).contains { $0.key.kind == "routineRepeat" })
+
+        let stretched = [
+            makeRecord(id: 10, daysAgo: 25, planID: plan, planName: "Upper"),
+            makeRecord(id: 11, daysAgo: 2, planID: plan, planName: "Upper"),
+            makeRecord(id: 12, daysAgo: 0, planID: plan, planName: "Upper"),
+        ]
+        XCTAssertFalse(pattern(context(records: stretched, trigger: stretched.last)).contains { $0.key.kind == "routineRepeat" },
+                       "a session older than the 21-day window breaks the run")
+    }
+
+    func testSkippedRunStopsAtACompletedAppearance() {
+        let records = [
+            makeRecord(id: 1, daysAgo: 3, entries: [PersonaFixtures.skipped(PersonaFixtures.rows)]),
+            makeRecord(id: 2, daysAgo: 2, entries: [rowSet(10, lb: 20)]),
+            makeRecord(id: 3, daysAgo: 1, entries: [PersonaFixtures.skipped(PersonaFixtures.rows)]),
+            makeRecord(id: 4, daysAgo: 0, entries: [PersonaFixtures.skipped(PersonaFixtures.rows)]),
+        ]
+        XCTAssertFalse(lapse(context(records: records, trigger: records.last)).contains { $0.key.kind == "skippedExercise" })
+    }
+
+    func testPostureImprovementNeedsBothFollowUpsPastTheThreshold() {
+        let assessments = [
+            assessment(date: date(daysAgo: 30), value: 6, isBaseline: true),
+            assessment(date: date(daysAgo: 10), value: 5),
+            assessment(date: date(daysAgo: 1), value: 3),
+        ]
+        XCTAssertFalse(posture(context(records: [], assessments: assessments)).contains { $0.key.kind == "improved" },
+                       "the earlier follow-up is only 1° closer")
+    }
+
+    func testWorkoutMilestonesContinueEveryFiftyAfterOneHundred() throws {
+        func milestone(at count: Int) -> PersonaObservation? {
+            let records = (0..<count).map { makeRecord(id: $0 + 1, at: now.addingTimeInterval(Double($0 - count + 1) * 3_600)) }
+            return achievement(context(records: records, trigger: records.last)).first { $0.key.kind == "milestone" }
+        }
+        XCTAssertEqual(try XCTUnwrap(milestone(at: 150)).salience, .high)
+        XCTAssertNil(milestone(at: 120))
+    }
+
     private func achievement(
         _ context: PersonaContext,
         asOf: Date? = nil,
