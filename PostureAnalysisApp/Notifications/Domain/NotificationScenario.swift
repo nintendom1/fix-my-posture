@@ -8,6 +8,9 @@ struct NotificationScenario: Codable, Equatable, Identifiable {
         case nudge
         /// Sent about a second after a workout is saved.
         case acknowledgment
+        /// An Extra Personable observation. Never appears in notification-scenarios.json; persona copy lives in
+        /// persona-content.json and is built by `PersonaCopyComposer`.
+        case persona
     }
 
     enum Crop: String, Codable {

@@ -23,18 +23,20 @@ enum NotificationTemplate {
 enum NotificationCategory {
     static let nudge = "fixMyPosture.character.nudge"
     static let acknowledgment = "fixMyPosture.character.acknowledgment"
+    static let persona = "fixMyPosture.character.persona"
 
     static func identifier(for kind: NotificationScenario.Kind) -> String {
         switch kind {
         case .nudge: nudge
         case .acknowledgment: acknowledgment
+        case .persona: persona
         }
     }
 
-    /// iOS hides banners for local notifications while the app is open unless the app opts in. Only
-    /// acknowledgments opt in, so they pop up over the workout summary; nudges appear only after the user leaves.
+    /// iOS hides banners for local notifications while the app is open unless the app opts in. Acknowledgments and
+    /// persona observations opt in, so they pop up over the workout summary; nudges appear only after the user leaves.
     static func showsInForeground(_ categoryIdentifier: String) -> Bool {
-        categoryIdentifier == acknowledgment
+        categoryIdentifier == acknowledgment || categoryIdentifier == persona
     }
 }
 

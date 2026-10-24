@@ -336,6 +336,43 @@
 		A10000012B00000000000346 /* MemoryNotificationEventLog.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000346 /* MemoryNotificationEventLog.swift */; };
 		A10000012B00000000000347 /* ExercisePhotography.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000347 /* ExercisePhotography.swift */; };
 		A10000012B00000000000348 /* ExerciseThumbnailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000348 /* ExerciseThumbnailView.swift */; };
+		A10000012B00000000000349 /* PersonaDebugScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000349 /* PersonaDebugScreen.swift */; };
+		A10000012B00000000000350 /* PersonaDebugViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000350 /* PersonaDebugViewModel.swift */; };
+		A10000012B00000000000351 /* NotificationCategoryRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000351 /* NotificationCategoryRegistrar.swift */; };
+		A10000012B00000000000352 /* AchievementDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000352 /* AchievementDetector.swift */; };
+		A10000012B00000000000353 /* FilePersonaTraceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000353 /* FilePersonaTraceStore.swift */; };
+		A10000012B00000000000354 /* LapseDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000354 /* LapseDetector.swift */; };
+		A10000012B00000000000355 /* PatternDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000355 /* PatternDetector.swift */; };
+		A10000012B00000000000356 /* PersonaContentCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000356 /* PersonaContentCatalog.swift */; };
+		A10000012B00000000000357 /* PersonaContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000357 /* PersonaContext.swift */; };
+		A10000012B00000000000358 /* PersonaCooling.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000358 /* PersonaCooling.swift */; };
+		A10000012B00000000000359 /* PersonaCopyComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000359 /* PersonaCopyComposer.swift */; };
+		A10000012B00000000000360 /* PersonaDebugProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000360 /* PersonaDebugProviding.swift */; };
+		A10000012B00000000000361 /* PersonaDetectors.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000361 /* PersonaDetectors.swift */; };
+		A10000012B00000000000362 /* PersonaPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000362 /* PersonaPlanner.swift */; };
+		A10000012B00000000000363 /* PersonaPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000363 /* PersonaPolicy.swift */; };
+		A10000012B00000000000364 /* PersonaRequests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000364 /* PersonaRequests.swift */; };
+		A10000012B00000000000365 /* PersonaTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000365 /* PersonaTemplate.swift */; };
+		A10000012B00000000000366 /* PersonaToneSelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000366 /* PersonaToneSelector.swift */; };
+		A10000012B00000000000367 /* PersonaTrace.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000367 /* PersonaTrace.swift */; };
+		A10000012B00000000000368 /* PersonaTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000368 /* PersonaTypes.swift */; };
+		A10000012B00000000000369 /* PostureDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000369 /* PostureDetector.swift */; };
+		A10000012B00000000000370 /* PersonaContentCatalogLoading.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000370 /* PersonaContentCatalogLoading.swift */; };
+		A10000012B00000000000371 /* MemoryPersonaTraceStore.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000371 /* MemoryPersonaTraceStore.swift */; };
+		A10000012B00000000000372 /* PersonaContentCatalogTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000372 /* PersonaContentCatalogTests.swift */; };
+		A10000012B00000000000373 /* PersonaContextBuilderTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000373 /* PersonaContextBuilderTests.swift */; };
+		A10000012B00000000000374 /* PersonaCoolingTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000374 /* PersonaCoolingTests.swift */; };
+		A10000012B00000000000375 /* PersonaCoordinatorTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000375 /* PersonaCoordinatorTests.swift */; };
+		A10000012B00000000000376 /* PersonaCopyComposerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000376 /* PersonaCopyComposerTests.swift */; };
+		A10000012B00000000000377 /* PersonaDebugScreenTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000377 /* PersonaDebugScreenTests.swift */; };
+		A10000012B00000000000378 /* PersonaDebugViewModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000378 /* PersonaDebugViewModelTests.swift */; };
+		A10000012B00000000000379 /* PersonaDetectorTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000379 /* PersonaDetectorTests.swift */; };
+		A10000012B00000000000380 /* PersonaIntroCardTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000380 /* PersonaIntroCardTests.swift */; };
+		A10000012B00000000000381 /* PersonaPlannerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000381 /* PersonaPlannerTests.swift */; };
+		A10000012B00000000000382 /* PersonaToneSelectorTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000382 /* PersonaToneSelectorTests.swift */; };
+		A10000012B00000000000383 /* PersonaTraceStoreTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000383 /* PersonaTraceStoreTests.swift */; };
+		A10000012B00000000000384 /* PersonaFixtures.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000384 /* PersonaFixtures.swift */; };
+		A10000012B00000000000385 /* PersonaIntroCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000385 /* PersonaIntroCard.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -680,6 +717,43 @@
 		B10000012B00000000000346 /* MemoryNotificationEventLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryNotificationEventLog.swift; sourceTree = "<group>"; };
 		B10000012B00000000000347 /* ExercisePhotography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExercisePhotography.swift; sourceTree = "<group>"; };
 		B10000012B00000000000348 /* ExerciseThumbnailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseThumbnailView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000349 /* PersonaDebugScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaDebugScreen.swift; sourceTree = "<group>"; };
+		B10000012B00000000000350 /* PersonaDebugViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaDebugViewModel.swift; sourceTree = "<group>"; };
+		B10000012B00000000000351 /* NotificationCategoryRegistrar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationCategoryRegistrar.swift; sourceTree = "<group>"; };
+		B10000012B00000000000352 /* AchievementDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementDetector.swift; sourceTree = "<group>"; };
+		B10000012B00000000000353 /* FilePersonaTraceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePersonaTraceStore.swift; sourceTree = "<group>"; };
+		B10000012B00000000000354 /* LapseDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LapseDetector.swift; sourceTree = "<group>"; };
+		B10000012B00000000000355 /* PatternDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PatternDetector.swift; sourceTree = "<group>"; };
+		B10000012B00000000000356 /* PersonaContentCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaContentCatalog.swift; sourceTree = "<group>"; };
+		B10000012B00000000000357 /* PersonaContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaContext.swift; sourceTree = "<group>"; };
+		B10000012B00000000000358 /* PersonaCooling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaCooling.swift; sourceTree = "<group>"; };
+		B10000012B00000000000359 /* PersonaCopyComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaCopyComposer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000360 /* PersonaDebugProviding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaDebugProviding.swift; sourceTree = "<group>"; };
+		B10000012B00000000000361 /* PersonaDetectors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaDetectors.swift; sourceTree = "<group>"; };
+		B10000012B00000000000362 /* PersonaPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaPlanner.swift; sourceTree = "<group>"; };
+		B10000012B00000000000363 /* PersonaPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaPolicy.swift; sourceTree = "<group>"; };
+		B10000012B00000000000364 /* PersonaRequests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaRequests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000365 /* PersonaTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaTemplate.swift; sourceTree = "<group>"; };
+		B10000012B00000000000366 /* PersonaToneSelector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaToneSelector.swift; sourceTree = "<group>"; };
+		B10000012B00000000000367 /* PersonaTrace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaTrace.swift; sourceTree = "<group>"; };
+		B10000012B00000000000368 /* PersonaTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaTypes.swift; sourceTree = "<group>"; };
+		B10000012B00000000000369 /* PostureDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostureDetector.swift; sourceTree = "<group>"; };
+		B10000012B00000000000370 /* PersonaContentCatalogLoading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaContentCatalogLoading.swift; sourceTree = "<group>"; };
+		B10000012B00000000000371 /* MemoryPersonaTraceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryPersonaTraceStore.swift; sourceTree = "<group>"; };
+		B10000012B00000000000372 /* PersonaContentCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaContentCatalogTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000373 /* PersonaContextBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaContextBuilderTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000374 /* PersonaCoolingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaCoolingTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000375 /* PersonaCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaCoordinatorTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000376 /* PersonaCopyComposerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaCopyComposerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000377 /* PersonaDebugScreenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaDebugScreenTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000378 /* PersonaDebugViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaDebugViewModelTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000379 /* PersonaDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaDetectorTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000380 /* PersonaIntroCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaIntroCardTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000381 /* PersonaPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaPlannerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000382 /* PersonaToneSelectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaToneSelectorTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000383 /* PersonaTraceStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaTraceStoreTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000384 /* PersonaFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaFixtures.swift; sourceTree = "<group>"; };
+		B10000012B00000000000385 /* PersonaIntroCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaIntroCard.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -808,6 +882,7 @@
 				H10000012B00000000000020 /* Workout */,
 				B10000012B00000000000076 /* ExerciseDemoFigureView.swift */,
 				B10000012B00000000000075 /* ExerciseGuideView.swift */,
+				B10000012B00000000000385 /* PersonaIntroCard.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -911,6 +986,18 @@
 				B10000012B00000000000340 /* CharacterReminderCoordinatorTests.swift */,
 				B10000012B00000000000341 /* WorkoutRemindersSettingsPageTests.swift */,
 				B10000012B00000000000345 /* NotificationDiagnosticsTests.swift */,
+				B10000012B00000000000372 /* PersonaContentCatalogTests.swift */,
+				B10000012B00000000000373 /* PersonaContextBuilderTests.swift */,
+				B10000012B00000000000374 /* PersonaCoolingTests.swift */,
+				B10000012B00000000000375 /* PersonaCoordinatorTests.swift */,
+				B10000012B00000000000376 /* PersonaCopyComposerTests.swift */,
+				B10000012B00000000000377 /* PersonaDebugScreenTests.swift */,
+				B10000012B00000000000378 /* PersonaDebugViewModelTests.swift */,
+				B10000012B00000000000379 /* PersonaDetectorTests.swift */,
+				B10000012B00000000000380 /* PersonaIntroCardTests.swift */,
+				B10000012B00000000000381 /* PersonaPlannerTests.swift */,
+				B10000012B00000000000382 /* PersonaToneSelectorTests.swift */,
+				B10000012B00000000000383 /* PersonaTraceStoreTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1134,6 +1221,7 @@
 				B10000012B00000000000284 /* PostureFixtures.swift */,
 				B10000012B00000000000285 /* AssessmentFixtures.swift */,
 				B10000012B00000000000299 /* SettingsFixtures.swift */,
+				B10000012B00000000000384 /* PersonaFixtures.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -1261,6 +1349,7 @@
 				H10000012B00000000000052 /* RealtimePosture */,
 				H10000012B00000000000053 /* VoiceCommands */,
 				H10000012B00000000000058 /* NotificationPreview */,
+				H10000012B00000000000059 /* PersonaDebug */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -1441,6 +1530,7 @@
 				B10000012B00000000000325 /* FakePreviewScheduler.swift */,
 				B10000012B00000000000339 /* MemoryWorkoutReminderScheduler.swift */,
 				B10000012B00000000000346 /* MemoryNotificationEventLog.swift */,
+				B10000012B00000000000371 /* MemoryPersonaTraceStore.swift */,
 			);
 			path = Fakes;
 			sourceTree = "<group>";
@@ -1451,6 +1541,8 @@
 				H10000012B00000000000056 /* Domain */,
 				H10000012B00000000000057 /* Delivery */,
 				B10000012B00000000000317 /* NotificationScenarioCatalogLoading.swift */,
+				H10000012B00000000000060 /* Persona */,
+				B10000012B00000000000370 /* PersonaContentCatalogLoading.swift */,
 			);
 			path = Notifications;
 			sourceTree = "<group>";
@@ -1480,6 +1572,7 @@
 				B10000012B00000000000318 /* NotificationAttachmentFactory.swift */,
 				B10000012B00000000000319 /* NotificationPreviewScheduling.swift */,
 				B10000012B00000000000344 /* NotificationDiagnosticsProvider.swift */,
+				B10000012B00000000000351 /* NotificationCategoryRegistrar.swift */,
 			);
 			path = Delivery;
 			sourceTree = "<group>";
@@ -1491,6 +1584,40 @@
 				B10000012B00000000000321 /* NotificationPreviewScreen.swift */,
 			);
 			path = NotificationPreview;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000059 /* PersonaDebug */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000349 /* PersonaDebugScreen.swift */,
+				B10000012B00000000000350 /* PersonaDebugViewModel.swift */,
+			);
+			path = PersonaDebug;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000060 /* Persona */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000352 /* AchievementDetector.swift */,
+				B10000012B00000000000353 /* FilePersonaTraceStore.swift */,
+				B10000012B00000000000354 /* LapseDetector.swift */,
+				B10000012B00000000000355 /* PatternDetector.swift */,
+				B10000012B00000000000356 /* PersonaContentCatalog.swift */,
+				B10000012B00000000000357 /* PersonaContext.swift */,
+				B10000012B00000000000358 /* PersonaCooling.swift */,
+				B10000012B00000000000359 /* PersonaCopyComposer.swift */,
+				B10000012B00000000000360 /* PersonaDebugProviding.swift */,
+				B10000012B00000000000361 /* PersonaDetectors.swift */,
+				B10000012B00000000000362 /* PersonaPlanner.swift */,
+				B10000012B00000000000363 /* PersonaPolicy.swift */,
+				B10000012B00000000000364 /* PersonaRequests.swift */,
+				B10000012B00000000000365 /* PersonaTemplate.swift */,
+				B10000012B00000000000366 /* PersonaToneSelector.swift */,
+				B10000012B00000000000367 /* PersonaTrace.swift */,
+				B10000012B00000000000368 /* PersonaTypes.swift */,
+				B10000012B00000000000369 /* PostureDetector.swift */,
+			);
+			path = Persona;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1818,6 +1945,29 @@
 				A10000012B00000000000344 /* NotificationDiagnosticsProvider.swift in Sources */,
 				A10000012B00000000000347 /* ExercisePhotography.swift in Sources */,
 				A10000012B00000000000348 /* ExerciseThumbnailView.swift in Sources */,
+				A10000012B00000000000349 /* PersonaDebugScreen.swift in Sources */,
+				A10000012B00000000000350 /* PersonaDebugViewModel.swift in Sources */,
+				A10000012B00000000000351 /* NotificationCategoryRegistrar.swift in Sources */,
+				A10000012B00000000000352 /* AchievementDetector.swift in Sources */,
+				A10000012B00000000000353 /* FilePersonaTraceStore.swift in Sources */,
+				A10000012B00000000000354 /* LapseDetector.swift in Sources */,
+				A10000012B00000000000355 /* PatternDetector.swift in Sources */,
+				A10000012B00000000000356 /* PersonaContentCatalog.swift in Sources */,
+				A10000012B00000000000357 /* PersonaContext.swift in Sources */,
+				A10000012B00000000000358 /* PersonaCooling.swift in Sources */,
+				A10000012B00000000000359 /* PersonaCopyComposer.swift in Sources */,
+				A10000012B00000000000360 /* PersonaDebugProviding.swift in Sources */,
+				A10000012B00000000000361 /* PersonaDetectors.swift in Sources */,
+				A10000012B00000000000362 /* PersonaPlanner.swift in Sources */,
+				A10000012B00000000000363 /* PersonaPolicy.swift in Sources */,
+				A10000012B00000000000364 /* PersonaRequests.swift in Sources */,
+				A10000012B00000000000365 /* PersonaTemplate.swift in Sources */,
+				A10000012B00000000000366 /* PersonaToneSelector.swift in Sources */,
+				A10000012B00000000000367 /* PersonaTrace.swift in Sources */,
+				A10000012B00000000000368 /* PersonaTypes.swift in Sources */,
+				A10000012B00000000000369 /* PostureDetector.swift in Sources */,
+				A10000012B00000000000370 /* PersonaContentCatalogLoading.swift in Sources */,
+				A10000012B00000000000385 /* PersonaIntroCard.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1919,6 +2069,20 @@
 				A10000012B00000000000341 /* WorkoutRemindersSettingsPageTests.swift in TestSources */,
 				A10000012B00000000000345 /* NotificationDiagnosticsTests.swift in TestSources */,
 				A10000012B00000000000346 /* MemoryNotificationEventLog.swift in TestSources */,
+				A10000012B00000000000371 /* MemoryPersonaTraceStore.swift in TestSources */,
+				A10000012B00000000000372 /* PersonaContentCatalogTests.swift in TestSources */,
+				A10000012B00000000000373 /* PersonaContextBuilderTests.swift in TestSources */,
+				A10000012B00000000000374 /* PersonaCoolingTests.swift in TestSources */,
+				A10000012B00000000000375 /* PersonaCoordinatorTests.swift in TestSources */,
+				A10000012B00000000000376 /* PersonaCopyComposerTests.swift in TestSources */,
+				A10000012B00000000000377 /* PersonaDebugScreenTests.swift in TestSources */,
+				A10000012B00000000000378 /* PersonaDebugViewModelTests.swift in TestSources */,
+				A10000012B00000000000379 /* PersonaDetectorTests.swift in TestSources */,
+				A10000012B00000000000380 /* PersonaIntroCardTests.swift in TestSources */,
+				A10000012B00000000000381 /* PersonaPlannerTests.swift in TestSources */,
+				A10000012B00000000000382 /* PersonaToneSelectorTests.swift in TestSources */,
+				A10000012B00000000000383 /* PersonaTraceStoreTests.swift in TestSources */,
+				A10000012B00000000000384 /* PersonaFixtures.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
