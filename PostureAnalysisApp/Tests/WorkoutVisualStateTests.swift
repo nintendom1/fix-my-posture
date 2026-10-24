@@ -12,12 +12,31 @@ final class WorkoutVisualStateTests: XCTestCase {
         }
     }
 
+    func testOverlaySelectionMatchesWorkoutPhase() {
+        let cases: [(WorkoutPhase, WorkoutVisualState.Overlay)] = [
+            (.framing, .ghostDemo),
+            (.ready, .ghostDemo),
+            (.resting, .ghostDemo),
+            (.exercising, .repThresholds),
+            (.paused(.user), .repThresholds),
+            (.choosingExercise, .none),
+            (.changingExercise(previous: .ready), .none),
+            (.exerciseComplete, .none),
+            (.ended, .none)
+        ]
+
+        for (phase, expected) in cases {
+            XCTAssertEqual(WorkoutVisualState.derive(inputs(phase: phase)).overlay, expected, "\(phase)")
+        }
+    }
+
     func testActiveState() {
         let state = WorkoutVisualState.derive(inputs(phase: .exercising, isCounting: true))
         XCTAssertEqual(state.primary, .active)
         XCTAssertEqual(state.label, "Counting")
         XCTAssertEqual(state.iconName, "graphic_eq")
         XCTAssertEqual(state.designRole, .neutral)
+        XCTAssertEqual(state.overlay, .repThresholds)
     }
 
     func testPausedStatePreservesEachPauseReason() {
@@ -27,6 +46,7 @@ final class WorkoutVisualStateTests: XCTestCase {
             XCTAssertEqual(state.label, "Paused")
             XCTAssertEqual(state.iconName, "pause_circle")
             XCTAssertEqual(state.designRole, .warning)
+            XCTAssertEqual(state.overlay, .repThresholds)
         }
     }
 
@@ -48,6 +68,10 @@ final class WorkoutVisualStateTests: XCTestCase {
         XCTAssertEqual(state.label, "Resting")
         XCTAssertEqual(state.iconName, "self_improvement")
         XCTAssertEqual(state.designRole, .rest)
+        XCTAssertEqual(state.overlay, .ghostDemo)
+
+        let done = WorkoutVisualState.derive(inputs(phase: .resting, restRemaining: 0))
+        XCTAssertEqual(done.overlay, .ghostDemo)
     }
 
     func testLostStateCoversNotCountingAndMissingPose() {

@@ -10,6 +10,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     private(set) var session: WorkoutSession
     private(set) var cameraStatus: WorkoutCameraStatus = .idle
     private(set) var overlay: WorkoutOverlayState?
+    private(set) var ghostFitOverlay: WorkoutOverlayState?
     /// True after a frame has arrived; framing reliability supplies the existing loss grace period.
     private(set) var hasPoseFrame = false
     /// Refreshed on every tick for the rest timer.
@@ -405,6 +406,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         guard session.exercise != nil else {
             hasPoseFrame = false
             overlay = nil
+            ghostFitOverlay = nil
             return
         }
         hasPoseFrame = true
@@ -412,6 +414,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         framePipeline.exerciseChanged(to: session.exercise, analyzerEpoch: session.analyzerEpoch)
         let output = framePipeline.process(frame: frame, at: clock.now)
         overlay = output.overlay
+        ghostFitOverlay = output.ghostFitOverlay
         guideMetrics = output.guideMetrics
         armReadings = output.readings
         armThresholds = output.thresholds
@@ -455,6 +458,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         let events = framePipeline.resetTracking()
         hasPoseFrame = false
         overlay = framePipeline.overlay
+        ghostFitOverlay = framePipeline.ghostFitOverlay
         guideMetrics = framePipeline.guideMetrics
         armReadings = framePipeline.readings
         armThresholds = framePipeline.thresholds

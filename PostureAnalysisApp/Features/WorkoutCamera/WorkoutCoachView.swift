@@ -127,17 +127,18 @@ struct WorkoutCoachView: View {
                         .clipped()
                 }
 
-                if let overlay = model.overlay {
-                    if model.hud.visual.overlay == .ghostDemo, let exercise = model.session.exercise {
-                        WorkoutGhostOverlayView(overlay: overlay, metrics: model.guideMetrics,
-                                                motion: exercise.guide.motion,
-                                                cameraView: exercise.cameraView)
-                            .frame(width: geo.size.width, height: geo.size.height)
-                    }
-                    if model.hud.visual.overlay == .repThresholds {
-                        RepThresholdOverlayView(thresholds: model.hud.thresholds, imageSize: overlay.imageSize)
-                            .frame(width: geo.size.width, height: geo.size.height)
-                    }
+                if model.hud.visual.overlay == .ghostDemo, let exercise = model.session.exercise {
+                    WorkoutGhostOverlayView(liveOverlay: model.overlay,
+                                            fitOverlay: model.ghostFitOverlay,
+                                            metrics: model.guideMetrics,
+                                            motion: exercise.guide.motion,
+                                            cameraView: exercise.cameraView)
+                        .id(exercise.id)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                }
+                if model.hud.visual.overlay == .repThresholds, let overlay = model.overlay {
+                    RepThresholdOverlayView(thresholds: model.hud.thresholds, imageSize: overlay.imageSize)
+                        .frame(width: geo.size.width, height: geo.size.height)
                 }
 
                 if let overlay = model.overlay {

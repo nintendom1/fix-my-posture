@@ -181,7 +181,7 @@ struct WorkoutVisualState: Equatable {
 
         let overlay: Overlay
         switch inputs.phase {
-        case .ready:
+        case .framing, .ready, .resting:
             overlay = .ghostDemo
         case .exercising, .paused:
             overlay = .repThresholds

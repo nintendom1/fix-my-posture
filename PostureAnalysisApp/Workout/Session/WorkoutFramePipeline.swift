@@ -7,6 +7,7 @@ struct WorkoutFramePipeline {
     struct FrameOutput {
         let events: [WorkoutEvent]
         let overlay: WorkoutOverlayState?
+        let ghostFitOverlay: WorkoutOverlayState?
         let guideMetrics: GuideMetrics?
         let readings: [BodySide: ArmReading]
         let thresholds: [BodySide: ArmThresholds]
@@ -17,6 +18,7 @@ struct WorkoutFramePipeline {
     private(set) var analyzerEpoch: Int
     private(set) var isCounting: Bool
     private(set) var overlay: WorkoutOverlayState?
+    private(set) var ghostFitOverlay: WorkoutOverlayState?
     private(set) var guideMetrics: GuideMetrics?
     private(set) var readings: [BodySide: ArmReading] = [:]
     private(set) var thresholds: [BodySide: ArmThresholds] = [:]
@@ -24,6 +26,7 @@ struct WorkoutFramePipeline {
 
     private var analyzer: ExerciseAnalyzing?
     private var framingEvaluator: FramingEvaluator?
+    private var ghostCalibrationGate = GhostCalibrationGate()
     private var lastFramingStatus: FramingStatus?
     private var smoother = LandmarkSmoother()
     private var lastStartPositionHeld = false
@@ -44,6 +47,8 @@ struct WorkoutFramePipeline {
     mutating func process(frame: PoseFrame, at now: TimeInterval) -> FrameOutput {
         guard let exercise else {
             overlay = nil
+            ghostCalibrationGate.reset()
+            ghostFitOverlay = nil
             return output(events: [])
         }
 
@@ -100,6 +105,15 @@ struct WorkoutFramePipeline {
                 emphasizedJoints: emphasizedJoints
             )
         }
+
+        let available = GhostCalibration.canFit(overlay: overlay, metrics: guideMetrics,
+                                                motion: exercise.guide.motion, cameraView: exercise.cameraView)
+        let calibrated = ghostCalibrationGate.update(available: available, at: frame.timestamp)
+        if calibrated && available {
+            ghostFitOverlay = overlay
+        } else if !calibrated {
+            ghostFitOverlay = nil
+        }
         return output(events: events)
     }
 
@@ -117,6 +131,8 @@ struct WorkoutFramePipeline {
             thresholds = [:]
             formReadings = []
             overlay = nil
+            ghostCalibrationGate.reset()
+            ghostFitOverlay = nil
             lastStartPositionHeld = false
             rebuildAnalyzer(epoch: analyzerEpoch)
         } else if self.analyzerEpoch != analyzerEpoch || (exercise != nil && analyzer == nil) {
@@ -178,6 +194,8 @@ struct WorkoutFramePipeline {
         lastFramingStatus = nil
         smoother.reset()
         overlay = nil
+        ghostCalibrationGate.reset()
+        ghostFitOverlay = nil
         guideMetrics = nil
         readings = [:]
         thresholds = [:]
@@ -268,7 +286,7 @@ struct WorkoutFramePipeline {
     }
 
     private func output(events: [WorkoutEvent]) -> FrameOutput {
-        FrameOutput(events: events, overlay: overlay, guideMetrics: guideMetrics,
+        FrameOutput(events: events, overlay: overlay, ghostFitOverlay: ghostFitOverlay, guideMetrics: guideMetrics,
                     readings: readings, thresholds: thresholds, formReadings: formReadings)
     }
 }
