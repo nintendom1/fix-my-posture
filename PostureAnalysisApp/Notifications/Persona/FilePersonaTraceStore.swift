@@ -4,6 +4,7 @@ import Foundation
 /// A missing or unreadable file loads as empty state.
 final class FilePersonaTraceStore: PersonaTraceStoring {
     let url: URL
+    private let lock = NSLock()
 
     init(url: URL = FilePersonaTraceStore.defaultURL()) {
         self.url = url
@@ -15,11 +16,28 @@ final class FilePersonaTraceStore: PersonaTraceStoring {
     }
 
     func load() -> PersonaTraceState {
-        // Implemented by P2.
-        .empty
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard let data = try? Data(contentsOf: url) else { return .empty }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        return (try? decoder.decode(PersonaTraceState.self, from: data)) ?? .empty
     }
 
     func save(_ state: PersonaTraceState) {
-        // Implemented by P2.
+        lock.lock()
+        defer { lock.unlock() }
+
+        let directory = url.deletingLastPathComponent()
+        guard (try? FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )) != nil else { return }
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .secondsSince1970
+        guard let data = try? encoder.encode(state) else { return }
+        try? data.write(to: url, options: .atomic)
     }
 }

@@ -69,6 +69,9 @@ struct PersonaDecisionTrace: Codable, Equatable, Identifiable {
 
 /// Everything the persona remembers that cannot be rebuilt from workout and posture history.
 struct PersonaTraceState: Codable, Equatable {
+    /// Schema version of the stored file. A file that cannot be decoded loads as empty state, so bump this and add a
+    /// migration in `FilePersonaTraceStore` before changing stored fields.
+    var version = 1
     /// Every pending sent trace plus the newest fired ones (up to `PersonaPolicy.sentTraceLimit`), newest first.
     var sent: [PersonaDecisionTrace]
     /// Newest suppressed decisions, one per observation key, up to `PersonaPolicy.suppressedTraceLimit`, newest first.
@@ -86,21 +89,20 @@ struct PersonaTraceState: Codable, Equatable {
 
     /// Fired sent traces at `date`, newest first.
     func fired(asOf date: Date) -> [PersonaDecisionTrace] {
-        // Implemented by P2.
-        []
+        sent.filter { $0.isFired(asOf: date) }.sorted(by: Self.newestFirst)
     }
 
     /// Sent traces that will not be replaced at `date`: fired ones plus pending immediate and folded ones. Used for the
     /// daily cap and for not repeating an observation key.
     func committed(asOf date: Date) -> [PersonaDecisionTrace] {
-        // Implemented by P2.
-        []
+        sent
+            .filter { $0.isFired(asOf: date) || !$0.isProjected }
+            .sorted(by: Self.newestFirst)
     }
 
     /// Tones of the newest fired traces, newest first, at most `limit`.
     func recentTones(asOf date: Date, limit: Int) -> [PersonaTone] {
-        // Implemented by P2.
-        []
+        Array(fired(asOf: date).compactMap(\.tone).prefix(max(0, limit)))
     }
 
     /// Drops projected sent traces still pending at `now` (their requests are being replaced; immediate and folded
@@ -108,17 +110,46 @@ struct PersonaTraceState: Codable, Equatable {
     /// sent outcomes go to `sent`, suppressed outcomes to `suppressed` (replacing an older entry with the same
     /// observation key). Trims both lists to the policy limits, keeping every pending sent trace.
     mutating func replacePending(with traces: [PersonaDecisionTrace], now: Date, policy: PersonaPolicy = .standard) {
-        // Implemented by P2.
+        sent.removeAll { $0.isProjected && $0.isPending(asOf: now) }
+        for trace in traces {
+            switch trace.outcome {
+            case .sent:
+                sent.append(trace)
+            case .suppressed:
+                suppressed.removeAll { $0.observation.key.string == trace.observation.key.string }
+                suppressed.insert(trace, at: 0)
+            }
+        }
+
+        sent.sort(by: Self.newestFirst)
+        let pending = sent.filter { $0.isPending(asOf: now) }
+        let fired = Array(sent.filter { $0.isFired(asOf: now) }.prefix(max(0, policy.sentTraceLimit)))
+        sent = pending + fired
+
+        suppressed.sort { lhs, rhs in
+            if lhs.decidedAt != rhs.decidedAt { return lhs.decidedAt > rhs.decidedAt }
+            return lhs.id.uuidString > rhs.id.uuidString
+        }
+        suppressed = Array(suppressed.prefix(max(0, policy.suppressedTraceLimit)))
     }
 
     /// Adds an engagement event, newest first, trimmed to the policy limit.
     mutating func record(_ event: PersonaEngagementEvent, policy: PersonaPolicy = .standard) {
-        // Implemented by P2.
+        engagement.insert(event, at: 0)
+        engagement = Array(engagement.prefix(max(0, policy.engagementLimit)))
     }
 
     /// Forgets everything (Reset Persona).
     mutating func reset() {
         self = .empty
+    }
+
+    private static func newestFirst(_ lhs: PersonaDecisionTrace, _ rhs: PersonaDecisionTrace) -> Bool {
+        let leftDate = lhs.fireDate ?? .distantPast
+        let rightDate = rhs.fireDate ?? .distantPast
+        if leftDate != rightDate { return leftDate > rightDate }
+        if lhs.decidedAt != rhs.decidedAt { return lhs.decidedAt > rhs.decidedAt }
+        return lhs.id.uuidString > rhs.id.uuidString
     }
 }
 
@@ -150,7 +181,36 @@ struct FixedQuietHours: QuietHoursProviding, Equatable {
     var summary: String { String(format: "%02d:00–%02d:00", startHour, endHour) }
 
     func quietInterval(containing date: Date, calendar: Calendar) -> DateInterval? {
-        // Implemented by P2.
-        nil
+        guard startHour != endHour,
+              (0...23).contains(startHour),
+              (0...23).contains(endHour) else { return nil }
+
+        let today = calendar.startOfDay(for: date)
+        let hour = calendar.component(.hour, from: date)
+        let intervalDays: (start: Int, end: Int)?
+        if startHour < endHour {
+            intervalDays = (hour >= startHour && hour < endHour) ? (0, 0) : nil
+        } else if hour >= startHour {
+            intervalDays = (0, 1)
+        } else if hour < endHour {
+            intervalDays = (-1, 0)
+        } else {
+            intervalDays = nil
+        }
+        guard let intervalDays,
+              let startDay = calendar.date(byAdding: .day, value: intervalDays.start, to: today),
+              let endDay = calendar.date(byAdding: .day, value: intervalDays.end, to: today),
+              let start = Self.date(on: startDay, hour: startHour, calendar: calendar),
+              let end = Self.date(on: endDay, hour: endHour, calendar: calendar),
+              start <= date, date < end else { return nil }
+        return DateInterval(start: start, end: end)
+    }
+
+    private static func date(on day: Date, hour: Int, calendar: Calendar) -> Date? {
+        var components = calendar.dateComponents([.year, .month, .day], from: day)
+        components.hour = hour
+        components.minute = 0
+        components.second = 0
+        return calendar.date(from: components)
     }
 }
