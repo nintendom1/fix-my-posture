@@ -377,6 +377,7 @@
 		A10000012B00000000000387 /* ReadyGhostInvariantTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000387 /* ReadyGhostInvariantTests.swift */; };
 		A10000012B00000000000388 /* ReadyPoseFixtures.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000388 /* ReadyPoseFixtures.swift */; };
 		A10000012B00000000000389 /* WorkoutCoachHarness.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000389 /* WorkoutCoachHarness.swift */; };
+		A10000012B00000000000390 /* WorkoutGhostGeometryTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000390 /* WorkoutGhostGeometryTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -762,6 +763,7 @@
 		B10000012B00000000000387 /* ReadyGhostInvariantTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadyGhostInvariantTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000388 /* ReadyPoseFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadyPoseFixtures.swift; sourceTree = "<group>"; };
 		B10000012B00000000000389 /* WorkoutCoachHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCoachHarness.swift; sourceTree = "<group>"; };
+		B10000012B00000000000390 /* WorkoutGhostGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutGhostGeometryTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1007,6 +1009,7 @@
 				B10000012B00000000000382 /* PersonaToneSelectorTests.swift */,
 				B10000012B00000000000383 /* PersonaTraceStoreTests.swift */,
 				B10000012B00000000000387 /* ReadyGhostInvariantTests.swift */,
+				B10000012B00000000000390 /* WorkoutGhostGeometryTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -2099,6 +2102,7 @@
 				A10000012B00000000000387 /* ReadyGhostInvariantTests.swift in TestSources */,
 				A10000012B00000000000388 /* ReadyPoseFixtures.swift in TestSources */,
 				A10000012B00000000000389 /* WorkoutCoachHarness.swift in TestSources */,
+				A10000012B00000000000390 /* WorkoutGhostGeometryTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
