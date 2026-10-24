@@ -63,6 +63,81 @@ final class WorkoutFramePipelineTests: XCTestCase {
         XCTAssertFalse(events.contains { if case .repCompleted = $0 { true } else { false } })
     }
 
+    func testTricepsMetricsUseUpperArmFallbackWithoutHipOrWrist() throws {
+        let shoulder = CGPoint(x: 400, y: 300)
+        let elbow = CGPoint(x: 400, y: 420)
+        var pipeline = WorkoutFramePipeline(exercise: TricepsExtensionExercise.definition())
+
+        // Read the first frame so no smoothing has been applied yet.
+        let output = pipeline.process(frame: measurementFrame([.leftShoulder: shoulder,
+                                                                .leftElbow: elbow], at: 0), at: 0)
+        let metrics = try XCTUnwrap(output.guideMetrics)
+        let upperArmLength = ArmGeometry.distance(shoulder, elbow)
+
+        XCTAssertEqual(GuideMetrics.forearmToUpperArm,
+                       GuideMetrics.forearmToTorso / GuideMetrics.upperArmToTorso, accuracy: 0.01)
+        XCTAssertEqual(metrics.upperArm, upperArmLength, accuracy: 0.01)
+        XCTAssertEqual(metrics.forearm, upperArmLength * GuideMetrics.forearmToUpperArm, accuracy: 0.01)
+    }
+
+    func testRowMetricsUseMeasuredArmWhenHipIsOutOfFrame() throws {
+        let shoulder = CGPoint(x: 320, y: 260)
+        let elbow = CGPoint(x: 400, y: 340)
+        let wrist = CGPoint(x: 460, y: 430)
+        var pipeline = WorkoutFramePipeline(exercise: DumbbellRowExercise.definition())
+
+        // Read the first frame so no smoothing has been applied yet.
+        let output = pipeline.process(frame: measurementFrame([.leftShoulder: shoulder,
+                                                                .leftElbow: elbow,
+                                                                .leftWrist: wrist], at: 0), at: 0)
+        let metrics = try XCTUnwrap(output.guideMetrics)
+
+        XCTAssertEqual(metrics.upperArm, ArmGeometry.distance(shoulder, elbow), accuracy: 0.01)
+        XCTAssertEqual(metrics.forearm, ArmGeometry.distance(elbow, wrist), accuracy: 0.01)
+    }
+
+    func testRowMetricsKeepTorsoReferenceWhenHipIsVisible() throws {
+        let shoulder = CGPoint(x: 320, y: 260)
+        let hip = CGPoint(x: 320, y: 460)
+        let elbow = CGPoint(x: 390, y: 300)
+        let wrist = CGPoint(x: 450, y: 380)
+        var pipeline = WorkoutFramePipeline(exercise: DumbbellRowExercise.definition())
+
+        // Read the first frame so no smoothing has been applied yet.
+        let output = pipeline.process(frame: measurementFrame([.leftShoulder: shoulder,
+                                                                .leftHip: hip,
+                                                                .leftElbow: elbow,
+                                                                .leftWrist: wrist], at: 0), at: 0)
+        let metrics = try XCTUnwrap(output.guideMetrics)
+        let torsoLength = ArmGeometry.distance(shoulder, hip)
+        let upperArmLength = ArmGeometry.distance(shoulder, elbow)
+        let forearmLength = ArmGeometry.distance(elbow, wrist)
+        let expectedUpperArm = GuideMetrics.plausibleTorsoRatio.contains(upperArmLength / torsoLength)
+            ? upperArmLength : torsoLength * GuideMetrics.upperArmToTorso
+        let expectedForearm = GuideMetrics.plausibleTorsoRatio.contains(forearmLength / torsoLength)
+            ? forearmLength : torsoLength * GuideMetrics.forearmToTorso
+
+        XCTAssertEqual(metrics.upperArm, expectedUpperArm, accuracy: 0.01)
+        XCTAssertEqual(metrics.forearm, expectedForearm, accuracy: 0.01)
+    }
+
+    func testRowMetricsUseTypicalForearmWhenMeasuredForearmIsImplausible() throws {
+        let shoulder = CGPoint(x: 320, y: 260)
+        let elbow = CGPoint(x: 420, y: 260)
+        let wrist = CGPoint(x: 420, y: 460)
+        var pipeline = WorkoutFramePipeline(exercise: DumbbellRowExercise.definition())
+
+        // Read the first frame so no smoothing has been applied yet.
+        let output = pipeline.process(frame: measurementFrame([.leftShoulder: shoulder,
+                                                                .leftElbow: elbow,
+                                                                .leftWrist: wrist], at: 0), at: 0)
+        let metrics = try XCTUnwrap(output.guideMetrics)
+        let upperArmLength = ArmGeometry.distance(shoulder, elbow)
+
+        XCTAssertEqual(metrics.upperArm, upperArmLength, accuracy: 0.01)
+        XCTAssertEqual(metrics.forearm, upperArmLength * GuideMetrics.forearmToUpperArm, accuracy: 0.01)
+    }
+
     func testNoPoseClearsOverlayAndReportsFramingLost() {
         let exercise = ShoulderPressExercise.definition()
         var pipeline = WorkoutFramePipeline(exercise: exercise)
@@ -131,6 +206,19 @@ final class WorkoutFramePipelineTests: XCTestCase {
                                     pixel: pixel, imageWidth: width, imageHeight: height),
                                    imageLocation: pixel,
                                    confidence: 0.9))
+        })
+        return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: width, imageHeight: height), timestamp: time)
+    }
+
+    private func measurementFrame(_ points: [LandmarkType: CGPoint], at time: TimeInterval) -> PoseFrame {
+        let width: CGFloat = 1080
+        let height: CGFloat = 1920
+        let landmarks = Dictionary(uniqueKeysWithValues: points.map { type, pixel in
+            (type, Landmark(type: type,
+                            normalizedLocation: CoordinateConverter.imagePixelToNormalized(
+                                pixel: pixel, imageWidth: width, imageHeight: height),
+                            imageLocation: pixel,
+                            confidence: 0.9))
         })
         return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: width, imageHeight: height), timestamp: time)
     }

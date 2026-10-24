@@ -15,5 +15,9 @@ struct GuideMetrics: Equatable {
     static let upperArmToTorso: CGFloat = 0.53
     static let forearmToTorso: CGFloat = 0.47
     static let plausibleTorsoRatio: ClosedRange<CGFloat> = 0.3...0.9
+    /// Typical forearm length as a fraction of upper-arm length when no forearm is visible.
+    static let forearmToUpperArm: CGFloat = forearmToTorso / upperArmToTorso
+    /// Measured forearms outside this upper-arm-relative range are treated as noise.
+    static let plausibleUpperArmRatio: ClosedRange<CGFloat> = 0.6...1.4
     static let smoothing: CGFloat = 0.25
 }

@@ -222,7 +222,7 @@ struct WorkoutFramePipeline {
                                     forearm: previous.forearm + (sample.forearm - previous.forearm) * k)
     }
 
-    /// Shoulder width is the frontal reference; shoulder-to-hip torso length is the side-view reference.
+    /// Shoulder width is the frontal reference. Side views prefer torso length and fall back to a visible upper arm.
     private func metricsReference(_ frame: PoseFrame, confidence: Double, cameraView: ExerciseCameraView)
         -> (length: CGFloat, upperArm: CGFloat, forearm: CGFloat, plausible: ClosedRange<CGFloat>)? {
         if cameraView == .side {
@@ -235,7 +235,14 @@ struct WorkoutFramePipeline {
                             GuideMetrics.plausibleTorsoRatio)
                 }
             }
-            return nil
+            let upperArms = BodySide.allCases.compactMap { side -> CGFloat? in
+                guard let shoulder = frame.point(side.shoulder, minimumConfidence: confidence),
+                      let elbow = frame.point(side.elbow, minimumConfidence: confidence) else { return nil }
+                let length = ArmGeometry.distance(shoulder, elbow)
+                return length > 1 ? length : nil
+            }
+            guard let upperArm = upperArms.max() else { return nil }
+            return (upperArm, 1, GuideMetrics.forearmToUpperArm, GuideMetrics.plausibleUpperArmRatio)
         }
         guard let left = frame.point(.leftShoulder, minimumConfidence: confidence),
               let right = frame.point(.rightShoulder, minimumConfidence: confidence) else { return nil }
