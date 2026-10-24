@@ -39,7 +39,7 @@ The guide and the live overlay share one description of the movement. `ExerciseG
 
 - **First-time guide.** The guide sheet opens automatically the first time each exercise is shown, and before the camera starts, so the permission prompt never covers it. An animated front-view figure with two dumbbells (drawn with the posture `AlignmentReferenceOverlayView` silhouette) loops start → press → lower, and the matching step is highlighted. **Start Workout** (or swiping the sheet down) goes straight to setup. **Read Aloud** speaks the steps through `SpeechCoach`, so other audio is ducked and restored. With Reduce Motion, the start and top positions are shown side by side. The guide is remembered per exercise (`workoutCoach.guideSeen.<id>`), so returning users skip it.
 - **On demand.** **Exercise guide** in the camera edge toolbar reopens the guide. Like realtime Details, it stops capture while open. An active set pauses, and stays paused after **Back to Workout**.
-- **Ghost demo.** While ready, translucent violet ghost arms with dumbbells loop the same motion. They're anchored to the user's smoothed shoulder dots and scaled to their smoothed, measured arm segments (typical proportions are used until measured). Leg ghosts are sized from your own hips, knees, and ankles and need no arm measurements. From the side, arms are sized against shoulder-to-hip torso length, or against the visible upper arm when the hip is out of view. The status line reads "Hold the dumbbells just above your shoulders to begin". Every exercise must show its alignment ghost whenever the workout reaches `.ready`; `WorkoutGhostGeometry` alone decides what the ghost draws. Ghost sizing uses joints Ready guarantees (`requiredJoints` plus any one `anyOfRequiredJoints` set) or a fallback, and optional landmarks may refine sizing but must never suppress the ghost.
+- **Ghost demo.** The full translucent violet guide figure loops throughout setup: while getting into position, at Ready, and during rest. During a Saved Set, the rest before the next exercise previews that exercise. Before anyone is in view, it loops at the ideal spot framing wants, even before the first camera frame. After about 0.6 s of steady tracking, it glides onto the user: the head and torso fit around the body, and the moving limbs match the user's measured arms or legs exactly, with dumbbells when the guide holds them. After about 1 s without the needed tracking, it glides back to the ideal spot. The glide takes 0.4 s. With Reduce Motion, the top and start poses are shown still with no glide. `WorkoutGhostGeometry` decides the figure; `GhostCalibration` decides when it fits. The status line reads "Hold the dumbbells just above your shoulders to begin". Every exercise must show the ideal figure throughout setup, and every pose that can reach `.ready` must calibrate. Ghost sizing uses joints Ready guarantees (`requiredJoints` plus any one `anyOfRequiredJoints` set) or a fallback, and optional landmarks may refine sizing but must never suppress the ghost.
 - **Auto-start.** While ready, holding the start position (both arms confirmed at the bottom) for 1 s begins the set with "Set 1 of 2. Go." After a rest, this works only once the rest timer has ended. Saying "start" or tapping Start always works.
 - **Hold ring.** While a hold is being timed, a ring labeled "Hold" fills over the second (`WorkoutSession.startHoldProgress`). It floats beside the body at chest height, just outside the widest visible joint on whichever side has more room, and is separate from the HUD. Letting go hides it. The set starts on the frame where the ring fills.
 - **Threshold lines.** During a set, each arm gets a short **Start ↓** and **Top ↑** segment, drawn from the analyzer's own per-arm thresholds, so the user sees exactly what counts. A rep begins and ends at Start and turns around at Top. The checkpoint an arm is heading toward is bright and dashed, the other is dim, and a segment turns solid once that arm reaches it (cyan for Start, green for Top). The heights are locked at the start position for each rep (see the rep rule), so the segments hold still while you press.
@@ -279,7 +279,7 @@ The tip is measured on one line (up to 320 pt) and as a compact, wrapped tip (up
 
 ## Overlay and HUD
 
-- The ghost demo (ready) and threshold lines (during a set) are drawn beneath the joints. See [Guidance](#guidance).
+- The ghost figure shows during setup, including rest, and threshold lines show during a set. Both are drawn beneath the joints. See [Guidance](#guidance).
 - The overlay draws only the focus segments (each shoulder→elbow→wrist chain plus thin shoulder and hip lines) and their joints. Joints are cyan when tracked, green while that arm holds the counted top position, and amber while a form tip refers to them. Joints missing for up to 0.3 s turn muted gray, then disappear. The overlay never uses red.
 - The camera HUD keeps its state-colored instruction pill and edge glow above the preview, with the title, plan subtitle, speaker and microphone toggles in the top row. Rep count, primary action, progress, set summary, and next line stay at the bottom; five controls sit in the right-edge toolbar. Long-press **Next set** in a Saved Set for **Skip to Next Exercise**. Long-press the microphone for Voice Commands and mic mute controls. The HUD regions publish their frames (`WorkoutHUDRects`), and form tips keep clear of them.
 - The idle timer is disabled while the screen is open.
@@ -325,8 +325,8 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
 
 `./scripts/validate.sh` runs these alongside the existing suite. They use pure types only, with no camera, speech, or motion hardware.
 
-- `ReadyGhostInvariantTests` start each catalog exercise from its guide position with every joint and with only the joints framing requires (plus any third landmark framing needs to see a body). Each pose must reach Ready and draw ghost geometry for every guide keyframe; no known gaps remain.
-- `WorkoutFramePipelineTests` check side-view sizing from a visible upper arm when the hip is out of view and preserve torso-based sizing when the hip is visible. `WorkoutGhostGeometryTests` check leg sizing without arm metrics and arm/floor metric requirements.
+- `ReadyGhostInvariantTests` check that every catalog exercise shows an ideal figure before anyone is in view, and that every Ready-valid pose calibrates on every Ready frame for every guide keyframe. `GhostCalibrationTests` check when the ghost can fit and the 0.6 s / 1.0 s steadiness gate; `WorkoutFramePipelineTests` and `WorkoutVisualStateTests` check dropouts, resets, and the phases that show the ghost.
+- `WorkoutFramePipelineTests` check side-view sizing from a visible upper arm when the hip is out of view and preserve torso-based sizing when the hip is visible. `WorkoutGhostGeometryTests` check ideal placement and mirroring, calibration agreement and exact limbs, body anchors, interpolation, glide timing, and the existing arm, floor, and leg geometry.
 - `ShoulderPressAnalyzerTests` sample the guide's own demonstration (`ExerciseDemoFigureView.pose` driven by `ArmMotion`) at 10 Hz:
   - one rep per loop;
   - identical readings, including form readings, at ½× and 2× scale;
@@ -374,7 +374,7 @@ Every new exercise ships with full guidance, even when the request only names it
 
 1. One folder under `Workout/Exercises` (definition, configuration, analyzer) and one line in `ExerciseCatalog`.
 2. Guide: steps, the Read Aloud walkthrough, the start-position instruction, and `ArmMotion` keyframes whose first keyframe is the start position. These drive the guide sheet, the first-time display, the ghost, and the hold ring.
-3. Ready-state ghost: a pose with only the joints framing requires must reach Ready and still produce ghost geometry for every guide keyframe (`ReadyGhostInvariantTests` checks every catalog exercise). Don't tighten framing to make the ghost render; add a sizing fallback in `WorkoutFramePipeline.metricsReference` or `WorkoutGhostGeometry` instead.
+3. Setup ghost: the ideal figure always shows, and any pose with only the joints framing requires that can reach Ready must calibrate the figure for every guide keyframe (`ReadyGhostInvariantTests` checks every catalog exercise). Don't tighten framing or add `requiredJoints`/`anyOfRequiredJoints` just for the ghost; add a sizing fallback in `WorkoutFramePipeline.metricsReference` or `WorkoutGhostGeometry` instead.
 4. Threshold lines that match the movement's direction. Don't assume "top" means higher wrists.
 5. Validate the thresholds by running the guide's own demonstration through the analyzer. Expect exactly one rep per loop at any scale and proportions, with a scale-invariant ruler such as arm length. Report any deviation from the planned thresholds.
 6. Coaching: corrective cues with stable `CoachingCueID`s, priorities, and emphasized joints; visual-only reminders; and a `MotionEnvelope`. The demonstration should raise no cues.
@@ -397,7 +397,10 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
 
 - [ ] **1.** On a fresh install (deleting the app resets the guide), opening the coach shows the guide before any permission prompt. Read Aloud lowers your music and then restores it. Start Workout leads to the camera. Reopening the coach skips the guide. The ⓘ title reopens it, and doing so mid-set pauses the set.
 - [ ] **2.** Grant camera access and follow the framing guidance. Verify the headroom prompt when standing too close, and the left/right prompts.
-- [ ] **3.** For every exercise, the alignment ghost appears as soon as the status reads "Get in position" and lines up with you, including when you stand as close as framing allows. For shoulder press, holding the dumbbells just above your shoulders shows the Hold ring beside you, filling over about 1 s, and then starts the set. Letting go early hides the ring. During rest it never starts before the timer ends.
+- [ ] **3.** For every exercise, the ghost figure loops at the ideal spot as soon as the coach opens, before you're in view, and nothing starts. About 0.6 s after you're in view it glides onto you, with your arms or legs exact and the body around them. About 1 s after you step out, it glides back. Hold-to-start from Ready works as before. For shoulder press, holding the dumbbells just above your shoulders shows the Hold ring beside you, filling over about 1 s, and then starts the set. Letting go early hides the ring. During rest it never starts before the timer ends.
+  - [ ] During rest, the ghost figure stays visible; in a Saved Set, the rest before the next exercise previews that exercise.
+  - [ ] With Reduce Motion, the ghost shows two still poses and no glide.
+  - [ ] The posture assessment's reference overlay looks unchanged.
 - [ ] **4.** Turn on Show Measurements. At the start position, each arm should read below 0.6 and 115° (↓). At the top, above 0.8 and 140° (↑). Do the same press close to the phone and far from it: the readings should be about the same. Each arm's Start segment turns solid at the start, and its Top segment turns solid green only once the wrist passes it with the arm nearly straight. The segments shouldn't drift while you press.
 - [ ] **5.** Lean the phone back more than 15°: after about a second, the tilt warning appears and is spoken. Stand it upright and the warning clears.
 - [ ] **6.** Do 10 presses and check that the count is exactly 10, with no double counts when pausing near either threshold. A half press must not count, and neither must a rep finished after stepping out of view mid-rep.
@@ -459,8 +462,8 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Ending mid-set with the stop button still asks for confirmation and shows the summary.
 - [ ] **31.** Band triceps extension, side-on:
     - Stand side-on with the band under your feet. Framing asks you to stand side-on until one arm is in view.
-    - The ghost arm appears on your nearer shoulder, facing your way, with no dumbbells.
-    - Stand close with your hips out of frame and your hands behind your head: the ghost arm still appears.
+    - The ghost figure appears on your nearer shoulder, facing your way, with no dumbbells.
+    - Stand close with your hips out of frame and your hands behind your head: the ghost figure still appears.
     - Holding your hands behind your head fills the Hold ring. Ten extensions count exactly 10.
     - Turn to face the other way between sets: tracking follows the nearer arm.
     - Folding your hands fully behind your head (where the camera can't see them) still counts. The coach doesn't say it can't see you, and the next rep starts.
@@ -468,21 +471,21 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Letting the elbows drift forward gets "Keep your elbows pointing up."
 - [ ] **32.** Air squats:
     - Step back until framing stops asking to see your whole body. Standing still doesn't start the set; the status says to say "start".
-    - The ghost legs show how low to go.
-    - Lower the phone until your head and shoulders are cropped: the ghost legs still appear.
+    - The ghost figure shows how low to go.
+    - Lower the phone until your head and shoulders are cropped: the ghost figure still appears.
     - Fifteen squats to thighs-level count exactly 15, and half squats don't count ("Squat a little deeper.").
     - Squatting again from halfway gets "Stand all the way up."
     - Letting the knees cave in gets "Keep your knees in line with your toes."
 - [ ] **33.** One-arm row:
     - Stand side-on with your left arm nearer the phone, bent forward with a hand on a bench. Holding the dumbbell straight down fills the Hold ring and starts "Set 1 of 2 · Left arm".
-    - Keep your hip out of frame: the ghost arm still appears.
+    - Keep your hip out of frame: the ghost figure still appears.
     - Row 8–10; at 10 (or "next set") the coach says to switch to your right arm, with no rest timer.
     - Turn around; the ghost turns with you, and the right arm's set starts the same way. After both arms, rest starts.
     - Half pulls get "Pull your elbow up past your back."
     - The summary and completion card list "Set 1 L", "Set 1 R", and so on.
 - [ ] **34.** Push-ups:
     - Lay the phone on the floor a step in front of your hands, propped to lean back, and get into a plank facing it. No tilt warning appears.
-    - The ghost arms rise from your hands. Holding the plank fills the Hold ring.
+    - The ghost figure rises from your hands. Holding the plank fills the Hold ring.
     - Ten push-ups to the Down line count exactly 10. Shallow ones get "Go a little lower."
     - Dropping fast gets "Lower with control."
 - [ ] **35.** Saved Sets:

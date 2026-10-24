@@ -1,79 +1,122 @@
 import SwiftUI
 
-/// Ghost arms that loop the guide's motion over the user's own body before the set starts, fitted to
-/// their shoulders and arm lengths. Aspect-fit scaling is uniform, so angles computed in container
-/// points stay correct.
+/// The guide's full figure, shown at its ideal position until it can be fitted to the user's body.
 struct WorkoutGhostOverlayView: View {
-    let overlay: WorkoutOverlayState
+    let liveOverlay: WorkoutOverlayState?
+    let fitOverlay: WorkoutOverlayState?
     let metrics: GuideMetrics?
     let motion: ArmMotion
     var cameraView: ExerciseCameraView = .front
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var glideStart: Date?
+    @State private var lastFit: WorkoutOverlayState?
 
     static let ghostColor = Color(red: 0.76, green: 0.59, blue: 1)
 
     var body: some View {
         TimelineView(.animation(minimumInterval: nil, paused: reduceMotion)) { timeline in
-            Canvas { context, size in
-                draw(in: context, size: size, time: timeline.date.timeIntervalSinceReferenceDate)
+            GeometryReader { geometry in
+                let size = geometry.size
+                let now = timeline.date.timeIntervalSinceReferenceDate
+                ZStack {
+                    if reduceMotion {
+                        figureLayer(angles: motion.topAngles, legs: motion.topLegs,
+                                    size: size, now: now, opacity: 0.3)
+                        figureLayer(angles: motion.startAngles, legs: motion.startLegs,
+                                    size: size, now: now, opacity: 0.6)
+                    } else {
+                        let sample = motion.sample(at: now)
+                        figureLayer(angles: sample.angles, legs: sample.legs,
+                                    size: size, now: now, opacity: 0.6)
+                    }
+                }
+                .frame(width: size.width, height: size.height)
+            }
+        }
+        .onChange(of: fitOverlay != nil) { oldValue, newValue in
+            if oldValue != newValue {
+                glideStart = Date()
+            }
+        }
+        .onChange(of: fitOverlay, initial: true) { _, newValue in
+            if let newValue {
+                lastFit = newValue
             }
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
 
-    private func draw(in context: GraphicsContext, size: CGSize, time: TimeInterval) {
-        let imageSize = overlay.imageSize
-        guard imageSize.width > 0, imageSize.height > 0 else { return }
-        let fit = CoordinateConverter.aspectFitRect(for: imageSize, in: size)
-        guard fit.width > 0 else { return }
+    @ViewBuilder
+    private func figureLayer(angles: ArmAngles, legs: LegPose, size: CGSize,
+                             now: TimeInterval, opacity: Double) -> some View {
+        let figure = figure(angles: angles, legs: legs, size: size, now: now)
+        let imageSize = liveOverlay?.imageSize ?? fitOverlay?.imageSize ?? WorkoutGhostGeometry.defaultImageSize
+        if !figure.isEmpty, imageSize.width > 0, imageSize.height > 0 {
+            let fit = CoordinateConverter.aspectFitRect(for: imageSize, in: size)
+            ZStack {
+                AlignmentReferenceOverlayView(
+                    referencePose: ReferencePose(jointLocations: imagePixelJoints(figure.joints,
+                                                                                   imageSize: imageSize,
+                                                                                   fit: fit)),
+                    imageSize: imageSize,
+                    containerSize: size,
+                    style: .silhouette,
+                    strokeColor: Self.ghostColor,
+                    fillColor: Self.ghostColor.opacity(0.5),
+                    proportionWidth: ExerciseDemoFigureView.canvasSize.width * figure.bodyScale
+                )
+                .opacity(opacity)
 
-        var context = context
-        context.clip(to: Path(fit))
-        if reduceMotion {
-            draw(geometry(for: motion.topAngles, legs: motion.topLegs, size: size),
-                 in: context, opacity: 0.3)
-            draw(geometry(for: motion.startAngles, legs: motion.startLegs, size: size),
-                 in: context, opacity: 0.6)
-        } else {
-            let sample = motion.sample(at: time)
-            draw(geometry(for: sample.angles, legs: sample.legs, size: size), in: context, opacity: 0.6)
+                Canvas { context, _ in
+                    guard fit.width > 0, fit.height > 0 else { return }
+                    var clipped = context
+                    clipped.clip(to: Path(fit))
+                    for dumbbell in figure.dumbbells {
+                        DumbbellDrawing.draw(in: clipped,
+                                             elbow: dumbbell.elbow,
+                                             wrist: dumbbell.wrist,
+                                             forearmLength: figure.forearmLength)
+                    }
+                }
+                .opacity(opacity + 0.2)
+            }
         }
     }
 
-    private func geometry(for angles: ArmAngles, legs: LegPose, size: CGSize) -> WorkoutGhostGeometry {
-        WorkoutGhostGeometry.make(overlay: overlay, metrics: metrics, motion: motion, cameraView: cameraView,
-                                  containerSize: size, angles: angles, legs: legs)
+    private func figure(angles: ArmAngles, legs: LegPose, size: CGSize, now: TimeInterval)
+        -> WorkoutGhostGeometry.Figure {
+        let ideal = WorkoutGhostGeometry.ideal(overlay: liveOverlay, motion: motion, cameraView: cameraView,
+                                               containerSize: size, angles: angles, legs: legs)
+        let progress = WorkoutGhostGeometry.glideProgress(
+            since: glideStart?.timeIntervalSinceReferenceDate,
+            now: now,
+            reduceMotion: reduceMotion
+        )
+        if let fitOverlay {
+            guard let calibrated = WorkoutGhostGeometry.calibrated(fitOverlay: fitOverlay, metrics: metrics,
+                                                                   motion: motion, cameraView: cameraView,
+                                                                   containerSize: size, angles: angles, legs: legs) else {
+                return ideal
+            }
+            return WorkoutGhostGeometry.blended(from: ideal, to: calibrated, progress: progress)
+        }
+        if progress < 1, let lastFit,
+           let calibrated = WorkoutGhostGeometry.calibrated(fitOverlay: lastFit, metrics: metrics,
+                                                            motion: motion, cameraView: cameraView,
+                                                            containerSize: size, angles: angles, legs: legs) {
+            return WorkoutGhostGeometry.blended(from: calibrated, to: ideal, progress: progress)
+        }
+        return ideal
     }
 
-    private func draw(_ geometry: WorkoutGhostGeometry, in context: GraphicsContext, opacity: Double) {
-        for limb in geometry.limbs {
-            guard let first = limb.points.first else { continue }
-            var path = Path()
-            path.move(to: first)
-            for point in limb.points.dropFirst() {
-                path.addLine(to: point)
-            }
-            context.stroke(path, with: .color(Self.ghostColor.opacity(opacity)),
-                           style: StrokeStyle(lineWidth: limb.lineWidth, lineCap: .round, lineJoin: .round))
-
-            if limb.holdsDumbbell, limb.points.count >= 3 {
-                var dumbbell = context
-                dumbbell.opacity = opacity + 0.2
-                DumbbellDrawing.draw(in: dumbbell, elbow: limb.points[1], wrist: limb.points[2],
-                                     forearmLength: geometry.forearmLength)
-            }
-        }
-
-        if let connector = geometry.connector, let first = connector.points.first {
-            var path = Path()
-            path.move(to: first)
-            for point in connector.points.dropFirst() {
-                path.addLine(to: point)
-            }
-            context.stroke(path, with: .color(Self.ghostColor.opacity(opacity)),
-                           style: StrokeStyle(lineWidth: connector.lineWidth, lineCap: .round))
+    private func imagePixelJoints(_ joints: [LandmarkType: CGPoint], imageSize: CGSize,
+                                  fit: CGRect) -> [LandmarkType: CGPoint] {
+        guard fit.width > 0, fit.height > 0 else { return [:] }
+        return joints.mapValues { point in
+            CGPoint(x: (point.x - fit.minX) * imageSize.width / fit.width,
+                    y: (point.y - fit.minY) * imageSize.height / fit.height)
         }
     }
 }

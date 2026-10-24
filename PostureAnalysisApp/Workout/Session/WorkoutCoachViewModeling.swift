@@ -43,6 +43,7 @@ enum WorkoutCameraStatus: Equatable {
 protocol WorkoutCoachViewModeling: AnyObject, Observable {
     var hud: WorkoutHUDViewState { get }
     var overlay: WorkoutOverlayState? { get }
+    var ghostFitOverlay: WorkoutOverlayState? { get }
     var guideMetrics: GuideMetrics? { get }
     var cameraStatus: WorkoutCameraStatus { get }
     var micStatus: VoiceStatus { get }

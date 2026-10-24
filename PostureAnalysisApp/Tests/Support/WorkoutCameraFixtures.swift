@@ -147,7 +147,8 @@ private struct WorkoutCameraDesignFixture: View {
                 CameraPreviewPattern().ignoresSafeArea()
 
                 if state.visual.overlay == .ghostDemo {
-                    WorkoutGhostOverlayView(overlay: overlay,
+                    WorkoutGhostOverlayView(liveOverlay: overlay,
+                                            fitOverlay: overlay,
                                             metrics: metrics,
                                             motion: exercise.guide.motion,
                                             cameraView: exercise.cameraView)

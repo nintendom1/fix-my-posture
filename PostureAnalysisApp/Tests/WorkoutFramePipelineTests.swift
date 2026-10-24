@@ -154,6 +154,55 @@ final class WorkoutFramePipelineTests: XCTestCase {
         })
     }
 
+    func testGhostFitOverlayCalibratesAndSurvivesBriefDropout() throws {
+        let exercise = ShoulderPressExercise.definition()
+        var pipeline = WorkoutFramePipeline(exercise: exercise)
+
+        for index in 0...6 {
+            let time = Double(index) / 10
+            let output = pipeline.process(frame: frame(motion: exercise.guide.motion, at: time), at: time)
+            if index < 6 {
+                XCTAssertNil(output.ghostFitOverlay)
+            } else {
+                XCTAssertNotNil(output.ghostFitOverlay)
+            }
+        }
+
+        let lastAvailable = try XCTUnwrap(pipeline.ghostFitOverlay)
+        for index in 7...11 {
+            let time = Double(index) / 10
+            let output = pipeline.process(frame: emptyFrame(at: time), at: time)
+            XCTAssertNil(output.overlay)
+            XCTAssertEqual(output.ghostFitOverlay, lastAvailable)
+        }
+
+        for index in 12...15 {
+            let time = Double(index) / 10
+            XCTAssertEqual(pipeline.process(frame: emptyFrame(at: time), at: time).ghostFitOverlay, lastAvailable)
+        }
+        XCTAssertNil(pipeline.process(frame: emptyFrame(at: 1.6), at: 1.6).ghostFitOverlay)
+    }
+
+    func testResetTrackingClearsGhostFitOverlay() {
+        let exercise = ShoulderPressExercise.definition()
+        var pipeline = calibratedPipeline(for: exercise)
+        XCTAssertNotNil(pipeline.ghostFitOverlay)
+
+        _ = pipeline.resetTracking()
+
+        XCTAssertNil(pipeline.ghostFitOverlay)
+    }
+
+    func testChangingExerciseClearsGhostFitOverlay() {
+        let exercise = ShoulderPressExercise.definition()
+        var pipeline = calibratedPipeline(for: exercise)
+        XCTAssertNotNil(pipeline.ghostFitOverlay)
+
+        pipeline.exerciseChanged(to: HammerCurlExercise.definition(), analyzerEpoch: 2)
+
+        XCTAssertNil(pipeline.ghostFitOverlay)
+    }
+
     func testFramingReliabilityChangesAnalyzerCountingOnThatFrame() {
         let exercise = ShoulderPressExercise.definition()
         var pipeline = WorkoutFramePipeline(exercise: exercise, analyzerEpoch: 1, isCounting: true)
@@ -193,6 +242,15 @@ final class WorkoutFramePipelineTests: XCTestCase {
         return (events, session.repCount)
     }
 
+    private func calibratedPipeline(for exercise: ExerciseDefinition) -> WorkoutFramePipeline {
+        var pipeline = WorkoutFramePipeline(exercise: exercise)
+        for index in 0...6 {
+            let time = Double(index) / 10
+            _ = pipeline.process(frame: frame(motion: exercise.guide.motion, at: time), at: time)
+        }
+        return pipeline
+    }
+
     private func frame(motion: ArmMotion, at time: TimeInterval, scale: CGFloat = 1) -> PoseFrame {
         let sample = motion.sample(at: time)
         let reference = ExerciseDemoFigureView.pose(for: sample.angles, legs: sample.legs,
@@ -221,5 +279,9 @@ final class WorkoutFramePipelineTests: XCTestCase {
                             confidence: 0.9))
         })
         return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: width, imageHeight: height), timestamp: time)
+    }
+
+    private func emptyFrame(at time: TimeInterval) -> PoseFrame {
+        PoseFrame(pose: BodyPose(landmarks: [:], imageWidth: 1080, imageHeight: 1920), timestamp: time)
     }
 }

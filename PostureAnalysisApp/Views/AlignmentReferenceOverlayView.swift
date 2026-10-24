@@ -17,6 +17,7 @@ public struct AlignmentReferenceOverlayView: View {
     public let style: ReferenceStyle
     public var strokeColor: Color = .purple
     public var fillColor: Color = Color.purple.opacity(0.3)
+    public var proportionWidth: CGFloat? = nil
 
     public init(
         referencePose: ReferencePose,
@@ -24,7 +25,8 @@ public struct AlignmentReferenceOverlayView: View {
         containerSize: CGSize,
         style: ReferenceStyle = .combined,
         strokeColor: Color = .purple,
-        fillColor: Color = Color.purple.opacity(0.3)
+        fillColor: Color = Color.purple.opacity(0.3),
+        proportionWidth: CGFloat? = nil
     ) {
         self.referencePose = referencePose
         self.imageSize = imageSize
@@ -32,6 +34,7 @@ public struct AlignmentReferenceOverlayView: View {
         self.style = style
         self.strokeColor = strokeColor
         self.fillColor = fillColor
+        self.proportionWidth = proportionWidth
     }
 
     public var body: some View {
@@ -40,6 +43,7 @@ public struct AlignmentReferenceOverlayView: View {
 
             let fitRect = CoordinateConverter.aspectFitRect(for: imageSize, in: size)
             guard fitRect.width > 0 && fitRect.height > 0 else { return }
+            let proportion = proportionWidth ?? fitRect.width
 
             // Helper: Pixel (top-left) to Container space mapping
             func convertPixelPoint(_ pxPt: CGPoint) -> CGPoint {
@@ -80,7 +84,7 @@ public struct AlignmentReferenceOverlayView: View {
                             context.stroke(
                                 torsoPath,
                                 with: .color(fillColor),
-                                style: StrokeStyle(lineWidth: fitRect.width * 0.10, lineCap: .round)
+                                style: StrokeStyle(lineWidth: proportion * 0.10, lineCap: .round)
                             )
                             context.stroke(torsoPath, with: .color(strokeColor.opacity(0.4)), lineWidth: 1.5)
                             break
@@ -92,7 +96,7 @@ public struct AlignmentReferenceOverlayView: View {
                 let headOrigin = joints[.nose] ?? joints[.leftEar] ?? joints[.rightEar] ?? joints[.neck]
                 if let hPt = headOrigin {
                     let containerCenter = convertPixelPoint(hPt)
-                    let headRadius: CGFloat = fitRect.width * 0.05
+                    let headRadius: CGFloat = proportion * 0.05
                     let headRect = CGRect(
                         x: containerCenter.x - headRadius,
                         y: containerCenter.y - headRadius * 1.2,
@@ -116,7 +120,7 @@ public struct AlignmentReferenceOverlayView: View {
                     (.rightElbow, .rightWrist)
                 ]
 
-                let limbThickness: CGFloat = fitRect.width * 0.035
+                let limbThickness: CGFloat = proportion * 0.035
                 for (jA, jB) in limbPairs {
                     if let ptA = joints[jA], let ptB = joints[jB] {
                         let pA = convertPixelPoint(ptA)
