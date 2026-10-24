@@ -29,13 +29,13 @@ struct WorkoutGhostGeometry: Equatable {
         guard imageSize.width > 0, imageSize.height > 0 else { return WorkoutGhostGeometry() }
         let fit = CoordinateConverter.aspectFitRect(for: imageSize, in: containerSize)
         guard fit.width > 0 else { return WorkoutGhostGeometry() }
-        // #69 will add sizing fallbacks for Ready poses that do not provide measured metrics.
-        guard let metrics else { return WorkoutGhostGeometry() }
-
         let scale = fit.width / imageSize.width
-        let arms = (upper: metrics.upperArm * scale, fore: metrics.forearm * scale)
 
         if cameraView == .floor {
+            // The pipeline supplies metrics whenever floor exercises are Ready.
+            guard let metrics else { return WorkoutGhostGeometry() }
+            let arms = (upper: metrics.upperArm * scale, fore: metrics.forearm * scale)
+
             func point(_ type: LandmarkType) -> CGPoint? {
                 guard let joint = overlay.joints[type], !joint.isStale else { return nil }
                 return CoordinateConverter.normalizedToContainer(normalized: joint.location,
@@ -101,6 +101,10 @@ struct WorkoutGhostGeometry: Equatable {
             }
             return geometry
         }
+
+        // The pipeline supplies metrics whenever arm exercises are Ready.
+        guard let metrics else { return WorkoutGhostGeometry() }
+        let arms = (upper: metrics.upperArm * scale, fore: metrics.forearm * scale)
 
         let armAnchors = anchors(overlay: overlay, cameraView: cameraView, containerSize: containerSize)
         guard !armAnchors.isEmpty else { return WorkoutGhostGeometry() }

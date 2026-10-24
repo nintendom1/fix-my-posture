@@ -2,12 +2,9 @@ import XCTest
 @testable import PostureAnalysisApp
 
 /// Every catalog exercise shows its alignment ghost whenever the workout is ready, even with only the joints
-/// framing requires in view (#68).
+/// framing requires in view.
 @MainActor
 final class ReadyGhostInvariantTests: XCTestCase {
-    /// Ready-state ghost gaps fixed by #69. Strict expected failures: fixing one without removing it here fails.
-    private static let knownReadyGhostGaps: Set<ExerciseID> = [.airSquat, .dumbbellRow, .tricepsExtension]
-
     func testEveryCatalogExerciseShowsItsGhostWhenReady() {
         for exercise in ExerciseCatalog.all {
             let variants = ReadyPoseFixtures.variants(for: exercise)
@@ -49,16 +46,7 @@ final class ReadyGhostInvariantTests: XCTestCase {
                             }
                         }
 
-                        if variant.isMinimal && Self.knownReadyGhostGaps.contains(exercise.id) {
-                            // Only the empty-geometry gap is expected; any other failure still fails the test.
-                            let options = XCTExpectedFailure.Options()
-                            options.issueMatcher = { $0.compactDescription.contains("ghost geometry is empty") }
-                            XCTExpectFailure("Ready ghost gap, fixed by #69", options: options) {
-                                assertGhost()
-                            }
-                        } else {
-                            assertGhost()
-                        }
+                        assertGhost()
                     }
                     harness.clock.advance(by: 0.1)
                 }
