@@ -41,6 +41,11 @@ enum PreferenceKey {
     static let tiltWarningsEnabled = "settings.tiltWarningsEnabled"
     static let workoutReminders = "settings.workoutReminders"
     static let characterNotificationIntroDate = "reminders.characterIntroDate"
+    static let extraPersonableEnabled = "settings.extraPersonable"
+
+    /// Extra Personable state that cannot be rebuilt from history uses the persona. namespace.
+    static let personaResetDate = "persona.resetDate"
+    static let personaIntroCardDismissed = "persona.introCardDismissed"
 
     /// New workout flow choices use the train. namespace.
     static let startByHolding = "train.startByHolding"
@@ -84,6 +89,11 @@ protocol AppPreferencesStoring: AnyObject {
     var workoutReminderSettings: WorkoutReminderSettings { get set }
     var characterNotificationIntroDate: Date? { get set }
     var notificationPreviewDelaySeconds: Int { get set }
+    /// Extra Personable follow-ups. On by default.
+    var extraPersonableEnabled: Bool { get set }
+    /// Set by Reset Persona. History before it still counts for factual records but not for familiarity.
+    var personaResetDate: Date? { get set }
+    var personaIntroCardDismissed: Bool { get set }
 }
 
 /// UserDefaults-backed preferences. Existing keys and value formats are retained for upgrade compatibility.
@@ -224,6 +234,30 @@ final class UserDefaultsPreferences: AppPreferencesStoring {
         set { defaults.set(NotificationPreviewDelay.clamped(newValue), forKey: PreferenceKey.notificationPreviewDelay) }
     }
 
+    var extraPersonableEnabled: Bool {
+        get { defaults.object(forKey: PreferenceKey.extraPersonableEnabled) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: PreferenceKey.extraPersonableEnabled) }
+    }
+
+    var personaResetDate: Date? {
+        get {
+            guard let timestamp = defaults.object(forKey: PreferenceKey.personaResetDate) as? Double else { return nil }
+            return Date(timeIntervalSince1970: timestamp)
+        }
+        set {
+            guard let newValue else {
+                defaults.removeObject(forKey: PreferenceKey.personaResetDate)
+                return
+            }
+            defaults.set(newValue.timeIntervalSince1970, forKey: PreferenceKey.personaResetDate)
+        }
+    }
+
+    var personaIntroCardDismissed: Bool {
+        get { defaults.bool(forKey: PreferenceKey.personaIntroCardDismissed) }
+        set { defaults.set(newValue, forKey: PreferenceKey.personaIntroCardDismissed) }
+    }
+
     var upNextOverride: UUID? {
         get { defaults.string(forKey: PreferenceKey.upNextOverride).flatMap(UUID.init(uuidString:)) }
         set {
@@ -262,6 +296,9 @@ final class InMemoryPreferences: AppPreferencesStoring {
     var tiltWarningsEnabled = true
     var workoutReminderSettings = WorkoutReminderSettings()
     var characterNotificationIntroDate: Date?
+    var extraPersonableEnabled = true
+    var personaResetDate: Date?
+    var personaIntroCardDismissed = false
 
     private var storedNotificationPreviewDelay = NotificationPreviewDelay.defaultSeconds
     var notificationPreviewDelaySeconds: Int {

@@ -1,0 +1,429 @@
+{
+  "version": 1,
+  "sampleValues": {
+    "exercise": "Rows",
+    "value": "20 lb",
+    "count": "5",
+    "weekday": "Sunday",
+    "routine": "Shoulder Day",
+    "days": "16",
+    "weeks": "3",
+    "measurement": "shoulder line",
+    "suggestion": "Quick Upper · about 8 min",
+    "time": "7 AM"
+  },
+  "tokens": {
+    "exercise": "Exercise name, such as \"Rows\".",
+    "value": "A weight with its unit, such as \"20 lb\", or \"bodyweight\".",
+    "count": "A count from the evidence: workouts, reps, weeks in a row, or skips.",
+    "weekday": "A weekday name, such as \"Sunday\".",
+    "routine": "A saved routine's name.",
+    "days": "Calendar days, such as the gap before a comeback.",
+    "weeks": "Weeks, such as how long a routine has gone untouched.",
+    "measurement": "A posture measurement's short name, such as \"shoulder line\".",
+    "suggestion": "A gentler routine or exercise to try, such as \"Quick Upper · about 8 min\".",
+    "time": "A time of day, such as \"7 AM\".",
+    "name": "Reserved for the user's name in a later version. Not allowed in v1 copy."
+  },
+  "reservedTokens": [
+    "name"
+  ],
+  "tones": [
+    "proud",
+    "pleased",
+    "relieved",
+    "annoyed",
+    "disappointed",
+    "smug",
+    "competitive",
+    "concerned",
+    "warm"
+  ],
+  "familiarities": [
+    "new",
+    "familiar",
+    "established",
+    "longTerm"
+  ],
+  "toneArt": {
+    "proud": {
+      "expression": "delighted",
+      "outfit": "hoodie",
+      "crop": "portrait"
+    },
+    "pleased": {
+      "expression": "smile2",
+      "outfit": "hoodie",
+      "crop": "portrait"
+    },
+    "relieved": {
+      "expression": "smile2",
+      "outfit": "hoodie",
+      "crop": "close"
+    },
+    "warm": {
+      "expression": "smile",
+      "outfit": "hoodie",
+      "crop": "portrait"
+    },
+    "smug": {
+      "expression": "smug",
+      "outfit": "hoodie",
+      "crop": "portrait"
+    },
+    "competitive": {
+      "expression": "smug",
+      "outfit": "pe-uniform",
+      "crop": "portrait"
+    },
+    "annoyed": {
+      "expression": "annoyed",
+      "outfit": "hoodie",
+      "crop": "close"
+    },
+    "disappointed": {
+      "expression": "sad",
+      "outfit": "hoodie",
+      "crop": "close"
+    },
+    "concerned": {
+      "expression": "normal",
+      "outfit": "hoodie",
+      "crop": "close"
+    }
+  },
+  "fragments": {
+    "openers": [
+      {
+        "text": "Okay.",
+        "tones": [
+          "smug",
+          "annoyed",
+          "competitive"
+        ],
+        "minFamiliarity": "established"
+      }
+    ],
+    "closers": [
+      {
+        "text": "Noted.",
+        "tones": [
+          "smug",
+          "annoyed",
+          "competitive"
+        ],
+        "minFamiliarity": "familiar"
+      }
+    ],
+    "intro": [
+      {
+        "text": "I notice things now."
+      }
+    ]
+  },
+  "content": {
+    "achievement.pr.weight": {
+      "family": "achievement",
+      "defaultTone": "pleased",
+      "tokens": [
+        "exercise",
+        "value"
+      ],
+      "title": [
+        {
+          "text": "Nice PR on {exercise}"
+        }
+      ],
+      "body": [
+        {
+          "text": "{value}. New high."
+        }
+      ],
+      "art": {
+        "competitive": {
+          "expression": "shocked",
+          "outfit": "hoodie",
+          "crop": "close"
+        }
+      }
+    },
+    "achievement.pr.reps": {
+      "family": "achievement",
+      "defaultTone": "pleased",
+      "tokens": [
+        "exercise",
+        "count",
+        "value"
+      ],
+      "title": [
+        {
+          "text": "Rep PR on {exercise}"
+        }
+      ],
+      "body": [
+        {
+          "text": "{count} reps at {value}. That’s new."
+        }
+      ],
+      "art": {}
+    },
+    "achievement.milestone": {
+      "family": "achievement",
+      "defaultTone": "proud",
+      "tokens": [
+        "count"
+      ],
+      "title": [
+        {
+          "text": "{count} workouts"
+        }
+      ],
+      "body": [
+        {
+          "text": "{count} workouts logged. That’s real."
+        }
+      ],
+      "art": {
+        "proud": {
+          "expression": "laugh",
+          "outfit": "sundress",
+          "crop": "portrait"
+        },
+        "pleased": {
+          "expression": "delighted",
+          "outfit": "sundress",
+          "crop": "portrait"
+        }
+      }
+    },
+    "pattern.weekday": {
+      "family": "pattern",
+      "defaultTone": "pleased",
+      "tokens": [
+        "weekday",
+        "count"
+      ],
+      "title": [
+        {
+          "text": "{weekday} again"
+        }
+      ],
+      "body": [
+        {
+          "text": "{count} {weekday}s in a row."
+        }
+      ],
+      "art": {}
+    },
+    "pattern.weekday.established": {
+      "family": "pattern",
+      "defaultTone": "smug",
+      "tokens": [
+        "weekday",
+        "count"
+      ],
+      "title": [
+        {
+          "text": "{weekday} person"
+        }
+      ],
+      "body": [
+        {
+          "text": "{count} {weekday}s in a row. This is a thing now."
+        }
+      ],
+      "art": {}
+    },
+    "pattern.weekday.upcoming": {
+      "family": "pattern",
+      "defaultTone": "pleased",
+      "tokens": [
+        "weekday",
+        "count"
+      ],
+      "title": [
+        {
+          "text": "{weekday} again"
+        }
+      ],
+      "body": [
+        {
+          "text": "It’s {weekday}. Make it {count} in a row?"
+        }
+      ],
+      "art": {}
+    },
+    "pattern.routineRepeat": {
+      "family": "pattern",
+      "defaultTone": "pleased",
+      "tokens": [
+        "routine",
+        "count"
+      ],
+      "title": [
+        {
+          "text": "{routine} again"
+        }
+      ],
+      "body": [
+        {
+          "text": "{routine}, {count} times running."
+        }
+      ],
+      "art": {}
+    },
+    "pattern.timeOfDay": {
+      "family": "pattern",
+      "defaultTone": "pleased",
+      "tokens": [
+        "time"
+      ],
+      "title": [
+        {
+          "text": "Right on time"
+        }
+      ],
+      "body": [
+        {
+          "text": "Around {time} again. You have a slot."
+        }
+      ],
+      "art": {}
+    },
+    "lapse.skippedExercise": {
+      "family": "lapse",
+      "defaultTone": "concerned",
+      "tokens": [
+        "exercise",
+        "count"
+      ],
+      "title": [
+        {
+          "text": "{exercise}, skipped"
+        }
+      ],
+      "body": [
+        {
+          "text": "{exercise} skipped {count} times in a row."
+        }
+      ],
+      "art": {}
+    },
+    "lapse.skippedExercise.escalated": {
+      "family": "lapse",
+      "defaultTone": "concerned",
+      "tokens": [
+        "exercise",
+        "count"
+      ],
+      "title": [
+        {
+          "text": "{exercise}, skipped again"
+        }
+      ],
+      "body": [
+        {
+          "text": "{count} skips on {exercise} now."
+        }
+      ],
+      "art": {}
+    },
+    "lapse.neglectedRoutine": {
+      "family": "lapse",
+      "defaultTone": "concerned",
+      "tokens": [
+        "routine",
+        "weeks"
+      ],
+      "title": [
+        {
+          "text": "{routine}?"
+        }
+      ],
+      "body": [
+        {
+          "text": "{routine} hasn’t come up in {weeks} weeks."
+        }
+      ],
+      "art": {}
+    },
+    "lapse.decliningWeeks": {
+      "family": "lapse",
+      "defaultTone": "concerned",
+      "tokens": [
+        "suggestion"
+      ],
+      "title": [
+        {
+          "text": "Lighter week?"
+        }
+      ],
+      "body": [
+        {
+          "text": "Fewer sessions lately. {suggestion} is quick."
+        }
+      ],
+      "art": {}
+    },
+    "lapse.comeback": {
+      "family": "lapse",
+      "defaultTone": "warm",
+      "tokens": [
+        "days"
+      ],
+      "title": [
+        {
+          "text": "Welcome back"
+        }
+      ],
+      "body": [
+        {
+          "text": "{days} days. Good to see you."
+        }
+      ],
+      "art": {
+        "relieved": {
+          "expression": "smile2",
+          "outfit": "hoodie",
+          "crop": "portrait"
+        }
+      }
+    },
+    "posture.returned": {
+      "family": "posture",
+      "defaultTone": "pleased",
+      "tokens": [
+        "days"
+      ],
+      "title": [
+        {
+          "text": "Posture check"
+        }
+      ],
+      "body": [
+        {
+          "text": "First check in {days} days. Nice."
+        }
+      ],
+      "art": {}
+    },
+    "posture.improved": {
+      "family": "posture",
+      "defaultTone": "pleased",
+      "tokens": [
+        "measurement"
+      ],
+      "title": [
+        {
+          "text": "Moving the right way"
+        }
+      ],
+      "body": [
+        {
+          "text": "Your {measurement} trend is moving the right way."
+        }
+      ],
+      "art": {}
+    }
+  }
+}

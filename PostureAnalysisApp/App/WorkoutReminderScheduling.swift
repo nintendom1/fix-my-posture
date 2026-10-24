@@ -13,6 +13,18 @@ protocol WorkoutReminderScheduling {
     func requestAuthorization() async -> WorkoutReminderAuthorizationStatus
     func replaceRequests(_ requests: [WorkoutReminderNotificationRequest]) async
     func scheduleAcknowledgment(_ request: WorkoutAcknowledgmentRequest) async
+    /// Replaces every pending projected persona request (`PersonaNotificationRequest.projectedPrefix`) with `requests`.
+    func replacePersonaRequests(_ requests: [PersonaNotificationRequest]) async
+    /// Adds one immediate persona request (`PersonaNotificationRequest.immediatePrefix`). Reconciliation never removes it.
+    func addPersonaRequest(_ request: PersonaNotificationRequest) async
+    /// Removes every pending persona request, projected and immediate (Extra Personable off, Reset Persona).
+    func removeAllPersonaRequests() async
+}
+
+extension WorkoutReminderScheduling {
+    func replacePersonaRequests(_ requests: [PersonaNotificationRequest]) async {}
+    func addPersonaRequest(_ request: PersonaNotificationRequest) async {}
+    func removeAllPersonaRequests() async {}
 }
 
 @MainActor
@@ -29,6 +41,12 @@ extension WorkoutReminderReconciliation {
 protocol WorkoutReminderManaging: WorkoutReminderReconciliation {
     func enable() async
     func authorizationStatus() async -> WorkoutReminderAuthorizationStatus
+    /// Reset Persona: sets the reset date, clears persona traces, keeps history and the Extra Personable setting.
+    func resetPersona() async
+}
+
+extension WorkoutReminderManaging {
+    func resetPersona() async {}
 }
 
 /// The only adapter that talks to UserNotifications for workout reminders.

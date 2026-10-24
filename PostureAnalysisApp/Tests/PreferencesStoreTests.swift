@@ -224,6 +224,19 @@ final class PreferencesStoreTests: XCTestCase {
     private func assertSharedContract(_ preferences: any AppPreferencesStoring) {
         let overrideID = UUID()
 
+        XCTAssertTrue(preferences.extraPersonableEnabled, "Extra Personable is on by default")
+        XCTAssertNil(preferences.personaResetDate)
+        XCTAssertFalse(preferences.personaIntroCardDismissed)
+        let resetDate = Date(timeIntervalSince1970: 1_760_000_000)
+        preferences.extraPersonableEnabled = false
+        preferences.personaResetDate = resetDate
+        preferences.personaIntroCardDismissed = true
+        XCTAssertFalse(preferences.extraPersonableEnabled)
+        XCTAssertEqual(preferences.personaResetDate, resetDate)
+        XCTAssertTrue(preferences.personaIntroCardDismissed)
+        preferences.personaResetDate = nil
+        XCTAssertNil(preferences.personaResetDate)
+
         preferences.cameraTiltCompensationEnabled = false
         preferences.showHorizonLine = false
         preferences.showAlignmentTargets = false
