@@ -73,11 +73,147 @@ struct PersonaContentCatalog: Equatable {
         self.entries = entries
     }
 
+    private struct Document: Decodable {
+        let version: Int
+        let sampleValues: [String: String]
+        let tokens: [String: String]
+        let reservedTokens: [String]
+        let tones: [String]
+        let familiarities: [String]
+        let toneArt: [String: RawArt]
+        let fragments: RawFragments
+        let content: [String: RawEntry]
+    }
+
+    private struct RawArt: Decodable {
+        let expression: String
+        let outfit: String
+        let crop: String
+    }
+
+    private struct RawFragments: Decodable {
+        let openers: [RawVariant]
+        let closers: [RawVariant]
+        let intro: [RawVariant]
+    }
+
+    private struct RawVariant: Decodable {
+        let text: String
+        let tones: [String]?
+        let minFamiliarity: String?
+    }
+
+    private struct RawEntry: Decodable {
+        let family: String
+        let defaultTone: String
+        let tokens: [String]
+        let title: [RawVariant]
+        let body: [RawVariant]
+        let art: [String: RawArt]
+    }
+
     /// Decodes and checks the JSON: supported version, every tone has art, at least one title and body per entry,
     /// known tones and familiarities, entry keys unique and matching their `family` prefix. Throws `.invalid`.
     init(data: Data) throws {
-        // Implemented by P4.
-        throw PersonaContentCatalogError.invalid("not implemented")
+        let document: Document
+        do {
+            document = try JSONDecoder().decode(Document.self, from: data)
+        } catch {
+            throw PersonaContentCatalogError.invalid(error.localizedDescription)
+        }
+        guard document.version == Self.supportedVersion else {
+            throw PersonaContentCatalogError.invalid("unsupported version \(document.version)")
+        }
+
+        for tone in document.tones {
+            _ = try Self.tone(tone, context: "tones")
+        }
+        for familiarity in document.familiarities {
+            _ = try Self.familiarity(familiarity, context: "familiarities")
+        }
+
+        var decodedToneArt: [PersonaTone: NotificationScenario.Art] = [:]
+        for (rawTone, rawArt) in document.toneArt {
+            let tone = try Self.tone(rawTone, context: "toneArt")
+            decodedToneArt[tone] = try Self.art(rawArt, context: "toneArt[\(rawTone)]")
+        }
+        for tone in PersonaTone.allCases where decodedToneArt[tone] == nil {
+            throw PersonaContentCatalogError.invalid("missing tone art for \(tone.rawValue)")
+        }
+
+        let decodedFragments = PersonaFragments(
+            openers: try document.fragments.openers.map { try Self.variant($0, context: "fragments.openers") },
+            closers: try document.fragments.closers.map { try Self.variant($0, context: "fragments.closers") },
+            intro: try document.fragments.intro.map { try Self.variant($0, context: "fragments.intro") }
+        )
+
+        var decodedEntries: [String: PersonaContentEntry] = [:]
+        for key in document.content.keys.sorted() {
+            guard let rawEntry = document.content[key] else { continue }
+            guard let family = ObservationFamily(rawValue: rawEntry.family) else {
+                throw PersonaContentCatalogError.invalid("unknown family '\(rawEntry.family)' for \(key)")
+            }
+            let keyFamily = key.split(separator: ".", omittingEmptySubsequences: false).first.map(String.init) ?? ""
+            guard family.rawValue == keyFamily else {
+                throw PersonaContentCatalogError.invalid("family mismatch for \(key): expected \(keyFamily), got \(family.rawValue)")
+            }
+            let defaultTone = try Self.tone(rawEntry.defaultTone, context: "content[\(key)].defaultTone")
+            guard !rawEntry.title.isEmpty else {
+                throw PersonaContentCatalogError.invalid("entry \(key) has no title")
+            }
+            guard !rawEntry.body.isEmpty else {
+                throw PersonaContentCatalogError.invalid("entry \(key) has no body")
+            }
+
+            var decodedArt: [PersonaTone: NotificationScenario.Art] = [:]
+            for (rawTone, rawArt) in rawEntry.art {
+                let tone = try Self.tone(rawTone, context: "content[\(key)].art")
+                decodedArt[tone] = try Self.art(rawArt, context: "content[\(key)].art[\(rawTone)]")
+            }
+            let tokenNames = Set(rawEntry.tokens)
+            let sample = document.sampleValues.filter { tokenNames.contains($0.key) }
+            decodedEntries[key] = PersonaContentEntry(
+                key: key,
+                family: family,
+                defaultTone: defaultTone,
+                tokens: rawEntry.tokens,
+                sample: sample,
+                title: try rawEntry.title.map { try Self.variant($0, context: "content[\(key)].title") },
+                body: try rawEntry.body.map { try Self.variant($0, context: "content[\(key)].body") },
+                art: decodedArt
+            )
+        }
+
+        toneArt = decodedToneArt
+        fragments = decodedFragments
+        entries = decodedEntries
+    }
+
+    private static func tone(_ rawValue: String, context: String) throws -> PersonaTone {
+        guard let value = PersonaTone(rawValue: rawValue) else {
+            throw PersonaContentCatalogError.invalid("unknown tone '\(rawValue)' in \(context)")
+        }
+        return value
+    }
+
+    private static func familiarity(_ rawValue: String, context: String) throws -> PersonaFamiliarity {
+        guard let value = PersonaFamiliarity(rawValue: rawValue) else {
+            throw PersonaContentCatalogError.invalid("unknown familiarity '\(rawValue)' in \(context)")
+        }
+        return value
+    }
+
+    private static func art(_ rawArt: RawArt, context: String) throws -> NotificationScenario.Art {
+        guard let crop = NotificationScenario.Crop(rawValue: rawArt.crop) else {
+            throw PersonaContentCatalogError.invalid("unknown crop '\(rawArt.crop)' in \(context)")
+        }
+        return NotificationScenario.Art(expression: rawArt.expression, outfit: rawArt.outfit, crop: crop)
+    }
+
+    private static func variant(_ rawVariant: RawVariant, context: String) throws -> PersonaCopyVariant {
+        let tones = try rawVariant.tones?.map { try Self.tone($0, context: context) }
+        let familiarity = try rawVariant.minFamiliarity.map { try Self.familiarity($0, context: context) }
+        return PersonaCopyVariant(text: rawVariant.text, tones: tones, minFamiliarity: familiarity)
     }
 
     var contentKeys: [String] { entries.keys.sorted() }
