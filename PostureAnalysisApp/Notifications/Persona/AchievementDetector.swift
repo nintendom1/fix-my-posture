@@ -125,9 +125,16 @@ enum AchievementDetector: PersonaDetecting {
 
         for exerciseID in exerciseIDs.sorted(by: { $0.rawValue < $1.rawValue }) {
             let triggerEntries = trigger.entries.filter { $0.exerciseID == exerciseID }
+            // Sessions where the exercise was actually done; a skipped appearance has no sets and does not count.
             let sessions = earlierRecords.filter { record in
-                record.entries.contains { $0.exerciseID == exerciseID }
+                record.entries.contains { $0.exerciseID == exerciseID && !$0.sets.isEmpty }
             }
+            // A deload below the lightest weight ever used for this exercise is not a rep record.
+            let lightestPriorKilograms = sessions.flatMap(\.entries)
+                .filter { $0.exerciseID == exerciseID }
+                .flatMap(\.sets)
+                .compactMap { PersonaDetectorSupport.kilograms($0.weight) }
+                .min()
             guard sessions.count >= policy.prMinimumPriorSessions else { continue }
 
             var bestGain: Int?
@@ -152,6 +159,7 @@ enum AchievementDetector: PersonaDetecting {
                         continue
                     }
 
+                    if let lightestPriorKilograms, currentKilograms + 0.01 < lightestPriorKilograms { continue }
                     let priorReps = sessions.flatMap { $0.entries }
                         .filter { $0.exerciseID == exerciseID }
                         .flatMap(\.sets)

@@ -46,6 +46,7 @@ enum PersonaPlanner {
         let committed = context.traceState.committed(asOf: now)
         var state = PlanningState(
             usedKeys: Set(committed.map { $0.observation.key.string }),
+            similarDates: similarDates(committed: committed),
             standaloneByDay: standaloneCounts(committed: committed, calendar: calendar),
             recentTones: context.traceState.recentTones(asOf: now, limit: policy.recentToneLimit),
             introAvailable: context.isIntro,
@@ -77,12 +78,19 @@ enum PersonaPlanner {
         }
 
         let today = calendar.startOfDay(for: now)
+        // Keep today's already-planned fallback time instead of pushing it back an hour on every app activation.
+        let pendingTodaySlot = context.traceState.sent
+            .filter { $0.isProjected && $0.isPending(asOf: now) }
+            .compactMap(\.fireDate)
+            .filter { calendar.isDate($0, inSameDayAs: now) }
+            .min()
         for offset in 0...max(0, policy.projectionHorizonDays) {
             guard let day = calendar.date(byAdding: .day, value: offset, to: today),
                   let slot = projectedSlot(
                     on: day,
                     offset: offset,
                     now: now,
+                    pendingTodaySlot: pendingTodaySlot,
                     reminderSlots: context.reminderSlotTimes,
                     calendar: calendar,
                     policy: policy
@@ -124,11 +132,24 @@ enum PersonaPlanner {
         var scheduled: [PersonaNotificationRequest] = []
         var immediate: PersonaImmediate?
         var usedKeys: Set<String>
+        /// Fire dates of committed messages and of this plan's winners, by `family.kind`, for the similar rule.
+        var similarDates: [String: [Date]]
+        /// Keys won earlier in this plan, so the same observation from a later pass is not logged as suppressed.
+        var wonKeys: Set<String> = []
         var standaloneByDay: [Date: Int]
         var recentTones: [PersonaTone]
         var introAvailable: Bool
         let dailyCap: Int
         let cooling: PersonaCoolingLevel
+    }
+
+    private static func similarDates(committed: [PersonaDecisionTrace]) -> [String: [Date]] {
+        var result: [String: [Date]] = [:]
+        for trace in committed {
+            guard let fireDate = trace.fireDate else { continue }
+            result[trace.observation.key.familyKind, default: []].append(fireDate)
+        }
+        return result
     }
 
     private static func standaloneCounts(
@@ -147,6 +168,7 @@ enum PersonaPlanner {
         on day: Date,
         offset: Int,
         now: Date,
+        pendingTodaySlot: Date?,
         reminderSlots: [Date],
         calendar: Calendar,
         policy: PersonaPolicy
@@ -157,7 +179,7 @@ enum PersonaPlanner {
         guard var slot = calendar.date(from: components) else { return nil }
 
         if offset == 0 && slot <= now {
-            slot = now.addingTimeInterval(TimeInterval(policy.todayFallbackDelayMinutes) * 60)
+            slot = pendingTodaySlot ?? now.addingTimeInterval(TimeInterval(policy.todayFallbackDelayMinutes) * 60)
             guard calendar.isDate(slot, inSameDayAs: day) else { return nil }
         }
 
@@ -201,7 +223,7 @@ enum PersonaPlanner {
 
         for (index, candidate) in sorted.enumerated() {
             var salience = candidate.isNegative ? min(candidate.salience, .medium) : candidate.salience
-            let similarCount = recentSimilarCount(for: candidate, fired: fired, now: context.now, calendar: calendar, policy: policy)
+            let similarCount = recentSimilarCount(for: candidate, at: slot, state: state, calendar: calendar, policy: policy)
             if candidate.isNegative && candidate.evidence.strength < policy.negativeMinimumStrength {
                 appendSuppressed(
                     candidate, salience: salience, reason: .lowSalience, delivery: .none,
@@ -213,6 +235,8 @@ enum PersonaPlanner {
             }
 
             if state.usedKeys.contains(candidate.key.string) {
+                // Already won earlier in this plan (for example the immediate pass): nothing to report.
+                if state.wonKeys.contains(candidate.key.string) { continue }
                 appendSuppressed(
                     candidate, salience: salience, reason: .recentlySent, delivery: .none,
                     tone: nil, recentSimilarCount: similarCount, standaloneCountToday: standaloneCountToday,
@@ -340,9 +364,12 @@ enum PersonaPlanner {
                 continue
             }
 
-            if case .active = delivery { state.standaloneByDay[calendar.startOfDay(for: fireDate), default: 0] += 1 }
-            if case .passive = delivery { state.standaloneByDay[calendar.startOfDay(for: fireDate), default: 0] += 1 }
+            let fireDay = calendar.startOfDay(for: fireDate)
+            let standaloneCountOnFireDay = state.standaloneByDay[fireDay, default: 0]
+            if delivery.isStandalone { state.standaloneByDay[fireDay, default: 0] += 1 }
             state.usedKeys.insert(candidate.key.string)
+            state.wonKeys.insert(candidate.key.string)
+            state.similarDates[candidate.key.familyKind, default: []].append(fireDate)
             state.recentTones.insert(tone, at: 0)
             state.recentTones = Array(state.recentTones.prefix(max(0, policy.recentToneLimit)))
             state.introAvailable = false
@@ -351,7 +378,7 @@ enum PersonaPlanner {
                 observation: candidate,
                 salience: salience,
                 otherCandidateCount: max(0, sorted.count - 1),
-                standaloneCountToday: standaloneCountToday,
+                standaloneCountToday: standaloneCountOnFireDay,
                 cap: policy.dailyStandaloneCap,
                 tone: tone,
                 familiarity: context.familiarity
@@ -369,7 +396,7 @@ enum PersonaPlanner {
                 templateID: composition.templateID,
                 title: composition.content.title,
                 body: composition.content.body,
-                standaloneCountToday: standaloneCountToday,
+                standaloneCountToday: standaloneCountOnFireDay,
                 quietDeferred: quietDeferred,
                 cooling: state.cooling,
                 recentSimilarCount: similarCount,
@@ -381,8 +408,8 @@ enum PersonaPlanner {
                 let lowerSalience = lowerCandidate.isNegative ? min(lowerCandidate.salience, .medium) : lowerCandidate.salience
                 let lowerSimilarCount = recentSimilarCount(
                     for: lowerCandidate,
-                    fired: fired,
-                    now: context.now,
+                    at: slot,
+                    state: state,
                     calendar: calendar,
                     policy: policy
                 )
@@ -406,19 +433,19 @@ enum PersonaPlanner {
         }
     }
 
+    /// Messages of the same `family.kind` in the similar window ending at `date`: committed ones (fired, pending
+    /// immediate, folds) plus winners earlier in this plan, so one reconcile cannot schedule a week of the same nudge.
     private static func recentSimilarCount(
         for candidate: PersonaObservation,
-        fired: [PersonaDecisionTrace],
-        now: Date,
+        at date: Date,
+        state: PlanningState,
         calendar: Calendar,
         policy: PersonaPolicy
     ) -> Int {
-        let cutoff = calendar.date(byAdding: .day, value: -max(0, policy.similarWindowDays), to: now) ?? now
-        return fired.filter { trace in
-            guard trace.observation.key.familyKind == candidate.key.familyKind,
-                  let fireDate = trace.fireDate else { return false }
-            return fireDate >= cutoff && fireDate <= now
-        }.count
+        let cutoff = calendar.date(byAdding: .day, value: -max(0, policy.similarWindowDays), to: date) ?? date
+        return state.similarDates[candidate.key.familyKind, default: []]
+            .filter { $0 >= cutoff && $0 <= date }
+            .count
     }
 
     private static func plannedFire(

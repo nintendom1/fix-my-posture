@@ -17,7 +17,7 @@ The copy library used by the on-device persona planner. The JSON file is the sou
 | `{routine}` | Shoulder Day | A saved routine's name. |
 | `{days}` | 16 | Calendar days, such as the gap before a comeback. |
 | `{weeks}` | 3 | Weeks, such as how long a routine has gone untouched. |
-| `{measurement}` | shoulder line | A posture measurement's short name, such as "shoulder line". |
+| `{measurement}` | shoulder line angle | A posture measurement's short name, such as "shoulder line". |
 | `{suggestion}` | Quick Upper · about 8 min | A gentler routine or exercise to try, such as "Quick Upper · about 8 min". |
 | `{time}` | 7 AM | A time of day, such as "7 AM". |
 | `{name}` | — | Reserved for the user's name in a later version. Not allowed in v1 copy. |

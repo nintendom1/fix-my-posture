@@ -71,7 +71,7 @@ final class PersonaCopyComposerTests: XCTestCase {
 
         XCTAssertEqual(result.content.title, NotificationContentBuilder.fallbackTitle)
         XCTAssertEqual(result.content.body, "Readable body")
-        XCTAssertEqual(result.templateID, "\(key)#t0b0")
+        XCTAssertEqual(result.templateID, "\(key)#tFb0", "tF marks the fallback title")
     }
 
     func testVariantSelectsTitleAndBodyAndWrapsNegativeValues() throws {
@@ -90,6 +90,38 @@ final class PersonaCopyComposerTests: XCTestCase {
         XCTAssertEqual(compose(catalog, variant: 3)?.content.body, "B1")
         XCTAssertEqual(compose(catalog, variant: -1), compose(catalog, variant: 15))
         XCTAssertEqual(compose(catalog, variant: Int.min), compose(catalog, variant: 0))
+    }
+
+    func testEveryTitleAndBodyPairMeetsEveryFragmentPattern() throws {
+        let entry = makeEntry(
+            title: [PersonaCopyVariant(text: "T0"), PersonaCopyVariant(text: "T1")],
+            body: [PersonaCopyVariant(text: "B0"), PersonaCopyVariant(text: "B1")]
+        )
+        let fragments = PersonaFragments(openers: [PersonaCopyVariant(text: "Open.")], closers: [PersonaCopyVariant(text: "Close.")])
+        let catalog = makeCatalog(entry: entry, fragments: fragments)
+        var seen: [String: Set<String>] = [:]
+        for variant in 0..<16 {
+            let result = try XCTUnwrap(compose(catalog, variant: variant))
+            let pair = "\(result.content.title)/\(result.content.body.replacingOccurrences(of: "Open. ", with: "").replacingOccurrences(of: " Close.", with: ""))"
+            let pattern = (result.content.body.hasPrefix("Open.") ? "o" : "") + (result.content.body.hasSuffix("Close.") ? "c" : "")
+            seen[pair, default: []].insert(pattern)
+        }
+        XCTAssertEqual(seen.count, 4)
+        XCTAssertTrue(seen.values.allSatisfy { $0 == ["", "o", "c", "oc"] }, "\(seen)")
+    }
+
+    func testNegativeToneBelowEstablishedFallsBackToTheDefaultTone() throws {
+        let entry = makeEntry(
+            defaultTone: .concerned,
+            title: [PersonaCopyVariant(text: "Title")],
+            body: [PersonaCopyVariant(text: "Neutral")],
+            art: [.annoyed: NotificationScenario.Art(expression: "annoyed", outfit: "hoodie", crop: .close)]
+        )
+        let catalog = makeCatalog(entry: entry)
+        let early = try XCTUnwrap(compose(catalog, tone: .annoyed, familiarity: .familiar))
+        XCTAssertNotEqual(early.content.imageAssetName, "NotificationCharacter/annoyed-hoodie-close")
+        let later = try XCTUnwrap(compose(catalog, tone: .annoyed, familiarity: .established))
+        XCTAssertEqual(later.content.imageAssetName, "NotificationCharacter/annoyed-hoodie-close")
     }
 
     func testFragmentPatternsAndTemplateIdentifiers() throws {

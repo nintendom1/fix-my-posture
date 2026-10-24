@@ -26,7 +26,7 @@ struct PersonaPolicy: Equatable {
     var dailyStandaloneCap = 2
     /// Calendar days projected ahead (today plus this many days).
     var projectionHorizonDays = 7
-    /// At most this many projected notifications per day.
+    /// Projected notifications per day: 0 turns projection off; v1 plans at most one per day for any positive value.
     var projectedPerDay = 1
     /// Local time for a projected day's notification.
     var projectedHour = 11

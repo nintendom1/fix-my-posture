@@ -312,6 +312,163 @@ final class PersonaPlannerTests: XCTestCase {
         XCTAssertTrue(plan.traces.allSatisfy { $0.suppressionReason == .lowSalience && $0.delivery == .inAppOnly })
     }
 
+    // MARK: Within-plan accounting (PR 2 review)
+
+    func testProjectedSameKindWinnersAreLimitedWithinOnePlan() {
+        let plan = makePlan(context: makeContext(), projected: { [self] date in
+            [observation(.pattern, "weekday.upcoming", subject: dayString(date), salience: .medium)]
+        })
+        XCTAssertEqual(plan.scheduled.count, 2, "the third same-kind nudge in a week is lowered and dropped")
+        XCTAssertTrue(plan.scheduled.allSatisfy { $0.title.contains("pattern.weekday.upcoming") })
+    }
+
+    func testWinnersConsumeTheCapWithinOnePlan() {
+        let firedToday = trace(observation(.lapse, "comeback", subject: "earlier", salience: .high),
+                               fireDate: now.addingTimeInterval(-3_600), delivery: .active)
+        let context = savedContext(traceState: PersonaTraceState(sent: [firedToday]))
+        let plan = makePlan(
+            context: context,
+            immediate: [observation(.achievement, "milestone", subject: "now", salience: .high)],
+            projected: { [self] date in
+                [observation(.posture, "improved", subject: "slot-\(dayString(date))", salience: .medium)]
+            }
+        )
+        guard case .standalone? = plan.immediate else { return XCTFail("Expected the immediate standalone.") }
+        // The immediate winner fills today's cap, so today's slot is skipped before detecting; later days still plan.
+        XCTAssertFalse(plan.scheduled.contains { $0.identifier.contains("slot-\(dayString(now))") })
+        XCTAssertFalse(plan.scheduled.isEmpty)
+    }
+
+    func testTheSameObservationFromImmediateAndTodaysSlotIsSentOnceAndNotLogged() {
+        let shared = observation(.posture, "returned", subject: "shared", salience: .high)
+        let plan = makePlan(context: savedContext(), immediate: [shared], projected: { _ in [shared] })
+        guard case .standalone? = plan.immediate else { return XCTFail("Expected the immediate standalone.") }
+        XCTAssertTrue(plan.scheduled.isEmpty)
+        XCTAssertEqual(plan.traces.filter { $0.observation.key == shared.key }.count, 1)
+        XCTAssertFalse(plan.traces.contains { $0.suppressionReason == .recentlySent })
+    }
+
+    func testAProjectedDayAlreadyAtCapIsNotEvaluated() {
+        let calendar = PersonaFixtures.calendar
+        let dayAfterTomorrow = calendar.date(byAdding: .day, value: 2, to: now)!
+        let pending = (0..<2).map { index in
+            trace(observation(.lapse, "comeback", subject: "pending\(index)", salience: .high),
+                  fireDate: dayAfterTomorrow, delivery: .active,
+                  identifier: PersonaNotificationRequest.immediatePrefix + "pending\(index)")
+        }
+        var asked: [String] = []
+        _ = makePlan(context: makeContext(traceState: PersonaTraceState(sent: pending)), projected: { [self] date in
+            asked.append(dayString(date))
+            return []
+        })
+        XCTAssertFalse(asked.contains(dayString(dayAfterTomorrow)))
+        XCTAssertTrue(asked.contains(dayString(now)))
+    }
+
+    func testALowerCandidateCanReplaceAnEarlierInAppOnlyDecision() {
+        let twoDaysAgo = now.addingTimeInterval(-2 * 86_400)
+        let similar = (0..<2).map { index in
+            trace(observation(.pattern, "weekday", subject: "old\(index)", salience: .medium),
+                  fireDate: twoDaysAgo.addingTimeInterval(Double(index) * 60), delivery: .passive)
+        }
+        let downgraded = observation(.pattern, "weekday", subject: "new", salience: .medium, strength: 5)
+        let winner = observation(.pattern, "routineRepeat", subject: "winner", salience: .medium, strength: 2)
+        let plan = makePlan(context: savedContext(traceState: PersonaTraceState(sent: similar)), immediate: [downgraded, winner])
+        guard case .standalone(let request)? = plan.immediate else { return XCTFail("Expected a standalone winner.") }
+        XCTAssertTrue(request.observationKeyValue.contains("routineRepeat"))
+        XCTAssertEqual(plan.traces.first { $0.observation.key == downgraded.key }?.suppressionReason, .similarDowngrade)
+    }
+
+    func testMissingContentIsRecordedWithTheChosenTone() {
+        let plan = makePlan(
+            context: savedContext(),
+            immediate: [observation(.achievement, "milestone", salience: .high)],
+            compose: { _, _, _, _, _, _, _ in nil }
+        )
+        XCTAssertNil(plan.immediate)
+        XCTAssertEqual(plan.traces.first?.suppressionReason, .noContent)
+        XCTAssertNotNil(plan.traces.first?.tone)
+    }
+
+    func testAQuietDeferredMessageCountsTowardTheDayItFires() {
+        let calendar = PersonaFixtures.calendar
+        let lateNight = PersonaFixtures.date(day: 16, hour: 23)
+        let tomorrowMorning = PersonaFixtures.date(day: 17, hour: 9)
+        let pendingTomorrow = trace(observation(.lapse, "comeback", subject: "tomorrow", salience: .high),
+                                    fireDate: tomorrowMorning, delivery: .active,
+                                    identifier: PersonaNotificationRequest.immediatePrefix + "tomorrow")
+        var asked: [String] = []
+        let plan = makePlan(
+            context: savedContext(now: lateNight, traceState: PersonaTraceState(sent: [pendingTomorrow])),
+            immediate: [observation(.achievement, "milestone", salience: .high)],
+            projected: { [self] date in
+                asked.append(dayString(date))
+                return []
+            }
+        )
+        guard case .standalone(let request)? = plan.immediate else { return XCTFail("Expected a deferred standalone.") }
+        XCTAssertEqual(request.trigger, .at(DateComponents(year: 2026, month: 10, day: 17, hour: 8, minute: 0)))
+        let winner = plan.traces.first { $0.fireDate != nil }
+        XCTAssertEqual(winner?.standaloneCountToday, 1, "the count is for the fire day")
+        XCTAssertTrue(winner?.quietDeferred ?? false)
+        XCTAssertFalse(asked.contains(dayString(calendar.date(byAdding: .day, value: 1, to: lateNight)!)),
+                       "tomorrow is at the cap: one pending plus the deferred message")
+    }
+
+    func testExactIdentifiersForImmediateAndMovedProjectedRequests() {
+        let calendar = PersonaFixtures.calendar
+        let reminder = PersonaFixtures.date(day: 16, hour: 11)
+        let high = observation(.achievement, "milestone", subject: "workouts", period: "10", salience: .high)
+        let slotObservation = observation(.posture, "improved", subject: "slot", salience: .medium)
+        let context = makeContext(now: now, trigger: .workoutSaved(record()), reminderSlotTimes: [reminder])
+        let plan = makePlan(context: context, immediate: [high], projected: { date in
+            calendar.isDate(date, inSameDayAs: self.now) ? [slotObservation] : []
+        })
+        guard case .standalone(let immediate)? = plan.immediate else { return XCTFail("Expected an immediate request.") }
+        XCTAssertEqual(immediate.identifier, "fixMyPosture.persona.now.2026-10-16.achievement.milestone.workouts.10")
+        let projected = plan.scheduled.first
+        XCTAssertEqual(projected?.identifier, "fixMyPosture.persona.plan.2026-10-16.posture.improved.slot.2026-10-16")
+        XCTAssertEqual(projected?.trigger, .at(DateComponents(year: 2026, month: 10, day: 16, hour: 12, minute: 30)))
+    }
+
+    func testASecondReminderCollisionMovesTheSlotAgain() {
+        let reminders = [PersonaFixtures.date(day: 16, hour: 11), PersonaFixtures.date(day: 16, hour: 13)]
+        let calendar = PersonaFixtures.calendar
+        let plan = makePlan(context: makeContext(reminderSlotTimes: reminders), projected: { date in
+            calendar.isDate(date, inSameDayAs: self.now) ? [self.observation(.posture, "improved", salience: .medium)] : []
+        })
+        XCTAssertEqual(plan.scheduled.first?.trigger, .at(DateComponents(year: 2026, month: 10, day: 16, hour: 14, minute: 30)))
+    }
+
+    func testTodaysFallbackThatCrossesMidnightSkipsToday() {
+        let calendar = PersonaFixtures.calendar
+        let lateNight = PersonaFixtures.date(day: 16, hour: 23, minute: 20)
+        let plan = makePlan(
+            context: makeContext(now: lateNight),
+            quietHours: FixedQuietHours(startHour: 0, endHour: 0),
+            projected: { [self] date in [observation(.posture, "improved", subject: dayString(date), salience: .medium)] }
+        )
+        XCTAssertFalse(plan.scheduled.contains { request in
+            requestDay(request, calendar: calendar).map { calendar.isDate($0, inSameDayAs: lateNight) } ?? false
+        })
+    }
+
+    func testTodaysFallbackKeepsAnAlreadyPendingSlot() {
+        let afternoon = PersonaFixtures.date(day: 16, hour: 13)
+        let pendingSlot = PersonaFixtures.date(day: 16, hour: 13, minute: 30)
+        let pending = trace(observation(.posture, "improved", subject: "earlier", salience: .medium),
+                            fireDate: pendingSlot, delivery: .passive,
+                            identifier: PersonaNotificationRequest.projectedPrefix + "2026-10-16.earlier")
+        let calendar = PersonaFixtures.calendar
+        let plan = makePlan(
+            context: makeContext(now: afternoon, traceState: PersonaTraceState(sent: [pending])),
+            projected: { date in
+                calendar.isDate(date, inSameDayAs: afternoon) ? [self.observation(.posture, "returned", salience: .medium)] : []
+            }
+        )
+        XCTAssertEqual(plan.scheduled.first?.trigger, .at(DateComponents(year: 2026, month: 10, day: 16, hour: 13, minute: 30)))
+    }
+
     private func makePlan(
         context: PersonaContext,
         quietHours: any QuietHoursProviding = FixedQuietHours(startHour: 22, endHour: 8),
@@ -479,4 +636,8 @@ private extension PersonaDecisionTrace.Outcome {
         if case .sent = self { return true }
         return false
     }
+}
+
+private extension PersonaNotificationRequest {
+    var observationKeyValue: String { userInfo[PersonaNotificationRequest.UserInfoKey.observationKey] ?? "" }
 }
