@@ -32,6 +32,7 @@ DEFAULT_OUT_DIR = REPO_ROOT / "build/notification-character"
 # The sibling module is imported by path so the tests, which load this file by path, find it too.
 sys.path.insert(0, str(DESIGN_DIR))
 import notification_scenarios as scenarios  # noqa: E402
+import persona_content as persona  # noqa: E402
 
 TOP_LEVEL_KEYS = ("source", "layerMap", "backgrounds", "crops", "characters", "examples")
 HEX_COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
@@ -381,14 +382,30 @@ def check_examples(config, psd, index):
     return len(config["examples"])
 
 
-def load_scenario_data(config):
+def load_scenario_data(config, expression_choices=None):
     """The validated notification scenarios and the exact bytes of their source file."""
     try:
         data = scenarios.load_scenarios()
-        scenarios.validate(data, crop_presets=list(config["crops"]))
+        scenarios.validate(
+            data,
+            crop_presets=list(config["crops"]),
+            expression_choices=expression_choices,
+        )
     except scenarios.ScenarioError as error:
         raise RenderError(str(error))
     return data, scenarios.SCENARIOS_PATH.read_bytes()
+
+
+def load_persona_content(config, data, expression_choices=None):
+    """The validated persona copy and exact source bytes, checked against scenario art choices."""
+    try:
+        content, source_bytes = persona.load_content(
+            scenario_data=data,
+            expression_choices=expression_choices,
+        )
+    except persona.PersonaContentError as error:
+        raise RenderError(str(error))
+    return content, source_bytes
 
 
 def asset_render_inputs(config, data, asset):
@@ -403,29 +420,65 @@ def asset_png_path(asset):
     return scenarios.IMAGE_FOLDER / f"{asset['name']}.imageset" / f"{asset['name']}.png"
 
 
-def write_assets(config, psd, index, data, source_bytes):
-    """Write the app's notification images, scenario data set, and docs, removing images no scenario uses."""
-    assets = scenarios.required_assets(data)
+def union_assets(data, persona_data):
+    """Deduplicate scenario and persona portraits by their stable image-set name."""
+    assets = {
+        asset["name"]: asset
+        for asset in scenarios.required_assets(data) + persona.required_assets(persona_data, data)
+    }
+    return [assets[name] for name in sorted(assets)]
+
+
+def generated_text_artifacts(data, source_bytes, persona_data, persona_source_bytes):
+    """Expected generated data sets, docs, and image-set metadata for both content sources."""
+    files = scenarios.text_artifacts(data, source_bytes)
+    files.update(persona.text_artifacts(persona_data, data, persona_source_bytes))
+    return files
+
+
+def _load_persona_if_needed(config, data, persona_data, persona_source_bytes, expression_choices=None):
+    if persona_data is not None and persona_source_bytes is not None:
+        return persona_data, persona_source_bytes
+    loaded_data, loaded_bytes = load_persona_content(config, data, expression_choices)
+    return loaded_data, loaded_bytes
+
+
+def write_assets(config, psd, index, data, source_bytes, persona_data=None,
+                 persona_source_bytes=None, expression_choices=None):
+    """Write shared notification images and both generated data sets and docs."""
+    persona_data, persona_source_bytes = _load_persona_if_needed(
+        config, data, persona_data, persona_source_bytes, expression_choices,
+    )
+    assets = union_assets(data, persona_data)
     expected_folders = {f"{asset['name']}.imageset" for asset in assets}
     if scenarios.IMAGE_FOLDER.is_dir():
         for folder in scenarios.IMAGE_FOLDER.glob("*.imageset"):
             if folder.name not in expected_folders:
                 shutil.rmtree(folder)
-    for path, content in scenarios.text_artifacts(data, source_bytes).items():
+    for path, content in generated_text_artifacts(data, source_bytes, persona_data, persona_source_bytes).items():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content)
     for asset in assets:
         spec, crop = asset_render_inputs(config, data, asset)
         save_png(render_spec(config, psd, index, spec, crop), asset_png_path(asset))
-    print(f"Wrote {len(assets)} images, the scenario data set, and {scenarios.DOCS_PATH.relative_to(REPO_ROOT)}")
+    print(
+        f"Wrote {len(assets)} images, both notification data sets, and the scenario and persona docs."
+    )
 
 
-def check_assets(config, psd, index, data, source_bytes):
+def check_assets(config, psd, index, data, source_bytes, persona_data=None,
+                 persona_source_bytes=None, expression_choices=None):
     """Compare generated text files exactly and images by decoded pixels. Returns the image count."""
     from PIL import Image, ImageChops
 
-    stale = scenarios.stale_text_artifacts(data, source_bytes)
-    assets = scenarios.required_assets(data)
+    persona_data, persona_source_bytes = _load_persona_if_needed(
+        config, data, persona_data, persona_source_bytes, expression_choices,
+    )
+    stale = []
+    for path, expected in generated_text_artifacts(data, source_bytes, persona_data, persona_source_bytes).items():
+        if not path.is_file() or path.read_bytes() != expected:
+            stale.append(str(path.relative_to(REPO_ROOT)))
+    assets = union_assets(data, persona_data)
     for asset in assets:
         committed = asset_png_path(asset)
         if not committed.is_file():
@@ -437,6 +490,11 @@ def check_assets(config, psd, index, data, source_bytes):
             existing = existing.convert("RGB")
         if existing.size != fresh.size or ImageChops.difference(existing, fresh).getbbox() is not None:
             stale.append(f"{committed.relative_to(REPO_ROOT)} does not match a fresh render")
+    expected_folders = {f"{asset['name']}.imageset" for asset in assets}
+    if scenarios.IMAGE_FOLDER.is_dir():
+        for folder in sorted(scenarios.IMAGE_FOLDER.glob("*.imageset")):
+            if folder.name not in expected_folders:
+                stale.append(f"{folder.relative_to(REPO_ROOT)} (no scenario or persona content uses it)")
     if stale:
         raise RenderError("Stale generated assets:\n  " + "\n  ".join(stale) + "\nRun with --assets and commit the result.")
     return len(assets)
@@ -450,9 +508,9 @@ def parse_args(argv):
     parser.add_argument("--out", type=Path, help="output PNG path (default build/notification-character/<character>-<crop>.png)")
     parser.add_argument("--examples", action="store_true", help="rewrite the committed example PNGs")
     parser.add_argument("--assets", action="store_true",
-                        help="rewrite the app's notification images, scenario data set, and docs from notification-scenarios.json")
+                        help="rewrite notification images, data sets, and docs from scenario and persona JSON")
     parser.add_argument("--check", action="store_true",
-                        help="fail if a committed example or generated asset differs from a fresh render")
+                        help="fail if an example or generated scenario/persona asset differs from a fresh render")
     args = parser.parse_args(argv)
     modes = [args.list, args.examples, args.assets, args.check, bool(args.character or args.crop)]
     if sum(modes) != 1:
@@ -471,19 +529,26 @@ def main(argv=None):
         validate_config(config)
         psd = open_psd(config)
         index = index_layers(psd)
+        expression_choices = children_of(index, "face")
         if args.list:
             list_choices(config, index)
         elif args.examples:
             write_examples(config, psd, index)
         elif args.assets:
-            data, source_bytes = load_scenario_data(config)
-            write_assets(config, psd, index, data, source_bytes)
+            data, source_bytes = load_scenario_data(config, expression_choices)
+            content, content_bytes = load_persona_content(config, data, expression_choices)
+            write_assets(config, psd, index, data, source_bytes, content, content_bytes, expression_choices)
         elif args.check:
             count = check_examples(config, psd, index)
-            data, source_bytes = load_scenario_data(config)
-            image_count = check_assets(config, psd, index, data, source_bytes)
+            data, source_bytes = load_scenario_data(config, expression_choices)
+            content, content_bytes = load_persona_content(config, data, expression_choices)
+            image_count = check_assets(
+                config, psd, index, data, source_bytes, content, content_bytes, expression_choices,
+            )
             print(f"{count} example(s) match the PSD and characters.json.")
-            print(f"{image_count} notification image(s), the scenario data set, and the docs match notification-scenarios.json.")
+            print(
+                f"{image_count} union notification image(s), both data sets, and both docs match their source JSON files."
+            )
         else:
             out = args.out or DEFAULT_OUT_DIR / f"{args.character}-{args.crop}.png"
             save_png(render(config, psd, index, args.character, args.crop), out)

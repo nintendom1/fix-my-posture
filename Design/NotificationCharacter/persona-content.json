@@ -95,7 +95,23 @@
   "fragments": {
     "openers": [
       {
-        "text": "Okay.",
+        "text": "Oh.",
+        "tones": [
+          "smug",
+          "competitive"
+        ],
+        "minFamiliarity": "established"
+      },
+      {
+        "text": "Well, look.",
+        "tones": [
+          "proud",
+          "pleased"
+        ],
+        "minFamiliarity": "familiar"
+      },
+      {
+        "text": "Well, then.",
         "tones": [
           "smug",
           "annoyed",
@@ -109,15 +125,42 @@
         "text": "Noted.",
         "tones": [
           "smug",
-          "annoyed",
+          "competitive",
+          "annoyed"
+        ],
+        "minFamiliarity": "established"
+      },
+      {
+        "text": "I saw that.",
+        "tones": [
+          "proud",
+          "pleased",
+          "smug",
           "competitive"
+        ],
+        "minFamiliarity": "familiar"
+      },
+      {
+        "text": "Worth a mention.",
+        "tones": [
+          "proud",
+          "pleased",
+          "warm",
+          "relieved",
+          "concerned"
         ],
         "minFamiliarity": "familiar"
       }
     ],
     "intro": [
       {
-        "text": "I notice things now."
+        "text": "I notice things."
+      },
+      {
+        "text": "I’m noticing now."
+      },
+      {
+        "text": "I notice more now."
       }
     ]
   },
@@ -131,12 +174,69 @@
       ],
       "title": [
         {
-          "text": "Nice PR on {exercise}"
+          "text": "New high on {exercise}"
+        },
+        {
+          "text": "{exercise}, record breaker",
+          "tones": [
+            "proud",
+            "pleased",
+            "smug",
+            "competitive"
+          ],
+          "minFamiliarity": "familiar"
         }
       ],
       "body": [
         {
-          "text": "{value}. New high."
+          "text": "{value}. Your highest yet.",
+          "tones": [
+            "proud",
+            "pleased"
+          ]
+        },
+        {
+          "text": "{value}. That’s a first.",
+          "tones": [
+            "proud",
+            "pleased"
+          ]
+        },
+        {
+          "text": "{value}. I’m proud of that.",
+          "tones": [
+            "proud"
+          ],
+          "minFamiliarity": "familiar"
+        },
+        {
+          "text": "{value}. That’s worth a little celebration.",
+          "tones": [
+            "proud",
+            "pleased"
+          ],
+          "minFamiliarity": "familiar"
+        },
+        {
+          "text": "{value}. Okay, show-off.",
+          "tones": [
+            "smug"
+          ],
+          "minFamiliarity": "established"
+        },
+        {
+          "text": "{value}. The old record had a good run.",
+          "tones": [
+            "smug"
+          ],
+          "minFamiliarity": "established"
+        },
+        {
+          "text": "Wait. {value}?! Since when?",
+          "tones": [
+            "competitive"
+          ],
+          "minFamiliarity": "established"
         }
       ],
       "art": {
@@ -157,12 +257,55 @@
       ],
       "title": [
         {
-          "text": "Rep PR on {exercise}"
+          "text": "New rep record on {exercise}"
+        },
+        {
+          "text": "{exercise}: new territory",
+          "tones": [
+            "proud",
+            "pleased",
+            "smug",
+            "competitive"
+          ],
+          "minFamiliarity": "familiar"
         }
       ],
       "body": [
         {
-          "text": "{count} reps at {value}. That’s new."
+          "text": "{count} reps at {value}. Best so far."
+        },
+        {
+          "text": "{count} reps at {value}. Stronger than last time.",
+          "tones": [
+            "proud",
+            "pleased"
+          ]
+        },
+        {
+          "text": "{count} reps. Your best yet at {value}."
+        },
+        {
+          "text": "{count} reps at {value}. Proud of you.",
+          "tones": [
+            "proud"
+          ],
+          "minFamiliarity": "familiar"
+        },
+        {
+          "text": "{count} reps at {value}. Look at you.",
+          "tones": [
+            "smug",
+            "competitive"
+          ],
+          "minFamiliarity": "established"
+        },
+        {
+          "text": "{count} reps at {value}. Old record: retired.",
+          "tones": [
+            "smug",
+            "competitive"
+          ],
+          "minFamiliarity": "established"
         }
       ],
       "art": {}
@@ -175,12 +318,55 @@
       ],
       "title": [
         {
-          "text": "{count} workouts"
+          "text": "A milestone"
+        },
+        {
+          "text": "{count}. Yes, you.",
+          "tones": [
+            "proud",
+            "pleased",
+            "warm"
+          ],
+          "minFamiliarity": "familiar"
         }
       ],
       "body": [
         {
-          "text": "{count} workouts logged. That’s real."
+          "text": "{count} workouts logged. That’s a lot of showing up."
+        },
+        {
+          "text": "{count} workouts. That’s real."
+        },
+        {
+          "text": "{count} workouts. Each one counts.",
+          "tones": [
+            "proud",
+            "warm"
+          ]
+        },
+        {
+          "text": "{count} workouts. You built that.",
+          "tones": [
+            "proud",
+            "pleased",
+            "warm"
+          ],
+          "minFamiliarity": "familiar"
+        },
+        {
+          "text": "{count} workouts. I’m proud of you.",
+          "tones": [
+            "proud"
+          ],
+          "minFamiliarity": "familiar"
+        },
+        {
+          "text": "{count} workouts! That deserves a moment.",
+          "tones": [
+            "proud",
+            "pleased"
+          ],
+          "minFamiliarity": "familiar"
         }
       ],
       "art": {
@@ -210,7 +396,27 @@
       ],
       "body": [
         {
-          "text": "{count} {weekday}s in a row."
+          "text": "{count} {weekday}s in a row. A pattern’s forming.",
+          "tones": [
+            "pleased",
+            "warm"
+          ]
+        },
+        {
+          "text": "{count} {weekday}s in a row. I’m keeping count.",
+          "tones": [
+            "pleased",
+            "warm"
+          ],
+          "minFamiliarity": "familiar"
+        },
+        {
+          "text": "{count} {weekday}s in a row. I see the pattern.",
+          "tones": [
+            "smug",
+            "pleased"
+          ],
+          "minFamiliarity": "established"
         }
       ],
       "art": {}
@@ -224,12 +430,28 @@
       ],
       "title": [
         {
-          "text": "{weekday} person"
+          "text": "A {weekday} person"
         }
       ],
       "body": [
         {
           "text": "{count} {weekday}s in a row. This is a thing now."
+        },
+        {
+          "text": "{count} {weekday}s. You have a {weekday} thing.",
+          "tones": [
+            "pleased",
+            "warm"
+          ],
+          "minFamiliarity": "familiar"
+        },
+        {
+          "text": "{count} {weekday}s running. It’s practically your day.",
+          "tones": [
+            "smug",
+            "pleased"
+          ],
+          "minFamiliarity": "established"
         }
       ],
       "art": {}
@@ -243,12 +465,28 @@
       ],
       "title": [
         {
-          "text": "{weekday} again"
+          "text": "Your {weekday} pattern"
         }
       ],
       "body": [
         {
           "text": "It’s {weekday}. Make it {count} in a row?"
+        },
+        {
+          "text": "{weekday} again. One more would make {count} in a row.",
+          "tones": [
+            "pleased",
+            "warm"
+          ],
+          "minFamiliarity": "familiar"
+        },
+        {
+          "text": "{weekday}. Shall we make it {count} in a row?",
+          "tones": [
+            "smug",
+            "pleased"
+          ],
+          "minFamiliarity": "established"
         }
       ],
       "art": {}
@@ -267,7 +505,15 @@
       ],
       "body": [
         {
-          "text": "{routine}, {count} times running."
+          "text": "{routine}, {count} sessions running. There’s a rhythm."
+        },
+        {
+          "text": "{routine}, {count} in a row. An encore, then.",
+          "tones": [
+            "pleased",
+            "smug"
+          ],
+          "minFamiliarity": "familiar"
         }
       ],
       "art": {}
@@ -280,12 +526,21 @@
       ],
       "title": [
         {
-          "text": "Right on time"
+          "text": "Your usual time"
         }
       ],
       "body": [
         {
-          "text": "Around {time} again. You have a slot."
+          "text": "Around {time} again. Clockwork."
+        },
+        {
+          "text": "Around {time} again. Your signature time.",
+          "tones": [
+            "pleased",
+            "warm",
+            "smug"
+          ],
+          "minFamiliarity": "familiar"
         }
       ],
       "art": {}
@@ -299,12 +554,28 @@
       ],
       "title": [
         {
-          "text": "{exercise}, skipped"
+          "text": "{exercise}: a skip pattern"
         }
       ],
       "body": [
         {
           "text": "{exercise} skipped {count} times in a row."
+        },
+        {
+          "text": "{count} skips in a row on {exercise}. That keeps coming up.",
+          "tones": [
+            "concerned",
+            "warm"
+          ],
+          "minFamiliarity": "familiar"
+        },
+        {
+          "text": "{count} skips on {exercise}. A pattern, apparently.",
+          "tones": [
+            "annoyed",
+            "smug"
+          ],
+          "minFamiliarity": "established"
         }
       ],
       "art": {}
@@ -323,7 +594,29 @@
       ],
       "body": [
         {
-          "text": "{count} skips on {exercise} now."
+          "text": "{count} consecutive skips on {exercise} now."
+        },
+        {
+          "text": "{exercise}: {count} skips running. The pattern’s continuing.",
+          "tones": [
+            "concerned",
+            "warm"
+          ],
+          "minFamiliarity": "familiar"
+        },
+        {
+          "text": "{count} skips in a row. {exercise}: officially your nemesis.",
+          "tones": [
+            "annoyed"
+          ],
+          "minFamiliarity": "established"
+        },
+        {
+          "text": "{count} skips on {exercise}. An entire subplot.",
+          "tones": [
+            "smug"
+          ],
+          "minFamiliarity": "established"
         }
       ],
       "art": {}
@@ -337,12 +630,35 @@
       ],
       "title": [
         {
-          "text": "{routine}?"
+          "text": "Remember {routine}?"
         }
       ],
       "body": [
         {
-          "text": "{routine} hasn’t come up in {weeks} weeks."
+          "text": "{routine} hasn’t come up in {weeks} weeks.",
+          "tones": [
+            "concerned"
+          ]
+        },
+        {
+          "text": "{weeks} weeks since {routine}. Want to revisit it?",
+          "tones": [
+            "concerned"
+          ]
+        },
+        {
+          "text": "{routine}, untouched for {weeks} weeks. Quite the hiatus.",
+          "tones": [
+            "annoyed"
+          ],
+          "minFamiliarity": "established"
+        },
+        {
+          "text": "{weeks} weeks without {routine}. That’s a long gap.",
+          "tones": [
+            "disappointed"
+          ],
+          "minFamiliarity": "established"
         }
       ],
       "art": {}
@@ -355,12 +671,28 @@
       ],
       "title": [
         {
-          "text": "Lighter week?"
+          "text": "Fewer sessions lately"
         }
       ],
       "body": [
         {
-          "text": "Fewer sessions lately. {suggestion} is quick."
+          "text": "The pace has changed over the last few weeks.",
+          "tones": [
+            "concerned"
+          ]
+        },
+        {
+          "text": "If you want a lighter one: {suggestion}.",
+          "tones": [
+            "concerned"
+          ]
+        },
+        {
+          "text": "Three weeks, each quieter than the last.",
+          "tones": [
+            "disappointed"
+          ],
+          "minFamiliarity": "longTerm"
         }
       ],
       "art": {}
@@ -378,7 +710,34 @@
       ],
       "body": [
         {
-          "text": "{days} days. Good to see you."
+          "text": "First workout in {days} days. A fresh start.",
+          "tones": [
+            "warm"
+          ]
+        },
+        {
+          "text": "{days} days, then a workout. Good to see you back.",
+          "tones": [
+            "warm",
+            "relieved"
+          ],
+          "minFamiliarity": "familiar"
+        },
+        {
+          "text": "{days} days. You came back. That’s the good part.",
+          "tones": [
+            "warm",
+            "relieved"
+          ],
+          "minFamiliarity": "familiar"
+        },
+        {
+          "text": "{days} days, and you’re back. Just glad.",
+          "tones": [
+            "warm",
+            "relieved"
+          ],
+          "minFamiliarity": "familiar"
         }
       ],
       "art": {
@@ -397,12 +756,20 @@
       ],
       "title": [
         {
-          "text": "Posture check"
+          "text": "Back for a posture check"
         }
       ],
       "body": [
         {
-          "text": "First check in {days} days. Nice."
+          "text": "First check in {days} days. Good timing."
+        },
+        {
+          "text": "{days} days, then a check. Glad you came back to it.",
+          "tones": [
+            "pleased",
+            "warm"
+          ],
+          "minFamiliarity": "familiar"
         }
       ],
       "art": {}
@@ -415,12 +782,15 @@
       ],
       "title": [
         {
-          "text": "Moving the right way"
+          "text": "A measurable shift"
         }
       ],
       "body": [
         {
           "text": "Your {measurement} trend is moving the right way."
+        },
+        {
+          "text": "Less deviation in {measurement} on two checks. Nice."
         }
       ],
       "art": {}
