@@ -373,6 +373,10 @@
 		A10000012B00000000000383 /* PersonaTraceStoreTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000383 /* PersonaTraceStoreTests.swift */; };
 		A10000012B00000000000384 /* PersonaFixtures.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000384 /* PersonaFixtures.swift */; };
 		A10000012B00000000000385 /* PersonaIntroCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000385 /* PersonaIntroCard.swift */; };
+		A10000012B00000000000386 /* WorkoutGhostGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000386 /* WorkoutGhostGeometry.swift */; };
+		A10000012B00000000000387 /* ReadyGhostInvariantTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000387 /* ReadyGhostInvariantTests.swift */; };
+		A10000012B00000000000388 /* ReadyPoseFixtures.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000388 /* ReadyPoseFixtures.swift */; };
+		A10000012B00000000000389 /* WorkoutCoachHarness.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000389 /* WorkoutCoachHarness.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -754,6 +758,10 @@
 		B10000012B00000000000383 /* PersonaTraceStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaTraceStoreTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000384 /* PersonaFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaFixtures.swift; sourceTree = "<group>"; };
 		B10000012B00000000000385 /* PersonaIntroCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaIntroCard.swift; sourceTree = "<group>"; };
+		B10000012B00000000000386 /* WorkoutGhostGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutGhostGeometry.swift; sourceTree = "<group>"; };
+		B10000012B00000000000387 /* ReadyGhostInvariantTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadyGhostInvariantTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000388 /* ReadyPoseFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadyPoseFixtures.swift; sourceTree = "<group>"; };
+		B10000012B00000000000389 /* WorkoutCoachHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCoachHarness.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -998,6 +1006,7 @@
 				B10000012B00000000000381 /* PersonaPlannerTests.swift */,
 				B10000012B00000000000382 /* PersonaToneSelectorTests.swift */,
 				B10000012B00000000000383 /* PersonaTraceStoreTests.swift */,
+				B10000012B00000000000387 /* ReadyGhostInvariantTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1222,6 +1231,8 @@
 				B10000012B00000000000285 /* AssessmentFixtures.swift */,
 				B10000012B00000000000299 /* SettingsFixtures.swift */,
 				B10000012B00000000000384 /* PersonaFixtures.swift */,
+				B10000012B00000000000388 /* ReadyPoseFixtures.swift */,
+				B10000012B00000000000389 /* WorkoutCoachHarness.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -1423,6 +1434,7 @@
 				B10000012B00000000000073 /* WorkoutJointOverlayView.swift */,
 				B10000012B00000000000104 /* ExerciseChooserOverlay.swift */,
 				B10000012B00000000000097 /* WorkoutTipView.swift */,
+				B10000012B00000000000386 /* WorkoutGhostGeometry.swift */,
 			);
 			path = WorkoutCamera;
 			sourceTree = "<group>";
@@ -1968,6 +1980,7 @@
 				A10000012B00000000000369 /* PostureDetector.swift in Sources */,
 				A10000012B00000000000370 /* PersonaContentCatalogLoading.swift in Sources */,
 				A10000012B00000000000385 /* PersonaIntroCard.swift in Sources */,
+				A10000012B00000000000386 /* WorkoutGhostGeometry.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2083,6 +2096,9 @@
 				A10000012B00000000000382 /* PersonaToneSelectorTests.swift in TestSources */,
 				A10000012B00000000000383 /* PersonaTraceStoreTests.swift in TestSources */,
 				A10000012B00000000000384 /* PersonaFixtures.swift in TestSources */,
+				A10000012B00000000000387 /* ReadyGhostInvariantTests.swift in TestSources */,
+				A10000012B00000000000388 /* ReadyPoseFixtures.swift in TestSources */,
+				A10000012B00000000000389 /* WorkoutCoachHarness.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

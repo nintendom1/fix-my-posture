@@ -128,10 +128,9 @@ struct WorkoutCoachView: View {
                 }
 
                 if let overlay = model.overlay {
-                    if model.hud.visual.overlay == .ghostDemo,
-                       let metrics = model.guideMetrics,
-                       let exercise = model.session.exercise {
-                        WorkoutGhostOverlayView(overlay: overlay, metrics: metrics, motion: exercise.guide.motion,
+                    if model.hud.visual.overlay == .ghostDemo, let exercise = model.session.exercise {
+                        WorkoutGhostOverlayView(overlay: overlay, metrics: model.guideMetrics,
+                                                motion: exercise.guide.motion,
                                                 cameraView: exercise.cameraView)
                             .frame(width: geo.size.width, height: geo.size.height)
                     }

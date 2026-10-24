@@ -85,6 +85,8 @@ Design/NotificationCharacter/    # Chibi PSD, characters.json, notification-scen
 
 Every new Workout Coach exercise ships with full guidance (guide, ghost demo, threshold lines, hold ring, coaching cues, docs, and checklist items) even when a request only names the exercise. Follow the *Adding an exercise* checklist in `docs/workout.md`.
 
+**Ready-state ghost invariant.** Every exercise renders its alignment ghost whenever the workout reaches `.ready`. Ghost sizing may depend only on what Ready guarantees (`requiredJoints` plus any one `anyOfRequiredJoints` set), unless it has a fallback; optional landmarks may refine sizing but must never suppress the ghost. Never add `requiredJoints` or `anyOfRequiredJoints` just to make the ghost render. `ReadyGhostInvariantTests` enforces this for every catalog exercise.
+
 ## Exercise Photography
 
 Exercise thumbnails use vetted real photography. Never replace them with an unvetted source or AI-generated or generatively altered imagery. Only crop and resize approved photographs; preserve instructional/form visuals such as `ExerciseDemoFigureView`.
