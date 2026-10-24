@@ -82,6 +82,7 @@ struct PersonaDebugScreen: View {
     }
 
     private var availabilityLabel: String {
+        if viewModel.loadError != nil { return "Content unavailable" }
         if viewModel.status.isActive { return "Active" }
         return viewModel.status.extraPersonableEnabled ? "Reminders off or Plain style" : "Inactive"
     }
@@ -290,7 +291,7 @@ struct PersonaDebugScreen: View {
                 HStack {
                     Text(viewModel.shortTime(for: trace.fireDate ?? trace.decidedAt))
                     Spacer(minLength: 8)
-                    Text(PersonaDebugViewModel.deliveryDescription(trace.delivery))
+                    Text(viewModel.sentRowLabel(trace))
                 }
                 .font(.system(size: 11, weight: .bold, design: .rounded))
                 .foregroundStyle(ColorTokens.palette().textSubtle)
@@ -447,7 +448,10 @@ private struct PersonaDecisionTraceDetailView: View {
                                 detailLine("Trajectory", value: trace.trajectory.rawValue.capitalized)
                                 detailLine("Tone", value: trace.tone.map { $0.rawValue.capitalized } ?? "None")
                                 detailLine("Template ID", value: trace.templateID ?? "None")
-                                detailLine("Standalone count today", value: "\(trace.standaloneCountToday) / 2")
+                                detailLine(
+                                    "Standalone count that day",
+                                    value: "\(trace.standaloneCountToday) / \(PersonaPolicy.standard.dailyStandaloneCap)"
+                                )
                                 detailLine("Cooling", value: trace.cooling.rawValue.capitalized)
                                 detailLine("Quiet/deferred", value: trace.quietDeferred ? "Yes" : "No")
                                 detailLine("Recent similar count", value: "\(trace.recentSimilarCount)")

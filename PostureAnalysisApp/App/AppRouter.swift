@@ -41,6 +41,12 @@ final class AppRouter {
         }
     }
 
+    /// Presents a full-screen route (settings or the workout camera) over the current tab without switching tabs.
+    func present(_ route: AppRoute) {
+        guard route.isPresentedFullScreen else { return open(route) }
+        presentedFullScreenRoute = route
+    }
+
     func dismissFullScreen() {
         presentedFullScreenRoute = nil
     }

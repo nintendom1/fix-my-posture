@@ -74,7 +74,7 @@ final class PersonaDebugViewModel {
         tone = catalog?.contentKeys.first.flatMap { catalog?.entry($0)?.defaultTone } ?? .pleased
         familiarity = .new
         intro = false
-        refresh()
+        // Status and traces load when the page appears (`refresh()` from the screen's `.task`), not when Settings opens.
     }
 
     /// The selected key, exposed as a concise label for the preview controls.
@@ -186,20 +186,31 @@ final class PersonaDebugViewModel {
 
     /// Formats a trace time with the injected calendar's time zone.
     func shortTime(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = calendar.isDate(date, inSameDayAs: now()) ? "h:mm a" : "MMM d, h:mm a"
+        let formatter = calendar.isDate(date, inSameDayAs: now()) ? todayFormatter : otherDayFormatter
         return formatter.string(from: date)
     }
 
     /// Formats the reset date with the injected calendar's time zone.
     func resetDateLabel(_ date: Date) -> String {
+        resetFormatter.string(from: date)
+    }
+
+    /// "Scheduled" for a sent trace that iOS has not delivered yet, otherwise the delivery mode.
+    func sentRowLabel(_ trace: PersonaDecisionTrace) -> String {
+        let delivery = Self.deliveryDescription(trace.delivery)
+        return trace.isPending(asOf: now()) ? "Scheduled · \(delivery)" : delivery
+    }
+
+    @ObservationIgnored private lazy var todayFormatter = makeFormatter("h:mm a")
+    @ObservationIgnored private lazy var otherDayFormatter = makeFormatter("MMM d, h:mm a")
+    @ObservationIgnored private lazy var resetFormatter = makeFormatter("MMM d, yyyy h:mm a")
+
+    private func makeFormatter(_ format: String) -> DateFormatter {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "MMM d, yyyy h:mm a"
-        return formatter.string(from: date)
+        formatter.dateFormat = format
+        return formatter
     }
 
     static func deliveryDescription(_ delivery: PersonaDelivery) -> String {

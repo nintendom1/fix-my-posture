@@ -17,7 +17,9 @@ saved history, a planner picks at most one observation per message, and copy com
   engagement, and tone history. Workouts, assessments, and the toggle stay. History before the reset still counts for
   factual records such as an all-time PR, but not for familiarity, patterns, or lapses.
 - A dismissible intro card on the Posture and Train tabs introduces the feature once, and the first persona message
-  after install or reset carries a short intro line.
+  after install or reset carries a short intro line. The card shows only while Character reminders are on (reminders
+  are off on a fresh install), and its Settings button opens Settings over the current tab.
+- Reset Persona is also available on the Persona debug page.
 
 ## Data flow
 
@@ -108,6 +110,21 @@ Settings → Developer diagnostics → Persona debug shows the live status (fami
 today, quiet hours, pending requests), the last 10 sent and the recent suppressed decisions, a detail view of each stored
 `PersonaDecisionTrace` with categorical dot meters and a "why this won" sentence, and a content preview that can send any
 configured variant without waiting for a detector. Traces live in `persona-traces.json` in Application Support.
+
+## Known limits (v1)
+
+- **Travel**: persona notifications fire on local wall-clock time like reminders, but traces store absolute fire
+  dates. After crossing time zones on a day with a projected message, one message can repeat or be counted as delivered
+  a few hours early.
+- **Count keys**: observations keyed by a count (`pattern.routineRepeat`, `lapse.skippedExercise`) are deduplicated
+  only while they are among the newest ten fired traces, so the same count can come up again weeks later.
+- **Ending a workout early** marks the remaining routine items as skipped, so the tail exercises of a long routine can
+  build a skip run for someone who often runs out of time. The copy only states counts.
+- **Comeback** reads all history, not just history since the reset, because a gap is a fact.
+- **Passive messages and cooling**: a passive message left unanswered for a day counts toward strong cooling, the same
+  as an Active one. People who never open Notification Center can see her go quiet for up to two weeks.
+- The debug page's Send uses the developer preview scheduler, so a Passive variant previews with sound and the default
+  interruption level.
 
 ## Extending
 

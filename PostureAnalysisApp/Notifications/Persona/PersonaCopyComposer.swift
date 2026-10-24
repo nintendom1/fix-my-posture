@@ -38,8 +38,8 @@ enum PersonaCopyComposer {
 
     /// Eligible titles and bodies are those whose tones include `tone` (or are untagged) and whose
     /// `minFamiliarity` is at or below `familiarity`. If none are eligible for `tone`, the entry's `defaultTone` is
-    /// used. `variant` (any integer, wrapped) picks the title, the body, and the fragment pattern: `variant % 4` is
-    /// none, opener, closer, or both, using only eligible fragments that keep the body within the length limit.
+    /// used. `variant` (any integer, wrapped) walks every title × body pair, then the four fragment patterns (none,
+    /// opener, closer, both), then each eligible fragment, dropping fragments that would exceed the length limit.
     /// When `intro` is true an intro fragment replaces the closer. Art is `catalog.art(for:tone:)` with the tone
     /// actually used. Lines whose tokens cannot be filled are skipped; nil when nothing can be composed.
     /// The result's `content.kind` is `.persona` and `content.scenarioID` is the content key.
@@ -65,27 +65,31 @@ enum PersonaCopyComposer {
         let titleCount = selection.titleCount
         let combinationCount = product(titleCount, selection.bodies.count)
         guard combinationCount > 0 else { return nil }
-        let v = normalizedVariant(variant, combinationCount: combinationCount)
+
+        let fragments = catalog.fragments
+        let openers = renderedLines(fragments.openers, tone: selection.tone, familiarity: familiarity, values: values)
+        let closers = renderedLines(fragments.closers, tone: selection.tone, familiarity: familiarity, values: values)
+        let intros = renderedLines(fragments.intro, tone: selection.tone, familiarity: familiarity, values: values)
+        let fragmentChoices = max(1, openers.count, closers.count, intros.count)
+
+        // The variant walks every title × body pair first, then the four fragment patterns, then each fragment choice,
+        // so a small authored set reaches every combination before repeating.
+        let v = normalizedVariant(variant, period: product(product(combinationCount, 4), fragmentChoices))
         let combination = v % combinationCount
         let titleLine = selection.titles.isEmpty ? nil : selection.titles[combination % titleCount]
         let title = titleLine?.text ?? NotificationContentBuilder.fallbackTitle
         let titleMarker = titleLine.map { "\($0.index)" } ?? "F"
         let bodyLine = selection.bodies[combination / titleCount]
 
-        let fragments = catalog.fragments
-        let openers = renderedLines(fragments.openers, tone: selection.tone, familiarity: familiarity, values: values)
-        let closers = renderedLines(fragments.closers, tone: selection.tone, familiarity: familiarity, values: values)
-        let intros = renderedLines(fragments.intro, tone: selection.tone, familiarity: familiarity, values: values)
-        // The fragment cycle advances once per full pass over the title × body pairs, so every pair meets every pattern.
-        let fragmentStep = v / combinationCount
-        let pattern = fragmentStep % 4
-        var opener: RenderedLine? = (pattern == 1 || pattern == 3) ? selectedLine(openers, variant: fragmentStep) : nil
+        let pattern = (v / combinationCount) % 4
+        let fragmentChoice = v / product(combinationCount, 4)
+        var opener: RenderedLine? = (pattern == 1 || pattern == 3) ? selectedLine(openers, variant: fragmentChoice) : nil
         var trailing: TrailingFragment?
-        let selectedIntro = intro ? selectedLine(intros, variant: fragmentStep) : nil
+        let selectedIntro = intro ? selectedLine(intros, variant: fragmentChoice) : nil
         if let selectedIntro {
             trailing = .intro(selectedIntro)
         } else if pattern == 2 || pattern == 3 {
-            trailing = selectedLine(closers, variant: fragmentStep).map(TrailingFragment.closer)
+            trailing = selectedLine(closers, variant: fragmentChoice).map(TrailingFragment.closer)
         }
 
         if bodyLength(opener: opener, body: bodyLine.text, trailing: trailing) > maximumBodyLength {
@@ -198,9 +202,7 @@ enum PersonaCopyComposer {
         return lines[variant % lines.count]
     }
 
-    private static func normalizedVariant(_ variant: Int, combinationCount: Int) -> Int {
-        let (cycle, overflow) = combinationCount.multipliedReportingOverflow(by: 4)
-        let period = overflow ? Int.max : cycle
+    private static func normalizedVariant(_ variant: Int, period: Int) -> Int {
         let remainder = variant % period
         return remainder < 0 ? remainder + period : remainder
     }

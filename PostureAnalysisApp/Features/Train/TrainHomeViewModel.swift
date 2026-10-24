@@ -82,7 +82,7 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
             preferences.personaIntroCardDismissed = true
             state.showsPersonaIntro = false
         case .openPersonaSettings:
-            router.open(.settings)
+            router.present(.settings)
         case .openLibrary:
             router.open(.library)
         case .openHistory:

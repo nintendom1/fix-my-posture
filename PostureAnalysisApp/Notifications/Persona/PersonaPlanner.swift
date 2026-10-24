@@ -71,7 +71,6 @@ enum PersonaPlanner {
                 quietHours: quietHours,
                 catalog: catalog,
                 policy: policy,
-                fired: fired,
                 compose: compose,
                 state: &state
             )
@@ -112,7 +111,6 @@ enum PersonaPlanner {
                 quietHours: quietHours,
                 catalog: catalog,
                 policy: policy,
-                fired: fired,
                 compose: compose,
                 state: &state
             )
@@ -204,7 +202,6 @@ enum PersonaPlanner {
         quietHours: any QuietHoursProviding,
         catalog: PersonaContentCatalog,
         policy: PersonaPolicy,
-        fired: [PersonaDecisionTrace],
         compose: Compose,
         state: inout PlanningState
     ) {

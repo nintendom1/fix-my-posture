@@ -239,7 +239,8 @@ final class WorkoutReminderNotificationBridge {
     private var pendingEngagement: [PersonaEngagementEvent] = []
     private var engagementHandler: ((PersonaEngagementEvent) -> Void)?
 
-    private init() {}
+    /// Internal so tests can exercise buffering without the shared instance; the app uses `shared`.
+    init() {}
 
     /// Installs the persona engagement recorder and delivers any taps or dismissals buffered before launch finished.
     func installEngagement(handler: @escaping (PersonaEngagementEvent) -> Void) {
@@ -309,6 +310,11 @@ final class WorkoutReminderAppDelegate: NSObject, UIApplicationDelegate, UNUserN
         return [.banner, .list, .sound]
     }
 
+    /// Only opening a notification routes to its workout; a dismissal never does.
+    static func shouldRouteToWorkout(actionIdentifier: String) -> Bool {
+        actionIdentifier == UNNotificationDefaultActionIdentifier
+    }
+
     /// A persona tap or dismissal as an engagement event, or nil for other notifications and actions.
     static func personaEngagement(
         categoryIdentifier: String,
@@ -340,23 +346,20 @@ final class WorkoutReminderAppDelegate: NSObject, UIApplicationDelegate, UNUserN
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let content = response.notification.request.content
-        if let engagement = Self.personaEngagement(
+        let engagement = Self.personaEngagement(
             categoryIdentifier: content.categoryIdentifier,
             actionIdentifier: response.actionIdentifier,
             userInfo: content.userInfo,
             date: Date()
-        ) {
-            Task { @MainActor in
-                WorkoutReminderNotificationBridge.shared.receive(engagement: engagement)
-            }
+        )
+        let target = Self.shouldRouteToWorkout(actionIdentifier: response.actionIdentifier)
+            ? Self.workoutTarget(from: content.userInfo)
+            : nil
+        // A dismissal can wake the app in the background; finish the work before telling iOS we are done.
+        Task { @MainActor in
+            if let engagement { WorkoutReminderNotificationBridge.shared.receive(engagement: engagement) }
+            if let target { WorkoutReminderNotificationBridge.shared.receive(target) }
+            completionHandler()
         }
-        // Only opening a notification routes to its workout; a dismissal never does.
-        if response.actionIdentifier == UNNotificationDefaultActionIdentifier,
-           let target = Self.workoutTarget(from: content.userInfo) {
-            Task { @MainActor in
-                WorkoutReminderNotificationBridge.shared.receive(target)
-            }
-        }
-        completionHandler()
     }
 }

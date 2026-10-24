@@ -45,7 +45,7 @@ final class PostureHomeViewModel {
             preferences.personaIntroCardDismissed = true
             state.showsPersonaIntro = false
         case .openPersonaSettings:
-            router.open(.settings)
+            router.present(.settings)
         case .setBaseline(let id, let isBaseline):
             do {
                 try assessments?.setBaseline(id: id, isBaseline: isBaseline)

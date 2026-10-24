@@ -12,8 +12,8 @@ tree. Written from the #64 Extra Personable run. Read this only when you are orc
 | Copy writer | Codex `gpt-6.1-sol`, effort high | User-facing wording in a content file, against a voice guide |
 | Reviewer | Claude Fable, read-only (`--permission-mode plan`) | Findings on a local commit before it is pushed |
 
-Prefer Codex agents for implementation and copy; use Claude agents only when Codex is unavailable. Never start Codex
-Astra; always pass an explicit `-m`.
+The user's standing preference is Codex subagents, with Claude subagents only when Codex is unavailable (the #64 run
+moved copy from a planned Opus pane to Codex Sol for that reason). Never start Codex Astra; always pass an explicit `-m`.
 
 ## Panes
 
