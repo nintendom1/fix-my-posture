@@ -78,6 +78,11 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
             router.open(.routineEditor(id: nil))
         case .openSettings:
             router.open(.settings)
+        case .dismissPersonaIntro:
+            preferences.personaIntroCardDismissed = true
+            state.showsPersonaIntro = false
+        case .openPersonaSettings:
+            router.open(.settings)
         case .openLibrary:
             router.open(.library)
         case .openHistory:
@@ -108,8 +113,17 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
             routineChoices: choices,
             isRoutinePickerPresented: state.isRoutinePickerPresented,
             exercises: makeExerciseTiles(),
-            lastWorkout: history.first.map(makeLastWorkout)
+            lastWorkout: history.first.map(makeLastWorkout),
+            showsPersonaIntro: shouldShowPersonaIntro
         )
+    }
+
+    private var shouldShowPersonaIntro: Bool {
+        let reminderSettings = preferences.workoutReminderSettings
+        return reminderSettings.enabled
+            && reminderSettings.style == .character
+            && preferences.extraPersonableEnabled
+            && !preferences.personaIntroCardDismissed
     }
 
     private func makeHero(for set: SavedExerciseSet, records: [WorkoutRecord]) -> TrainHomeRoutinePresentation {

@@ -42,6 +42,7 @@ struct TrainHomeState: Equatable {
     var isRoutinePickerPresented: Bool
     let exercises: [TrainExerciseTile]
     let lastWorkout: TrainLastWorkoutPresentation?
+    var showsPersonaIntro = false
 
     var showsCreateRoutineEmptyState: Bool { heroRoutine == nil }
 }
@@ -55,6 +56,8 @@ enum TrainHomeIntent: Equatable {
     case startExercise(ExerciseID)
     case createRoutine
     case openSettings
+    case dismissPersonaIntro
+    case openPersonaSettings
     case openLibrary
     case openHistory
 }

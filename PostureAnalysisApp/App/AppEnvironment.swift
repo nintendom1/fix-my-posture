@@ -24,6 +24,12 @@ final class AppEnvironment {
     let notificationScenarioError: String?
     /// Plain-text record of what the notification code decided and what iOS accepted, for diagnosing the phone.
     let notificationEventLog = FileNotificationEventLog()
+    /// Extra Personable copy and art; nil when the data set is missing or invalid.
+    let personaContentCatalog: PersonaContentCatalog?
+    let personaContentError: String?
+    /// Persona decision traces and engagement. Nil for in-memory environments (previews and tests), which keeps the
+    /// persona quiet there.
+    let personaTraceStore: (any PersonaTraceStoring)?
 
     init(inMemory: Bool = false) {
         router = AppRouter()
@@ -36,6 +42,15 @@ final class AppEnvironment {
             notificationScenarioCatalog = nil
             notificationScenarioError = error.localizedDescription
         }
+        do {
+            personaContentCatalog = try PersonaContentCatalog.bundled()
+            personaContentError = nil
+        } catch {
+            personaContentCatalog = nil
+            personaContentError = String(describing: error)
+        }
+        personaTraceStore = inMemory ? nil : FilePersonaTraceStore()
+        let isAppActive: () -> Bool = { UIApplication.shared.applicationState == .active }
 
         do {
             let container = try AppModelContainer.make(inMemory: inMemory)
@@ -47,7 +62,11 @@ final class AppEnvironment {
                 exerciseCatalog: exerciseCatalog,
                 router: router,
                 scenarioCatalog: notificationScenarioCatalog,
-                eventLog: notificationEventLog
+                eventLog: notificationEventLog,
+                assessments: repositories.assessments,
+                personaCatalog: personaContentCatalog,
+                personaTraces: personaTraceStore,
+                isAppActive: isAppActive
             )
             modelContainer = container
             self.repositories = repositories
@@ -87,7 +106,8 @@ final class AppEnvironment {
             postureHomeViewModel = PostureHomeViewModel(
                 assessments: repositories.assessments,
                 images: repositories.images,
-                router: router
+                router: router,
+                preferences: preferences
             )
             persistenceError = nil
         } catch {
@@ -100,7 +120,10 @@ final class AppEnvironment {
                 exerciseCatalog: exerciseCatalog,
                 router: router,
                 scenarioCatalog: notificationScenarioCatalog,
-                eventLog: notificationEventLog
+                eventLog: notificationEventLog,
+                personaCatalog: personaContentCatalog,
+                personaTraces: personaTraceStore,
+                isAppActive: isAppActive
             )
             workoutReminderCoordinator = reminderCoordinator
             workoutCoachFactory = WorkoutCoachFactory(
@@ -138,7 +161,8 @@ final class AppEnvironment {
             postureHomeViewModel = PostureHomeViewModel(
                 assessments: nil,
                 images: nil,
-                router: router
+                router: router,
+                preferences: preferences
             )
             persistenceError = error.localizedDescription
         }
@@ -147,6 +171,19 @@ final class AppEnvironment {
         WorkoutReminderNotificationBridge.shared.install { [weak reminderCoordinator] target in
             reminderCoordinator?.handleTap(target)
         }
+        WorkoutReminderNotificationBridge.shared.installEngagement { [weak reminderCoordinator] event in
+            reminderCoordinator?.recordPersonaEngagement(event)
+        }
+    }
+
+    func makePersonaDebugViewModel() -> PersonaDebugViewModel {
+        PersonaDebugViewModel(
+            catalog: personaContentCatalog,
+            loadError: personaContentError,
+            provider: workoutReminderCoordinator,
+            scheduler: UserNotificationPreviewScheduler(),
+            preferences: preferences
+        )
     }
 
     func makeNotificationPreviewViewModel() -> NotificationPreviewViewModel {

@@ -87,3 +87,5 @@ All thresholds and limits live in `NotificationPolicy`. The scenario copy and ar
 ## Where it runs
 
 `WorkoutReminderCoordinator.reconcileNow()` invokes the planner for Character-style real reminders and maps planned content into the existing local notification scheduler. After a workout save, the coordinator first reconciles the remaining reminder plan, then selects and schedules an acknowledgment through that scheduler. Plain reminders keep using `WorkoutReminderScheduleBuilder`.
+
+Extra Personable runs alongside: each reconciliation also asks `PersonaPlanner` for projected persona notifications, and after a workout save the persona evaluates the saved workout before the acknowledgment is scheduled, so a persona observation can replace the acknowledgment's copy or add a line to it instead of sending a second notification. See [persona.md](persona.md).

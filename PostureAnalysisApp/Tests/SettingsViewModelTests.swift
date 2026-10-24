@@ -123,6 +123,61 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(reminderManager.reconcileCount, 1)
     }
 
+    func testExtraPersonableTogglePersistsAndReconciles() {
+        let preferences = InMemoryPreferences()
+        let reminderManager = MemoryWorkoutReminderManager()
+        let viewModel = SettingsViewModel(
+            preferences: preferences,
+            router: AppRouter(),
+            reminderManager: reminderManager
+        )
+
+        XCTAssertTrue(viewModel.extraPersonableEnabled)
+        viewModel.extraPersonableEnabled = false
+
+        XCTAssertFalse(preferences.extraPersonableEnabled)
+        XCTAssertFalse(viewModel.extraPersonableEnabled)
+        XCTAssertEqual(reminderManager.reconcileCount, 1)
+    }
+
+    func testConfirmingPersonaResetKeepsExtraPersonableEnabled() async {
+        let preferences = InMemoryPreferences()
+        let reminderManager = MemoryWorkoutReminderManager()
+        let viewModel = SettingsViewModel(
+            preferences: preferences,
+            router: AppRouter(),
+            reminderManager: reminderManager
+        )
+
+        viewModel.requestPersonaReset()
+        XCTAssertTrue(viewModel.isPersonaResetConfirmationPresented)
+
+        await viewModel.confirmPersonaReset()
+
+        XCTAssertFalse(viewModel.isPersonaResetConfirmationPresented)
+        XCTAssertEqual(reminderManager.resetPersonaCount, 1)
+        XCTAssertTrue(viewModel.extraPersonableEnabled)
+        XCTAssertTrue(preferences.extraPersonableEnabled)
+    }
+
+    func testCancelingPersonaResetDoesNotResetOrChangePreferences() {
+        let preferences = InMemoryPreferences()
+        let reminderManager = MemoryWorkoutReminderManager()
+        let viewModel = SettingsViewModel(
+            preferences: preferences,
+            router: AppRouter(),
+            reminderManager: reminderManager
+        )
+
+        viewModel.requestPersonaReset()
+        viewModel.cancelPersonaReset()
+
+        XCTAssertFalse(viewModel.isPersonaResetConfirmationPresented)
+        XCTAssertEqual(reminderManager.resetPersonaCount, 0)
+        XCTAssertEqual(reminderManager.reconcileCount, 0)
+        XCTAssertTrue(preferences.extraPersonableEnabled)
+    }
+
     func testSwitchingToEveryOtherDayStartsTheCadenceToday() {
         let preferences = InMemoryPreferences()
         preferences.workoutReminderSettings = WorkoutReminderSettings(
@@ -154,7 +209,8 @@ final class SettingsViewModelTests: XCTestCase {
             .about,
             .acknowledgements,
             .developerDiagnostics,
-            .notificationPreview
+            .notificationPreview,
+            .personaDebug
         ]
 
         for destination in destinations {
@@ -203,6 +259,7 @@ final class SettingsViewModelTests: XCTestCase {
     @MainActor
     private final class MemoryWorkoutReminderManager: WorkoutReminderManaging {
         private(set) var reconcileCount = 0
+        private(set) var resetPersonaCount = 0
 
         func reconcile() {
             reconcileCount += 1
@@ -213,5 +270,9 @@ final class SettingsViewModelTests: XCTestCase {
         func enable() async {}
 
         func authorizationStatus() async -> WorkoutReminderAuthorizationStatus { .authorized }
+
+        func resetPersona() async {
+            resetPersonaCount += 1
+        }
     }
 }

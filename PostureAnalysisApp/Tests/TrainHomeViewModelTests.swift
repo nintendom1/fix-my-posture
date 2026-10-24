@@ -105,6 +105,19 @@ final class TrainHomeViewModelTests: XCTestCase {
         XCTAssertEqual(router.presentedFullScreenRoute, .settings)
     }
 
+    func testPersonaIntroAppearsWhenEnabledAndDismissalPersists() {
+        let preferences = InMemoryPreferences()
+        preferences.workoutReminderSettings = WorkoutReminderSettings(enabled: true, style: .character)
+        let viewModel = makeViewModel(routines: MemoryRoutineRepository(entries: []), preferences: preferences)
+
+        XCTAssertTrue(viewModel.state.showsPersonaIntro)
+
+        viewModel.send(.dismissPersonaIntro)
+
+        XCTAssertFalse(viewModel.state.showsPersonaIntro)
+        XCTAssertTrue(preferences.personaIntroCardDismissed)
+    }
+
     func testAllExercisesOpensLibrary() {
         let router = AppRouter()
         let viewModel = makeViewModel(routines: MemoryRoutineRepository(entries: []), router: router)

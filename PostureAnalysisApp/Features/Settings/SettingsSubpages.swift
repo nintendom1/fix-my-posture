@@ -191,6 +191,15 @@ struct SettingsDeveloperDiagnosticsPage: View {
                     .background(ColorTokens.palette().backgroundCard, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .accessibilityIdentifier("settingsNotificationPreviewButton")
             }
+
+            if viewModel.personaDebug != nil {
+                Button("Persona debug") { viewModel.navigate(to: .personaDebug) }
+                    .font(.system(size: 16, weight: .heavy, design: .rounded))
+                    .foregroundStyle(ColorTokens.palette().tabActive)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .background(ColorTokens.palette().backgroundCard, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .accessibilityIdentifier("settingsPersonaDebugButton")
+            }
         }
     }
 }

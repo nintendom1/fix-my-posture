@@ -24,6 +24,7 @@ PostureAnalysisApp/
 │   ├── History/                 # Workout history and weight editing
 │   ├── Library/                 # Exercise library
 │   ├── NotificationPreview/     # Developer page that sends any character notification after a delay
+│   ├── PersonaDebug/            # Developer page for Extra Personable decisions, traces, and content previews
 │   ├── PhotoAssessment/         # Camera/library import and photo assessment flow
 │   ├── PostureHome/             # Posture tab and saved assessment history
 │   ├── Progress/                # Workout progress and stats
@@ -40,7 +41,8 @@ PostureAnalysisApp/
 ├── ImageImport/                 # PhotoValidator and ViewClassifier
 ├── Notifications/               # Character notification scenarios, content building, and delivery adapters
 │   ├── Domain/                  # Foundation-only scenario models, catalog, templates, and content builder
-│   └── Delivery/                # Attachment creation and UserNotifications adapters
+│   ├── Persona/                 # Foundation-only Extra Personable detectors, planner, content composer, and traces
+│   └── Delivery/                # Attachment creation, category registration, and UserNotifications adapters
 ├── Persistence/
 │   ├── Schema/                  # Versioned SwiftData schema and migration plan
 │   └── Repositories/            # Assessment, routine, workout-history, and image-store boundaries
@@ -63,7 +65,7 @@ PostureAnalysisApp/
 scripts/design/                  # Reference extraction/rendering, anchors, masks, and pixel diff
 Design/Metrics/                  # Committed metrics generated from the local design bundle
 Design/AppIcon/                  # App icon SVG source, export script, and notices
-Design/NotificationCharacter/    # Chibi source PSD, characters.json, notification-scenarios.json, and the PNG renderer
+Design/NotificationCharacter/    # Chibi PSD, characters.json, notification-scenarios.json, persona-content.json, VOICE.md, renderer
 ```
 
 ## Architecture
@@ -104,6 +106,7 @@ Whenever an exercise thumbnail is added, replaced, removed, renamed, or material
   ./scripts/validate.sh
   ```
 - Register new or renamed Swift files with `python3 scripts/pbxproj.py add|rename`; `validate.sh` runs `check`.
+- When orchestrating other agents, read `docs/agent-orchestration.md`; agents compile with `scripts/agent-build.sh` and never run tests.
 - **Required Before Every Commit** (run after staging changes):
   ```bash
   gitleaks git . --pre-commit --staged --redact --exit-code=1
@@ -123,6 +126,10 @@ Whenever an exercise thumbnail is added, replaced, removed, renamed, or material
 - Workout reminders: `docs/reminders.md`
 - Notification character scenarios (generated table of every state, art, and copy line): `docs/notification-scenarios.md`
 - Character notification planner and selection rules: `docs/notifications.md`
+- Extra Personable persona (detectors, planner, cap, cooling, traces, debug page): `docs/persona.md`
+- Persona copy and art (generated table of every line and image): `docs/persona-content.md`
+- Notification character voice (stakes and observer registers): `Design/NotificationCharacter/VOICE.md`
+- Agent orchestration on herdr (briefs, build lock, model routing, review gate): `docs/agent-orchestration.md`
 - Commit and PR conventions: `docs/commit-and-pr.md`
 - App icon source & export: `Design/AppIcon/README.md`
 - Exercise photography sources & crop records: `PostureAnalysisApp/Assets.xcassets/ExerciseThumbnails/SOURCES.md`
