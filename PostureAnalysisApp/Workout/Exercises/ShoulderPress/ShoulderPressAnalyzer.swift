@@ -89,6 +89,9 @@ final class ShoulderPressAnalyzer: ExerciseAnalyzing {
         analysis.endPositionSides = Set(BodySide.allCases.filter { trackers[$0]?.confirmed == .top })
         analysis.startPositionHeld = bothConfirmedBottom
 
+        if !frame.estimatedJoints.isDisjoint(with: Set(BodySide.allCases.flatMap(\.armJoints))) {
+            formMonitor.invalidate()
+        }
         let form = formMonitor.update(at: time, arms: formSamples,
                                       torsoOffset: torsoOffset(frame, left: left, right: right, rulers: rulers),
                                       counting: counting)

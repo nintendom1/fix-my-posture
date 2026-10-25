@@ -220,6 +220,67 @@ final class WorkoutFramePipelineTests: XCTestCase {
         XCTAssertTrue(pipeline.isCounting)
     }
 
+    func testOffscreenWristsKeepSetFramingReliableAndDoNotEnterOverlay() {
+        let exercise = ShoulderPressExercise.definition()
+        var pipeline = WorkoutFramePipeline(exercise: exercise, analyzerEpoch: 1, isCounting: true)
+        pipeline.setSessionPhase(.exercising)
+        var repCount = 0
+        var sawDropout = false
+        var becameReliable = false
+
+        for index in 0...Int(exercise.guide.motion.duration * 10) {
+            let time = Double(index) / 10
+            let raw = pressFrame(exercise.guide.motion, at: time)
+            let output = pipeline.process(frame: raw, at: time)
+            repCount += output.events.filter { if case .repCompleted = $0 { true } else { false } }.count
+            XCTAssertTrue(pipeline.isCounting)
+            for event in output.events {
+                guard case .framingChanged(let status) = event else { continue }
+                if status.isReliable {
+                    becameReliable = true
+                } else if becameReliable {
+                    XCTFail("Framing became unreliable during the set at \(time)s.")
+                }
+            }
+
+            if raw.pose[.leftWrist] == nil {
+                sawDropout = true
+                XCTAssertNil(output.overlay?.pose[.leftWrist])
+                XCTAssertNil(output.overlay?.pose[.rightWrist])
+                XCTAssertTrue(output.overlay?.joints[.leftWrist]?.isStale ?? true)
+                XCTAssertTrue(output.overlay?.joints[.rightWrist]?.isStale ?? true)
+            }
+        }
+
+        XCTAssertTrue(sawDropout)
+        XCTAssertTrue(becameReliable)
+        XCTAssertGreaterThan(repCount, 0, "Completed wrist estimates should keep the rep cycle alive.")
+    }
+
+    func testOffscreenWristsStillLoseFramingBeforeAndAtReady() {
+        let exercise = ShoulderPressExercise.definition()
+        for phase in [WorkoutPhase.framing, .ready] {
+            var pipeline = WorkoutFramePipeline(exercise: exercise)
+            pipeline.setSessionPhase(phase)
+            var becameReliable = false
+            var lostReliability = false
+            for index in 0...Int(exercise.guide.motion.duration * 10) {
+                let time = Double(index) / 10
+                let output = pipeline.process(frame: pressFrame(exercise.guide.motion, at: time), at: time)
+                for event in output.events {
+                    guard case .framingChanged(let status) = event else { continue }
+                    if status.isReliable {
+                        becameReliable = true
+                    } else if becameReliable {
+                        lostReliability = true
+                    }
+                }
+            }
+            XCTAssertTrue(becameReliable, "\(phase) framing should first become reliable.")
+            XCTAssertTrue(lostReliability, "Raw wrist loss must then make \(phase) framing unreliable.")
+        }
+    }
+
     private func run(_ motion: ArmMotion, scale: CGFloat) -> (events: [WorkoutEvent], repCount: Int) {
         let exercise = ShoulderPressExercise.definition()
         var session = WorkoutSession(exercises: [exercise], initialExercise: exercise.id)
@@ -266,6 +327,22 @@ final class WorkoutFramePipelineTests: XCTestCase {
                                    confidence: 0.9))
         })
         return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: width, imageHeight: height), timestamp: time)
+    }
+
+    private func pressFrame(_ motion: ArmMotion, at time: TimeInterval) -> PoseFrame {
+        let sample = motion.sample(at: time)
+        let reference = ExerciseDemoFigureView.pose(for: sample.angles, legs: sample.legs,
+                                                     forearmPlane: motion.forearmPlane)
+        let landmarks = Dictionary(uniqueKeysWithValues: reference.jointLocations.compactMap { type, point -> (LandmarkType, Landmark)? in
+            let pixel = CGPoint(x: point.x, y: point.y - 50)
+            if [.leftWrist, .rightWrist].contains(type), pixel.y < 0 { return nil }
+            return (type, Landmark(type: type,
+                                   normalizedLocation: CoordinateConverter.imagePixelToNormalized(
+                                    pixel: pixel, imageWidth: 1080, imageHeight: 1920),
+                                   imageLocation: pixel,
+                                   confidence: 0.9))
+        })
+        return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 1080, imageHeight: 1920), timestamp: time)
     }
 
     private func measurementFrame(_ points: [LandmarkType: CGPoint], at time: TimeInterval) -> PoseFrame {

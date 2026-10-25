@@ -7,6 +7,8 @@ struct PoseFrame {
     let pose: BodyPose
     /// Sample buffer presentation time in seconds. Compare only with other frame timestamps.
     let timestamp: TimeInterval
+    /// Joints placed past the frame edge by `OffscreenJointEstimator` rather than seen.
+    var estimatedJoints: Set<LandmarkType> = []
 
     var imageSize: CGSize { CGSize(width: pose.imageWidth, height: pose.imageHeight) }
 

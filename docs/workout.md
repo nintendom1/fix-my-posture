@@ -118,6 +118,16 @@ Stale events are dropped. Every analyzer instance carries an epoch, and the sess
 - Left/right guidance is worded relative to the user. It is derived from unmirrored x, where the front camera's x grows toward the user's left, with a ±17% center tolerance.
 - Guidance is spoken after it holds for 1 s. The same line repeats at most every 20 s.
 
+## Joints past the frame edge
+
+Apple Vision stops reporting a hand or foot once it leaves the image. During a set, the coach can estimate a wrist from its elbow, an elbow from its shoulder, an ankle from its knee, or a knee from its hip. Only the exercise's focus joints can be estimated. The parent must still be observed at confidence 0.4 or higher, and estimates never build on other estimates. Thresholds live in `OffscreenJointConfiguration`.
+
+An estimate needs all four conditions: the joint is missing; its last seen point was within 8% of an image edge; its last movement wasn't away from that edge by more than 1% of the image dimension; and no more than 1.5 s has passed since it was last seen. Joints resting on the floor skip the movement check. A hand hidden behind the head in the middle of the image is never estimated.
+
+By default, the joint follows its limb using the last observed parent-to-joint vector. If that point falls short of the 8% edge band, the vector turns by the smallest angle that reaches it, up to 35°, without changing its length. A planted joint stays at its last observed point while its parent remains within 1.25 times the longest observed bone.
+
+Estimates feed framing reliability and counting during a set, so a hand that leaves the top at lockout keeps the rep alive and the coach doesn't say it can't see you. Walking out of frame still pauses counting as before, because the elbows and knees leave too. Estimates never affect framing before the set, Ready, the ghost, the live skeleton, or posture analysis. A rep that uses an estimate still counts but raises no form cue.
+
 ## Shoulder press rep rule
 
 The press is filmed from the front, using pixel geometry and an independent hysteresis tracker per arm. All thresholds live in `ShoulderPressConfiguration` and are prototype heuristics to tune on device.
@@ -327,6 +337,7 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
 
 - `ReadyGhostInvariantTests` check that every catalog exercise shows an ideal figure before anyone is in view, and that every Ready-valid pose calibrates on every Ready frame for every guide keyframe. `GhostCalibrationTests` check when the ghost can fit and the 0.6 s / 1.0 s steadiness gate; `WorkoutFramePipelineTests` and `WorkoutVisualStateTests` check dropouts, resets, and the phases that show the ghost.
 - `WorkoutFramePipelineTests` check side-view sizing from a visible upper arm when the hip is out of view and preserve torso-based sizing when the hip is visible. `WorkoutGhostGeometryTests` check ideal placement and mirroring, calibration agreement and exact limbs, body anchors, interpolation, glide timing, and the existing arm, floor, and leg geometry.
+- `OffscreenJointEstimatorTests` check edge entry, movement, recency, limb rotation, planted joints, coordinates, and reset. `WorkoutFramePipelineTests` check that estimates affect only set framing and counting, while the analyzer tests check rep survival and form-monitor invalidation.
 - `ShoulderPressAnalyzerTests` sample the guide's own demonstration (`ExerciseDemoFigureView.pose` driven by `ArmMotion`) at 10 Hz:
   - one rep per loop;
   - identical readings, including form readings, at ½× and 2× scale;
@@ -378,10 +389,11 @@ Every new exercise ships with full guidance, even when the request only names it
 4. Threshold lines that match the movement's direction. Don't assume "top" means higher wrists.
 5. Validate the thresholds by running the guide's own demonstration through the analyzer. Expect exactly one rep per loop at any scale and proportions, with a scale-invariant ruler such as arm length. Report any deviation from the planned thresholds.
 6. Coaching: corrective cues with stable `CoachingCueID`s, priorities, and emphasized joints; visual-only reminders; and a `MotionEnvelope`. The demonstration should raise no cues.
-7. Voice aliases (`ExerciseDefinition.voiceAliases`); the parser, the help list, and the every-phrase test pick them up.
-8. Docs: the rep rule section, the coaching cues, and physical-device checklist items.
-9. Presentation: add the short name, muscles, filter groups, gradient token, SF Symbol, equipment and camera-setup lines, plus watch items keyed to the exercise's own cue IDs in `Workout/Exercises/ExercisePresentation.swift` (`ExerciseCatalogTests` enforces this).
-10. Non-diagnostic wording: never comment on grip, wrist rotation, dumbbell orientation, or injury.
+7. Declare `plantedJoints` for joints that rest on the floor during a rep.
+8. Voice aliases (`ExerciseDefinition.voiceAliases`); the parser, the help list, and the every-phrase test pick them up.
+9. Docs: the rep rule section, the coaching cues, and physical-device checklist items.
+10. Presentation: add the short name, muscles, filter groups, gradient token, SF Symbol, equipment and camera-setup lines, plus watch items keyed to the exercise's own cue IDs in `Workout/Exercises/ExercisePresentation.swift` (`ExerciseCatalogTests` enforces this).
+11. Non-diagnostic wording: never comment on grip, wrist rotation, dumbbell orientation, or injury.
 
 ## Future options
 
@@ -398,12 +410,15 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
 - [ ] **1.** On a fresh install (deleting the app resets the guide), opening the coach shows the guide before any permission prompt. Read Aloud lowers your music and then restores it. Start Workout leads to the camera. Reopening the coach skips the guide. The ⓘ title reopens it, and doing so mid-set pauses the set.
 - [ ] **2.** Grant camera access and follow the framing guidance. Verify the headroom prompt when standing too close, and the left/right prompts.
 - [ ] **3.** For every exercise, the ghost figure loops at the ideal spot as soon as the coach opens, before you're in view, and nothing starts. About 0.6 s after you're in view it glides onto you, with your arms or legs exact and the body around them. About 1 s after you step out, it glides back. Hold-to-start from Ready works as before. For shoulder press, holding the dumbbells just above your shoulders shows the Hold ring beside you, filling over about 1 s, and then starts the set. Letting go early hides the ring. During rest it never starts before the timer ends.
+  - [ ] Getting into position with a hand out of frame does not make the exercise Ready.
   - [ ] During rest, the ghost figure stays visible; in a Saved Set, the rest before the next exercise previews that exercise.
   - [ ] With Reduce Motion, the ghost shows two still poses and no glide.
   - [ ] The posture assessment's reference overlay looks unchanged.
 - [ ] **4.** Turn on Show Measurements. At the start position, each arm should read below 0.6 and 115° (↓). At the top, above 0.8 and 140° (↑). Do the same press close to the phone and far from it: the readings should be about the same. Each arm's Start segment turns solid at the start, and its Top segment turns solid green only once the wrist passes it with the arm nearly straight. The segments shouldn't drift while you press.
 - [ ] **5.** Lean the phone back more than 15°: after about a second, the tilt warning appears and is spoken. Stand it upright and the warning clears.
 - [ ] **6.** Do 10 presses and check that the count is exactly 10, with no double counts when pausing near either threshold. A half press must not count, and neither must a rep finished after stepping out of view mid-rep.
+  - [ ] Stand close enough that your hands leave the top edge at lockout: reps still count, and the coach doesn't say "I can't see you."
+  - [ ] Walk out of frame mid-set: counting pauses and the coach says it can't see you, as before.
 - [ ] **7.** Background the app or lock the phone mid-set. The set must be paused on return, with no added reps. Then resume.
 - [ ] **8.** Leave the screen idle for longer than the auto-lock interval and confirm it never locks.
 
@@ -467,6 +482,7 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Holding your hands behind your head fills the Hold ring. Ten extensions count exactly 10.
     - Turn to face the other way between sets: tracking follows the nearer arm.
     - Folding your hands fully behind your head (where the camera can't see them) still counts. The coach doesn't say it can't see you, and the next rep starts.
+    - Stand close enough that lockout takes your hands above the top edge; the rep still counts. Hands behind the head behave as before.
     - Half extensions get "Straighten both arms fully."
     - Letting the elbows drift forward gets "Keep your elbows pointing up."
 - [ ] **32.** Air squats:
@@ -487,6 +503,7 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Lay the phone on the floor a step in front of your hands, propped to lean back, and get into a plank facing it. No tilt warning appears.
     - The ghost figure rises from your hands. Holding the plank fills the Hold ring.
     - Ten push-ups to the Down line count exactly 10. Shallow ones get "Go a little lower."
+    - With your hands at the bottom edge of the frame, reps still count.
     - Dropping fast gets "Lower with control."
 - [ ] **35.** Saved Sets:
     - Create "Upper Body" with shoulder press 2 × 8–10, hammer curl 2 × 10, and shoulder press again 1 × 12. Reorder by dragging, save, quit the app, and reopen: it's still there in order. Duplicate it and delete the copy.

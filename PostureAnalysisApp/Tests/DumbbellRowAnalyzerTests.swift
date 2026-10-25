@@ -59,6 +59,25 @@ final class DumbbellRowAnalyzerTests: XCTestCase {
         XCTAssertFalse(run(motion, hip: false, extraPitch: { $0 >= 4.5 ? 25 : 0 }).signals.contains { $0.contains(.rowBackStill) })
     }
 
+    func testEstimatedWristInvalidatesFormAttemptWithoutLosingRep() {
+        let midway = ArmAngles(upperArmElevation: 225, forearmElevation: 270)
+        let recurl = ArmMotion(keyframes: [
+            ArmKeyframe(angles: motion.startAngles, moveDuration: 0, holdDuration: 1.0, stepIndex: 0),
+            ArmKeyframe(angles: motion.topAngles, moveDuration: 1.0, holdDuration: 0.4, stepIndex: 1),
+            ArmKeyframe(angles: midway, moveDuration: 0.8, holdDuration: 0.2, stepIndex: 2),
+            ArmKeyframe(angles: motion.topAngles, moveDuration: 0.8, holdDuration: 0.4, stepIndex: 1),
+            ArmKeyframe(angles: motion.startAngles, moveDuration: 1.5, holdDuration: 0, stepIndex: 2)
+        ], torsoPitch: 50)
+
+        let observed = run(recurl, loops: 1)
+        XCTAssertEqual(observed.reps, 1)
+        XCTAssertTrue(observed.forms.contains { $0.flags.contains(.rowStraighten) })
+
+        let estimated = run(recurl, loops: 1, estimatedDuring: 1.5...4.5)
+        XCTAssertEqual(estimated.reps, 1)
+        XCTAssertFalse(estimated.forms.contains { $0.flags.contains(.rowStraighten) })
+    }
+
     private struct Run {
         var reps = 0
         var forms: [RepForm] = []
@@ -69,10 +88,11 @@ final class DumbbellRowAnalyzerTests: XCTestCase {
     /// proportions, facing direction, the right arm instead of the left, and extra forward lean.
     private func run(_ motion: ArmMotion, scale: CGFloat = 1, upperArm: CGFloat = 1, forearm: CGFloat = 1,
                      mirrored: Bool = false, rightArm: Bool = false, hip: Bool = true,
-                     extraPitch: (TimeInterval) -> Double = { _ in 0 }) -> Run {
+                     extraPitch: (TimeInterval) -> Double = { _ in 0 }, loops: Int = 3,
+                     estimatedDuring: ClosedRange<TimeInterval>? = nil) -> Run {
         let analyzer = DumbbellRowAnalyzer(epoch: 1)
         var result = Run()
-        for index in 0..<(Int(motion.duration * 10) * 3) {
+        for index in 0..<(Int(motion.duration * Double(loops) * 10)) {
             let time = Double(index) / 10
             let angles = motion.sample(at: time).angles
             var joints = ExerciseDemoFigureView.pose(for: angles, cameraView: .side,
@@ -95,8 +115,10 @@ final class DumbbellRowAnalyzerTests: XCTestCase {
                 return (type, Landmark(type: type, normalizedLocation: .zero,
                                        imageLocation: CGPoint(x: x * scale + 300, y: point.y * scale + 400), confidence: 0.9))
             })
-            let analysis = analyzer.process(PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 1080, imageHeight: 1920),
-                                                      timestamp: time), counting: true)
+            let estimated: Set<LandmarkType> = estimatedDuring?.contains(time) == true ? [.leftWrist] : []
+            let frame = PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 1080, imageHeight: 1920),
+                                  timestamp: time, estimatedJoints: estimated)
+            let analysis = analyzer.process(frame, counting: true)
             result.reps += analysis.repEvents.count
             result.forms += analysis.repForms
             result.signals.append(analysis.formSignals)

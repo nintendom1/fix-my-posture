@@ -101,6 +101,7 @@ enum PushUpExercise {
             cameraView: .floor,
             warnsAboutTilt: false,
             equipment: .bodyweight,
+            plantedJoints: [.leftWrist, .rightWrist],
             makeAnalyzer: { epoch in PushUpAnalyzer(epoch: epoch, configuration: configuration) }
         )
     }

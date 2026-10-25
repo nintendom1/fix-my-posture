@@ -35,6 +35,13 @@ final class PushUpAnalyzerTests: XCTestCase {
         XCTAssertEqual(result.forms.filter { $0.flags.contains(.pushUpFullExtension) }.count, 3)
     }
 
+    @MainActor
+    func testPlantedHandsAtBottomEdgeStillCountRep() {
+        let estimated = runOffscreen(completeEdges: true)
+        XCTAssertEqual(estimated, 1)
+        XCTAssertEqual(runOffscreen(completeEdges: false), 0)
+    }
+
     // MARK: - Helpers
 
     /// Up, then each pose in turn (with 0.3 s holds), then up.
@@ -81,5 +88,42 @@ final class PushUpAnalyzerTests: XCTestCase {
             result.forms += analysis.repForms
         }
         return result
+    }
+
+    @MainActor
+    private func runOffscreen(completeEdges: Bool) -> Int {
+        let exercise = PushUpExercise.definition()
+        let motion = exercise.guide.motion
+        let analyzer = exercise.makeAnalyzer(1)
+        var estimator = OffscreenJointEstimator(joints: exercise.focusJoints, plantedJoints: exercise.plantedJoints)
+        var reps = 0
+        for index in 0...Int(motion.duration * 10) {
+            let time = Double(index) / 10
+            let angles = motion.sample(at: time).angles
+            var joints: [LandmarkType: CGPoint] = [:]
+            for side in BodySide.allCases {
+                guard let hand = ExerciseDemoFigureView.floorHands[side] else { continue }
+                let arm = ArmMotion.place(shoulder: .zero, outward: side == .left ? 1 : -1,
+                                          upperArm: ExerciseDemoFigureView.upperArm,
+                                          forearm: ExerciseDemoFigureView.forearm, angles: angles)
+                let shoulder = CGPoint(x: hand.x - arm.wrist.x, y: hand.y - arm.wrist.y)
+                joints[side.shoulder] = shoulder
+                joints[side.elbow] = CGPoint(x: shoulder.x + arm.elbow.x, y: shoulder.y + arm.elbow.y)
+                joints[side.wrist] = hand
+            }
+            let landmarks = Dictionary(uniqueKeysWithValues: joints.compactMap { type, point -> (LandmarkType, Landmark)? in
+                if [.leftWrist, .rightWrist].contains(type), (2.4...3.8).contains(time) { return nil }
+                let pixel = CGPoint(x: point.x + 300, y: point.y + 1490)
+                return (type, Landmark(type: type,
+                                       normalizedLocation: CoordinateConverter.imagePixelToNormalized(
+                                        pixel: pixel, imageWidth: 1080, imageHeight: 1920),
+                                       imageLocation: pixel,
+                                       confidence: 0.9))
+            })
+            let raw = PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 1080, imageHeight: 1920), timestamp: time)
+            let completed = completeEdges ? estimator.complete(raw) : raw
+            reps += analyzer.process(completed, counting: true).repEvents.count
+        }
+        return reps
     }
 }

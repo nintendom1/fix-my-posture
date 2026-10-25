@@ -75,6 +75,17 @@ final class TricepsExtensionAnalyzerTests: XCTestCase {
         XCTAssertEqual(result.reps, 0, "Without seeing the top, nothing counts.")
     }
 
+    @MainActor
+    func testTopCrossedInViewThenOffscreenHandCountsOnlyWithEstimator() {
+        let estimated = runOffscreen(motion, completeEdges: true)
+        XCTAssertTrue(estimated.sawVisibleTop, "The Top line must be crossed while the hand is still visible.")
+        XCTAssertEqual(estimated.reps, 1)
+
+        let withoutEstimator = runOffscreen(motion, completeEdges: false)
+        XCTAssertTrue(withoutEstimator.sawVisibleTop)
+        XCTAssertEqual(withoutEstimator.reps, 0)
+    }
+
     func testSideOnFramingAcceptsEitherArmAndAsksToStandSideOn() {
         var evaluator = FramingEvaluator(requiredJoints: definition.requiredJoints, anyOfRequiredJoints: definition.anyOfRequiredJoints,
                                          headroomArmLengths: nil, cameraView: .side)
@@ -156,5 +167,41 @@ final class TricepsExtensionAnalyzerTests: XCTestCase {
             result.signals.append(analysis.formSignals)
         }
         return result
+    }
+
+    @MainActor
+    private func runOffscreen(_ motion: ArmMotion, completeEdges: Bool) -> (reps: Int, sawVisibleTop: Bool) {
+        let analyzer = TricepsExtensionAnalyzer(epoch: 1)
+        var estimator = OffscreenJointEstimator(joints: definition.focusJoints, plantedJoints: definition.plantedJoints)
+        var reps = 0
+        var sawVisibleTop = false
+        for index in 0...Int(motion.duration * 10) {
+            let time = Double(index) / 10
+            var joints = ExerciseDemoFigureView.sideFigureJoints
+            let angles = motion.sample(at: time).angles
+            if let shoulder = joints[.leftShoulder] {
+                let arm = ArmMotion.place(shoulder: shoulder, outward: 1, upperArm: ExerciseDemoFigureView.upperArm,
+                                          forearm: ExerciseDemoFigureView.forearm, angles: angles)
+                joints[.leftElbow] = arm.elbow
+                joints[.leftWrist] = arm.wrist
+            }
+            let landmarks = Dictionary(uniqueKeysWithValues: joints.compactMap { type, point -> (LandmarkType, Landmark)? in
+                let pixel = CGPoint(x: point.x + 300, y: point.y - 40)
+                if type == .leftWrist, pixel.y < 0 { return nil }
+                return (type, Landmark(type: type,
+                                       normalizedLocation: CoordinateConverter.imagePixelToNormalized(
+                                        pixel: pixel, imageWidth: 1080, imageHeight: 1920),
+                                       imageLocation: pixel,
+                                       confidence: 0.9))
+            })
+            let raw = PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 1080, imageHeight: 1920), timestamp: time)
+            let completed = completeEdges ? estimator.complete(raw) : raw
+            let analysis = analyzer.process(completed, counting: true)
+            reps += analysis.repEvents.count
+            if raw.pose[.leftWrist] != nil, let signal = analysis.readings[.left]?.signal, signal >= 0.75 {
+                sawVisibleTop = true
+            }
+        }
+        return (reps, sawVisibleTop)
     }
 }

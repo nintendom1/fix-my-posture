@@ -26,6 +26,7 @@ struct WorkoutFramePipeline {
 
     private var analyzer: ExerciseAnalyzing?
     private var framingEvaluator: FramingEvaluator?
+    private var offscreenJointEstimator: OffscreenJointEstimator?
     private var ghostCalibrationGate = GhostCalibrationGate()
     private var lastFramingStatus: FramingStatus?
     private var smoother = LandmarkSmoother()
@@ -52,9 +53,16 @@ struct WorkoutFramePipeline {
             return output(events: [])
         }
 
+        var completed = frame
+        if var estimator = offscreenJointEstimator {
+            completed = estimator.complete(frame)
+            offscreenJointEstimator = estimator
+        }
+        let counted = sessionPhase == .exercising ? completed : frame
+
         var events: [WorkoutEvent] = []
         if var evaluator = framingEvaluator {
-            let status = evaluator.evaluate(frame)
+            let status = evaluator.evaluate(counted)
             framingEvaluator = evaluator
             if status != lastFramingStatus {
                 let previous = lastFramingStatus
@@ -73,7 +81,7 @@ struct WorkoutFramePipeline {
 
         var endSides: Set<BodySide> = []
         if let analyzer {
-            let analysis = analyzer.process(frame, counting: isCounting)
+            let analysis = analyzer.process(counted, counting: isCounting)
             if isCounting { endSides = analysis.endPositionSides }
             readings = analysis.readings
             thresholds = analysis.thresholds
@@ -125,6 +133,9 @@ struct WorkoutFramePipeline {
 
         if trackingChanged {
             framingEvaluator = exercise.map(Self.makeFramingEvaluator)
+            offscreenJointEstimator = exercise.map {
+                OffscreenJointEstimator(joints: $0.focusJoints, plantedJoints: $0.plantedJoints)
+            }
             lastFramingStatus = nil
             smoother.reset()
             readings = [:]
@@ -191,6 +202,7 @@ struct WorkoutFramePipeline {
     /// Clears per-capture smoothing and framing state without replacing the exercise analyzer.
     mutating func resetTracking() -> [WorkoutEvent] {
         framingEvaluator?.reset()
+        offscreenJointEstimator?.reset()
         lastFramingStatus = nil
         smoother.reset()
         overlay = nil

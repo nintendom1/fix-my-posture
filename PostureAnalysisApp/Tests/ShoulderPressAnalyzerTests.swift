@@ -110,6 +110,21 @@ final class ShoulderPressAnalyzerTests: XCTestCase {
         XCTAssertFalse(withoutHips.signals.contains { $0.contains(.pressTorsoCentered) })
     }
 
+    @MainActor
+    func testEstimatedLockoutCountsWithoutFormCueAndGapWithoutEstimatorLosesRep() {
+        var fastLowering = motion.keyframes
+        fastLowering[2].moveDuration = 0.5
+        fastLowering[2].holdDuration = 0.5
+        let offscreenMotion = ArmMotion(keyframes: fastLowering)
+
+        let estimated = runOffscreen(offscreenMotion, completeEdges: true)
+        XCTAssertEqual(estimated.reps, 1)
+        XCTAssertTrue(estimated.forms.isEmpty, "An estimated press cannot be judged: \(estimated.forms)")
+
+        let withoutEstimator = runOffscreen(offscreenMotion, completeEdges: false)
+        XCTAssertEqual(withoutEstimator.reps, 0, "The same dropout must exceed the analyzer's sample gap.")
+    }
+
     // MARK: - Helpers
 
     /// Elbows only reach about 120°, with wrists short of the Top threshold.
@@ -175,6 +190,33 @@ final class ShoulderPressAnalyzerTests: XCTestCase {
             result.forms += analysis.repForms
             result.signals.append(analysis.formSignals)
             result.formReadings = analysis.formReadings
+        }
+        return result
+    }
+
+    @MainActor
+    private func runOffscreen(_ motion: ArmMotion, completeEdges: Bool) -> Run {
+        let exercise = ShoulderPressExercise.definition()
+        let analyzer = exercise.makeAnalyzer(1)
+        var estimator = OffscreenJointEstimator(joints: exercise.focusJoints, plantedJoints: exercise.plantedJoints)
+        var result = Run()
+        for index in 0...Int(motion.duration * 10) {
+            let time = Double(index) / 10
+            let reference = ExerciseDemoFigureView.pose(for: motion.sample(at: time).angles).jointLocations
+            let landmarks = Dictionary(uniqueKeysWithValues: reference.compactMap { type, point -> (LandmarkType, Landmark)? in
+                let pixel = CGPoint(x: point.x, y: point.y - 50)
+                if [.leftWrist, .rightWrist].contains(type), pixel.y < 0 { return nil }
+                return (type, Landmark(type: type,
+                                       normalizedLocation: CoordinateConverter.imagePixelToNormalized(
+                                        pixel: pixel, imageWidth: 1080, imageHeight: 1920),
+                                       imageLocation: pixel,
+                                       confidence: 0.9))
+            })
+            let raw = PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 1080, imageHeight: 1920), timestamp: time)
+            let frame = completeEdges ? estimator.complete(raw) : raw
+            let analysis = analyzer.process(frame, counting: true)
+            result.reps += analysis.repEvents.count
+            result.forms += analysis.repForms
         }
         return result
     }

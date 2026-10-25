@@ -91,6 +91,9 @@ final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
         analysis.endPositionSides = tracker.confirmed == .top ? [side] : []
         analysis.startPositionHeld = tracker.confirmed == .bottom
 
+        if !frame.estimatedJoints.isDisjoint(with: Set(side.armJoints)) {
+            formMonitor.invalidate()
+        }
         let form = formMonitor.update(at: time, sample: .init(ratio: ratio, elbowAngle: elbowAngle, zone: zone,
                                                               confirmed: tracker.confirmed,
                                                               tilt: upperArmTilt(shoulder: observation.shoulder, elbow: observation.elbow)),

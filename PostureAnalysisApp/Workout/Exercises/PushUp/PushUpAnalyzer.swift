@@ -76,6 +76,9 @@ final class PushUpAnalyzer: ExerciseAnalyzing {
         analysis.endPositionSides = tracker.confirmed == .top ? Set(BodySide.allCases) : []
         analysis.startPositionHeld = tracker.confirmed == .bottom
 
+        if !frame.estimatedJoints.isDisjoint(with: Set(BodySide.allCases.flatMap(\.armJoints))) {
+            formMonitor.invalidate()
+        }
         let form = formMonitor.update(at: time, ratio: ratio, zone: zone, confirmed: tracker.confirmed, counting: counting)
         analysis.repForms = form
         analysis.formReadings = formMonitor.readings
