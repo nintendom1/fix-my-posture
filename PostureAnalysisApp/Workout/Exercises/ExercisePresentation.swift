@@ -17,6 +17,7 @@ struct ExerciseGradient: Equatable {
         case curl
         case triceps
         case row
+        case shrug
         case squat
         case deadlift
         case rearLunge

@@ -196,7 +196,10 @@ struct WorkoutGhostGeometry: Equatable {
             targetAnchor = midpoint(of: userShoulders) ?? CGPoint(x: fit.midX, y: fit.midY)
             let figureShoulders = [pose.jointLocations[.leftShoulder],
                                    pose.jointLocations[.rightShoulder]].compactMap { $0 }
-            sourceAnchor = midpoint(of: figureShoulders) ?? CGPoint(x: canvas.width / 2, y: canvas.height / 2)
+            // The figure's relaxed shoulders sit on the user's, so a shrug keeps the head and hips in place.
+            let figureLift = CGFloat(shoulderLift(of: sample, in: motion)) * ExerciseDemoFigureView.upperArm
+            sourceAnchor = midpoint(of: figureShoulders).map { CGPoint(x: $0.x, y: $0.y + figureLift) }
+                ?? CGPoint(x: canvas.width / 2, y: canvas.height / 2)
         }
 
         let transformedSource = transform(sourceAnchor, scale: scale, mirrored: mirrored)
@@ -364,10 +367,14 @@ struct WorkoutGhostGeometry: Equatable {
         let armAnchors = anchors(overlay: overlay, cameraView: cameraView, containerSize: containerSize)
         guard !armAnchors.isEmpty else { return WorkoutGhostGeometry() }
         var geometry = WorkoutGhostGeometry(forearmLength: arms.fore)
+        // The start sample hangs from the user's own shoulders; a front-view shrug raises the ghost's
+        // shoulders and arms above them by the lift in the user's upper-arm lengths.
+        let rise = cameraView == .front ? CGFloat(shoulderLift(of: sample, in: motion)) * arms.upper : 0
         for anchor in armAnchors {
-            let arm = ArmMotion.place(shoulder: anchor.shoulder, outward: anchor.outward, upperArm: arms.upper,
+            let shoulder = CGPoint(x: anchor.shoulder.x, y: anchor.shoulder.y - rise)
+            let arm = ArmMotion.place(shoulder: shoulder, outward: anchor.outward, upperArm: arms.upper,
                                       forearm: arms.fore, angles: sample.angles, forearmPlane: motion.forearmPlane)
-            geometry.limbs.append(Stroke(points: [anchor.shoulder, arm.elbow, arm.wrist],
+            geometry.limbs.append(Stroke(points: [shoulder, arm.elbow, arm.wrist],
                                          lineWidth: max(8, arms.fore * 0.16),
                                          holdsDumbbell: motion.holdsDumbbells,
                                          joints: [anchor.side.shoulder, anchor.side.elbow, anchor.side.wrist]))
@@ -595,6 +602,11 @@ struct WorkoutGhostGeometry: Equatable {
                                          motion: ArmMotion) -> [LandmarkType] {
         guard cameraView == .side, !motion.animatesLegs, labels.count == 3 else { return labels }
         return [.leftShoulder, .leftElbow, .leftWrist]
+    }
+
+    /// How far a sample's shoulders sit above the start sample's, in upper-arm lengths.
+    private static func shoulderLift(of sample: ArmMotionSample, in motion: ArmMotion) -> Double {
+        sample.shape.shoulderLift - motion.startSample.shape.shoulderLift
     }
 
     private static func transform(_ point: CGPoint, scale: CGFloat, mirrored: Bool) -> CGPoint {

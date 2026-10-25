@@ -29,7 +29,7 @@ struct ExerciseThumbnailView: View {
     /// Wider Quick Start tiles keep heads and raised weights visible. Square tiles use the full crop.
     private var verticalCropAnchor: CGFloat {
         switch exerciseID {
-        case .shoulderPress, .lateralRaise, .dumbbellRow: return 0
+        case .shoulderPress, .lateralRaise, .dumbbellRow, .dumbbellShrug: return 0
         case .airSquat: return 0.25
         default: return 0.5
         }

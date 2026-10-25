@@ -460,6 +460,179 @@ final class WorkoutGhostGeometryTests: XCTestCase {
         XCTAssertEqual(hipMidpoint.x, shoulderMidpoint.x, accuracy: 1)
     }
 
+    func testShoulderLiftRaisesTheFrontFigureShouldersNeckAndArmsButNotTheNoseOrHips() throws {
+        let motion = DumbbellShrugExercise.definition().guide.motion
+        let top = motion.topSample
+        XCTAssertEqual(top.shape.shoulderLift, 0.22, accuracy: 1e-12, "The lift alone selects the top keyframe")
+        XCTAssertEqual(motion.sample(at: 1.4).shape.shoulderLift, 0.11, accuracy: 1e-9, "Halfway through the lift")
+        XCTAssertFalse(motion.movesSideBody, "A front-view lift is not side-body motion")
+
+        let relaxed = ExerciseDemoFigureView.pose(for: motion.startSample, cameraView: .front).jointLocations
+        let lifted = ExerciseDemoFigureView.pose(for: top, cameraView: .front).jointLocations
+        let rise = 0.22 * ExerciseDemoFigureView.upperArm
+        let raised: [LandmarkType] = [.neck, .leftShoulder, .rightShoulder, .leftElbow, .rightElbow,
+                                      .leftWrist, .rightWrist]
+        for joint in raised {
+            let start = try XCTUnwrap(relaxed[joint])
+            let end = try XCTUnwrap(lifted[joint])
+            XCTAssertEqual(end.x, start.x, accuracy: 1e-9, "\(joint)")
+            XCTAssertEqual(end.y, start.y - rise, accuracy: 1e-9, "\(joint)")
+        }
+        for joint in [LandmarkType.nose, .leftHip, .rightHip, .leftKnee, .rightKnee, .leftAnkle, .rightAnkle] {
+            XCTAssertEqual(lifted[joint], relaxed[joint], "\(joint) moved")
+        }
+        XCTAssertEqual(ExerciseDemoFigureView.lifted(ExerciseDemoFigureView.figureJoints, shoulderLift: 0),
+                       ExerciseDemoFigureView.figureJoints)
+        for view in [ExerciseCameraView.side, .floor] {
+            XCTAssertEqual(ExerciseDemoFigureView.pose(for: top, cameraView: view).jointLocations,
+                           ExerciseDemoFigureView.pose(for: motion.startSample, cameraView: view).jointLocations,
+                           "\(view) ignores the shoulder lift")
+        }
+    }
+
+    func testRenderedShrugFigureCarriesGuideShapeIntoItsDisplayedPose() throws {
+        let exercise = DumbbellShrugExercise.definition()
+        let motion = exercise.guide.motion
+
+        func figure(for sample: ArmMotionSample) -> ExerciseDemoFigureView {
+            ExerciseDemoFigureView(angles: sample.angles, forearmPlane: motion.forearmPlane,
+                                   cameraView: exercise.cameraView, holdsDumbbells: motion.holdsDumbbells,
+                                   legs: sample.legs, torsoPitch: motion.torsoPitch, shape: sample.shape,
+                                   figureBounds: ExerciseDemoFigureView.bounds(for: motion,
+                                                                               cameraView: exercise.cameraView))
+        }
+
+        let relaxed = figure(for: motion.startSample).displayedPose.jointLocations
+        let lifted = figure(for: motion.topSample).displayedPose.jointLocations
+        let rise = CGFloat(motion.topSample.shape.shoulderLift) * ExerciseDemoFigureView.upperArm
+        for joint in [LandmarkType.leftShoulder, .rightShoulder, .leftElbow, .rightElbow, .leftWrist, .rightWrist] {
+            let start = try XCTUnwrap(relaxed[joint])
+            let end = try XCTUnwrap(lifted[joint])
+            XCTAssertEqual(end.x, start.x, accuracy: 1e-9, "\(joint) moved sideways")
+            XCTAssertEqual(end.y, start.y - rise, accuracy: 1e-9, "\(joint) did not rise with the shoulders")
+        }
+        for joint in [LandmarkType.nose, .leftHip, .rightHip] {
+            XCTAssertEqual(lifted[joint], relaxed[joint], "\(joint) moved while shrugging")
+        }
+    }
+
+    func testZeroShoulderLiftLeavesEveryExistingGuideAndGhostUnchanged() throws {
+        for exercise in ExerciseCatalog.all where exercise.id != .dumbbellShrug {
+            let motion = exercise.guide.motion
+            let samples = motionSamples(motion)
+            for sample in samples {
+                XCTAssertEqual(sample.shape.shoulderLift, 0, "\(exercise.id) has a shoulder lift")
+                guard exercise.cameraView == .front else { continue }
+                let pose = ExerciseDemoFigureView.pose(for: sample, forearmPlane: motion.forearmPlane,
+                                                       cameraView: .front).jointLocations
+                let expected = ExerciseDemoFigureView.lowered(ExerciseDemoFigureView.figureJoints, by: sample.legs)
+                for joint in [LandmarkType.nose, .neck, .leftShoulder, .rightShoulder, .leftHip, .rightHip] {
+                    XCTAssertEqual(pose[joint], expected[joint], "\(exercise.id) \(joint)")
+                }
+            }
+
+            guard exercise.cameraView == .front, !motion.animatesLegs else { continue }
+            let ready = try readyContext(for: exercise)
+            let metrics = try XCTUnwrap(ready.harness.model.guideMetrics)
+            let userLeft = try XCTUnwrap(containerPoint(.leftShoulder, in: ready.overlay))
+            let userRight = try XCTUnwrap(containerPoint(.rightShoulder, in: ready.overlay))
+            let userMidpoint = ArmGeometry.midpoint(userLeft, userRight)
+            for sample in samples {
+                let geometry = WorkoutGhostGeometry.make(overlay: ready.overlay, metrics: metrics, motion: motion,
+                                                         cameraView: .front, containerSize: containerSize,
+                                                         sample: sample)
+                XCTAssertEqual(geometry.limbs.compactMap(\.points.first), [userLeft, userRight],
+                               "\(exercise.id) ghost arms left the user's shoulders")
+
+                let figure = try XCTUnwrap(WorkoutGhostGeometry.calibrated(
+                    fitOverlay: ready.overlay, metrics: metrics, motion: motion, cameraView: .front,
+                    containerSize: containerSize, sample: sample))
+                let pose = ExerciseDemoFigureView.pose(for: sample, forearmPlane: motion.forearmPlane,
+                                                       cameraView: .front).jointLocations
+                let figureMidpoint = ArmGeometry.midpoint(try XCTUnwrap(pose[.leftShoulder]),
+                                                          try XCTUnwrap(pose[.rightShoulder]))
+                let neck = try XCTUnwrap(figure.joints[.neck])
+                XCTAssertEqual(neck.y - userMidpoint.y,
+                               (try XCTUnwrap(pose[.neck]).y - figureMidpoint.y) * figure.bodyScale,
+                               accuracy: 1e-6, "\(exercise.id) body no longer anchors on its own shoulders")
+            }
+        }
+    }
+
+    func testShrugGhostRaisesItsShouldersAndArmsByTheScaledLiftAtHalfAndDoubleScale() throws {
+        let motion = DumbbellShrugExercise.definition().guide.motion
+        var rises: [CGFloat] = []
+        for scale in [CGFloat(0.5), 2] {
+            let overlay = makeOverlay([
+                .leftShoulder: CGPoint(x: 0.5 + 0.06 * scale, y: 0.6),
+                .rightShoulder: CGPoint(x: 0.5 - 0.06 * scale, y: 0.6)
+            ])
+            let metrics = GuideMetrics(upperArm: 140 * scale, forearm: 124 * scale)
+            let fit = CoordinateConverter.aspectFitRect(for: overlay.imageSize, in: containerSize)
+            let rise = CGFloat(0.22) * metrics.upperArm * fit.width / overlay.imageSize.width
+            rises.append(rise)
+
+            let start = WorkoutGhostGeometry.make(overlay: overlay, metrics: metrics, motion: motion,
+                                                  cameraView: .front, containerSize: containerSize,
+                                                  sample: motion.startSample)
+            let top = WorkoutGhostGeometry.make(overlay: overlay, metrics: metrics, motion: motion,
+                                                cameraView: .front, containerSize: containerSize,
+                                                sample: motion.topSample)
+            guard start.limbs.count == 2, top.limbs.count == 2 else {
+                return XCTFail("Expected two ghost arms at scale \(scale)")
+            }
+            for (startLimb, topLimb) in zip(start.limbs, top.limbs) {
+                let shoulder = try XCTUnwrap(startLimb.joints.first)
+                XCTAssertEqual(startLimb.points.first, try XCTUnwrap(containerPoint(shoulder, in: overlay)),
+                               "The relaxed start must sit exactly on the user's shoulder")
+                XCTAssertEqual(startLimb.points.count, topLimb.points.count)
+                for (relaxed, lifted) in zip(startLimb.points, topLimb.points) {
+                    XCTAssertEqual(lifted.x, relaxed.x, accuracy: 1e-9)
+                    XCTAssertEqual(lifted.y, relaxed.y - rise, accuracy: 1e-9)
+                }
+            }
+
+            let startFigure = try XCTUnwrap(WorkoutGhostGeometry.calibrated(
+                fitOverlay: overlay, metrics: metrics, motion: motion, cameraView: .front,
+                containerSize: containerSize, sample: motion.startSample))
+            let topFigure = try XCTUnwrap(WorkoutGhostGeometry.calibrated(
+                fitOverlay: overlay, metrics: metrics, motion: motion, cameraView: .front,
+                containerSize: containerSize, sample: motion.topSample))
+            for joint in [LandmarkType.nose, .leftHip, .rightHip] {
+                let relaxed = try XCTUnwrap(startFigure.joints[joint])
+                let lifted = try XCTUnwrap(topFigure.joints[joint])
+                XCTAssertEqual(lifted.x, relaxed.x, accuracy: 1e-9, "\(joint) moved at scale \(scale)")
+                XCTAssertEqual(lifted.y, relaxed.y, accuracy: 1e-9, "\(joint) moved at scale \(scale)")
+            }
+            XCTAssertLessThan(try XCTUnwrap(topFigure.joints[.neck]).y, try XCTUnwrap(startFigure.joints[.neck]).y)
+            assertExactLimbs(top, in: topFigure, labels: nil)
+        }
+        guard rises.count == 2, let half = rises.first, let double = rises.last else {
+            return XCTFail("Expected two rises")
+        }
+        XCTAssertEqual(double, half * 4, accuracy: 1e-9, "The lift scales with the user's upper arm")
+    }
+
+    func testShrugReadyGhostBlendsToExactlyTheCalibratedJoints() throws {
+        let exercise = DumbbellShrugExercise.definition()
+        let ready = try readyContext(for: exercise)
+        let motion = exercise.guide.motion
+        for sample in [motion.startSample, motion.topSample] {
+            let calibrated = try XCTUnwrap(WorkoutGhostGeometry.calibrated(
+                fitOverlay: ready.overlay, metrics: ready.harness.model.guideMetrics, motion: motion,
+                cameraView: .front, containerSize: containerSize, sample: sample))
+            let ideal = WorkoutGhostGeometry.ideal(overlay: nil, motion: motion, cameraView: .front,
+                                                   containerSize: containerSize, sample: sample)
+            let blended = WorkoutGhostGeometry.blended(from: ideal, to: calibrated, progress: 1)
+            XCTAssertEqual(Set(blended.joints.keys), Set(calibrated.joints.keys))
+            for (joint, point) in calibrated.joints {
+                let end = try XCTUnwrap(blended.joints[joint])
+                XCTAssertEqual(end.x, point.x, accuracy: 1e-9, "\(joint)")
+                XCTAssertEqual(end.y, point.y, accuracy: 1e-9, "\(joint)")
+            }
+        }
+    }
+
     func testCalibratedSquatAnklesEqualTheUsersAnkles() throws {
         let exercise = AirSquatExercise.definition()
         let ready = try readyContext(for: exercise)
@@ -549,6 +722,22 @@ final class WorkoutGhostGeometryTests: XCTestCase {
         }
         XCTFail("\(exercise.id) did not reach calibrated Ready")
         return (harness, try XCTUnwrap(harness.model.ghostFitOverlay))
+    }
+
+    /// Every resolved keyframe plus four interior samples per move.
+    private func motionSamples(_ motion: ArmMotion) -> [ArmMotionSample] {
+        var result: [ArmMotionSample] = []
+        var elapsed: TimeInterval = 0
+        for keyframe in motion.keyframes {
+            result.append(motion.sample(of: keyframe))
+            if keyframe.moveDuration > 0 {
+                for step in 1...4 {
+                    result.append(motion.sample(at: elapsed + keyframe.moveDuration * Double(step) / 5))
+                }
+            }
+            elapsed += keyframe.moveDuration + keyframe.holdDuration
+        }
+        return result
     }
 
     private var hangingArms: ArmAngles {

@@ -395,6 +395,9 @@
 		A10000012B00000000000405 /* LateralRaiseExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000405 /* LateralRaiseExercise.swift */; };
 		A10000012B00000000000406 /* LateralRaiseAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000406 /* LateralRaiseAnalyzer.swift */; };
 		A10000012B00000000000407 /* LateralRaiseAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000407 /* LateralRaiseAnalyzerTests.swift */; };
+		A10000012B00000000000408 /* DumbbellShrugExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000408 /* DumbbellShrugExercise.swift */; };
+		A10000012B00000000000409 /* DumbbellShrugAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000409 /* DumbbellShrugAnalyzer.swift */; };
+		A10000012B00000000000410 /* DumbbellShrugAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000410 /* DumbbellShrugAnalyzerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -798,6 +801,9 @@
 		B10000012B00000000000405 /* LateralRaiseExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LateralRaiseExercise.swift; sourceTree = "<group>"; };
 		B10000012B00000000000406 /* LateralRaiseAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LateralRaiseAnalyzer.swift; sourceTree = "<group>"; };
 		B10000012B00000000000407 /* LateralRaiseAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LateralRaiseAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000408 /* DumbbellShrugExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DumbbellShrugExercise.swift; sourceTree = "<group>"; };
+		B10000012B00000000000409 /* DumbbellShrugAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DumbbellShrugAnalyzer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000410 /* DumbbellShrugAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DumbbellShrugAnalyzerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1051,6 +1057,7 @@
 				B10000012B00000000000401 /* StiffLegDeadliftAnalyzerTests.swift */,
 				B10000012B00000000000404 /* RearLungeAnalyzerTests.swift */,
 				B10000012B00000000000407 /* LateralRaiseAnalyzerTests.swift */,
+				B10000012B00000000000410 /* DumbbellShrugAnalyzerTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1096,6 +1103,7 @@
 				H10000012B00000000000061 /* StiffLegDeadlift */,
 				H10000012B00000000000062 /* RearLunge */,
 				H10000012B00000000000063 /* LateralRaise */,
+				H10000012B00000000000064 /* DumbbellShrug */,
 			);
 			path = Exercises;
 			sourceTree = "<group>";
@@ -1710,6 +1718,15 @@
 			path = LateralRaise;
 			sourceTree = "<group>";
 		};
+		H10000012B00000000000064 /* DumbbellShrug */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000408 /* DumbbellShrugExercise.swift */,
+				B10000012B00000000000409 /* DumbbellShrugAnalyzer.swift */,
+			);
+			path = DumbbellShrug;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -2069,6 +2086,8 @@
 				A10000012B00000000000403 /* RearLungeAnalyzer.swift in Sources */,
 				A10000012B00000000000405 /* LateralRaiseExercise.swift in Sources */,
 				A10000012B00000000000406 /* LateralRaiseAnalyzer.swift in Sources */,
+				A10000012B00000000000408 /* DumbbellShrugExercise.swift in Sources */,
+				A10000012B00000000000409 /* DumbbellShrugAnalyzer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2195,6 +2214,7 @@
 				A10000012B00000000000401 /* StiffLegDeadliftAnalyzerTests.swift in TestSources */,
 				A10000012B00000000000404 /* RearLungeAnalyzerTests.swift in TestSources */,
 				A10000012B00000000000407 /* LateralRaiseAnalyzerTests.swift in TestSources */,
+				A10000012B00000000000410 /* DumbbellShrugAnalyzerTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

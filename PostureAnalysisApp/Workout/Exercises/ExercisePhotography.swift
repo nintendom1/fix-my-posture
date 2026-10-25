@@ -50,6 +50,16 @@ struct ExercisePhotography: Identifiable {
             license: "Pexels License"
         ),
         ExercisePhotography(
+            id: .dumbbellShrug,
+            exerciseName: "Dumbbell Shrug",
+            assetName: "ExerciseThumbnails/dumbbell_shrug",
+            photographer: "Tima Miroshnichenko",
+            source: "Pexels",
+            sourceURL: URL(string: "https://www.pexels.com/photo/man-in-black-tank-top-holding-dumbbells-5327450/")
+                ?? URL(fileURLWithPath: "/"),
+            license: "Pexels License"
+        ),
+        ExercisePhotography(
             id: .hammerCurl,
             exerciseName: "Hammer Curl",
             assetName: "ExerciseThumbnails/hammer_curl",
