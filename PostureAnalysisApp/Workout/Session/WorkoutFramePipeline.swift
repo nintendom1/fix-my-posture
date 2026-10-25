@@ -230,6 +230,7 @@ struct WorkoutFramePipeline {
         FramingEvaluator(requiredJoints: exercise.requiredJoints,
                          anyOfRequiredJoints: exercise.anyOfRequiredJoints,
                          headroomArmLengths: exercise.headroomArmLengths,
+                         sideroomArmLengths: exercise.sideroomArmLengths,
                          cameraView: exercise.cameraView)
     }
 

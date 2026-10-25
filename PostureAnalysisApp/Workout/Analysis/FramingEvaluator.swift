@@ -5,6 +5,7 @@ import Foundation
 enum FramingGuidance: String, Equatable {
     case stepIntoView
     case stepBack
+    case stepBackSideRoom
     case moreHeadroom
     case moveLeft
     case moveRight
@@ -20,6 +21,7 @@ enum FramingGuidance: String, Equatable {
         switch self {
         case .stepIntoView: return "Step into view, facing the phone."
         case .stepBack: return "Step back until both arms and shoulders are in view."
+        case .stepBackSideRoom: return "Step back so your arms have room out to the sides."
         case .stepIntoViewSideOn: return "Step into view, standing side-on to the phone."
         case .stepBackSideOn: return "Step back until your arm and head are in view."
         case .stepIntoViewSideFullBody: return "Stand side-on to the phone with your whole body in view."
@@ -37,6 +39,7 @@ enum FramingGuidance: String, Equatable {
         switch self {
         case .stepIntoView: return "Step into view"
         case .stepBack: return "Step back: show both arms"
+        case .stepBackSideRoom: return "Step back: room for your arms"
         case .stepIntoViewSideOn: return "Step into view, side-on"
         case .stepBackSideOn: return "Step back: show your arm"
         case .stepIntoViewSideFullBody: return "Stand side-on, show your whole body"
@@ -81,6 +84,8 @@ struct FramingEvaluator {
     let anyOfRequiredJoints: [Set<LandmarkType>]
     /// Overhead room needed above the shoulders, in measured arm lengths; nil skips the check.
     let headroomArmLengths: CGFloat?
+    /// Horizontal room needed at each shoulder, in measured arm lengths; nil skips the check.
+    let sideroomArmLengths: CGFloat?
     let cameraView: ExerciseCameraView
     let configuration: FramingConfiguration
     private var presentSince: TimeInterval?
@@ -93,10 +98,12 @@ struct FramingEvaluator {
     }
 
     init(requiredJoints: Set<LandmarkType>, anyOfRequiredJoints: [Set<LandmarkType>] = [], headroomArmLengths: CGFloat?,
+         sideroomArmLengths: CGFloat? = nil,
          cameraView: ExerciseCameraView = .front, configuration: FramingConfiguration = FramingConfiguration()) {
         self.requiredJoints = requiredJoints
         self.anyOfRequiredJoints = anyOfRequiredJoints
         self.headroomArmLengths = headroomArmLengths
+        self.sideroomArmLengths = sideroomArmLengths
         self.cameraView = cameraView
         self.configuration = configuration
     }
@@ -106,7 +113,9 @@ struct FramingEvaluator {
         func visible(_ joints: Set<LandmarkType>) -> Bool {
             joints.allSatisfy { frame.point($0, minimumConfidence: configuration.minimumConfidence) != nil }
         }
-        let present = visible(requiredJoints) && (anyOfRequiredJoints.isEmpty || anyOfRequiredJoints.contains(where: visible))
+        let requiredPresent = visible(requiredJoints)
+            && (anyOfRequiredJoints.isEmpty || anyOfRequiredJoints.contains(where: visible))
+        let present = requiredPresent && !lacksSideRoom(frame)
         if present {
             let since = presentSince ?? time
             presentSince = since
@@ -116,7 +125,7 @@ struct FramingEvaluator {
             presentSince = nil
             if isReliable, time - (lastPresent ?? time) >= configuration.unreliableAfter { isReliable = false }
         }
-        return FramingStatus(isReliable: isReliable, guidance: guidance(for: frame, requiredPresent: present))
+        return FramingStatus(isReliable: isReliable, guidance: guidance(for: frame, requiredPresent: requiredPresent))
     }
 
     mutating func reset() {
@@ -149,6 +158,8 @@ struct FramingEvaluator {
             }
         }
 
+        if lacksSideRoom(frame) { return .stepBackSideRoom }
+
         let anchors = [LandmarkType.leftShoulder, .rightShoulder, .leftHip, .rightHip]
             .compactMap { frame.point($0, minimumConfidence: confidence) }
         guard !anchors.isEmpty, frame.pose.imageWidth > 0 else { return nil }
@@ -158,5 +169,18 @@ struct FramingEvaluator {
         if centerX < 0.5 - configuration.centerTolerance { return .moveLeft }
         if centerX > 0.5 + configuration.centerTolerance { return .moveRight }
         return nil
+    }
+
+    private func lacksSideRoom(_ frame: PoseFrame) -> Bool {
+        guard let sideroomArmLengths, frame.pose.imageWidth > 0 else { return false }
+        let confidence = configuration.minimumConfidence
+        let margin = configuration.headroomMargin * frame.pose.imageWidth
+        let requiredRoom = BodySide.allCases.compactMap {
+            ArmGeometry.arm($0, in: frame, minimumConfidence: confidence)
+        }.contains { arm in
+            let nearestEdge = min(arm.shoulder.x, frame.pose.imageWidth - arm.shoulder.x)
+            return nearestEdge < sideroomArmLengths * arm.armLength + margin
+        }
+        return requiredRoom
     }
 }

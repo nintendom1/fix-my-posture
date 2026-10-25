@@ -13,6 +13,7 @@ enum ExerciseFilterGroup: String, Hashable {
 struct ExerciseGradient: Equatable {
     enum Token: String, Hashable {
         case press
+        case lateralRaise
         case curl
         case triceps
         case row

@@ -392,6 +392,9 @@
 		A10000012B00000000000402 /* RearLungeExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000402 /* RearLungeExercise.swift */; };
 		A10000012B00000000000403 /* RearLungeAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000403 /* RearLungeAnalyzer.swift */; };
 		A10000012B00000000000404 /* RearLungeAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000404 /* RearLungeAnalyzerTests.swift */; };
+		A10000012B00000000000405 /* LateralRaiseExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000405 /* LateralRaiseExercise.swift */; };
+		A10000012B00000000000406 /* LateralRaiseAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000406 /* LateralRaiseAnalyzer.swift */; };
+		A10000012B00000000000407 /* LateralRaiseAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000407 /* LateralRaiseAnalyzerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -792,6 +795,9 @@
 		B10000012B00000000000402 /* RearLungeExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RearLungeExercise.swift; sourceTree = "<group>"; };
 		B10000012B00000000000403 /* RearLungeAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RearLungeAnalyzer.swift; sourceTree = "<group>"; };
 		B10000012B00000000000404 /* RearLungeAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RearLungeAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000405 /* LateralRaiseExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LateralRaiseExercise.swift; sourceTree = "<group>"; };
+		B10000012B00000000000406 /* LateralRaiseAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LateralRaiseAnalyzer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000407 /* LateralRaiseAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LateralRaiseAnalyzerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1044,6 +1050,7 @@
 				B10000012B00000000000398 /* BuiltInRoutineRepositoryTests.swift */,
 				B10000012B00000000000401 /* StiffLegDeadliftAnalyzerTests.swift */,
 				B10000012B00000000000404 /* RearLungeAnalyzerTests.swift */,
+				B10000012B00000000000407 /* LateralRaiseAnalyzerTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1088,6 +1095,7 @@
 				B10000012B00000000000347 /* ExercisePhotography.swift */,
 				H10000012B00000000000061 /* StiffLegDeadlift */,
 				H10000012B00000000000062 /* RearLunge */,
+				H10000012B00000000000063 /* LateralRaise */,
 			);
 			path = Exercises;
 			sourceTree = "<group>";
@@ -1693,6 +1701,15 @@
 			path = RearLunge;
 			sourceTree = "<group>";
 		};
+		H10000012B00000000000063 /* LateralRaise */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000405 /* LateralRaiseExercise.swift */,
+				B10000012B00000000000406 /* LateralRaiseAnalyzer.swift */,
+			);
+			path = LateralRaise;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -2050,6 +2067,8 @@
 				A10000012B00000000000400 /* StiffLegDeadliftAnalyzer.swift in Sources */,
 				A10000012B00000000000402 /* RearLungeExercise.swift in Sources */,
 				A10000012B00000000000403 /* RearLungeAnalyzer.swift in Sources */,
+				A10000012B00000000000405 /* LateralRaiseExercise.swift in Sources */,
+				A10000012B00000000000406 /* LateralRaiseAnalyzer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2175,6 +2194,7 @@
 				A10000012B00000000000398 /* BuiltInRoutineRepositoryTests.swift in TestSources */,
 				A10000012B00000000000401 /* StiffLegDeadliftAnalyzerTests.swift in TestSources */,
 				A10000012B00000000000404 /* RearLungeAnalyzerTests.swift in TestSources */,
+				A10000012B00000000000407 /* LateralRaiseAnalyzerTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

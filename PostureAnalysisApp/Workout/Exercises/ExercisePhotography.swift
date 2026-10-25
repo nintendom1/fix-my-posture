@@ -77,6 +77,16 @@ struct ExercisePhotography: Identifiable {
             license: "U.S. government photograph; public domain in the United States"
         ),
         ExercisePhotography(
+            id: .lateralRaise,
+            exerciseName: "Lateral Raise",
+            assetName: "ExerciseThumbnails/lateral_raise",
+            photographer: "Andrea Piacquadio",
+            source: "Pexels",
+            sourceURL: URL(string: "https://www.pexels.com/photo/man-in-gray-tank-top-holding-black-dumbbells-3839506/")
+                ?? URL(fileURLWithPath: "/"),
+            license: "Pexels License"
+        ),
+        ExercisePhotography(
             id: .tricepsExtension,
             exerciseName: "Triceps Extension",
             assetName: "ExerciseThumbnails/triceps_extension",

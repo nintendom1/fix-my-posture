@@ -131,6 +131,35 @@ final class WorkoutSessionTests: XCTestCase {
         XCTAssertEqual(session.progress[deadlift.id]?.setReps, [deadlift.autoCompleteReps ?? 10])
     }
 
+    func testLateralRaiseCreditsBothSidesAndCompletesItsSessionTarget() {
+        let lateralRaise = LateralRaiseExercise.definition()
+        var session = readySession(exercise: lateralRaise)
+        _ = session.handle(.command(.start), at: 2)
+
+        let analyzer = LateralRaiseAnalyzer(epoch: session.analyzerEpoch)
+        let motion = lateralRaise.guide.motion
+        let sampleCount = Int(motion.duration * Double(lateralRaise.autoCompleteReps) * 10)
+        var creditedSides = Set<BodySide>()
+        for index in 0..<sampleCount {
+            let time = Double(index) / 10
+            let joints = ExerciseDemoFigureView.pose(for: motion.sample(at: time), cameraView: .front).jointLocations
+            let landmarks = Dictionary(uniqueKeysWithValues: joints.map { type, point in
+                (type, Landmark(type: type, normalizedLocation: .zero, imageLocation: point, confidence: 0.9))
+            })
+            let frame = PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 1080, imageHeight: 1920), timestamp: time)
+
+            for event in analyzer.process(frame, counting: true).repEvents {
+                creditedSides.formUnion(event.sides)
+                XCTAssertEqual(event.sides, Set(BodySide.allCases))
+                _ = session.handle(.repCompleted(event), at: time + 2)
+            }
+        }
+
+        XCTAssertEqual(creditedSides, Set(BodySide.allCases))
+        XCTAssertEqual(session.phase, .resting)
+        XCTAssertEqual(session.progress[lateralRaise.id]?.setReps, [lateralRaise.autoCompleteReps])
+    }
+
     func testTiltWarningIsRateLimited() {
         var session = readySession()
         XCTAssertEqual(spoken(session.handle(.phoneTiltChanged(true), at: 5)).count, 1)

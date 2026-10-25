@@ -120,12 +120,20 @@ final class WorkoutGhostGeometryTests: XCTestCase {
         }
     }
 
-    func testCatalogFigureBoundsRemainTheOriginalCanvas() {
+    func testCatalogFigureBoundsFitTheCanvasOrIncludeTheFullLateralRaiseSpan() {
         let canvas = CGRect(origin: .zero, size: ExerciseDemoFigureView.canvasSize)
         for exercise in ExerciseCatalog.all {
             let bounds = ExerciseDemoFigureView.bounds(for: exercise.guide.motion,
                                                        cameraView: exercise.cameraView)
-            XCTAssertEqual(bounds, canvas, "\(exercise.id) bounds expanded by \(bounds.width - canvas.width)×\(bounds.height - canvas.height)")
+            if exercise.id == .lateralRaise {
+                XCTAssertLessThan(bounds.minX, canvas.minX)
+                XCTAssertGreaterThan(bounds.maxX, canvas.maxX)
+                XCTAssertEqual(bounds.minY, canvas.minY)
+                XCTAssertEqual(bounds.maxY, canvas.maxY)
+            } else {
+                XCTAssertEqual(bounds, canvas,
+                               "\(exercise.id) bounds expanded by \(bounds.width - canvas.width)×\(bounds.height - canvas.height)")
+            }
         }
     }
 

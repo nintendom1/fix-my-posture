@@ -64,6 +64,8 @@ struct ExerciseDefinition: Identifiable {
     let focusSegments: [FocusSegment]
     /// Overhead room needed above the shoulders, in arm lengths; nil skips the check.
     let headroomArmLengths: CGFloat?
+    /// Horizontal room needed at each shoulder, in arm lengths; nil skips the check.
+    var sideroomArmLengths: CGFloat? = nil
     /// Each arm counts separately; displayed reps are the reps both arms completed.
     let countsArmsIndependently: Bool
     /// Spoken when the exercise is selected.

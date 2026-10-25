@@ -1,6 +1,6 @@
 # Workout Coach (Beta)
 
-Start **Workout Coach (Beta)** from a Train quick-start tile, an exercise detail page, or a routine. The first time an exercise opens, a short guide shows before the camera starts. Then prop the phone up in portrait, step back so the camera can see the required joints with room to move, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10), hammer curls (2 sets of 10), an overhead band triceps extension filmed side-on (2 sets of 10), air squats with the whole body in view (2 sets of 15), stiff-legged dumbbell deadlifts filmed side-on (2 sets of 8–10), dumbbell rear lunges filmed side-on (2 sets of 8 each leg), one-arm dumbbell rows filmed side-on (2 sets of 8–10 each arm), and push-ups with the phone on the floor (2 sets of 10). It announces the target range and set completion, gives occasional form tips, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
+Start **Workout Coach (Beta)** from a Train quick-start tile, an exercise detail page, or a routine. The first time an exercise opens, a short guide shows before the camera starts. Then prop the phone up in portrait, step back so the camera can see the required joints with room to move, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10), lateral raises (2 sets of 10), hammer curls (2 sets of 10), an overhead band triceps extension filmed side-on (2 sets of 10), air squats with the whole body in view (2 sets of 15), stiff-legged dumbbell deadlifts filmed side-on (2 sets of 8–10), dumbbell rear lunges filmed side-on (2 sets of 8 each leg), one-arm dumbbell rows filmed side-on (2 sets of 8–10 each arm), and push-ups with the phone on the floor (2 sets of 10). It announces a target range when one applies and set completion, gives occasional form tips, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
 
 Rep counts, framing checks, and form tips are geometric heuristics from a 2D camera. They are not medical, injury, or performance assessments.
 
@@ -37,9 +37,9 @@ The Settings screen stores rest policy, preferred weight unit, and start-by-hold
 
 The guide and the live overlay share one description of the movement. `ExerciseGuide` holds the steps, the read-aloud walkthrough, the start-position instruction, the counting-threshold lines, and an `ArmMotion`: looping keyframes of upper-arm and forearm elevation. `FigureShape` adds per-keyframe torso pitch, hip shift, hip drop, and stride for side views. `ArmMotion.place` turns arm angles into elbow and wrist points, measuring "outward" as away from the other shoulder. The same samples pose the guide figure and the live ghost.
 
-- **First-time guide.** The guide sheet opens automatically the first time each exercise is shown, and before the camera starts, so the permission prompt never covers it. An animated front-view figure with two dumbbells (drawn with the posture `AlignmentReferenceOverlayView` silhouette) loops start → press → lower, and the matching step is highlighted. **Start Workout** (or swiping the sheet down) goes straight to setup. **Read Aloud** speaks the steps through `SpeechCoach`, so other audio is ducked and restored. With Reduce Motion, the start and top positions are shown side by side. The guide is remembered per exercise (`workoutCoach.guideSeen.<id>`), so returning users skip it.
+- **First-time guide.** The guide sheet opens automatically the first time each exercise is shown, and before the camera starts, so the permission prompt never covers it. An animated front-view figure with two dumbbells (drawn with the posture `AlignmentReferenceOverlayView` silhouette) loops the exercise's start, working, and return positions, and the matching step is highlighted. **Start Workout** (or swiping the sheet down) goes straight to setup. **Read Aloud** speaks the steps through `SpeechCoach`, so other audio is ducked and restored. With Reduce Motion, the start and top positions are shown side by side. The guide is remembered per exercise (`workoutCoach.guideSeen.<id>`), so returning users skip it.
 - **On demand.** **Exercise guide** in the camera edge toolbar reopens the guide. Like realtime Details, it stops capture while open. An active set pauses, and stays paused after **Back to Workout**.
-- **Ghost demo.** The full translucent violet guide figure loops throughout setup: while getting into position, at Ready, and during rest. During a Saved Set, the rest before the next exercise previews that exercise. Before anyone is in view, it loops at the ideal spot framing wants, even before the first camera frame. After about 0.6 s of steady tracking, it glides onto the user: the head and torso fit around the body, and the moving limbs match the user's measured arms or legs exactly, with dumbbells when the guide holds them. After about 1 s without the needed tracking, it glides back to the ideal spot. The glide takes 0.4 s. With Reduce Motion, the top and start poses are shown still with no glide. `WorkoutGhostGeometry` decides the figure; `GhostCalibration` decides when it fits. The status line reads "Hold the dumbbells just above your shoulders to begin". Every exercise must show the ideal figure throughout setup, and every pose that can reach `.ready` must calibrate. Ghost sizing uses joints Ready guarantees (`requiredJoints` plus any one `anyOfRequiredJoints` set) or a fallback, and optional landmarks may refine sizing but must never suppress the ghost.
+- **Ghost demo.** The full translucent violet guide figure loops throughout setup: while getting into position, at Ready, and during rest. During a Saved Set, the rest before the next exercise previews that exercise. Before anyone is in view, it loops at the ideal spot framing wants, even before the first camera frame. After about 0.6 s of steady tracking, it glides onto the user: the head and torso fit around the body, and the moving limbs match the user's measured arms or legs exactly, with dumbbells when the guide holds them. After about 1 s without the needed tracking, it glides back to the ideal spot. The glide takes 0.4 s. With Reduce Motion, the top and start poses are shown still with no glide. `WorkoutGhostGeometry` decides the figure; `GhostCalibration` decides when it fits. The status line uses the exercise's start-position instruction, such as "Hold the dumbbells just above your shoulders to begin". Every exercise must show the ideal figure throughout setup, and every pose that can reach `.ready` must calibrate. Ghost sizing uses joints Ready guarantees (`requiredJoints` plus any one `anyOfRequiredJoints` set) or a fallback, and optional landmarks may refine sizing but must never suppress the ghost.
 - **Side-body figure.** Side poses keep the front ankle planted. A two-bone solver places knees from hip, ankle, thigh, and shin lengths, and a stride adds an independent rear leg. The calibrated body uses Ready's shoulder, hip, knee, and ankle on one side; tracked elbows and wrists refine arm lengths, while a leg-scaled guide arm is the fallback. Optional joints never block calibration. The near limbs always use the guide's left labels and a split-stance rear leg uses right labels, even when Vision tracks the user's right side.
 - **Figure bounds.** `ExerciseDemoFigureView.bounds(for:cameraView:)` includes the canvas, all resolved keyframes, interpolated move samples, the head, and the rendered dumbbells. The guide and ideal ghost aspect-fit those bounds, so wide and long poses stay in view. Catalog motions whose bounds equal the canvas keep their existing framing.
 - **Auto-start.** While ready, holding the start position (both arms confirmed at the bottom) for 1 s begins the set with "Set 1 of 2. Go." After a rest, this works only once the rest timer has ended. Saying "start" or tapping Start always works.
@@ -78,6 +78,7 @@ Each starter routine has one set per exercise, one to three exercises, and an es
 - **Upper Body**: Push-Up 1 × 8 → Dumbbell Row 1 × 8 each arm → Shoulder Press 1 × 8.
 - **Chest & Arms**: Push-Up 1 × 10 → Hammer Curl 1 × 10 → Triceps Extension 1 × 10.
 - **Lower Body**: Air Squat 1 × 10 → Stiff-Legged Dumbbell Deadlift 1 × 8 → Dumbbell Rear Lunge 1 × 5 each leg.
+- **Shoulders & Arms**: Shoulder Press 1 × 8 → Lateral Raise 1 × 8 → Hammer Curl 1 × 10. The estimate is 344 seconds.
 
 ## Workout history
 
@@ -128,8 +129,9 @@ Stale events are dropped. Every analyzer instance carries an epoch, and the sess
 `FramingEvaluator` uses each exercise's required joints. For shoulder press and hammer curls those are both shoulders, elbows, and wrists at confidence ≥ 0.4. Hips aren't required, so users can stand closer for steadier tracking; when visible, they still help center the left/right guidance.
 
 - Tracking becomes reliable after the required joints stay visible for 0.6 s. It becomes unreliable after they are missing for 0.3 s.
-- Guidance, in order: step into view; step back until both arms and shoulders are visible; leave room above the hands; move a little left or right.
+- Guidance, in order: step into view; step back until both arms and shoulders are visible; leave room above the hands; step back to leave room for the full arm span; move a little left or right.
 - Headroom for the press: the top shoulder's y minus 1.05 × the longer measured arm length (upper arm + forearm, in pixels) must stay at least 2% of the image height inside the frame.
+- Side room uses the measured arm length at each shoulder. The shoulder must be at least the configured arm-length multiple plus 2% of the image width from the nearest edge. Lateral raises use 1.1 arm lengths to fit the raised wrist and dumbbell; other exercises skip this check.
 - Left/right guidance is worded relative to the user. It is derived from unmirrored x, where the front camera's x grows toward the user's left, with a ±17% center tolerance.
 - Guidance is spoken after it holds for 1 s. The same line repeats at most every 20 s.
 
@@ -156,6 +158,21 @@ The press is filmed from the front, using pixel geometry and an independent hyst
 - A rep counts when both arms reach the top within one cycle and both return to the bottom, and the cycle took at least 0.8 s.
 - A gap longer than 0.28 s between complete samples (two dropped samples at the 100–133 ms cadence) invalidates the cycle, so a fresh start is required. Movement done out of view never counts. Pausing or losing tracking has the same effect.
 - The set announces "You're in the target range" at 8 and completes automatically at 10. Other reps are not spoken.
+
+## Lateral raise rep rule
+
+Lateral raises are filmed from the front. Each arm has its own hysteresis tracker, but one rep counts for both arms only when both reach the Top within one cycle and both return to Start. Thresholds live in `LateralRaiseConfiguration` and are prototype values to tune on device.
+
+- Signals: `h` = wrist height above the shoulder in that arm's own length (upper arm + forearm), and `o` = sideways wrist distance from the shoulder in the same ruler. The ruler is the longest measured arm length over the last second.
+- Start when `h ≤ −0.75`. Top when `h ≥ −0.2` and `o ≥ 0.75`. The outward-distance condition rejects a front raise whose wrist projects close to the shoulder. Each checkpoint needs 2 consecutive 10 Hz samples.
+- Setup requires room for the upcoming raised span: each shoulder stays at least 1.1 measured arm lengths plus 2% of image width from the nearest edge. This leaves room for the wrist and dumbbell before Ready.
+- Each arm locks its smoothed shoulder height and ruler at Start. The line can refresh at the initial Start or at a deeper hanging rest (`h ≤ −0.9`); a near-threshold return does not move it. A lock held longer than 6 s is dropped, and a tracking gap clears trackers, references, and rulers.
+- A rep takes at least 0.8 s. A gap longer than 0.28 s between complete frames invalidates the cycle and requires a fresh Start. Pausing or losing tracking has the same effect.
+- A confirmed return to Start ends the form attempt on that same sample. The extra settling samples are used only to establish the initial form baseline.
+- The guide demonstration reads `h` and `o` about −0.996 / 0.087 at the hanging start and −0.065 / 0.995 at the raised top. It counts exactly one rep per loop at ½× and 2× scale, with both arm segments ±15%, and when either move duration changes by ±15%.
+- "Raise to shoulder height" follows an attempt that rises at least 0.25 but misses Top. "Raise both arms evenly" follows a Top timing gap over 0.3 s or a height difference over 0.25 on the way up. "Keep your shoulders down" is continuous while both wrists have `h ≥ −0.4` and the nose-to-shoulder gap shrinks by more than 0.12 shoulder widths. "Keep your arms long" follows a top elbow angle under 140°. "Keep your torso centered" follows sideways shoulder-midpoint drift over 0.12 arm lengths from the start and requires visible hips.
+- Reminders: "Lead with your elbows.", "Lower slowly.", and "Brace your core." The motion envelope allows about 1.1 arm lengths outward, 0.3 above, and 1.0 below.
+- The set completes automatically at 10. There is no target-range announcement.
 
 ## Hammer curl rep rule
 
@@ -401,6 +418,14 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
   - no form cues for the demonstration itself;
   - "Press all the way up" for a half press, "Lower with control" for a 0.5 s lowering, "Press both arms evenly" for one arm 0.4 s late, and "Lower to just above your shoulders" for re-pressing from midway;
   - the torso signal for a sideways lean, never without hips, and never affecting the count.
+- The framing tests check that a close, arms-down lateral raise asks for side room and stays unreliable, a farther pose becomes reliable, and exercises without a side-room setting keep their existing behavior. `WorkoutFramePipelineTests` check the setting reaches framing and that the calibrated raised ghost, including its head and dumbbells, fits every guide keyframe at an accepted distance.
+- `LateralRaiseAnalyzerTests` run the guide's front-view demonstration at 10 Hz:
+  - one rep per loop at ½× and 2× scale, with upper arm or forearm lengths ±15%, and with either move duration ±15%; the guide reads about `h = −0.996`, `o = 0.087` at Start and `h = −0.065`, `o = 0.995` at Top;
+  - a front raise and a half raise do not count, and the half raise asks for more height;
+  - late or low arms ask for even raises; a shrug needs the nose; torso drift needs the hips; bent elbows ask for long arms;
+  - just-below, exact, and just-above Top (`h = −0.2`, `o = 0.75`) and Start (`h = −0.75`) boundaries emit the expected rep events and credit both sides; one Top or Start sample cannot confirm a checkpoint;
+  - cycles just under 0.8 s are rejected and cycles at 0.8 s count; two reps separated by exactly two Start samples produce separate form observations, with bent arms flagged on the second rep;
+  - gaps invalidate a cycle, estimated arm joints suppress form cues while counting continues, and the guide demo raises no cues.
 - `HammerCurlAnalyzerTests` run the curl guide's own demonstration (forearm moving toward the camera) at 10 Hz:
   - one rep per arm per loop, at ½× and 2× scale and with either segment ±15%;
   - alternating arms each count;
@@ -414,7 +439,7 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
 - `DumbbellRowAnalyzerTests` run the bent-over side demonstration facing either way, with either arm, at ½×/2× and with either segment ±15%. They also check that a half pull asks to pull higher, a fast lowering asks for control, pulling again from midway asks to lower all the way, and a tipping back raises its signal only with the hip visible.
 - `PushUpAnalyzerTests` run the floor-view demonstration at ½×/2×, mirrored, and with either segment ±15%. They also check that a shallow push-up asks to go lower, a fast lowering asks for control, and going back down without straightening asks to push all the way up.
 - `SavedExerciseSetTests` check that order, ids, and repeated exercises survive storage; that unavailable exercises need attention without being removed; that duplicates get fresh ids; and that remembered targets apply without changing the defaults.
-- `BuiltInRoutinesTests` check fixed and unique routine/item ids, exercise order and targets, catalog membership, one-set limits, and the under-seven-minute starter cap.
+- `BuiltInRoutinesTests` check fixed and unique routine/item ids, exercise order and targets, catalog membership, one-set limits, and the under-seven-minute starter cap. The Shoulders & Arms estimate is 344 seconds.
 - `BuiltInRoutineRepositoryTests` check that starter routines merge after user routines, remain read-only, shadow conflicting stored rows, and duplicate to editable copies.
 - `RoutineEstimatorTests` check exact seconds for design examples and the starter routine, rounded minutes, fixed-rest clamping, per-side time, and empty routines.
 - `WorkoutHistoryTests` check that weights carry to later sets until changed (and are confirmed out loud), that bodyweight exercises take no weight, that Saved Set occurrences are recorded with their outcome and survive storage, that per-side entries keep L/R labels, and that a workout with no sets saves nothing.
@@ -435,6 +460,7 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
   - per-side sets switch limbs without rest, then rest after both, recording an entry per side and keeping the established arm wording;
   - a Saved Set rests, then selects the next exercise without counting; skipping records skipped occurrences; a repeated exercise counts its own sets; and switching away needs the chooser;
   - switching mid-set keeps finished sets, restarts the set in progress, clears feedback, and starts a fresh analyzer; curl arms count separately, and the count is what both arms have done.
+  - the lateral raise analyzer credits both sides and completes its 10-rep session target.
 - `VoiceCommandParserTests` cover spoken weights (digits, number words, halves, kilograms, bands, settling, and ignoring unrelated numbers), "wait" heard for "weight" (a weight, held while the number is said, or a pause after 1 s), fillers, longest-phrase matching, the whole-utterance rule for destructive commands, prefix ambiguity, exercise names, and opening and closing help by voice. They also check that every recognized phrase appears exactly once in the Voice Commands help.
 - `PhoneTiltDetectorTests` check the 1 s settle time, the 15°/10° hysteresis, and that missing motion data never warns.
 
@@ -580,7 +606,11 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Start with the left leg stepping back. After its set, the coach says "Left leg done, N reps. Switch: step back with your right leg." The HUD names each leg, the two sets switch without rest, and you do not turn around between legs.
     - Face the other way between workouts: the ghost follows you, and the analyzer still counts a rear lunge without inferring the stepping leg from Vision's left/right labels.
     - A shallow lunge gets "Lower a little deeper." A short step gets "Step back a little farther." Re-lowering before standing gets "Stand all the way up." Leaning forward gets "Keep your chest up."
-- [ ] **37.** Saved Sets:
+- [ ] **37.** Lateral Raise, front-on:
+    - Stand tall with one dumbbell in each hand at your sides. The guide and ghost show the arms down → out to shoulder height → down, and the whole arm span stays inside the figure bounds.
+    - Start requires `h ≤ −0.75`; Top requires `h ≥ −0.2` and `o ≥ 0.75`. Show Measurements should be stable close to and far from the phone. A front raise and a half raise do not count.
+    - Ten lateral raises count exactly 10. Try one arm late, a low or bent arm, a shrug, and a sideways torso drift; verify each cue and that the shrug cue needs the nose and torso cue needs the hips.
+- [ ] **38.** Saved Sets:
     - Create "Upper Body" with shoulder press 2 × 8–10, hammer curl 2 × 10, and shoulder press again 1 × 12. Reorder by dragging, save, quit the app, and reopen: it's still there in order. Duplicate it and delete the copy.
     - Start it: the HUD shows "Exercise 1 of 3".
     - After the last press set, rest begins with "Up next: Hammer Curl"; when rest ends, curls are set up, and nothing counts until you start.
@@ -592,12 +622,13 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Start **Upper Body** and confirm it runs Push-Up → Row → Press with one set each, then finishes in under seven minutes.
     - Start **Chest & Arms** and confirm it runs Push-Up → Hammer Curl → Triceps Extension with one set each, then finishes in under seven minutes.
     - Start **Lower Body** and confirm it runs Air Squat 10 → Stiff-Legged Dumbbell Deadlift 8 → Dumbbell Rear Lunge 5 each leg. The estimate is 332 seconds and it finishes in under seven minutes.
-- [ ] **38.** History:
+    - Start **Shoulders & Arms** and confirm it runs Shoulder Press 8 → Lateral Raise 8 → Hammer Curl 10. The estimate is 344 seconds and it finishes in under seven minutes.
+- [ ] **39.** History:
     - Finish two press sets and end the workout. Workout History from Progress shows it, newest first.
     - Open it, add 17.5 lb to set 1 with "Also for the later sets", and set 2 shows 17.5 lb too. Change set 2 to 8 kg and remove it again.
     - Band triceps take a band name, and push-ups and squats show no weight control.
     - Closing the coach after a finished set (without ending) still saves it. Opening and closing without a set saves nothing. Swipe to delete a workout.
-- [ ] **39.** Weights by voice:
+- [ ] **40.** Weights by voice:
     - Mid-set, say "my weights are seventeen point five pounds". The coach says "17.5 pounds.", the Heard chip shows it, and the HUD shows 17.5 lb.
     - The next set keeps 17.5 lb. Say "weight 8 kilograms" mid-set, and the history shows 17.5 lb for set 1 and 8 kg for set 2.
     - With band triceps, say "using the red band".
@@ -607,11 +638,11 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
 
 ### Posture camera and settings
 
-- [ ] **40.** Afterward, confirm realtime posture correction still works.
-- [ ] **41.** In realtime posture correction, open the gear menu labeled **Feedback settings**. Check Camera tilt compensation, Horizon line, Alignment targets, and the 2 / 5 / 10 per second refresh rate. Change each value in the menu and in Settings → Camera & framing; both places should show the same value.
-- [ ] **42.** Set Rest between sets to **Exercise default** and confirm shoulder press rests for 90 seconds and hammer curls for 60. Set it to **45 seconds** and confirm both exercises show a 45-second countdown and matching progress bar. One-arm rows switch sides without a rest, then rest after the second arm. **Skip rest** still starts the next set immediately.
-- [ ] **43.** Set Weight units to **kg**. A new History weight entry starts with kg selected, and saying "my weights are twenty" records 20 kg. Saying "my weights are twenty pounds" records 20 lb. Existing history entries keep their recorded unit and value.
-- [ ] **44.** Turn **Start by holding position** off. Holding the shoulder press start position does not begin a set; tapping play and saying "start" do. The ready status says "Tap play to start" without voice and "Say ‘start’ or tap play" when voice is available. Air squats still require an explicit start.
-- [ ] **45.** Restore defaults and confirm **Exercise default**, **lb**, and Start by holding on. Verify press rests for 90 seconds and curls for 60 seconds, and holding the press start position still starts the set.
+- [ ] **41.** Afterward, confirm realtime posture correction still works.
+- [ ] **42.** In realtime posture correction, open the gear menu labeled **Feedback settings**. Check Camera tilt compensation, Horizon line, Alignment targets, and the 2 / 5 / 10 per second refresh rate. Change each value in the menu and in Settings → Camera & framing; both places should show the same value.
+- [ ] **43.** Set Rest between sets to **Exercise default** and confirm shoulder press rests for 90 seconds and hammer curls are 60 seconds. Lateral raises also rest for 60 seconds. Set rest to **45 seconds** and confirm each exercise shows a 45-second countdown and matching progress bar. One-arm rows switch sides without a rest, then rest after the second arm. **Skip rest** still starts the next set immediately.
+- [ ] **44.** Set Weight units to **kg**. A new History weight entry starts with kg selected, and saying "my weights are twenty" records 20 kg. Saying "my weights are twenty pounds" records 20 lb. Existing history entries keep their recorded unit and value.
+- [ ] **45.** Turn **Start by holding position** off. Holding the shoulder press start position does not begin a set; tapping play and saying "start" do. The ready status says "Tap play to start" without voice and "Say ‘start’ or tap play" when voice is available. Air squats still require an explicit start.
+- [ ] **46.** Restore defaults and confirm **Exercise default**, **lb**, and Start by holding on. Verify press rests for 90 seconds and curls and lateral raises rest for 60 seconds; holding the press start position still starts the set.
 
 These checks remain manual; a passing simulator run does not imply they were performed.
