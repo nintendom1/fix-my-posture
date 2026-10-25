@@ -7,18 +7,22 @@ final class BuiltInRoutinesTests: XCTestCase {
     // Starter routines leave up to one minute for cooldown after completion.
     private let cooldownAllowanceSeconds = 60.0
 
-    func testUpperBodyUsesItsFixedIdentityAndCatalogOrder() throws {
-        let upperBody = try XCTUnwrap(BuiltInRoutines.all.first)
-        XCTAssertEqual(BuiltInRoutines.all.count, 1)
-        XCTAssertEqual(upperBody.id, uuid("5E7A0000-0000-4000-8000-000000000076"))
-        XCTAssertEqual(upperBody.name, "Upper Body")
-        XCTAssertEqual(upperBody.items.map(\.id), [
-            uuid("5E7A0076-0000-4000-8000-000000000001"),
-            uuid("5E7A0076-0000-4000-8000-000000000002"),
-            uuid("5E7A0076-0000-4000-8000-000000000003")
-        ])
-        XCTAssertEqual(upperBody.items.map(\.exerciseID), [.pushUp, .dumbbellRow, .shoulderPress])
-        XCTAssertEqual(upperBody.items.map(\.targetReps), [8...8, 8...8, 8...8])
+    /// One row per starter routine, in catalog order. Each issue (#76–#81) adds its row.
+    private let expectedRoutines: [(issue: String, name: String, exercises: [ExerciseID], reps: [Int])] = [
+        ("76", "Upper Body", [.pushUp, .dumbbellRow, .shoulderPress], [8, 8, 8]),
+        ("77", "Chest & Arms", [.pushUp, .hammerCurl, .tricepsExtension], [10, 10, 10])
+    ]
+
+    func testStarterRoutinesUseTheirFixedIdentityAndCatalogOrder() {
+        XCTAssertEqual(BuiltInRoutines.all.map(\.name), expectedRoutines.map(\.name))
+        for (routine, expected) in zip(BuiltInRoutines.all, expectedRoutines) {
+            XCTAssertEqual(routine.id, uuid("5E7A0000-0000-4000-8000-0000000000\(expected.issue)"), expected.name)
+            XCTAssertEqual(routine.items.map(\.id), expected.exercises.indices.map { index in
+                uuid("5E7A00\(expected.issue)-0000-4000-8000-00000000000\(index + 1)")
+            }, expected.name)
+            XCTAssertEqual(routine.items.map(\.exerciseID), expected.exercises, expected.name)
+            XCTAssertEqual(routine.items.map(\.targetReps), expected.reps.map { $0...$0 }, expected.name)
+        }
     }
 
     func testEveryBuiltInHasUniqueIdsValidExercisesAndMeetsTheStarterCap() {
