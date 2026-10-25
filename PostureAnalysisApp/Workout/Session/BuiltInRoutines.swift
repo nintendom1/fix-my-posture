@@ -31,6 +31,33 @@ enum BuiltInRoutines {
                     targetRepMaximum: 8
                 )
             ]
+        ),
+        SavedExerciseSet(
+            id: UUID(uuid: (0x5E, 0x7A, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x77)),
+            name: "Chest & Arms",
+            items: [
+                SavedExerciseSetItem(
+                    id: UUID(uuid: (0x5E, 0x7A, 0x00, 0x77, 0x00, 0x00, 0x40, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01)),
+                    exerciseID: .pushUp,
+                    setCount: 1,
+                    targetRepMinimum: 10,
+                    targetRepMaximum: 10
+                ),
+                SavedExerciseSetItem(
+                    id: UUID(uuid: (0x5E, 0x7A, 0x00, 0x77, 0x00, 0x00, 0x40, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02)),
+                    exerciseID: .hammerCurl,
+                    setCount: 1,
+                    targetRepMinimum: 10,
+                    targetRepMaximum: 10
+                ),
+                SavedExerciseSetItem(
+                    id: UUID(uuid: (0x5E, 0x7A, 0x00, 0x77, 0x00, 0x00, 0x40, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03)),
+                    exerciseID: .tricepsExtension,
+                    setCount: 1,
+                    targetRepMinimum: 10,
+                    targetRepMaximum: 10
+                )
+            ]
         )
     ]
 

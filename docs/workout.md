@@ -71,7 +71,10 @@ Starter routines are read-only built-ins with fixed routine and item UUIDs. The 
 
 The Up Next override wins first. Never-run starter routines are candidates only when the user has no routines of their own. Starter routines that have been run rotate with the user's routines. If no candidate remains, Up Next falls back to the never-run starter routines in catalog order. With no user routines, never-run routines come first in creation order, then routines rotate by least recent completion.
 
-Each starter routine has one set per exercise, one to three exercises, and an estimate under seven minutes including a 60 s cooldown allowance. `BuiltInRoutinesTests` enforces this cap. The current starter routine is **Upper Body**: Push-Up 1 × 8 → Dumbbell Row 1 × 8 each arm → Shoulder Press 1 × 8.
+Each starter routine has one set per exercise, one to three exercises, and an estimate under seven minutes including a 60 s cooldown allowance. `BuiltInRoutinesTests` enforces this cap. The current starter routines:
+
+- **Upper Body**: Push-Up 1 × 8 → Dumbbell Row 1 × 8 each arm → Shoulder Press 1 × 8.
+- **Chest & Arms**: Push-Up 1 × 10 → Hammer Curl 1 × 10 → Triceps Extension 1 × 10.
 
 ## Workout history
 
@@ -527,6 +530,7 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Starter routines appear under **Starter routines** after the user's routines and **Create Routine** tile.
     - Starter routines cannot be edited or deleted. **Duplicate to Edit** opens a fresh editable copy; cancelling leaves no copy behind.
     - Start **Upper Body** and confirm it runs Push-Up → Row → Press with one set each, then finishes in under seven minutes.
+    - Start **Chest & Arms** and confirm it runs Push-Up → Hammer Curl → Triceps Extension with one set each, then finishes in under seven minutes.
 - [ ] **36.** History:
     - Finish two press sets and end the workout. Workout History from Progress shows it, newest first.
     - Open it, add 17.5 lb to set 1 with "Also for the later sets", and set 2 shows 17.5 lb too. Change set 2 to 8 kg and remove it again.
