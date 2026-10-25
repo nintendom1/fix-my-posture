@@ -73,15 +73,17 @@ struct RoutineDetailScreen: View {
 
             Spacer()
 
-            Button { send(.edit) } label: {
-                Text("Edit")
-                    .font(.system(size: 17, weight: .heavy, design: .rounded))
-                    .foregroundStyle(ColorTokens.palette().tabActive)
-                    .fixedSize()
-                    .designAnchor("routine.edit")
+            if state.routine?.isBuiltIn != true {
+                Button { send(.edit) } label: {
+                    Text("Edit")
+                        .font(.system(size: 17, weight: .heavy, design: .rounded))
+                        .foregroundStyle(ColorTokens.palette().tabActive)
+                        .fixedSize()
+                        .designAnchor("routine.edit")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Edit routine")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Edit routine")
         }
         .frame(height: 36)
     }
@@ -127,21 +129,31 @@ struct RoutineDetailScreen: View {
 
     private var actions: some View {
         HStack(spacing: 10) {
-            RoutineActionButton(
-                title: "Duplicate",
-                icon: "content_copy",
-                tint: ColorTokens.palette().tabActive,
-                action: { send(.duplicate) }
-            )
-            .designAnchor("routine.actions.duplicate")
+            if state.routine?.isBuiltIn == true {
+                RoutineActionButton(
+                    title: "Duplicate to Edit",
+                    icon: "content_copy",
+                    tint: ColorTokens.palette().tabActive,
+                    action: { send(.edit) }
+                )
+                .designAnchor("routine.actions.duplicate")
+            } else {
+                RoutineActionButton(
+                    title: "Duplicate",
+                    icon: "content_copy",
+                    tint: ColorTokens.palette().tabActive,
+                    action: { send(.duplicate) }
+                )
+                .designAnchor("routine.actions.duplicate")
 
-            RoutineActionButton(
-                title: "Delete",
-                icon: "delete",
-                tint: ColorTokens.palette().danger,
-                action: { send(.requestDelete) }
-            )
-            .designAnchor("routine.actions.delete")
+                RoutineActionButton(
+                    title: "Delete",
+                    icon: "delete",
+                    tint: ColorTokens.palette().danger,
+                    action: { send(.requestDelete) }
+                )
+                .designAnchor("routine.actions.delete")
+            }
         }
         .frame(height: 68)
     }

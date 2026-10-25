@@ -23,6 +23,25 @@ struct RoutineDetailPresentation: Equatable, Identifiable {
     let lastDoneLabel: String?
     let steps: [RoutineStepPresentation]
     let canStart: Bool
+    let isBuiltIn: Bool
+
+    init(
+        id: UUID,
+        name: String,
+        summary: String,
+        lastDoneLabel: String?,
+        steps: [RoutineStepPresentation],
+        canStart: Bool,
+        isBuiltIn: Bool = false
+    ) {
+        self.id = id
+        self.name = name
+        self.summary = summary
+        self.lastDoneLabel = lastDoneLabel
+        self.steps = steps
+        self.canStart = canStart
+        self.isBuiltIn = isBuiltIn
+    }
 }
 
 struct RoutineDetailState: Equatable {
@@ -33,6 +52,8 @@ struct RoutineDetailState: Equatable {
         self.routine = routine
         self.showsDeleteConfirmation = showsDeleteConfirmation
     }
+
+    var isBuiltIn: Bool { routine?.isBuiltIn == true }
 }
 
 enum RoutineDetailIntent: Equatable {

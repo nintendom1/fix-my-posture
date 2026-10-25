@@ -33,17 +33,19 @@ final class RoutineEditorViewModel: RoutineEditorViewModeling {
         self.router = router
         self.reminderReconciliation = reminderReconciliation
 
-        let existing = id.flatMap { targetID in
+        let sourceRoutine = id.flatMap { targetID in
             (try? routines?.list().first { $0.id == targetID }) ?? nil
         }
-        let routineID = existing?.id ?? id ?? UUID()
+        let isBuiltInSource = sourceRoutine.map { BuiltInRoutines.contains(id: $0.id) } ?? false
+        let existing = isBuiltInSource ? sourceRoutine?.duplicated() : sourceRoutine
+        let routineID = existing?.id ?? (id.flatMap { BuiltInRoutines.contains(id: $0) ? nil : $0 }) ?? UUID()
         self.id = routineID
         state = RoutineEditorState(
             name: existing?.name ?? "",
             items: existing?.items.map { item in
                 Self.presentation(for: item, catalog: exerciseCatalog, expanded: false)
             } ?? [],
-            isNew: existing == nil
+            isNew: sourceRoutine == nil || isBuiltInSource
         )
         refreshPickerExercises()
         refreshTimeEstimate()
@@ -94,7 +96,7 @@ final class RoutineEditorViewModel: RoutineEditorViewModeling {
             state.pickerSort = option
             refreshPickerExercises()
         case .duplicate:
-            guard !state.isNew, let routines else { return }
+            guard !state.isNew, !BuiltInRoutines.contains(id: id), let routines else { return }
             do {
                 _ = try routines.duplicate(currentDraft())
                 reminderReconciliation?.reconcile()
@@ -110,10 +112,10 @@ final class RoutineEditorViewModel: RoutineEditorViewModeling {
             state.showsDeleteConfirmation = false
             popEditor()
         case .requestDelete:
-            guard !state.isNew else { return }
+            guard !state.isNew, !BuiltInRoutines.contains(id: id) else { return }
             state.showsDeleteConfirmation = true
         case .confirmDelete:
-            guard state.showsDeleteConfirmation, !state.isNew else { return }
+            guard state.showsDeleteConfirmation, !state.isNew, !BuiltInRoutines.contains(id: id) else { return }
             do {
                 try routines?.delete(id: id)
                 reminderReconciliation?.reconcile()
@@ -157,7 +159,7 @@ final class RoutineEditorViewModel: RoutineEditorViewModeling {
     }
 
     private func save() {
-        guard state.isSaveEnabled else { return }
+        guard state.isSaveEnabled, !BuiltInRoutines.contains(id: id) else { return }
         let saved = currentDraft()
         do {
             try routines?.save(saved)

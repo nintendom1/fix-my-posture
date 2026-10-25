@@ -44,7 +44,7 @@ struct TrainHomeState: Equatable {
     let lastWorkout: TrainLastWorkoutPresentation?
     var showsPersonaIntro = false
 
-    var showsCreateRoutineEmptyState: Bool { heroRoutine == nil }
+    var showsCreateRoutineEmptyState: Bool { !routineChoices.contains { $0.canStart } }
 }
 
 enum TrainHomeIntent: Equatable {

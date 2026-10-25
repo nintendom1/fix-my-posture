@@ -53,8 +53,9 @@ Analysis always uses the original unmirrored pixel geometry. Only the overlay is
 A **Saved Set** is an ordered sequence of exercises, each occurrence with its own sets and reps, for example "Upper Body: Floor Press 2 × 10, Row 2 × 10 each arm, Shoulder Press 2 × 8–10". In the app, "set" still means a group of reps within an exercise.
 
 - **Storage.** `SavedExerciseSet` and `SavedExerciseSetItem` are pure Codable types. Each item has its own UUID, so the same exercise can appear more than once. Items store the exercise by stable `ExerciseID`, not its name. `SavedExerciseSetEntity` (SwiftData, in the app's model container) stores the items as JSON, which keeps their order, so Saved Sets survive restarts. If an exercise is no longer available, the set shows "Needs attention" and runs the rest; nothing is removed silently.
-- **List.** Saved Sets show their exercise count and a ✎ edit button. **Create Saved Set** opens the editor.
+- **List.** Saved Sets show their exercise count and an actions menu. **Create Routine** opens the editor.
 - **Editor** (`Features/RoutineEditor/RoutineEditorScreen`): name; add, remove, and drag to reorder exercises; steppers for each occurrence's sets and rep range; Save, Duplicate ("<name> Copy" with fresh ids), and Delete with confirmation. These overrides apply only in that Saved Set, for that workout.
+- **Duration estimate.** `RoutineEstimator` counts 60 s setup once; each item's midpoint reps at 4 s each, doubled for per-side exercises; 10 s per set to switch sides; and rest between sets. Each next exercise adds the finished exercise's rest plus 15 s to get framed. Fixed rest is clamped to 30–120 s. Unknown exercises are skipped.
 - **Running one.** The session follows a `WorkoutPlan`, where each occurrence overrides the exercise's sets and reps (`ExerciseDefinition.withTarget`).
   - The HUD shows "Exercise 3 of 5".
   - Finishing an occurrence's last set records it as completed and starts the normal rest with the next exercise already selected: "Shoulder press complete. Up next: hammer curl, 2 sets of 10. Rest up." The HUD shows "Up next: Hammer Curl · 2 sets × 10 reps".
@@ -63,6 +64,14 @@ A **Saved Set** is an ordered sequence of exercises, each occurrence with its ow
 - **Skipping.** Long-press **Next set** in the camera edge toolbar for **Skip to Next Exercise**, or say "next exercise", "skip exercise", or "skip this exercise" (destructive, so it must be said on its own) to move to the next occurrence. Any sets finished there are kept, and the occurrence is recorded as skipped rather than completed.
 - **Changing exercise.** **Change exercise** in the camera edge toolbar opens the existing chooser, which warns that choosing another exercise leaves the Saved Set and skips the rest of it. Naming an exercise directly mid-set asks you to use "next exercise" or "change exercise" instead.
 - **Completion.** After the last occurrence, the completion card lists each occurrence: its sets and reps, "Skipped" (with any sets done first), or "Not reached". **Another Round** runs the whole Saved Set again, and the end-of-workout summary lists the same.
+
+### Starter routines
+
+Starter routines are read-only built-ins with fixed routine and item UUIDs. The list shows them under **Starter routines** after the user's routines and **Create Routine** tile. Open one to start it. **Duplicate to Edit** opens a fresh draft named "<name> Copy"; saving creates a user routine, and cancelling stores nothing. A starter routine cannot be edited or deleted directly.
+
+The Up Next override wins first. Never-run starter routines are candidates only when the user has no routines of their own. Starter routines that have been run rotate with the user's routines. If no candidate remains, Up Next falls back to the never-run starter routines in catalog order. With no user routines, never-run routines come first in creation order, then routines rotate by least recent completion.
+
+Each starter routine has one set per exercise, one to three exercises, and an estimate under seven minutes including a 60 s cooldown allowance. `BuiltInRoutinesTests` enforces this cap. The current starter routine is **Upper Body**: Push-Up 1 × 8 → Dumbbell Row 1 × 8 each arm → Shoulder Press 1 × 8.
 
 ## Workout history
 
@@ -358,6 +367,9 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
 - `DumbbellRowAnalyzerTests` run the bent-over side demonstration facing either way, with either arm, at ½×/2× and with either segment ±15%. They also check that a half pull asks to pull higher, a fast lowering asks for control, pulling again from midway asks to lower all the way, and a tipping back raises its signal only with the hip visible.
 - `PushUpAnalyzerTests` run the floor-view demonstration at ½×/2×, mirrored, and with either segment ±15%. They also check that a shallow push-up asks to go lower, a fast lowering asks for control, and going back down without straightening asks to push all the way up.
 - `SavedExerciseSetTests` check that order, ids, and repeated exercises survive storage; that unavailable exercises need attention without being removed; that duplicates get fresh ids; and that remembered targets apply without changing the defaults.
+- `BuiltInRoutinesTests` check fixed and unique routine/item ids, exercise order and targets, catalog membership, one-set limits, and the under-seven-minute starter cap.
+- `BuiltInRoutineRepositoryTests` check that starter routines merge after user routines, remain read-only, shadow conflicting stored rows, and duplicate to editable copies.
+- `RoutineEstimatorTests` check exact seconds for design examples and the starter routine, rounded minutes, fixed-rest clamping, per-side time, and empty routines.
 - `WorkoutHistoryTests` check that weights carry to later sets until changed (and are confirmed out loud), that bodyweight exercises take no weight, that Saved Set occurrences are recorded with their outcome and survive storage, that one-arm sets are labeled by arm, and that a workout with no sets saves nothing.
 - `CoachingCueSchedulerTests` check the 0.5 s hold, 2 of the last 3 attempts, the 10 s cooldown and 4 s gap, replacement by priority only upward, waiting while the coach speaks, and reminders at set start and after 25 s quiet.
 - `WorkoutTipLayoutTests` check the preferred slot, keeping a still-valid slot, speak-only when nothing fits, and that press tips at typical and close distances never touch the arms, body, envelope, or HUD.
@@ -512,6 +524,9 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Say "next exercise" mid-curl: it skips to the second press, which starts at set 1 of 1.
     - The final card lists the press as completed, curls as skipped, and the last press.
     - In Library, open Hammer Curl and adjust it to 3 × 12, start it, and confirm the set completes at 12. Reset to Default restores 2 × 10.
+    - Starter routines appear under **Starter routines** after the user's routines and **Create Routine** tile.
+    - Starter routines cannot be edited or deleted. **Duplicate to Edit** opens a fresh editable copy; cancelling leaves no copy behind.
+    - Start **Upper Body** and confirm it runs Push-Up → Row → Press with one set each, then finishes in under seven minutes.
 - [ ] **36.** History:
     - Finish two press sets and end the workout. Workout History from Progress shows it, newest first.
     - Open it, add 17.5 lb to set 1 with "Also for the later sets", and set 2 shows 17.5 lb too. Change set 2 to 8 kg and remove it again.

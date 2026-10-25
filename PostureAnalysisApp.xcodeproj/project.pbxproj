@@ -382,6 +382,10 @@
 		A10000012B00000000000392 /* GhostCalibrationTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000392 /* GhostCalibrationTests.swift */; };
 		A10000012B00000000000393 /* OffscreenJointEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000393 /* OffscreenJointEstimator.swift */; };
 		A10000012B00000000000394 /* OffscreenJointEstimatorTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000394 /* OffscreenJointEstimatorTests.swift */; };
+		A10000012B00000000000395 /* BuiltInRoutines.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000395 /* BuiltInRoutines.swift */; };
+		A10000012B00000000000396 /* BuiltInRoutineRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000396 /* BuiltInRoutineRepository.swift */; };
+		A10000012B00000000000397 /* BuiltInRoutinesTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000397 /* BuiltInRoutinesTests.swift */; };
+		A10000012B00000000000398 /* BuiltInRoutineRepositoryTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000398 /* BuiltInRoutineRepositoryTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -772,6 +776,10 @@
 		B10000012B00000000000392 /* GhostCalibrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhostCalibrationTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000393 /* OffscreenJointEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OffscreenJointEstimator.swift; sourceTree = "<group>"; };
 		B10000012B00000000000394 /* OffscreenJointEstimatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OffscreenJointEstimatorTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000395 /* BuiltInRoutines.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuiltInRoutines.swift; sourceTree = "<group>"; };
+		B10000012B00000000000396 /* BuiltInRoutineRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuiltInRoutineRepository.swift; sourceTree = "<group>"; };
+		B10000012B00000000000397 /* BuiltInRoutinesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuiltInRoutinesTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000398 /* BuiltInRoutineRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuiltInRoutineRepositoryTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1020,6 +1028,8 @@
 				B10000012B00000000000390 /* WorkoutGhostGeometryTests.swift */,
 				B10000012B00000000000392 /* GhostCalibrationTests.swift */,
 				B10000012B00000000000394 /* OffscreenJointEstimatorTests.swift */,
+				B10000012B00000000000397 /* BuiltInRoutinesTests.swift */,
+				B10000012B00000000000398 /* BuiltInRoutineRepositoryTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1102,6 +1112,7 @@
 				B10000012B00000000000169 /* WorkoutIntent.swift */,
 				B10000012B00000000000170 /* WorkoutCoachViewModeling.swift */,
 				B10000012B00000000000171 /* WorkoutCoachFactory.swift */,
+				B10000012B00000000000395 /* BuiltInRoutines.swift */,
 			);
 			path = Session;
 			sourceTree = "<group>";
@@ -1304,6 +1315,7 @@
 				B10000012B00000000000183 /* AssessmentRepository.swift */,
 				B10000012B00000000000184 /* ImageStoring.swift */,
 				B10000012B00000000000185 /* AppRepositories.swift */,
+				B10000012B00000000000396 /* BuiltInRoutineRepository.swift */,
 			);
 			path = Repositories;
 			sourceTree = "<group>";
@@ -1998,6 +2010,8 @@
 				A10000012B00000000000386 /* WorkoutGhostGeometry.swift in Sources */,
 				A10000012B00000000000391 /* GhostCalibration.swift in Sources */,
 				A10000012B00000000000393 /* OffscreenJointEstimator.swift in Sources */,
+				A10000012B00000000000395 /* BuiltInRoutines.swift in Sources */,
+				A10000012B00000000000396 /* BuiltInRoutineRepository.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2119,6 +2133,8 @@
 				A10000012B00000000000390 /* WorkoutGhostGeometryTests.swift in TestSources */,
 				A10000012B00000000000392 /* GhostCalibrationTests.swift in TestSources */,
 				A10000012B00000000000394 /* OffscreenJointEstimatorTests.swift in TestSources */,
+				A10000012B00000000000397 /* BuiltInRoutinesTests.swift in TestSources */,
+				A10000012B00000000000398 /* BuiltInRoutineRepositoryTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

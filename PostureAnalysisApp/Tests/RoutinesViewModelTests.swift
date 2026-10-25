@@ -36,7 +36,7 @@ final class RoutinesViewModelTests: XCTestCase {
         let upperBody = routine(name: "Upper Body", ids: [.shoulderPress, .dumbbellRow, .hammerCurl, .tricepsExtension])
         let viewModel = makeViewModel(repository: RoutinesTestRepository(sets: [upperBody]))
 
-        XCTAssertEqual(viewModel.state.routines.first?.summary, "4 exercises · 8 sets · about 25 min")
+        XCTAssertEqual(viewModel.state.routines.first?.summary, "4 exercises · 8 sets · about 16 min")
     }
 
     func testRoutineCardShowsFormattedLastDoneDate() {
@@ -85,6 +85,26 @@ final class RoutinesViewModelTests: XCTestCase {
         viewModel.send(.duplicate(savedSet.id))
 
         XCTAssertEqual(repository.sets.map(\.name), ["Upper Body", "Upper Body Copy"])
+    }
+
+    func testStarterRoutinesAreSeparateAndDuplicateToEditOpensTheEditor() throws {
+        let builtIn = try XCTUnwrap(BuiltInRoutines.all.first)
+        let user = routine(name: "My routine", ids: [.airSquat])
+        let repository = RoutinesTestRepository(sets: [builtIn, user])
+        let router = AppRouter(selectedTab: .routines)
+        let viewModel = makeViewModel(repository: repository, router: router)
+
+        XCTAssertEqual(viewModel.state.routines.map(\.id), [user.id])
+        XCTAssertEqual(viewModel.state.starterRoutines.map(\.id), [builtIn.id])
+        XCTAssertTrue(try XCTUnwrap(viewModel.state.starterRoutines.first).isBuiltIn)
+
+        viewModel.send(.requestDelete(builtIn.id))
+        viewModel.send(.duplicate(builtIn.id))
+        XCTAssertFalse(viewModel.state.showsDeleteConfirmation)
+        XCTAssertEqual(repository.sets.map(\.id), [builtIn.id, user.id])
+
+        viewModel.send(.edit(builtIn.id))
+        XCTAssertEqual(router.path(for: .routines), [.routineEditor(id: builtIn.id)])
     }
 
     func testDeleteRequiresConfirmationAndRemovesTheSelectedRoutine() {

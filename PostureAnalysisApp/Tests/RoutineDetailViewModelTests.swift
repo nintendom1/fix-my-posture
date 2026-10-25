@@ -19,7 +19,7 @@ final class RoutineDetailViewModelTests: XCTestCase {
         let viewModel = makeViewModel(for: savedSet, repository: RoutinesTestRepository(sets: [savedSet]),
                                       history: history, now: { FixedClock.date })
 
-        XCTAssertEqual(viewModel.state.routine?.summary, "4 exercises · 8 sets · about 25 min")
+        XCTAssertEqual(viewModel.state.routine?.summary, "4 exercises · 8 sets · about 16 min")
         XCTAssertEqual(viewModel.state.routine?.lastDoneLabel, "Last done Wed, Oct 14")
     }
 
@@ -111,6 +111,27 @@ final class RoutineDetailViewModelTests: XCTestCase {
 
         viewModel.send(.edit)
 
+        XCTAssertEqual(router.path(for: .routines), [
+            .routine(id: savedSet.id),
+            .routineEditor(id: savedSet.id)
+        ])
+    }
+
+    func testBuiltInHidesMutableActionsAndDuplicateToEditOpensTheEditor() throws {
+        let savedSet = try XCTUnwrap(BuiltInRoutines.all.first)
+        let repository = RoutinesTestRepository(sets: [savedSet])
+        let router = AppRouter(selectedTab: .routines)
+        router.setPath([.routine(id: savedSet.id)], for: .routines)
+        let viewModel = makeViewModel(for: savedSet, repository: repository, router: router)
+
+        XCTAssertTrue(viewModel.state.isBuiltIn)
+        XCTAssertTrue(try XCTUnwrap(viewModel.state.routine).isBuiltIn)
+        viewModel.send(.requestDelete)
+        viewModel.send(.duplicate)
+        XCTAssertFalse(viewModel.state.showsDeleteConfirmation)
+        XCTAssertEqual(repository.sets, [savedSet])
+
+        viewModel.send(.edit)
         XCTAssertEqual(router.path(for: .routines), [
             .routine(id: savedSet.id),
             .routineEditor(id: savedSet.id)

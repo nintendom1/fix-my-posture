@@ -11,17 +11,33 @@ enum RoutineRotation {
             return selected.set
         }
 
-        let neverDone = routines
+        let userRoutines = routines.filter { !BuiltInRoutines.contains(id: $0.set.id) }
+        let candidates: [SavedExerciseSetRecord]
+        if userRoutines.isEmpty {
+            candidates = routines
+        } else {
+            candidates = routines.filter {
+                !BuiltInRoutines.contains(id: $0.set.id) || lastDone(routine: $0.set, records: records) != nil
+            }
+        }
+
+        let neverDone = candidates
             .filter { lastDone(routine: $0.set, records: records) == nil }
             .sorted(by: creationOrder)
         if let first = neverDone.first { return first.set }
 
-        return routines.min { lhs, rhs in
+        if let leastRecentlyDone = candidates.min(by: { lhs, rhs in
             let lhsDate = lastDone(routine: lhs.set, records: records) ?? .distantFuture
             let rhsDate = lastDone(routine: rhs.set, records: records) ?? .distantFuture
             if lhsDate != rhsDate { return lhsDate < rhsDate }
             return creationOrder(lhs, rhs)
-        }?.set
+        }) {
+            return leastRecentlyDone.set
+        }
+
+        return BuiltInRoutines.all.first { routine in
+            routines.contains(where: { $0.set.id == routine.id }) && lastDone(routine: routine, records: records) == nil
+        }
     }
 
     /// A stable plan identifier takes precedence. Name matching is reserved for legacy records
@@ -30,6 +46,7 @@ enum RoutineRotation {
         records.lazy
             .filter { record in
                 if record.planID == routine.id { return true }
+                guard !BuiltInRoutines.contains(id: routine.id) else { return false }
                 return record.planID == nil && record.planName == routine.name
             }
             .map(\.endedAt)

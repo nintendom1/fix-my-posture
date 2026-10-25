@@ -120,7 +120,7 @@ struct TrainHomeScreen: View {
         Group {
             if let routine = state.heroRoutine {
                 routineHero(routine)
-            } else {
+            } else if state.showsCreateRoutineEmptyState {
                 EmptyStateTile(
                     title: "Create a routine",
                     message: "Save a few exercises together and start them here.",
@@ -129,6 +129,8 @@ struct TrainHomeScreen: View {
                     action: { send(.createRoutine) }
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                Color.clear
             }
         }
         .frame(maxWidth: .infinity)

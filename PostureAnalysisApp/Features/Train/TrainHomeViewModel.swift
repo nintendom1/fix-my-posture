@@ -107,9 +107,10 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
             override: preferences.upNextOverride,
             catalog: exerciseCatalog.all
         )
+        let heroSet = upNext ?? savedRoutines.first(where: { !$0.set.plan(in: exerciseCatalog.all).items.isEmpty })?.set
         state = TrainHomeState(
             dateLabel: TrainHomeDateFormatter.label(now()),
-            heroRoutine: upNext.map { makeHero(for: $0, records: history) },
+            heroRoutine: heroSet.map { makeHero(for: $0, records: history) },
             routineChoices: choices,
             isRoutinePickerPresented: state.isRoutinePickerPresented,
             exercises: makeExerciseTiles(),

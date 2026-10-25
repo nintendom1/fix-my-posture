@@ -64,7 +64,7 @@ final class TrainHomeViewModelTests: XCTestCase {
         ]))
         let hero = viewModel.state.heroRoutine
 
-        XCTAssertEqual(hero?.summaryWithEstimate, "4 exercises · 8 sets · about 25 min")
+        XCTAssertEqual(hero?.summaryWithEstimate, "4 exercises · 8 sets · about 16 min")
         XCTAssertNotNil(hero?.estimatedMinutes)
     }
 
@@ -73,6 +73,18 @@ final class TrainHomeViewModelTests: XCTestCase {
 
         XCTAssertNil(viewModel.state.heroRoutine)
         XCTAssertTrue(viewModel.state.showsCreateRoutineEmptyState)
+    }
+
+    func testBuiltInRoutineAppearsAsHeroAndPickAnotherChoice() throws {
+        let builtIn = try XCTUnwrap(BuiltInRoutines.all.first)
+        let repository = MemoryRoutineRepository(entries: [
+            SavedExerciseSetRecord(set: builtIn, createdAt: .distantPast, updatedAt: .distantPast)
+        ])
+        let viewModel = makeViewModel(routines: repository)
+
+        XCTAssertEqual(viewModel.state.heroRoutine?.id, builtIn.id)
+        XCTAssertEqual(viewModel.state.routineChoices.map(\.id), [builtIn.id])
+        XCTAssertFalse(viewModel.state.showsCreateRoutineEmptyState)
     }
 
     func testStartRoutineOpensWorkoutRouteForHeroRoutine() throws {

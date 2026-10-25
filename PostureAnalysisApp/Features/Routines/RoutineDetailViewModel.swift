@@ -56,6 +56,7 @@ final class RoutineDetailViewModel: RoutineDetailViewModeling {
             router.open(.routineEditor(id: routine.id))
         case .duplicate:
             guard let routine = state.routine,
+                  !routine.isBuiltIn,
                   let set = try? routines?.list().first(where: { $0.id == routine.id }) else { return }
             do {
                 _ = try routines?.duplicate(set)
@@ -64,10 +65,12 @@ final class RoutineDetailViewModel: RoutineDetailViewModeling {
                 // Keep the current detail visible when duplication fails.
             }
         case .requestDelete:
-            guard state.routine != nil else { return }
+            guard let routine = state.routine, !routine.isBuiltIn else { return }
             state.showsDeleteConfirmation = true
         case .confirmDelete:
-            guard state.showsDeleteConfirmation, state.routine != nil else { return }
+            guard state.showsDeleteConfirmation,
+                  let routine = state.routine,
+                  !routine.isBuiltIn else { return }
             do {
                 try routines?.delete(id: id)
                 reminderReconciliation?.reconcile()
@@ -131,7 +134,8 @@ final class RoutineDetailViewModel: RoutineDetailViewModeling {
             summary: "\(exerciseText) · \(setText) · about \(estimatedMinutes) min",
             lastDoneLabel: lastDoneLabel,
             steps: steps,
-            canStart: !set.plan(in: exerciseCatalog.all).items.isEmpty
+            canStart: !set.plan(in: exerciseCatalog.all).items.isEmpty,
+            isBuiltIn: BuiltInRoutines.contains(id: set.id)
         )
     }
 
