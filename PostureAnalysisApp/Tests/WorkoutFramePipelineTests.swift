@@ -121,6 +121,36 @@ final class WorkoutFramePipelineTests: XCTestCase {
         XCTAssertEqual(metrics.forearm, expectedForearm, accuracy: 0.01)
     }
 
+    func testSideBodyMetricsReferenceUsesOnlyReadyJoints() throws {
+        let angles = ArmAngles(upperArmElevation: -90, forearmElevation: -90)
+        let motion = ArmMotion(keyframes: [
+            ArmKeyframe(angles: angles, moveDuration: 0, holdDuration: 0.5, stepIndex: 0),
+            ArmKeyframe(angles: angles, moveDuration: 1, holdDuration: 0.5, stepIndex: 1,
+                        shape: FigureShape(torsoPitch: 60, hipShift: 1, hipDrop: 0.2))
+        ])
+        let required: [LandmarkType] = [.leftShoulder, .leftHip, .leftKnee, .leftAnkle]
+        let landmarks = Dictionary(uniqueKeysWithValues: required.compactMap { joint in
+            ExerciseDemoFigureView.sideFigureJoints[joint].map { point in
+                (joint, Landmark(type: joint, normalizedLocation: .zero,
+                                 imageLocation: point, confidence: 0.9))
+            }
+        })
+        let frame = PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 300, imageHeight: 470), timestamp: 0)
+        let pipeline = WorkoutFramePipeline(exercise: TricepsExtensionExercise.definition())
+
+        let reference = try XCTUnwrap(pipeline.metricsReference(frame, confidence: 0.8,
+                                                               cameraView: .side, motion: motion))
+        let hip = try XCTUnwrap(ExerciseDemoFigureView.sideFigureJoints[.leftHip])
+        let knee = try XCTUnwrap(ExerciseDemoFigureView.sideFigureJoints[.leftKnee])
+        let ankle = try XCTUnwrap(ExerciseDemoFigureView.sideFigureJoints[.leftAnkle])
+        let legLength = ArmGeometry.distance(hip, knee) + ArmGeometry.distance(knee, ankle)
+        XCTAssertEqual(reference.length, legLength, accuracy: 0.001)
+        XCTAssertEqual(reference.length * reference.upperArm,
+                       ExerciseDemoFigureView.upperArm, accuracy: 0.001)
+        XCTAssertEqual(reference.length * reference.forearm,
+                       ExerciseDemoFigureView.forearm, accuracy: 0.001)
+    }
+
     func testRowMetricsUseTypicalForearmWhenMeasuredForearmIsImplausible() throws {
         let shoulder = CGPoint(x: 320, y: 260)
         let elbow = CGPoint(x: 420, y: 260)

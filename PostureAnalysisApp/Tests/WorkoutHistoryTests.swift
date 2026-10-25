@@ -83,4 +83,20 @@ final class WorkoutHistoryTests: XCTestCase {
         let record = try XCTUnwrap(WorkoutRecord(session: session, startedAt: Date(), endedAt: Date()))
         XCTAssertEqual(record.entries.first?.sets.map(\.side), ["L", "R"])
     }
+
+    func testRearLungeEntriesKeepTheLAndRHistoryLabels() throws {
+        let lunge = RearLungeExercise.definition()
+        var session = WorkoutSession(exercises: [lunge], initialExercise: lunge.id)
+        _ = session.handle(.opened, at: 0)
+        _ = session.handle(.framingChanged(reliable), at: 1)
+        _ = session.handle(.command(.start), at: 2)
+        _ = session.handle(.command(.nextSet), at: 3)
+        _ = session.handle(.command(.start), at: 4)
+        _ = session.handle(.command(.nextSet), at: 5)
+
+        let record = try XCTUnwrap(WorkoutRecord(session: session, startedAt: Date(), endedAt: Date()))
+        XCTAssertEqual(record.entries.first?.sets.map(\.side), ["L", "R"])
+        XCTAssertEqual(lunge.setLabel(entry: 0), "Set 1 L")
+        XCTAssertEqual(lunge.setLabel(entry: 1), "Set 1 R")
+    }
 }

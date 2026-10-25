@@ -74,6 +74,45 @@ enum ArmGeometry {
         CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
     }
 
+    /// Finds a knee on a two-segment chain. The bend direction chooses either side of the hip-to-ankle line;
+    /// positive bends to the right in y-down image coordinates. Unreachable endpoints clamp to a straight leg.
+    static func twoBoneKnee(hip: CGPoint, ankle: CGPoint, thighLength: CGFloat, shinLength: CGFloat,
+                            bendDirection: CGFloat = 1) -> CGPoint {
+        func finite(_ value: CGFloat) -> CGFloat { value.isFinite ? value : 0 }
+        let upper = max(0, finite(thighLength))
+        let lower = max(0, finite(shinLength))
+        let start = CGPoint(x: finite(hip.x), y: finite(hip.y))
+        let end = CGPoint(x: finite(ankle.x), y: finite(ankle.y))
+        let dx = end.x - start.x
+        let dy = end.y - start.y
+        let distance = hypot(dx, dy)
+        guard upper > 0 else { return start }
+        guard lower > 0 else { return end }
+        guard distance > 0.000_001 else {
+            return CGPoint(x: start.x + (bendDirection < 0 ? -upper : upper), y: start.y)
+        }
+
+        let minimumReach = abs(upper - lower)
+        let maximumReach = upper + lower
+        if distance >= maximumReach {
+            let ratio = upper / distance
+            return CGPoint(x: start.x + dx * ratio, y: start.y + dy * ratio)
+        }
+
+        let reach = max(minimumReach, distance)
+        let along = (reach * reach + upper * upper - lower * lower) / (2 * reach)
+        let across = sqrt(max(0, upper * upper - along * along))
+        let unitX = dx / distance
+        let unitY = dy / distance
+        let side = bendDirection < 0 ? -1.0 : 1.0
+        let alongX = unitX * along
+        let bendX = unitY * across * side
+        let alongY = unitY * along
+        let bendY = -unitX * across * side
+        return CGPoint(x: start.x + alongX + bendX,
+                       y: start.y + alongY + bendY)
+    }
+
     /// Angle at `vertex` between rays to `a` and `b`, in degrees [0, 180].
     static func angle(at vertex: CGPoint, _ a: CGPoint, _ b: CGPoint) -> Double {
         let v1 = CGVector(dx: a.x - vertex.x, dy: a.y - vertex.y)

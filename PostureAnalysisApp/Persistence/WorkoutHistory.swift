@@ -1,10 +1,10 @@
 import Foundation
 import SwiftData
 
-/// One finished set in the history: its reps, which arm for one-arm exercises, and the weight used.
+/// One finished set in the history: its reps, which side for per-side exercises, and the weight used.
 struct RecordedSet: Codable, Equatable {
     var reps: Int
-    /// "L" or "R" for exercises done one arm at a time.
+    /// "L" or "R" for exercises done one side at a time.
     var side: String?
     var weight: WorkoutWeight?
 }

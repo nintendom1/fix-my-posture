@@ -45,6 +45,17 @@ final class RoutineEditorViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.state.summary, "1 exercise · 4 sets")
     }
 
+    func testRearLungeEditorTargetsNameEachLeg() throws {
+        let viewModel = makeViewModel()
+
+        viewModel.send(.addExercise(.rearLunge))
+        XCTAssertEqual(viewModel.state.items.first?.targetLabel, "2 × 8 each leg")
+
+        viewModel.send(.presentPicker)
+        let pickerTarget = try XCTUnwrap(viewModel.state.pickerExercises.first { $0.exerciseID == .rearLunge }?.target)
+        XCTAssertEqual(pickerTarget, "2 × 8 each leg")
+    }
+
     func testTimeEstimateUpdatesLiveWhenExerciseAndSetsChange() throws {
         let viewModel = makeViewModel()
         viewModel.send(.addExercise(.shoulderPress))

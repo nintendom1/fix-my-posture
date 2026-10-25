@@ -22,6 +22,25 @@ struct ExercisePhotography: Identifiable {
             license: "Pexels License"
         ),
         ExercisePhotography(
+            id: .stiffLegDeadlift,
+            exerciseName: "Stiff-Legged Dumbbell Deadlift",
+            assetName: "ExerciseThumbnails/stiff_leg_deadlift",
+            photographer: "marcuschanmedia",
+            source: "Pexels",
+            sourceURL: URL(string: "https://www.pexels.com/photo/female-weightlifter-performing-deadlift-in-gym-29825217/") ?? URL(fileURLWithPath: "/"),
+            license: "Pexels License"
+        ),
+        ExercisePhotography(
+            id: .rearLunge,
+            exerciseName: "Dumbbell Rear Lunge",
+            assetName: "ExerciseThumbnails/rear_lunge",
+            photographer: "Anna Shvets",
+            source: "Pexels",
+            sourceURL: URL(string: "https://www.pexels.com/photo/senior-man-doing-sport-exercises-5067741/")
+                ?? URL(fileURLWithPath: "/"),
+            license: "Pexels License"
+        ),
+        ExercisePhotography(
             id: .dumbbellRow,
             exerciseName: "Dumbbell Row",
             assetName: "ExerciseThumbnails/dumbbell_row",

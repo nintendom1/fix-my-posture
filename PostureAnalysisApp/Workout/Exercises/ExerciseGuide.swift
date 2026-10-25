@@ -18,6 +18,21 @@ struct LegPose: Equatable {
     static let standing = LegPose()
 }
 
+/// Side-view body shape beyond the arms, specified independently for each motion keyframe.
+/// Front and floor views ignore these values.
+struct FigureShape: Equatable {
+    /// Torso lean in degrees from upright, toward the way the figure faces. `nil` uses `ArmMotion.torsoPitch`.
+    var torsoPitch: Double? = nil
+    /// Hips pushed back behind the planted ankle, in standing thigh lengths.
+    var hipShift: Double = 0
+    /// Hips lowered, in standing leg lengths (standing hip-to-ankle).
+    var hipDrop: Double = 0
+    /// Rear foot stepped back behind the front foot, in standing leg lengths.
+    var stride: Double = 0
+
+    static let neutral = FigureShape()
+}
+
 /// One pose in a looping demonstration.
 struct ArmKeyframe {
     var angles: ArmAngles
@@ -27,12 +42,15 @@ struct ArmKeyframe {
     /// Guide step shown while moving to and holding this keyframe.
     var stepIndex: Int
     var legs: LegPose = .standing
+    var shape: FigureShape = .neutral
 }
 
 struct ArmMotionSample: Equatable {
     var angles: ArmAngles
     var stepIndex: Int
     var legs: LegPose = .standing
+    /// Resolved samples always have a non-nil torso pitch.
+    var shape: FigureShape = FigureShape(torsoPitch: 0)
 }
 
 /// The plane a forearm moves in, as seen by a front-facing camera.
@@ -61,26 +79,61 @@ struct ArmMotion {
 
     var startLegs: LegPose { keyframes.first?.legs ?? .standing }
 
+    var startSample: ArmMotionSample {
+        guard let first = keyframes.first else {
+            return ArmMotionSample(angles: startAngles, stepIndex: 0, legs: startLegs,
+                                   shape: FigureShape(torsoPitch: torsoPitch))
+        }
+        return sample(of: first)
+    }
+
     /// The keyframe furthest from the start: the other end of the rep.
     private var topKeyframe: ArmKeyframe? {
         guard let first = keyframes.first else { return nil }
         func distance(_ keyframe: ArmKeyframe) -> Double {
-            abs(keyframe.angles.upperArmElevation - first.angles.upperArmElevation)
+            let firstShape = Self.resolvedShape(first.shape, torsoPitch: torsoPitch)
+            let shape = Self.resolvedShape(keyframe.shape, torsoPitch: torsoPitch)
+            return abs(keyframe.angles.upperArmElevation - first.angles.upperArmElevation)
                 + abs(keyframe.angles.forearmElevation - first.angles.forearmElevation)
                 + abs(keyframe.legs.hipDrop - first.legs.hipDrop) * 100
+                + abs((shape.torsoPitch ?? 0) - (firstShape.torsoPitch ?? 0))
+                + (abs(shape.hipShift - firstShape.hipShift)
+                   + abs(shape.hipDrop - firstShape.hipDrop)
+                   + abs(shape.stride - firstShape.stride)) * 100
         }
         return keyframes.max { distance($0) < distance($1) }
     }
 
     var topAngles: ArmAngles { topKeyframe?.angles ?? startAngles }
     var topLegs: LegPose { topKeyframe?.legs ?? startLegs }
+    var topSample: ArmMotionSample {
+        guard let topKeyframe else { return startSample }
+        return sample(of: topKeyframe)
+    }
 
     /// The demonstration moves the legs, so the ghost shows legs rather than arms.
     var animatesLegs: Bool { keyframes.contains { $0.legs != .standing } }
 
+    /// Side-view body geometry changes over the motion. A constant motion-level pitch, as on the row, is a pose
+    /// default rather than side-body motion.
+    var movesSideBody: Bool {
+        guard let first = keyframes.first else { return false }
+        let start = Self.resolvedShape(first.shape, torsoPitch: torsoPitch)
+        return keyframes.contains { keyframe in
+            let shape = Self.resolvedShape(keyframe.shape, torsoPitch: torsoPitch)
+            return shape != start || shape.hipShift != 0 || shape.hipDrop != 0 || shape.stride != 0
+        }
+    }
+
+    /// Returns a keyframe with the motion-level pitch filled in when the frame does not override it.
+    func sample(of keyframe: ArmKeyframe) -> ArmMotionSample {
+        ArmMotionSample(angles: keyframe.angles, stepIndex: keyframe.stepIndex, legs: keyframe.legs,
+                       shape: Self.resolvedShape(keyframe.shape, torsoPitch: torsoPitch))
+    }
+
     func sample(at time: TimeInterval) -> ArmMotionSample {
         guard let first = keyframes.first, duration > 0 else {
-            return ArmMotionSample(angles: startAngles, stepIndex: keyframes.first?.stepIndex ?? 0, legs: startLegs)
+            return startSample
         }
         let local = time.truncatingRemainder(dividingBy: duration)
         var elapsed = local < 0 ? local + duration : local
@@ -88,18 +141,21 @@ struct ArmMotion {
         for keyframe in keyframes {
             if elapsed < keyframe.moveDuration {
                 let progress = Self.smoothstep(elapsed / keyframe.moveDuration)
+                let previousSample = sample(of: previous)
+                let targetSample = sample(of: keyframe)
                 return ArmMotionSample(angles: Self.interpolate(previous.angles, keyframe.angles, progress),
                                        stepIndex: keyframe.stepIndex,
-                                       legs: Self.interpolate(previous.legs, keyframe.legs, progress))
+                                       legs: Self.interpolate(previous.legs, keyframe.legs, progress),
+                                       shape: Self.interpolate(previousSample.shape, targetSample.shape, progress))
             }
             elapsed -= keyframe.moveDuration
             if elapsed < keyframe.holdDuration {
-                return ArmMotionSample(angles: keyframe.angles, stepIndex: keyframe.stepIndex, legs: keyframe.legs)
+                return sample(of: keyframe)
             }
             elapsed -= keyframe.holdDuration
             previous = keyframe
         }
-        return ArmMotionSample(angles: previous.angles, stepIndex: previous.stepIndex, legs: previous.legs)
+        return sample(of: previous)
     }
 
     /// Elbow and wrist for one arm in y-down coordinates. Outward is away from the other shoulder, so the
@@ -134,6 +190,18 @@ struct ArmMotion {
     private static func interpolate(_ a: ArmAngles, _ b: ArmAngles, _ t: Double) -> ArmAngles {
         ArmAngles(upperArmElevation: a.upperArmElevation + (b.upperArmElevation - a.upperArmElevation) * t,
                   forearmElevation: a.forearmElevation + (b.forearmElevation - a.forearmElevation) * t)
+    }
+
+    private static func resolvedShape(_ shape: FigureShape, torsoPitch: Double) -> FigureShape {
+        FigureShape(torsoPitch: shape.torsoPitch ?? torsoPitch,
+                    hipShift: shape.hipShift, hipDrop: shape.hipDrop, stride: shape.stride)
+    }
+
+    private static func interpolate(_ a: FigureShape, _ b: FigureShape, _ t: Double) -> FigureShape {
+        FigureShape(torsoPitch: (a.torsoPitch ?? 0) + ((b.torsoPitch ?? 0) - (a.torsoPitch ?? 0)) * t,
+                    hipShift: a.hipShift + (b.hipShift - a.hipShift) * t,
+                    hipDrop: a.hipDrop + (b.hipDrop - a.hipDrop) * t,
+                    stride: a.stride + (b.stride - a.stride) * t)
     }
 }
 

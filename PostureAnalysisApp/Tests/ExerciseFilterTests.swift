@@ -7,11 +7,11 @@ final class ExerciseFilterTests: XCTestCase {
 
     func testEachChipMatchesItsCatalogFilterGroups() {
         let expected: [(ExerciseFilterChip, [ExerciseID])] = [
-            (.all, [.shoulderPress, .hammerCurl, .tricepsExtension, .airSquat, .dumbbellRow, .pushUp]),
+            (.all, [.shoulderPress, .hammerCurl, .tricepsExtension, .airSquat, .stiffLegDeadlift, .rearLunge, .dumbbellRow, .pushUp]),
             (.upper, [.shoulderPress, .hammerCurl, .tricepsExtension, .dumbbellRow, .pushUp]),
-            (.lower, [.airSquat]),
+            (.lower, [.airSquat, .stiffLegDeadlift, .rearLunge]),
             (.bodyweight, [.airSquat, .pushUp]),
-            (.dumbbells, [.shoulderPress, .hammerCurl, .dumbbellRow])
+            (.dumbbells, [.shoulderPress, .hammerCurl, .stiffLegDeadlift, .rearLunge, .dumbbellRow])
         ]
 
         for (chip, exerciseIDs) in expected {
@@ -31,7 +31,7 @@ final class ExerciseFilterTests: XCTestCase {
 
     func testQueryMatchingIgnoresCaseAndDiacritics() {
         XCTAssertEqual(ids(matching: "TRICEPS"), [.shoulderPress, .tricepsExtension, .pushUp])
-        XCTAssertEqual(ids(matching: "Dumbbéll"), [.shoulderPress, .hammerCurl, .dumbbellRow])
+        XCTAssertEqual(ids(matching: "Dumbbéll"), [.shoulderPress, .hammerCurl, .stiffLegDeadlift, .rearLunge, .dumbbellRow])
     }
 
     func testEveryWhitespaceSeparatedQueryTokenMustMatch() {
@@ -44,7 +44,7 @@ final class ExerciseFilterTests: XCTestCase {
     }
 
     func testChipFilteringPreservesCatalogOrder() {
-        XCTAssertEqual(ids(for: .dumbbells), [.shoulderPress, .hammerCurl, .dumbbellRow])
+        XCTAssertEqual(ids(for: .dumbbells), [.shoulderPress, .hammerCurl, .stiffLegDeadlift, .rearLunge, .dumbbellRow])
     }
 
     func testNoMatchesReturnsAnEmptyList() {

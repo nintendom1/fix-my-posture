@@ -19,15 +19,15 @@ final class ReadyGhostInvariantTests: XCTestCase {
                            "\(exercise.id) did not show the ideal ghost during framing")
             XCTAssertNil(harness.model.ghostFitOverlay, "\(exercise.id) calibrated before anyone was in view")
             XCTAssertFalse(exercise.guide.motion.keyframes.isEmpty, "\(exercise.id) has no guide keyframes")
-            for (index, keyframe) in exercise.guide.motion.keyframes.enumerated() {
+            for (label, sample) in motionSamples(exercise.guide.motion) {
                 let figure = WorkoutGhostGeometry.ideal(overlay: nil, motion: exercise.guide.motion,
                                                         cameraView: exercise.cameraView,
                                                         containerSize: containerSize,
-                                                        angles: keyframe.angles, legs: keyframe.legs)
-                XCTAssertFalse(figure.isEmpty, "\(exercise.id) keyframe \(index): ideal figure is empty")
+                                                        sample: sample)
+                XCTAssertFalse(figure.isEmpty, "\(exercise.id) \(label): ideal figure is empty")
                 for (joint, point) in figure.joints {
                     XCTAssertTrue(fit.contains(point),
-                                  "\(exercise.id) keyframe \(index) \(joint) lies outside the default image fit")
+                                  "\(exercise.id) \(label) \(joint) lies outside the default image fit")
                 }
             }
         }
@@ -57,23 +57,25 @@ final class ReadyGhostInvariantTests: XCTestCase {
                                                        "\(exercise.id) \(variant.name): Ready has no calibrated overlay")
                         let overlay = try XCTUnwrap(harness.model.overlay,
                                                     "\(exercise.id) \(variant.name): Ready has no live overlay")
-                        XCTAssertTrue(GhostCalibration.canFit(overlay: fitOverlay,
-                                                              metrics: harness.model.guideMetrics,
-                                                              motion: exercise.guide.motion,
-                                                              cameraView: exercise.cameraView))
-                        for (index, keyframe) in exercise.guide.motion.keyframes.enumerated() {
+                        for (label, sample) in motionSamples(exercise.guide.motion) {
+                            let canFit = GhostCalibration.canFit(overlay: fitOverlay,
+                                                                 metrics: harness.model.guideMetrics,
+                                                                 motion: exercise.guide.motion,
+                                                                 cameraView: exercise.cameraView,
+                                                                 sample: sample)
                             let figure = WorkoutGhostGeometry.calibrated(
                                 fitOverlay: fitOverlay,
                                 metrics: harness.model.guideMetrics,
                                 motion: exercise.guide.motion,
                                 cameraView: exercise.cameraView,
                                 containerSize: containerSize,
-                                angles: keyframe.angles,
-                                legs: keyframe.legs
+                                sample: sample
                             )
+                            XCTAssertEqual(canFit, figure != nil,
+                                           "\(exercise.id) \(variant.name) \(label): canFit disagreed with calibration")
                             XCTAssertFalse(try XCTUnwrap(figure,
-                                                         "\(exercise.id) \(variant.name) keyframe \(index): calibration failed").isEmpty,
-                                           "\(exercise.id) \(variant.name) keyframe \(index): calibrated figure is empty")
+                                                         "\(exercise.id) \(variant.name) \(label): calibration failed").isEmpty,
+                                           "\(exercise.id) \(variant.name) \(label): calibrated figure is empty")
                         }
                         XCTAssertNotNil(overlay)
                     }
@@ -103,5 +105,21 @@ final class ReadyGhostInvariantTests: XCTestCase {
 
         XCTAssertEqual(harness.model.session.phase, .resting)
         XCTAssertEqual(harness.model.hud.visual.overlay, .ghostDemo)
+    }
+
+    private func motionSamples(_ motion: ArmMotion) -> [(String, ArmMotionSample)] {
+        var result: [(String, ArmMotionSample)] = []
+        var elapsed: TimeInterval = 0
+        for (index, keyframe) in motion.keyframes.enumerated() {
+            result.append(("keyframe \(index)", motion.sample(of: keyframe)))
+            if keyframe.moveDuration > 0 {
+                for step in 1...4 {
+                    result.append(("move \(index) sample \(step)",
+                                   motion.sample(at: elapsed + keyframe.moveDuration * Double(step) / 5)))
+                }
+            }
+            elapsed += keyframe.moveDuration + keyframe.holdDuration
+        }
+        return result
     }
 }

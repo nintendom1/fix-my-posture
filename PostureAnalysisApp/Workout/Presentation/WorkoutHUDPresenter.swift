@@ -55,12 +55,15 @@ struct WorkoutHUDExercise: Equatable {
     let setsAndRepsLabel: String
     let equipment: ExerciseEquipment
     let countsArmsIndependently: Bool
+    let perSide: Bool
+    let sideLimb: ExerciseSideLimb
     let targetReps: ClosedRange<Int>
     let restSeconds: Int
 
     init(id: ExerciseID, displayName: String, targetLabel: String, startsByHolding: Bool,
          startPositionInstruction: String, sets: Int, setsAndRepsLabel: String,
          equipment: ExerciseEquipment, countsArmsIndependently: Bool,
+         perSide: Bool = false, sideLimb: ExerciseSideLimb = .arm,
          targetReps: ClosedRange<Int> = 1...1, restSeconds: Int = 60) {
         self.id = id
         self.displayName = displayName
@@ -71,6 +74,8 @@ struct WorkoutHUDExercise: Equatable {
         self.setsAndRepsLabel = setsAndRepsLabel
         self.equipment = equipment
         self.countsArmsIndependently = countsArmsIndependently
+        self.perSide = perSide
+        self.sideLimb = sideLimb
         self.targetReps = targetReps
         self.restSeconds = restSeconds
     }
@@ -85,8 +90,18 @@ struct WorkoutHUDExercise: Equatable {
                   setsAndRepsLabel: exercise.setsAndRepsLabel,
                   equipment: exercise.equipment,
                   countsArmsIndependently: exercise.countsArmsIndependently,
+                  perSide: exercise.perSide,
+                  sideLimb: exercise.sideLimb,
                   targetReps: exercise.targetReps,
                   restSeconds: restSeconds ?? exercise.restSeconds)
+    }
+
+    func sideLabel(_ side: BodySide) -> String {
+        "\(side == .left ? "Left" : "Right") \(sideLimb.rawValue)"
+    }
+
+    var perSideTargetSuffix: String {
+        perSide && sideLimb == .leg ? " each leg" : ""
     }
 }
 
@@ -244,16 +259,19 @@ enum WorkoutHUDPresenter {
             primaryButton = WorkoutHUDPrimaryButton(kind: .disabled, label: "Start")
         }
 
-        let arm = inputs.currentSide.map { $0 == .left ? " · Left arm" : " · Right arm" } ?? ""
+        let sideLabel = inputs.currentSide.map { side in
+            guard let exercise, exercise.perSide else { return "" }
+            return " · \(exercise.sideLabel(side))"
+        } ?? ""
         let setLabel: String?
         if let exercise {
             switch phase {
             case .resting:
-                setLabel = "Next: set \(inputs.currentSetNumber) of \(exercise.sets)\(arm)"
+                setLabel = "Next: set \(inputs.currentSetNumber) of \(exercise.sets)\(sideLabel)"
             case .exerciseComplete:
                 setLabel = "All \(exercise.sets) sets done"
             default:
-                setLabel = "Set \(inputs.currentSetNumber) of \(exercise.sets)\(arm)"
+                setLabel = "Set \(inputs.currentSetNumber) of \(exercise.sets)\(sideLabel)"
             }
         } else {
             setLabel = nil
@@ -293,8 +311,8 @@ enum WorkoutHUDPresenter {
         let primaryActionIcon = primaryIcon(for: semanticState.primary)
 
         let setSummary = exercise.map { value in
-            let side = inputs.currentSide.map { $0 == .left ? " · Left arm" : " · Right arm" } ?? ""
-            return "Set \(inputs.currentSetNumber) of \(value.sets) · target \(value.targetLabel)\(side)"
+            let side = inputs.currentSide.map { " · \(value.sideLabel($0))" } ?? ""
+            return "Set \(inputs.currentSetNumber) of \(value.sets) · target \(value.targetLabel)\(value.perSideTargetSuffix)\(side)"
         }
         let nextLine = nextLine(for: inputs, phase: phase)
         let subtitle: String?
@@ -396,17 +414,17 @@ enum WorkoutHUDPresenter {
     private static func nextLine(for inputs: WorkoutHUDInputs, phase: WorkoutPhase) -> String? {
         guard let exercise = inputs.exercise else { return nil }
         if inputs.isRestingBeforeNextExercise {
-            return "Next: set 1 of \(exercise.sets) · \(exercise.targetLabel) reps"
+            return "Next: set 1 of \(exercise.sets) · \(exercise.targetLabel) reps\(exercise.perSideTargetSuffix)"
         }
         if phase == .resting {
-            return "Next: set \(inputs.currentSetNumber) of \(exercise.sets) · \(exercise.targetLabel) reps"
+            return "Next: set \(inputs.currentSetNumber) of \(exercise.sets) · \(exercise.targetLabel) reps\(exercise.perSideTargetSuffix)"
         }
         if let next = inputs.nextPlanExercise {
             let displayName = next.displayName.replacingOccurrences(of: "One-Arm ", with: "")
             return "Next: \(displayName)"
         }
         guard inputs.currentSetNumber < exercise.sets else { return nil }
-        return "Next: set \(inputs.currentSetNumber + 1) of \(exercise.sets) · \(exercise.targetLabel) reps"
+        return "Next: set \(inputs.currentSetNumber + 1) of \(exercise.sets) · \(exercise.targetLabel) reps\(exercise.perSideTargetSuffix)"
     }
 
     static func format(_ seconds: TimeInterval) -> String {

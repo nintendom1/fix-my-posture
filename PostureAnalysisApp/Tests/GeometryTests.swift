@@ -120,6 +120,38 @@ final class GeometryTests: XCTestCase {
         XCTAssertEqual(ViewClassifier.classify(pose: sidePose), .leftSide)
     }
 
+    func testTwoBoneKneeKeepsReachableSegmentLengthsAndBendsForward() {
+        let hip = CGPoint(x: 10, y: 20)
+        let ankle = CGPoint(x: 10, y: 30)
+        let knee = ArmGeometry.twoBoneKnee(hip: hip, ankle: ankle,
+                                           thighLength: 6, shinLength: 6, bendDirection: 1)
+
+        XCTAssertEqual(ArmGeometry.distance(hip, knee), 6, accuracy: 0.0001)
+        XCTAssertEqual(ArmGeometry.distance(knee, ankle), 6, accuracy: 0.0001)
+        XCTAssertGreaterThan(knee.x, hip.x)
+    }
+
+    func testTwoBoneKneeClampsUnreachableLegToStraightLine() {
+        let hip = CGPoint(x: 0, y: 0)
+        let ankle = CGPoint(x: 0, y: 20)
+        let knee = ArmGeometry.twoBoneKnee(hip: hip, ankle: ankle,
+                                           thighLength: 6, shinLength: 6)
+
+        XCTAssertEqual(knee.x, 0, accuracy: 0.0001)
+        XCTAssertEqual(knee.y, 6, accuracy: 0.0001)
+        XCTAssertEqual(ArmGeometry.distance(hip, knee), 6, accuracy: 0.0001)
+    }
+
+    func testTwoBoneKneeReturnsFinitePointForZeroDistance() {
+        let hip = CGPoint(x: 12, y: 18)
+        let knee = ArmGeometry.twoBoneKnee(hip: hip, ankle: hip,
+                                           thighLength: 5, shinLength: 5)
+
+        XCTAssertTrue(knee.x.isFinite)
+        XCTAssertTrue(knee.y.isFinite)
+        XCTAssertEqual(knee, CGPoint(x: 17, y: 18))
+    }
+
     // MARK: - Test 5: Baseline Comparison Engine
     func testBaselineComparisonEngine() {
         let m1 = PostureMeasurement(id: .shoulderLineAngle, name: "Shoulder Line Angle", value: 4.5, unit: "°", landmarksUsed: [.leftShoulder, .rightShoulder], confidence: 0.9, explanation: "")

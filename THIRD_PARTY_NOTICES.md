@@ -101,6 +101,24 @@ Each bundled exercise thumbnail is a cropped/resized derivative of the specific 
 - **License/status:** Pexels License
 - **Processing:** cropped/resized derivative, 512 × 512 JPEG.
 
+### Stiff-Legged Dumbbell Deadlift
+
+- **Asset:** `ExerciseThumbnails/stiff_leg_deadlift`
+- **Photographer:** marcuschanmedia (Pexels contributor)
+- **Source:** Pexels; [exact original source page](https://www.pexels.com/photo/female-weightlifter-performing-deadlift-in-gym-29825217/)
+- **Source ID:** 29825217
+- **License/status:** Pexels License
+- **Processing:** cropped/resized derivative, 512 × 512 JPEG.
+
+### Dumbbell Rear Lunge
+
+- **Asset:** `ExerciseThumbnails/rear_lunge`
+- **Photographer:** Anna Shvets
+- **Source:** Pexels; [exact original source page](https://www.pexels.com/photo/senior-man-doing-sport-exercises-5067741/)
+- **Source ID:** 5067741
+- **License/status:** Pexels License
+- **Processing:** cropped/resized derivative, 512 × 512 JPEG.
+
 The Pexels photographs are used under the [Pexels License](https://www.pexels.com/license/). The two government photographs are official-duty U.S. government works identified as public domain in the United States on their source pages; see the [DVIDS use limitations](https://www.dvidshub.net/about/copyright). Their use does not imply endorsement by the photographers, depicted people, Pexels, Wikimedia, or the U.S. military.
 
 The appearance of U.S. Department of War (DoW) visual information does not imply or constitute DoW endorsement.

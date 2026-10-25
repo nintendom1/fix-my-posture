@@ -80,6 +80,7 @@ struct ExerciseChooserOverlay: View {
     private func detail(for exercise: ExerciseDefinition) -> String {
         let done = session.setsDone(for: exercise)
         let target = "\(exercise.sets) sets × \(exercise.targetLabel) reps"
+            + (exercise.perSide && exercise.sideLimb == .leg ? " each leg" : "")
         guard done > 0 else { return target }
         return done >= exercise.sets ? "All \(exercise.sets) sets done" : "\(target) · \(done) done"
     }

@@ -141,6 +141,15 @@ final class WorkoutHUDPresenterTests: XCTestCase {
         XCTAssertEqual(presentation.planProgressLabel, "Exercise 1 of 2")
     }
 
+    func testSetLabelAndTargetNameTheLegThatStepsBack() {
+        let lunge = RearLungeExercise.definition()
+        let presentation = WorkoutHUDPresenter.derive(makeInputs(readySession(exercise: lunge), now: 2))
+
+        XCTAssertEqual(presentation.setLabel, "Set 1 of 2 · Left leg")
+        XCTAssertEqual(presentation.setSummary, "Set 1 of 2 · target 8 each leg · Left leg")
+        XCTAssertEqual(presentation.nextLine, "Next: set 2 of 2 · 8 reps each leg")
+    }
+
     func testSavedSetRestShowsTheUpNextExerciseLine() {
         let session = savedSetRestSession()
         let presentation = WorkoutHUDPresenter.derive(makeInputs(session, now: 4))

@@ -15,7 +15,7 @@ final class LibraryViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.state.groups[0].exercises.map(\.id), [
             .shoulderPress, .hammerCurl, .tricepsExtension, .dumbbellRow, .pushUp
         ])
-        XCTAssertEqual(viewModel.state.groups[1].exercises.map(\.id), [.airSquat])
+        XCTAssertEqual(viewModel.state.groups[1].exercises.map(\.id), [.airSquat, .stiffLegDeadlift, .rearLunge])
     }
 
     func testFilterChipAndQueryUpdateStateAndResults() {
@@ -23,9 +23,9 @@ final class LibraryViewModelTests: XCTestCase {
 
         viewModel.send(.filterSelected(.dumbbells))
         XCTAssertEqual(viewModel.state.selectedFilter, .dumbbells)
-        XCTAssertEqual(viewModel.state.groups.map(\.title), ["Upper body"])
+        XCTAssertEqual(viewModel.state.groups.map(\.title), ["Upper body", "Lower body"])
         XCTAssertEqual(viewModel.state.groups.flatMap(\.exercises).map(\.id), [
-            .shoulderPress, .hammerCurl, .dumbbellRow
+            .shoulderPress, .hammerCurl, .dumbbellRow, .stiffLegDeadlift, .rearLunge
         ])
 
         viewModel.send(.queryChanged("  press  "))
@@ -65,6 +65,13 @@ final class LibraryViewModelTests: XCTestCase {
 
         XCTAssertEqual(row.target, "3 × 6–8")
         XCTAssertEqual(row.weight, "20 lb")
+    }
+
+    func testRearLungeTargetNamesEachLeg() throws {
+        let viewModel = makeViewModel()
+        let row = try XCTUnwrap(viewModel.state.groups.flatMap(\.exercises).first { $0.id == .rearLunge })
+
+        XCTAssertEqual(row.target, "2 × 8 each leg")
     }
 
     func testTappingAnExerciseRoutesToItsDetail() {

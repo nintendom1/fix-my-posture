@@ -21,13 +21,13 @@ struct WorkoutGhostOverlayView: View {
                 let now = timeline.date.timeIntervalSinceReferenceDate
                 ZStack {
                     if reduceMotion {
-                        figureLayer(angles: motion.topAngles, legs: motion.topLegs,
+                        figureLayer(sample: motion.topSample,
                                     size: size, now: now, opacity: 0.3)
-                        figureLayer(angles: motion.startAngles, legs: motion.startLegs,
+                        figureLayer(sample: motion.startSample,
                                     size: size, now: now, opacity: 0.6)
                     } else {
                         let sample = motion.sample(at: now)
-                        figureLayer(angles: sample.angles, legs: sample.legs,
+                        figureLayer(sample: sample,
                                     size: size, now: now, opacity: 0.6)
                     }
                 }
@@ -49,9 +49,9 @@ struct WorkoutGhostOverlayView: View {
     }
 
     @ViewBuilder
-    private func figureLayer(angles: ArmAngles, legs: LegPose, size: CGSize,
+    private func figureLayer(sample: ArmMotionSample, size: CGSize,
                              now: TimeInterval, opacity: Double) -> some View {
-        let figure = figure(angles: angles, legs: legs, size: size, now: now)
+        let figure = figure(sample: sample, size: size, now: now)
         let imageSize = liveOverlay?.imageSize ?? fitOverlay?.imageSize ?? WorkoutGhostGeometry.defaultImageSize
         if !figure.isEmpty, imageSize.width > 0, imageSize.height > 0 {
             let fit = CoordinateConverter.aspectFitRect(for: imageSize, in: size)
@@ -85,10 +85,10 @@ struct WorkoutGhostOverlayView: View {
         }
     }
 
-    private func figure(angles: ArmAngles, legs: LegPose, size: CGSize, now: TimeInterval)
+    private func figure(sample: ArmMotionSample, size: CGSize, now: TimeInterval)
         -> WorkoutGhostGeometry.Figure {
         let ideal = WorkoutGhostGeometry.ideal(overlay: liveOverlay, motion: motion, cameraView: cameraView,
-                                               containerSize: size, angles: angles, legs: legs)
+                                               containerSize: size, sample: sample)
         let progress = WorkoutGhostGeometry.glideProgress(
             since: glideStart?.timeIntervalSinceReferenceDate,
             now: now,
@@ -97,7 +97,7 @@ struct WorkoutGhostOverlayView: View {
         if let fitOverlay {
             guard let calibrated = WorkoutGhostGeometry.calibrated(fitOverlay: fitOverlay, metrics: metrics,
                                                                    motion: motion, cameraView: cameraView,
-                                                                   containerSize: size, angles: angles, legs: legs) else {
+                                                                   containerSize: size, sample: sample) else {
                 return ideal
             }
             return WorkoutGhostGeometry.blended(from: ideal, to: calibrated, progress: progress)
@@ -105,7 +105,7 @@ struct WorkoutGhostOverlayView: View {
         if progress < 1, let lastFit,
            let calibrated = WorkoutGhostGeometry.calibrated(fitOverlay: lastFit, metrics: metrics,
                                                             motion: motion, cameraView: cameraView,
-                                                            containerSize: size, angles: angles, legs: legs) {
+                                                            containerSize: size, sample: sample) {
             return WorkoutGhostGeometry.blended(from: calibrated, to: ideal, progress: progress)
         }
         return ideal

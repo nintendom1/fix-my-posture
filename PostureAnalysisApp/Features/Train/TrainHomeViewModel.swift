@@ -158,11 +158,10 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
     private func makeExerciseTiles() -> [TrainExerciseTile] {
         let ordered = Self.quickStartOrder.compactMap { exerciseCatalog.exercise($0) }
         return ExerciseTargetStore.applying(to: ordered, preferences: preferences).map { exercise in
-            let side = exercise.perSide ? " / side" : ""
             return TrainExerciseTile(
                 id: exercise.id,
                 name: exercise.presentation.shortName,
-                target: "\(exercise.sets) × \(exercise.targetLabel)\(side)",
+                target: "\(exercise.sets) × \(exercise.targetLabel)\(exercise.perSideTargetSuffix)",
                 gradient: exercise.presentation.gradient,
                 symbolName: exercise.presentation.symbolName
             )

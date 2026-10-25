@@ -10,7 +10,8 @@ final class BuiltInRoutinesTests: XCTestCase {
     /// One row per starter routine, in catalog order. Each issue (#76–#81) adds its row.
     private let expectedRoutines: [(issue: String, name: String, exercises: [ExerciseID], reps: [Int])] = [
         ("76", "Upper Body", [.pushUp, .dumbbellRow, .shoulderPress], [8, 8, 8]),
-        ("77", "Chest & Arms", [.pushUp, .hammerCurl, .tricepsExtension], [10, 10, 10])
+        ("77", "Chest & Arms", [.pushUp, .hammerCurl, .tricepsExtension], [10, 10, 10]),
+        ("78", "Lower Body", [.airSquat, .stiffLegDeadlift, .rearLunge], [10, 8, 5])
     ]
 
     func testStarterRoutinesUseTheirFixedIdentityAndCatalogOrder() {
@@ -42,6 +43,12 @@ final class BuiltInRoutinesTests: XCTestCase {
                 routine.name
             )
         }
+    }
+
+    func testLowerBodyEstimateIs332Seconds() throws {
+        let lowerBody = try XCTUnwrap(BuiltInRoutines.all.first { $0.name == "Lower Body" })
+        XCTAssertEqual(RoutineEstimator.seconds(for: lowerBody, exercises: ExerciseCatalog.all,
+                                                  restPolicy: .exerciseDefault), 332)
     }
 
     private func uuid(_ value: String) -> UUID {

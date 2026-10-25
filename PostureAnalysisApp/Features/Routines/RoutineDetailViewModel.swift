@@ -109,7 +109,7 @@ final class RoutineDetailViewModel: RoutineDetailViewModeling {
         let weights = lastKnownWeights(for: set)
         let steps = set.items.enumerated().compactMap { index, item -> RoutineStepPresentation? in
             guard let exercise = exerciseCatalog.exercise(item.exerciseID) else { return nil }
-            let perSide = exercise.perSide ? " / side" : ""
+            let perSide = exercise.perSideTargetSuffix
             let target = "\(item.setsAndRepsLabel)\(perSide)"
             let camera: String
             switch exercise.cameraView {

@@ -386,6 +386,12 @@
 		A10000012B00000000000396 /* BuiltInRoutineRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000396 /* BuiltInRoutineRepository.swift */; };
 		A10000012B00000000000397 /* BuiltInRoutinesTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000397 /* BuiltInRoutinesTests.swift */; };
 		A10000012B00000000000398 /* BuiltInRoutineRepositoryTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000398 /* BuiltInRoutineRepositoryTests.swift */; };
+		A10000012B00000000000399 /* StiffLegDeadliftExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000399 /* StiffLegDeadliftExercise.swift */; };
+		A10000012B00000000000400 /* StiffLegDeadliftAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000400 /* StiffLegDeadliftAnalyzer.swift */; };
+		A10000012B00000000000401 /* StiffLegDeadliftAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000401 /* StiffLegDeadliftAnalyzerTests.swift */; };
+		A10000012B00000000000402 /* RearLungeExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000402 /* RearLungeExercise.swift */; };
+		A10000012B00000000000403 /* RearLungeAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000403 /* RearLungeAnalyzer.swift */; };
+		A10000012B00000000000404 /* RearLungeAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000404 /* RearLungeAnalyzerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -780,6 +786,12 @@
 		B10000012B00000000000396 /* BuiltInRoutineRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuiltInRoutineRepository.swift; sourceTree = "<group>"; };
 		B10000012B00000000000397 /* BuiltInRoutinesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuiltInRoutinesTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000398 /* BuiltInRoutineRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuiltInRoutineRepositoryTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000399 /* StiffLegDeadliftExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StiffLegDeadliftExercise.swift; sourceTree = "<group>"; };
+		B10000012B00000000000400 /* StiffLegDeadliftAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StiffLegDeadliftAnalyzer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000401 /* StiffLegDeadliftAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StiffLegDeadliftAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000402 /* RearLungeExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RearLungeExercise.swift; sourceTree = "<group>"; };
+		B10000012B00000000000403 /* RearLungeAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RearLungeAnalyzer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000404 /* RearLungeAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RearLungeAnalyzerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1030,6 +1042,8 @@
 				B10000012B00000000000394 /* OffscreenJointEstimatorTests.swift */,
 				B10000012B00000000000397 /* BuiltInRoutinesTests.swift */,
 				B10000012B00000000000398 /* BuiltInRoutineRepositoryTests.swift */,
+				B10000012B00000000000401 /* StiffLegDeadliftAnalyzerTests.swift */,
+				B10000012B00000000000404 /* RearLungeAnalyzerTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1072,6 +1086,8 @@
 				B10000012B00000000000187 /* ExercisePresentation.swift */,
 				B10000012B00000000000301 /* ExerciseFilter.swift */,
 				B10000012B00000000000347 /* ExercisePhotography.swift */,
+				H10000012B00000000000061 /* StiffLegDeadlift */,
+				H10000012B00000000000062 /* RearLunge */,
 			);
 			path = Exercises;
 			sourceTree = "<group>";
@@ -1659,6 +1675,24 @@
 			path = Persona;
 			sourceTree = "<group>";
 		};
+		H10000012B00000000000061 /* StiffLegDeadlift */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000399 /* StiffLegDeadliftExercise.swift */,
+				B10000012B00000000000400 /* StiffLegDeadliftAnalyzer.swift */,
+			);
+			path = StiffLegDeadlift;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000062 /* RearLunge */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000402 /* RearLungeExercise.swift */,
+				B10000012B00000000000403 /* RearLungeAnalyzer.swift */,
+			);
+			path = RearLunge;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -2012,6 +2046,10 @@
 				A10000012B00000000000393 /* OffscreenJointEstimator.swift in Sources */,
 				A10000012B00000000000395 /* BuiltInRoutines.swift in Sources */,
 				A10000012B00000000000396 /* BuiltInRoutineRepository.swift in Sources */,
+				A10000012B00000000000399 /* StiffLegDeadliftExercise.swift in Sources */,
+				A10000012B00000000000400 /* StiffLegDeadliftAnalyzer.swift in Sources */,
+				A10000012B00000000000402 /* RearLungeExercise.swift in Sources */,
+				A10000012B00000000000403 /* RearLungeAnalyzer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2135,6 +2173,8 @@
 				A10000012B00000000000394 /* OffscreenJointEstimatorTests.swift in TestSources */,
 				A10000012B00000000000397 /* BuiltInRoutinesTests.swift in TestSources */,
 				A10000012B00000000000398 /* BuiltInRoutineRepositoryTests.swift in TestSources */,
+				A10000012B00000000000401 /* StiffLegDeadliftAnalyzerTests.swift in TestSources */,
+				A10000012B00000000000404 /* RearLungeAnalyzerTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
