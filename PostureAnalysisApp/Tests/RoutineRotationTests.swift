@@ -60,11 +60,11 @@ final class RoutineRotationTests: XCTestCase {
         )
     }
 
-    func testFreshInstallPicksTheStarterRoutine() throws {
-        let starter = try XCTUnwrap(BuiltInRoutines.all.first)
-        let starterRecord = try builtInRecord(at: 0)
+    func testFreshInstallPicksTheFirstStarterRoutineInCatalogOrder() throws {
+        let first = try builtInRecord(at: 0)
+        let second = try builtInRecord(at: 1)
 
-        XCTAssertEqual(RoutineRotation.upNext(routines: [starterRecord], records: [], override: nil)?.id, starter.id)
+        XCTAssertEqual(RoutineRotation.upNext(routines: [second, first], records: [], override: nil)?.id, first.set.id)
         XCTAssertNil(RoutineRotation.upNext(routines: [], records: [], override: nil))
     }
 
