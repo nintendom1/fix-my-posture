@@ -47,17 +47,18 @@ final class RoutinesViewModel: RoutinesViewModeling {
         case .appeared:
             refresh()
         case .open(let id):
-            guard state.routines.contains(where: { $0.id == id }) else { return }
+            guard state.allRoutines.contains(where: { $0.id == id }) else { return }
             router.open(.routine(id: id))
         case .start(let id):
-            guard let routine = state.routines.first(where: { $0.id == id }), routine.canStart else { return }
+            guard let routine = state.allRoutines.first(where: { $0.id == id }), routine.canStart else { return }
             router.open(.workout(exerciseID: nil, routineID: id))
         case .createRoutine:
             router.open(.routineEditor(id: nil))
         case .edit(let id):
-            guard state.routines.contains(where: { $0.id == id }) else { return }
+            guard state.allRoutines.contains(where: { $0.id == id }) else { return }
             router.open(.routineEditor(id: id))
         case .duplicate(let id):
+            guard !BuiltInRoutines.contains(id: id) else { return }
             guard let set = try? routines?.list().first(where: { $0.id == id }) else { return }
             do {
                 _ = try routines?.duplicate(set)
@@ -67,10 +68,14 @@ final class RoutinesViewModel: RoutinesViewModeling {
                 // Leave the list unchanged when duplication fails.
             }
         case .requestDelete(let id):
-            guard state.routines.contains(where: { $0.id == id }) else { return }
+            guard let routine = state.allRoutines.first(where: { $0.id == id }), !routine.isBuiltIn else { return }
             state.deleteConfirmationRoutineID = id
         case .confirmDelete:
             guard let id = state.deleteConfirmationRoutineID else { return }
+            guard !BuiltInRoutines.contains(id: id) else {
+                state.deleteConfirmationRoutineID = nil
+                return
+            }
             do {
                 try routines?.delete(id: id)
                 state.deleteConfirmationRoutineID = nil
@@ -87,9 +92,11 @@ final class RoutinesViewModel: RoutinesViewModeling {
     private func refresh() {
         let savedSets = (try? routines?.list()) ?? []
         let records = (try? workoutHistory?.list()) ?? []
-        state.routines = savedSets.map { makePresentation(for: $0, records: records) }
+        let presentations = savedSets.map { makePresentation(for: $0, records: records) }
+        state.routines = presentations.filter { !$0.isBuiltIn }
+        state.starterRoutines = presentations.filter(\.isBuiltIn)
         if let pendingID = state.deleteConfirmationRoutineID,
-           !state.routines.contains(where: { $0.id == pendingID }) {
+           !state.allRoutines.contains(where: { $0.id == pendingID }) || BuiltInRoutines.contains(id: pendingID) {
             state.deleteConfirmationRoutineID = nil
         }
     }
@@ -125,7 +132,8 @@ final class RoutinesViewModel: RoutinesViewModeling {
             lastDoneLabel: lastDoneLabel,
             exerciseNames: exerciseNames,
             theme: theme,
-            canStart: !set.plan(in: exerciseCatalog.all).items.isEmpty
+            canStart: !set.plan(in: exerciseCatalog.all).items.isEmpty,
+            isBuiltIn: BuiltInRoutines.contains(id: set.id)
         )
     }
 }

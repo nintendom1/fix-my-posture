@@ -131,6 +131,42 @@ final class RoutineEditorViewModelTests: XCTestCase {
         XCTAssertGreaterThan(record.updatedAt, updatedAt)
     }
 
+    func testBuiltInRouteStartsAsFreshCopyDraftAndSavingStoresTheCopy() throws {
+        let builtIn = try XCTUnwrap(BuiltInRoutines.all.first)
+        let repository = RoutineEditorTestRepository(records: [
+            SavedExerciseSetRecord(set: builtIn, createdAt: .distantPast, updatedAt: .distantPast)
+        ])
+        let router = AppRouter(selectedTab: .routines)
+        router.setPath([.routine(id: builtIn.id), .routineEditor(id: builtIn.id)], for: .routines)
+        let viewModel = makeViewModel(id: builtIn.id, repository: repository, router: router)
+
+        XCTAssertTrue(viewModel.state.isNew)
+        XCTAssertEqual(viewModel.state.name, "Upper Body Copy")
+        XCTAssertEqual(viewModel.state.items.map(\.exerciseID), builtIn.items.map(\.exerciseID))
+        XCTAssertTrue(Set(viewModel.state.items.map(\.id)).isDisjoint(with: Set(builtIn.items.map(\.id))))
+        viewModel.send(.nameChanged("My Upper Body"))
+        viewModel.send(.save)
+
+        XCTAssertEqual(repository.records.count, 2)
+        XCTAssertEqual(repository.records.first(where: { $0.set.id == builtIn.id })?.set, builtIn)
+        let copy = try XCTUnwrap(repository.records.first(where: { $0.set.id != builtIn.id })?.set)
+        XCTAssertEqual(copy.name, "My Upper Body")
+        XCTAssertTrue(Set(copy.items.map(\.id)).isDisjoint(with: Set(builtIn.items.map(\.id))))
+        XCTAssertEqual(router.path(for: .routines), [.routine(id: builtIn.id)])
+    }
+
+    func testCancellingBuiltInCopyDraftLeavesNoStoredCopy() throws {
+        let builtIn = try XCTUnwrap(BuiltInRoutines.all.first)
+        let repository = RoutineEditorTestRepository(records: [
+            SavedExerciseSetRecord(set: builtIn, createdAt: .distantPast, updatedAt: .distantPast)
+        ])
+        let viewModel = makeViewModel(id: builtIn.id, repository: repository)
+
+        viewModel.send(.cancel)
+
+        XCTAssertEqual(repository.records.map(\.set), [builtIn])
+    }
+
     func testDeleteRequiresConfirmationThenDeletesAndPopsToRoutinesRoot() throws {
         let original = routine(name: "Upper Body", ids: [.shoulderPress])
         let repository = RoutineEditorTestRepository(records: [

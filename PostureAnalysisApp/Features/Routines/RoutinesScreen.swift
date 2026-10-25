@@ -25,18 +25,17 @@ struct RoutinesScreen: View {
                     }
 
                     ForEach(Array(state.routines.enumerated()), id: \.element.id) { index, routine in
-                        RoutineCardView(
-                            routine: routine,
-                            anchor: cardAnchor(for: routine, index: index),
-                            open: { send(.open(routine.id)) },
-                            start: { send(.start(routine.id)) },
-                            edit: { send(.edit(routine.id)) },
-                            duplicate: { send(.duplicate(routine.id)) },
-                            delete: { send(.requestDelete(routine.id)) }
-                        )
+                        routineCard(routine, index: index)
                     }
 
                     createRoutineTile
+
+                    if !state.starterRoutines.isEmpty {
+                        SectionHeader(title: "Starter routines")
+                        ForEach(Array(state.starterRoutines.enumerated()), id: \.element.id) { index, routine in
+                            routineCard(routine, index: index)
+                        }
+                    }
                 }
                 .padding(.horizontal, Metrics.Spacing.screenMargin)
                 .padding(.top, 4)
@@ -160,12 +159,30 @@ struct RoutinesScreen: View {
     }
 
     private func cardAnchor(for routine: RoutineCardPresentation, index: Int) -> String {
+        if routine.isBuiltIn {
+            switch routine.name {
+            case "Upper Body": return "routines.starter.upperBody"
+            default: return "routines.starter.\(index)"
+            }
+        }
         switch routine.name {
         case "Upper Body": return "routines.card.upperBody"
         case "Quick Strength": return "routines.card.quickStrength"
         case "Legs & Push": return "routines.card.legsPush"
         default: return "routines.card.\(index)"
         }
+    }
+
+    private func routineCard(_ routine: RoutineCardPresentation, index: Int) -> some View {
+        RoutineCardView(
+            routine: routine,
+            anchor: cardAnchor(for: routine, index: index),
+            open: { send(.open(routine.id)) },
+            start: { send(.start(routine.id)) },
+            edit: { send(.edit(routine.id)) },
+            duplicate: { send(.duplicate(routine.id)) },
+            delete: { send(.requestDelete(routine.id)) }
+        )
     }
 }
 
@@ -257,9 +274,13 @@ private struct RoutineCardView: View {
         .buttonStyle(.plain)
         .overlay(alignment: .topTrailing) {
             Menu {
-                Button("Edit", action: edit)
-                Button("Duplicate", systemImage: "doc.on.doc", action: duplicate)
-                Button("Delete", systemImage: "trash", role: .destructive, action: delete)
+                if routine.isBuiltIn {
+                    Button("Duplicate to Edit", systemImage: "doc.on.doc", action: edit)
+                } else {
+                    Button("Edit", action: edit)
+                    Button("Duplicate", systemImage: "doc.on.doc", action: duplicate)
+                    Button("Delete", systemImage: "trash", role: .destructive, action: delete)
+                }
             } label: {
                 Image(material: "more_horiz")
                     .font(.system(size: 20, weight: .bold, design: .rounded))

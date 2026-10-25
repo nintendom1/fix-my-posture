@@ -16,6 +16,58 @@ final class RoutineRotationTests: XCTestCase {
         )
     }
 
+    func testExistingUsersUpNextIsUnchangedByShippingNeverRunBuiltIns() throws {
+        let earlyUser = record(name: "Early user", createdAt: date(10))
+        let doneUser = record(name: "Done user", createdAt: date(1))
+        let starter = try builtInRecord(at: 0)
+        let history = [workout(for: doneUser.set.id, name: doneUser.set.name, endedAt: date(100))]
+
+        XCTAssertEqual(
+            RoutineRotation.upNext(routines: [starter, doneUser, earlyUser], records: history, override: nil)?.id,
+            earlyUser.set.id
+        )
+    }
+
+    func testNeverRunBuiltInIsNotSelectedWhileUserOwnsARoutine() throws {
+        let user = record(name: "My routine", createdAt: date(10))
+        let starter = try builtInRecord(at: 0)
+        let history = [workout(for: user.set.id, name: user.set.name, endedAt: date(100))]
+
+        XCTAssertEqual(
+            RoutineRotation.upNext(routines: [starter, user], records: history, override: nil)?.id,
+            user.set.id
+        )
+    }
+
+    func testLegacyUserRoutineWithStarterNameDoesNotMarkStarterAsRun() throws {
+        let starter = try XCTUnwrap(BuiltInRoutines.all.first)
+        let legacyUserWorkout = workout(for: nil, name: starter.name, endedAt: date(100))
+
+        XCTAssertNil(RoutineRotation.lastDone(routine: starter, records: [legacyUserWorkout]))
+    }
+
+    func testRunBuiltInRotatesAlongsideUserRoutines() throws {
+        let user = record(name: "My routine", createdAt: date(10))
+        let starter = try builtInRecord(at: 0)
+        let history = [
+            workout(for: user.set.id, name: user.set.name, endedAt: date(200)),
+            workout(for: starter.set.id, name: starter.set.name, endedAt: date(100))
+        ]
+
+        XCTAssertEqual(
+            RoutineRotation.upNext(routines: [user, starter], records: history, override: nil)?.id,
+            starter.set.id
+        )
+    }
+
+    func testCatalogStarterIsTheFallbackWhenThereAreNoOtherCandidates() throws {
+        let starter = try XCTUnwrap(BuiltInRoutines.all.first)
+        let starterRecord = try builtInRecord(at: 0)
+
+        XCTAssertEqual(RoutineRotation.upNext(routines: [starterRecord], records: [], override: nil)?.id, starter.id)
+        XCTAssertNil(RoutineRotation.upNext(routines: [], records: [], override: nil))
+    }
+
     func testLeastRecentlyDoneRoutineComesNextWhenAllHaveBeenDone() throws {
         let first = record(name: "First", createdAt: date(10))
         let second = record(name: "Second", createdAt: date(20))
@@ -94,6 +146,12 @@ final class RoutineRotationTests: XCTestCase {
             createdAt: createdAt,
             updatedAt: createdAt
         )
+    }
+
+    private func builtInRecord(at index: Int) throws -> SavedExerciseSetRecord {
+        let routine = try XCTUnwrap(BuiltInRoutines.all.dropFirst(index).first)
+        let createdAt = Date.distantPast.addingTimeInterval(TimeInterval(index))
+        return SavedExerciseSetRecord(set: routine, createdAt: createdAt, updatedAt: createdAt)
     }
 
     private func workout(for id: UUID?, name: String, endedAt: Date) -> WorkoutRecord {

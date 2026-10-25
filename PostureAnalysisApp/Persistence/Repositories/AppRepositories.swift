@@ -10,7 +10,7 @@ struct AppRepositories {
 
     init(context: ModelContext, images: any ImageStoring = ImageStoreAdapter()) {
         workoutHistory = SwiftDataWorkoutHistoryRepository(context: context)
-        routines = SwiftDataRoutineRepository(context: context)
+        routines = BuiltInRoutineRepository(base: SwiftDataRoutineRepository(context: context))
         assessments = SwiftDataAssessmentRepository(context: context)
         self.images = images
     }

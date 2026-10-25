@@ -24,7 +24,7 @@ Do not use the clean-store fallback as a substitute for a migration that a relea
 `Repositories/` defines main-actor `WorkoutHistoryRepository`, `RoutineRepository`, and `AssessmentRepository` protocols with SwiftData implementations that receive a `ModelContext`. The repositories save explicitly, log failures, and expose value types for list operations. Views can retain `@Query` for reactive reads; assessment, Saved Set, and workout-history writes go through the repository container injected at the app root. `ImageStoring` wraps the shared `ImageStore` for photo save, load, and deletion.
 
 - Workout history lists newest first, saves records, updates their entries when weights change, and deletes records.
-- Routine storage lists, saves, duplicates using the existing `"Name Copy"` rule, and deletes Saved Sets. Corrupt item JSON continues to decode as an empty list.
+- Routine storage lists, saves, duplicates using the existing `"Name Copy"` rule, and deletes user Saved Sets. `BuiltInRoutineRepository` decorates it with the read-only starter catalog, keeps starter ids out of base writes, and saves starter duplicates as user copies. Corrupt item JSON continues to decode as an empty list.
 - Assessment storage maps domain landmarks and measurements to their SwiftData child models, keeps at most one baseline per posture view, and deletes assessments. Corrupt workout entry JSON continues to decode as an empty list.
 
 ## Preferences
