@@ -1,3 +1,4 @@
+import CoreGraphics
 import XCTest
 @testable import PostureAnalysisApp
 
@@ -14,6 +15,23 @@ final class WorkoutSessionTests: XCTestCase {
         XCTAssertEqual(session.phase, .exercising)
         XCTAssertTrue(effects.contains(.setCounting(true)))
         XCTAssertTrue(spoken(effects).contains("Set 1 of 2. Go."))
+    }
+
+    func testRaisedStraightArmsDoNotStartShrugSetHoldTimer() {
+        let shrug = DumbbellShrugExercise.definition()
+        var session = readySession(exercise: shrug)
+        let analyzer = DumbbellShrugAnalyzer(epoch: session.analyzerEpoch)
+
+        for index in 0...12 {
+            let time = 1.1 + Double(index) / 10
+            let analysis = analyzer.process(shrugFrame(time: time, armAngleBelowHorizontal: 5), counting: false)
+            _ = session.handle(.startPositionChanged(analysis.startPositionHeld), at: time)
+        }
+
+        XCTAssertNil(session.startHoldProgress(at: 2.3), "Raised arms must not begin the hold timer.")
+        let effects = session.handle(.tick, at: 2.3)
+        XCTAssertEqual(session.phase, .ready, "A held straight-arm pose below horizontal is not the shrug start.")
+        XCTAssertFalse(effects.contains(.setCounting(true)))
     }
 
     func testStartHoldProgressFillsOverOneSecond() {
@@ -158,6 +176,35 @@ final class WorkoutSessionTests: XCTestCase {
         XCTAssertEqual(creditedSides, Set(BodySide.allCases))
         XCTAssertEqual(session.phase, .resting)
         XCTAssertEqual(session.progress[lateralRaise.id]?.setReps, [lateralRaise.autoCompleteReps])
+    }
+
+    func testDumbbellShrugCreditsBothSidesAndCompletesItsSessionTarget() {
+        let shrug = DumbbellShrugExercise.definition()
+        var session = readySession(exercise: shrug)
+        _ = session.handle(.command(.start), at: 2)
+
+        let analyzer = DumbbellShrugAnalyzer(epoch: session.analyzerEpoch)
+        let motion = shrug.guide.motion
+        let sampleCount = Int(motion.duration * Double(shrug.autoCompleteReps) * 10) + 10
+        var creditedSides = Set<BodySide>()
+        for index in 0..<sampleCount {
+            let time = Double(index) / 10
+            let joints = ExerciseDemoFigureView.pose(for: motion.sample(at: time), cameraView: .front).jointLocations
+            let landmarks = Dictionary(uniqueKeysWithValues: joints.map { type, point in
+                (type, Landmark(type: type, normalizedLocation: .zero, imageLocation: point, confidence: 0.9))
+            })
+            let frame = PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 1080, imageHeight: 1920), timestamp: time)
+
+            for event in analyzer.process(frame, counting: true).repEvents {
+                creditedSides.formUnion(event.sides)
+                XCTAssertEqual(event.sides, Set(BodySide.allCases))
+                _ = session.handle(.repCompleted(event), at: time + 2)
+            }
+        }
+
+        XCTAssertEqual(creditedSides, Set(BodySide.allCases))
+        XCTAssertEqual(session.phase, .resting)
+        XCTAssertEqual(session.progress[shrug.id]?.setReps, [shrug.autoCompleteReps])
     }
 
     func testTiltWarningIsRateLimited() {
@@ -452,6 +499,30 @@ final class WorkoutSessionTests: XCTestCase {
         _ = session.handle(.framingChanged(FramingStatus(isReliable: true, guidance: nil)), at: 1)
         XCTAssertEqual(session.phase, .ready)
         return session
+    }
+
+    private func shrugFrame(time: TimeInterval, armAngleBelowHorizontal: Double) -> PoseFrame {
+        let nose = CGPoint(x: 540, y: 500)
+        let shoulderY = nose.y + 100
+        let radians = armAngleBelowHorizontal * .pi / 180
+        let armDX = CGFloat(cos(radians))
+        let armDY = CGFloat(sin(radians))
+        var joints: [LandmarkType: CGPoint] = [.nose: nose]
+        for side in BodySide.allCases {
+            let direction: CGFloat = side == .left ? 1 : -1
+            let shoulder = CGPoint(x: 540 + direction * 100, y: shoulderY)
+            joints[side.shoulder] = shoulder
+            joints[side.elbow] = CGPoint(x: shoulder.x + direction * armDX * 120,
+                                         y: shoulder.y + armDY * 120)
+            joints[side.wrist] = CGPoint(x: shoulder.x + direction * armDX * 220,
+                                         y: shoulder.y + armDY * 220)
+            joints[side.hip] = CGPoint(x: 540 + direction * 70, y: 900)
+        }
+        let landmarks = Dictionary(uniqueKeysWithValues: joints.map { type, point in
+            (type, Landmark(type: type, normalizedLocation: .zero, imageLocation: point, confidence: 0.9))
+        })
+        return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 1080, imageHeight: 1920),
+                         timestamp: time)
     }
 
     private func rep(epoch: Int) -> RepEvent {

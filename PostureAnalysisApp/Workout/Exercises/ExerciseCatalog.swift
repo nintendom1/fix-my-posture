@@ -24,6 +24,7 @@ enum ExerciseCatalog {
         StiffLegDeadliftExercise.definition(),
         RearLungeExercise.definition(),
         DumbbellRowExercise.definition(),
+        DumbbellShrugExercise.definition(),
         PushUpExercise.definition()
     ]
 

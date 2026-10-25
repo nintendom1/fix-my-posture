@@ -18,8 +18,9 @@ struct LegPose: Equatable {
     static let standing = LegPose()
 }
 
-/// Side-view body shape beyond the arms, specified independently for each motion keyframe.
-/// Front and floor views ignore these values.
+/// Body shape beyond the arms, specified independently for each motion keyframe. Torso pitch, hip shift,
+/// hip drop, and stride shape the side view; shoulder lift shapes the front view. Each view ignores the
+/// other's values, and the floor view ignores them all.
 struct FigureShape: Equatable {
     /// Torso lean in degrees from upright, toward the way the figure faces. `nil` uses `ArmMotion.torsoPitch`.
     var torsoPitch: Double? = nil
@@ -29,8 +30,15 @@ struct FigureShape: Equatable {
     var hipDrop: Double = 0
     /// Rear foot stepped back behind the front foot, in standing leg lengths.
     var stride: Double = 0
+    /// Front view: both shoulders raised toward the ears, in figure upper-arm lengths (0 is relaxed).
+    var shoulderLift: Double = 0
 
     static let neutral = FigureShape()
+
+    /// The side-view fields only, so a front-view shoulder lift never reads as side-body motion.
+    fileprivate var sideBody: FigureShape {
+        FigureShape(torsoPitch: torsoPitch, hipShift: hipShift, hipDrop: hipDrop, stride: stride)
+    }
 }
 
 /// One pose in a looping demonstration.
@@ -99,7 +107,8 @@ struct ArmMotion {
                 + abs((shape.torsoPitch ?? 0) - (firstShape.torsoPitch ?? 0))
                 + (abs(shape.hipShift - firstShape.hipShift)
                    + abs(shape.hipDrop - firstShape.hipDrop)
-                   + abs(shape.stride - firstShape.stride)) * 100
+                   + abs(shape.stride - firstShape.stride)
+                   + abs(shape.shoulderLift - firstShape.shoulderLift)) * 100
         }
         return keyframes.max { distance($0) < distance($1) }
     }
@@ -118,9 +127,9 @@ struct ArmMotion {
     /// default rather than side-body motion.
     var movesSideBody: Bool {
         guard let first = keyframes.first else { return false }
-        let start = Self.resolvedShape(first.shape, torsoPitch: torsoPitch)
+        let start = Self.resolvedShape(first.shape, torsoPitch: torsoPitch).sideBody
         return keyframes.contains { keyframe in
-            let shape = Self.resolvedShape(keyframe.shape, torsoPitch: torsoPitch)
+            let shape = Self.resolvedShape(keyframe.shape, torsoPitch: torsoPitch).sideBody
             return shape != start || shape.hipShift != 0 || shape.hipDrop != 0 || shape.stride != 0
         }
     }
@@ -194,14 +203,16 @@ struct ArmMotion {
 
     private static func resolvedShape(_ shape: FigureShape, torsoPitch: Double) -> FigureShape {
         FigureShape(torsoPitch: shape.torsoPitch ?? torsoPitch,
-                    hipShift: shape.hipShift, hipDrop: shape.hipDrop, stride: shape.stride)
+                    hipShift: shape.hipShift, hipDrop: shape.hipDrop, stride: shape.stride,
+                    shoulderLift: shape.shoulderLift)
     }
 
     private static func interpolate(_ a: FigureShape, _ b: FigureShape, _ t: Double) -> FigureShape {
         FigureShape(torsoPitch: (a.torsoPitch ?? 0) + ((b.torsoPitch ?? 0) - (a.torsoPitch ?? 0)) * t,
                     hipShift: a.hipShift + (b.hipShift - a.hipShift) * t,
                     hipDrop: a.hipDrop + (b.hipDrop - a.hipDrop) * t,
-                    stride: a.stride + (b.stride - a.stride) * t)
+                    stride: a.stride + (b.stride - a.stride) * t,
+                    shoulderLift: a.shoulderLift + (b.shoulderLift - a.shoulderLift) * t)
     }
 }
 

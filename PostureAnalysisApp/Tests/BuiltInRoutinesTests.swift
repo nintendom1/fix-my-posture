@@ -12,7 +12,8 @@ final class BuiltInRoutinesTests: XCTestCase {
         ("76", "Upper Body", [.pushUp, .dumbbellRow, .shoulderPress], [8, 8, 8]),
         ("77", "Chest & Arms", [.pushUp, .hammerCurl, .tricepsExtension], [10, 10, 10]),
         ("78", "Lower Body", [.airSquat, .stiffLegDeadlift, .rearLunge], [10, 8, 5]),
-        ("79", "Shoulders & Arms", [.shoulderPress, .lateralRaise, .hammerCurl], [8, 8, 10])
+        ("79", "Shoulders & Arms", [.shoulderPress, .lateralRaise, .hammerCurl], [8, 8, 10]),
+        ("80", "Back & Posture", [.dumbbellRow, .dumbbellShrug], [10, 15])
     ]
 
     func testStarterRoutinesUseTheirFixedIdentityAndCatalogOrder() {
@@ -56,6 +57,13 @@ final class BuiltInRoutinesTests: XCTestCase {
         let routine = try XCTUnwrap(BuiltInRoutines.all.first { $0.name == "Shoulders & Arms" })
         XCTAssertEqual(RoutineEstimator.seconds(for: routine, exercises: ExerciseCatalog.all,
                                                   restPolicy: .exerciseDefault), 344)
+    }
+
+    func testBackAndPostureHasTwoExercisesAndIs285Seconds() throws {
+        let routine = try XCTUnwrap(BuiltInRoutines.all.first { $0.name == "Back & Posture" })
+        XCTAssertEqual(routine.items.count, 2, "Back & Posture intentionally has two exercises.")
+        XCTAssertEqual(RoutineEstimator.seconds(for: routine, exercises: ExerciseCatalog.all,
+                                                  restPolicy: .exerciseDefault), 285)
     }
 
     private func uuid(_ value: String) -> UUID {

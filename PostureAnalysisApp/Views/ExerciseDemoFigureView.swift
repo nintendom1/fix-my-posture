@@ -164,7 +164,7 @@ struct ExerciseDemoFigureView: View {
             }
             return ReferencePose(jointLocations: joints)
         }
-        var joints = lowered(figureJoints, by: legs)
+        var joints = lifted(lowered(figureJoints, by: legs), shoulderLift: sample.shape.shoulderLift)
         for side in BodySide.allCases {
             let other: BodySide = side == .left ? .right : .left
             guard let shoulder = joints[side.shoulder], let otherShoulder = joints[other.shoulder] else { continue }
@@ -275,12 +275,33 @@ struct ExerciseDemoFigureView: View {
         return result
     }
 
+    /// Front view shrugging: both shoulders and the neck rise by `shoulderLift` upper-arm lengths while the nose
+    /// and hips stay put, so the torso stretches up to the raised shoulders. Arms then hang from the new shoulders.
+    static func lifted(_ joints: [LandmarkType: CGPoint], shoulderLift: Double) -> [LandmarkType: CGPoint] {
+        guard shoulderLift != 0 else { return joints }
+        var result = joints
+        let rise = CGFloat(shoulderLift) * upperArm
+        for joint in [LandmarkType.neck, .leftShoulder, .rightShoulder] {
+            result[joint]?.y -= rise
+        }
+        return result
+    }
+
+    /// `shape` with the view-level pitch filled in when the shape doesn't set its own.
+    private var resolvedShape: FigureShape {
+        var resolved = shape
+        resolved.torsoPitch = shape.torsoPitch ?? torsoPitch
+        return resolved
+    }
+
+    /// The same resolved sample and pose used by the guide and detail figure renderers.
+    var displayedPose: ReferencePose {
+        let sample = ArmMotionSample(angles: angles, stepIndex: 0, legs: legs, shape: resolvedShape)
+        return Self.pose(for: sample, forearmPlane: forearmPlane, cameraView: cameraView)
+    }
+
     var body: some View {
-        let sample = ArmMotionSample(angles: angles, stepIndex: 0, legs: legs,
-                                     shape: FigureShape(torsoPitch: shape.torsoPitch ?? torsoPitch,
-                                                        hipShift: shape.hipShift, hipDrop: shape.hipDrop,
-                                                        stride: shape.stride))
-        let pose = Self.pose(for: sample, forearmPlane: forearmPlane, cameraView: cameraView)
+        let pose = displayedPose
         let bounds = figureBounds.width > 0 && figureBounds.height > 0
             ? figureBounds : CGRect(origin: .zero, size: Self.canvasSize)
         let localPose = ReferencePose(jointLocations: pose.jointLocations.mapValues { point in

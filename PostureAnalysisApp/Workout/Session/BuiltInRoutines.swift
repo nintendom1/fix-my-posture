@@ -112,6 +112,26 @@ enum BuiltInRoutines {
                     targetRepMaximum: 10
                 )
             ]
+        ),
+        SavedExerciseSet(
+            id: UUID(uuid: (0x5E, 0x7A, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80)),
+            name: "Back & Posture",
+            items: [
+                SavedExerciseSetItem(
+                    id: UUID(uuid: (0x5E, 0x7A, 0x00, 0x80, 0x00, 0x00, 0x40, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01)),
+                    exerciseID: .dumbbellRow,
+                    setCount: 1,
+                    targetRepMinimum: 10,
+                    targetRepMaximum: 10
+                ),
+                SavedExerciseSetItem(
+                    id: UUID(uuid: (0x5E, 0x7A, 0x00, 0x80, 0x00, 0x00, 0x40, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02)),
+                    exerciseID: .dumbbellShrug,
+                    setCount: 1,
+                    targetRepMinimum: 15,
+                    targetRepMaximum: 15
+                )
+            ]
         )
     ]
 
