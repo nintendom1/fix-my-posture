@@ -70,7 +70,7 @@ final class BuiltInRoutineRepositoryTests: XCTestCase {
         edited.name = "Upper Body Edited"
         try repository.save(edited)
         XCTAssertEqual(try base.list().first?.name, "Upper Body Edited")
-        XCTAssertEqual(try repository.list().last, builtIn)
+        XCTAssertEqual(Array(try repository.list().suffix(BuiltInRoutines.all.count)), BuiltInRoutines.all)
         _ = container
     }
 
@@ -81,8 +81,8 @@ final class BuiltInRoutineRepositoryTests: XCTestCase {
         conflict.name = "Stored conflict"
         try base.save(conflict)
 
-        XCTAssertEqual(try repository.list(), [builtIn])
-        XCTAssertEqual(try repository.listWithUpdateDates().map(\.set), [builtIn])
+        XCTAssertEqual(try repository.list(), BuiltInRoutines.all)
+        XCTAssertEqual(try repository.listWithUpdateDates().map(\.set), BuiltInRoutines.all)
         _ = container
     }
 
