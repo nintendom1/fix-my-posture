@@ -5,6 +5,23 @@ enum RoutineTheme: Equatable {
     case brand
 }
 
+/// An action a routine card or detail screen offers. Starter routines only offer a copy to edit.
+enum RoutineAction: Hashable {
+    case edit
+    case duplicate
+    case duplicateToEdit
+    case delete
+
+    var title: String {
+        switch self {
+        case .edit: return "Edit"
+        case .duplicate: return "Duplicate"
+        case .duplicateToEdit: return "Duplicate to Edit"
+        case .delete: return "Delete"
+        }
+    }
+}
+
 struct RoutineCardPresentation: Equatable, Identifiable {
     let id: UUID
     let name: String
@@ -33,6 +50,11 @@ struct RoutineCardPresentation: Equatable, Identifiable {
         self.theme = theme
         self.canStart = canStart
         self.isBuiltIn = isBuiltIn
+    }
+
+    /// The card's actions menu, in display order.
+    var menuActions: [RoutineAction] {
+        isBuiltIn ? [.duplicateToEdit] : [.edit, .duplicate, .delete]
     }
 }
 

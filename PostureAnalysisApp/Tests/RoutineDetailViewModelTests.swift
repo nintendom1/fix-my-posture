@@ -23,6 +23,15 @@ final class RoutineDetailViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.state.routine?.lastDoneLabel, "Last done Wed, Oct 14")
     }
 
+    func testUserRoutineOffersEditDuplicateAndDelete() throws {
+        let savedSet = routine(name: "Upper Body", ids: [.shoulderPress])
+        let viewModel = makeViewModel(for: savedSet, repository: RoutinesTestRepository(sets: [savedSet]))
+
+        let routine = try XCTUnwrap(viewModel.state.routine)
+        XCTAssertTrue(routine.showsEditButton)
+        XCTAssertEqual(routine.actionButtons, [.duplicate, .delete])
+    }
+
     func testSequenceShowsMostRecentKnownWeightForTheRoutine() {
         let savedSet = routine(name: "Upper Body", ids: [.shoulderPress])
         let record = WorkoutRecord(
@@ -125,7 +134,11 @@ final class RoutineDetailViewModelTests: XCTestCase {
         let viewModel = makeViewModel(for: savedSet, repository: repository, router: router)
 
         XCTAssertTrue(viewModel.state.isBuiltIn)
-        XCTAssertTrue(try XCTUnwrap(viewModel.state.routine).isBuiltIn)
+        let routine = try XCTUnwrap(viewModel.state.routine)
+        XCTAssertTrue(routine.isBuiltIn)
+        XCTAssertFalse(routine.showsEditButton)
+        XCTAssertEqual(routine.actionButtons, [.duplicateToEdit])
+        XCTAssertEqual(routine.actionButtons.map(\.title), ["Duplicate to Edit"])
         viewModel.send(.requestDelete)
         viewModel.send(.duplicate)
         XCTAssertFalse(viewModel.state.showsDeleteConfirmation)
