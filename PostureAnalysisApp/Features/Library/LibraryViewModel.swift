@@ -67,7 +67,7 @@ final class LibraryViewModel: LibraryViewModeling {
                     id: exercise.id,
                     name: libraryName(for: exercise),
                     muscles: exercise.presentation.muscles.joined(separator: " · "),
-                    target: "\(exercise.sets) × \(exercise.targetLabel)" + (exercise.perSide ? " / side" : ""),
+                    target: "\(exercise.sets) × \(exercise.targetLabel)\(exercise.perSideTargetSuffix)",
                     weight: weights[exercise.id],
                     equipment: exercise.presentation.equipmentLine,
                     cameraSetup: exercise.presentation.cameraSetupLine,

@@ -20,10 +20,9 @@ enum ReadyPoseFixtures {
     /// The full demonstration pose, then one minimal pose per way of satisfying framing.
     static func variants(for exercise: ExerciseDefinition) -> [ReadyPoseVariant] {
         let motion = exercise.guide.motion
-        let reference = ExerciseDemoFigureView.pose(for: motion.startAngles, legs: motion.startLegs,
+        let reference = ExerciseDemoFigureView.pose(for: motion.startSample,
                                                      forearmPlane: motion.forearmPlane,
-                                                     cameraView: exercise.cameraView,
-                                                     torsoPitch: motion.torsoPitch).jointLocations
+                                                     cameraView: exercise.cameraView).jointLocations
         var variants = [ReadyPoseVariant(name: "full", isMinimal: false,
                                          pose: pose(for: Set(reference.keys), reference: reference,
                                                     exercise: exercise))]

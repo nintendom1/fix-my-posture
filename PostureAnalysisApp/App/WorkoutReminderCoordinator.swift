@@ -295,7 +295,7 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
             )
             return "\(routine.name) · about \(estimate) min"
         case .exercise(let exercise):
-            let target = "\(exercise.sets) × \(exercise.targetLabel)" + (exercise.perSide ? " / side" : "")
+            let target = "\(exercise.sets) × \(exercise.targetLabel)\(exercise.perSideTargetSuffix)"
             return "\(exercise.presentation.shortName) · \(target)"
         }
     }
@@ -311,7 +311,7 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
             )
             return "How about \(routine.name)? · about \(estimate) min"
         case .exercise(let exercise):
-            let target = "\(exercise.sets) × \(exercise.targetLabel)" + (exercise.perSide ? " / side" : "")
+            let target = "\(exercise.sets) × \(exercise.targetLabel)\(exercise.perSideTargetSuffix)"
             return "How about \(exercise.presentation.shortName)? · \(target)"
         }
     }

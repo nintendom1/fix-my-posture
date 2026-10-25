@@ -101,6 +101,36 @@ final class WorkoutSessionTests: XCTestCase {
         XCTAssertEqual(session.progress[press.id]?.setReps, [10])
     }
 
+    func testOneSidedDeadliftTrackingReachesTheTargetAndCompletesTheSet() throws {
+        let deadlift = StiffLegDeadliftExercise.definition()
+        var session = readySession(exercise: deadlift)
+        _ = session.handle(.command(.start), at: 2)
+        let analyzer = StiffLegDeadliftAnalyzer(epoch: session.analyzerEpoch)
+        let motion = deadlift.guide.motion
+        let sampleCount = Int(motion.duration * Double(deadlift.autoCompleteReps ?? 10) * 10)
+        var trackedSides = Set<BodySide>()
+
+        for index in 0..<sampleCount {
+            let time = Double(index) / 10
+            let sample = motion.sample(at: time)
+            let joints = ExerciseDemoFigureView.pose(for: sample, cameraView: .side).jointLocations
+            trackedSides.formUnion(joints.keys.compactMap(BodySide.side(of:)))
+            let landmarks = Dictionary(uniqueKeysWithValues: joints.map { type, point in
+                (type, Landmark(type: type, normalizedLocation: .zero, imageLocation: point, confidence: 0.9))
+            })
+            let frame = PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 1080, imageHeight: 1920),
+                                  timestamp: time)
+
+            for event in analyzer.process(frame, counting: true).repEvents {
+                _ = session.handle(.repCompleted(event), at: time + 2)
+            }
+        }
+
+        XCTAssertEqual(trackedSides, [.left], "The guide only supplies one tracked side.")
+        XCTAssertEqual(session.phase, .resting)
+        XCTAssertEqual(session.progress[deadlift.id]?.setReps, [deadlift.autoCompleteReps ?? 10])
+    }
+
     func testTiltWarningIsRateLimited() {
         var session = readySession()
         XCTAssertEqual(spoken(session.handle(.phoneTiltChanged(true), at: 5)).count, 1)
@@ -238,6 +268,30 @@ final class WorkoutSessionTests: XCTestCase {
         }
         XCTAssertEqual(session.phase, .exerciseComplete)
         XCTAssertEqual(session.progress[oneArm.id]?.setReps.count, 4, "One entry per arm per set.")
+    }
+
+    func testOneLegAtATimeUsesLegWordingAndKeepsLimbNeutralHistory() {
+        let lunge = RearLungeExercise.definition()
+        var session = WorkoutSession(exercises: [lunge], initialExercise: lunge.id)
+        _ = session.handle(.opened, at: 0)
+        _ = session.handle(.framingChanged(FramingStatus(isReliable: true, guidance: nil)), at: 1)
+        XCTAssertEqual(session.currentSide, .left)
+        _ = session.handle(.command(.start), at: 2)
+
+        let leftDone = session.handle(.command(.nextSet), at: 3)
+
+        XCTAssertEqual(session.phase, .ready, "No rest between legs.")
+        XCTAssertEqual(session.currentSide, .right)
+        XCTAssertEqual(session.currentSetNumber, 1)
+        XCTAssertTrue(spoken(leftDone).last?.contains(
+            "Left leg done, 0 reps. Switch: step back with your right leg."
+        ) ?? false)
+
+        _ = session.handle(.command(.start), at: 4)
+        _ = session.handle(.command(.nextSet), at: 5)
+        XCTAssertEqual(session.phase, .resting, "Both legs done: rest.")
+        XCTAssertEqual(session.currentSide, .left)
+        XCTAssertEqual(session.progress[lunge.id]?.setReps.count, 2)
     }
 
     func testFixedRestDoesNotRunBetweenOneArmSides() {

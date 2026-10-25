@@ -230,7 +230,8 @@ final class RoutineEditorViewModel: RoutineEditorViewModeling {
             return AddExercisePresentation(
                 exerciseID: exercise.id,
                 name: presentation.shortName,
-                target: "\(exercise.sets) × \(exercise.targetLabel)",
+                target: "\(exercise.sets) × \(exercise.targetLabel)"
+                    + (exercise.perSide && exercise.sideLimb == .leg ? " each leg" : ""),
                 muscles: presentation.muscles.joined(separator: " · "),
                 gradient: presentation.gradient,
                 symbolName: presentation.symbolName,
@@ -266,6 +267,7 @@ final class RoutineEditorViewModel: RoutineEditorViewModeling {
             symbolName: exercise?.presentation.symbolName ?? "dumbbell.fill",
             isAvailable: exercise != nil,
             isPerSide: exercise?.perSide ?? false,
+            sideLimb: exercise?.sideLimb ?? .arm,
             setCount: item.setCount,
             minimumReps: item.targetRepMinimum,
             maximumReps: item.targetRepMaximum,

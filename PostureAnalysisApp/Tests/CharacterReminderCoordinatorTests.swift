@@ -69,7 +69,7 @@ final class CharacterReminderCoordinatorTests: XCTestCase {
 
     func testCharacterExerciseSuggestionUsesSavedPerSideTarget() async throws {
         let scenarioCatalog = try NotificationScenarioCatalog.bundled()
-        // The one-arm dumbbell row is the only per-side exercise, so it is the one that adds " / side".
+        // The one-arm dumbbell row keeps its established " / side" target.
         let exercise = try XCTUnwrap(exerciseCatalog.exercise(.dumbbellRow))
         let preferences = InMemoryPreferences()
         preferences.workoutReminderSettings = settings(style: .character)
@@ -90,6 +90,30 @@ final class CharacterReminderCoordinatorTests: XCTestCase {
 
         let firstRequest = try XCTUnwrap(scheduler.requests.first)
         XCTAssertTrue(firstRequest.title.contains("\(exercise.presentation.shortName) · 3 × 10–12 / side"))
+    }
+
+    func testCharacterLungeSuggestionNamesEachLeg() async throws {
+        let scenarioCatalog = try NotificationScenarioCatalog.bundled()
+        let exercise = try XCTUnwrap(exerciseCatalog.exercise(.rearLunge))
+        let preferences = InMemoryPreferences()
+        preferences.workoutReminderSettings = settings(style: .character)
+        preferences.setExerciseTarget(
+            ExerciseTarget(sets: 3, repMinimum: 10, repMaximum: 12),
+            for: exercise.id.rawValue
+        )
+        let scheduler = MemoryWorkoutReminderScheduler()
+        let coordinator = makeCoordinator(
+            preferences: preferences,
+            exerciseCatalog: ReminderExerciseCatalog(exercises: [exercise]),
+            scheduler: scheduler,
+            scenarioCatalog: scenarioCatalog,
+            now: { self.date(2026, 10, 17, hour: 10) }
+        )
+
+        await coordinator.reconcileNow()
+
+        let firstRequest = try XCTUnwrap(scheduler.requests.first)
+        XCTAssertTrue(firstRequest.title.contains("Rear Lunge · 3 × 10–12 each leg"))
     }
 
     func testPlainModeMatchesLegacyScheduleBuilderExactly() async throws {
@@ -579,12 +603,12 @@ final class CharacterReminderCoordinatorTests: XCTestCase {
     private func exerciseSuggestion() -> String {
         let exercise = exerciseCatalog.exercise(.shoulderPress)!
         return "\(exercise.presentation.shortName) · \(exercise.sets) × \(exercise.targetLabel)"
-            + (exercise.perSide ? " / side" : "")
+            + exercise.perSideTargetSuffix
     }
 
     private func legacyExerciseCopy() -> String {
         let exercise = exerciseCatalog.exercise(.shoulderPress)!
-        let target = "\(exercise.sets) × \(exercise.targetLabel)" + (exercise.perSide ? " / side" : "")
+        let target = "\(exercise.sets) × \(exercise.targetLabel)\(exercise.perSideTargetSuffix)"
         return "How about \(exercise.presentation.shortName)? · \(target)"
     }
 

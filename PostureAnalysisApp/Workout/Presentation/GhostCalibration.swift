@@ -6,7 +6,7 @@ enum GhostCalibration {
     /// The joints the ghost's moving limbs hang from are in view and its sizing is known. This mirrors
     /// `WorkoutGhostGeometry`'s limb rules, and the two must agree.
     static func canFit(overlay: WorkoutOverlayState?, metrics: GuideMetrics?, motion: ArmMotion,
-                       cameraView: ExerciseCameraView) -> Bool {
+                       cameraView: ExerciseCameraView, sample _: ArmMotionSample) -> Bool {
         guard let overlay else { return false }
 
         func counts(_ joint: LandmarkType) -> Bool {
@@ -16,6 +16,11 @@ enum GhostCalibration {
         if cameraView == .floor {
             guard metrics != nil else { return false }
             return counts(.leftWrist) && counts(.rightWrist)
+        } else if cameraView == .side && motion.movesSideBody {
+            guard overlay.imageSize.width > 0, overlay.imageSize.height > 0 else { return false }
+            return BodySide.allCases.contains { side in
+                [side.shoulder, side.hip, side.knee, side.ankle].allSatisfy(counts)
+            }
         } else if motion.animatesLegs {
             return BodySide.allCases.contains { side in
                 let other: BodySide = side == .left ? .right : .left

@@ -9,9 +9,12 @@ final class GhostCalibrationTests: XCTestCase {
         let wrists = overlay([.leftWrist: false, .rightWrist: false])
         let oneWrist = overlay([.leftWrist: false])
 
-        XCTAssertTrue(GhostCalibration.canFit(overlay: wrists, metrics: metrics, motion: motion, cameraView: .floor))
-        XCTAssertFalse(GhostCalibration.canFit(overlay: oneWrist, metrics: metrics, motion: motion, cameraView: .floor))
-        XCTAssertFalse(GhostCalibration.canFit(overlay: wrists, metrics: nil, motion: motion, cameraView: .floor))
+        XCTAssertTrue(GhostCalibration.canFit(overlay: wrists, metrics: metrics, motion: motion,
+                                              cameraView: .floor, sample: motion.startSample))
+        XCTAssertFalse(GhostCalibration.canFit(overlay: oneWrist, metrics: metrics, motion: motion,
+                                               cameraView: .floor, sample: motion.startSample))
+        XCTAssertFalse(GhostCalibration.canFit(overlay: wrists, metrics: nil, motion: motion,
+                                               cameraView: .floor, sample: motion.startSample))
     }
 
     func testLegGhostUsesOneCompleteSideAndTheOtherAnkleWithoutMetrics() {
@@ -26,9 +29,9 @@ final class GhostCalibrationTests: XCTestCase {
         ])
 
         XCTAssertTrue(GhostCalibration.canFit(overlay: partialOtherSide, metrics: nil,
-                                              motion: motion, cameraView: .front))
+                                              motion: motion, cameraView: .front, sample: motion.startSample))
         XCTAssertFalse(GhostCalibration.canFit(overlay: missingOtherAnkle, metrics: nil,
-                                               motion: motion, cameraView: .front))
+                                               motion: motion, cameraView: .front, sample: motion.startSample))
     }
 
     func testFrontGhostNeedsBothNonStaleShouldersAndMetrics() {
@@ -37,9 +40,10 @@ final class GhostCalibrationTests: XCTestCase {
         let shoulders = overlay([.leftShoulder: false, .rightShoulder: false])
         let staleShoulder = overlay([.leftShoulder: false, .rightShoulder: true])
 
-        XCTAssertTrue(GhostCalibration.canFit(overlay: shoulders, metrics: metrics, motion: motion, cameraView: .front))
+        XCTAssertTrue(GhostCalibration.canFit(overlay: shoulders, metrics: metrics, motion: motion,
+                                              cameraView: .front, sample: motion.startSample))
         XCTAssertFalse(GhostCalibration.canFit(overlay: staleShoulder, metrics: metrics,
-                                               motion: motion, cameraView: .front))
+                                               motion: motion, cameraView: .front, sample: motion.startSample))
     }
 
     func testSideGhostNeedsOneNonStaleShoulderAndMetrics() {
@@ -48,16 +52,19 @@ final class GhostCalibrationTests: XCTestCase {
         let staleShoulder = overlay([.leftShoulder: true])
         let metrics = GuideMetrics(upperArm: 100, forearm: 80)
 
-        XCTAssertTrue(GhostCalibration.canFit(overlay: shoulder, metrics: metrics, motion: motion, cameraView: .side))
-        XCTAssertFalse(GhostCalibration.canFit(overlay: shoulder, metrics: nil, motion: motion, cameraView: .side))
+        XCTAssertTrue(GhostCalibration.canFit(overlay: shoulder, metrics: metrics, motion: motion,
+                                              cameraView: .side, sample: motion.startSample))
+        XCTAssertFalse(GhostCalibration.canFit(overlay: shoulder, metrics: nil, motion: motion,
+                                               cameraView: .side, sample: motion.startSample))
         XCTAssertFalse(GhostCalibration.canFit(overlay: staleShoulder, metrics: metrics,
-                                               motion: motion, cameraView: .side))
+                                               motion: motion, cameraView: .side, sample: motion.startSample))
     }
 
     func testNilOverlayCannotFit() {
         XCTAssertFalse(GhostCalibration.canFit(overlay: nil, metrics: nil,
                                               motion: ShoulderPressExercise.definition().guide.motion,
-                                              cameraView: .front))
+                                              cameraView: .front,
+                                              sample: ShoulderPressExercise.definition().guide.motion.startSample))
     }
 
     func testGateCalibratesAtTheContinuousAvailabilityBoundary() {

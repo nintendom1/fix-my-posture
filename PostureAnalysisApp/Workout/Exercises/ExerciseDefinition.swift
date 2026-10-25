@@ -36,6 +36,12 @@ enum ExerciseCameraView: Equatable {
     case floor
 }
 
+/// The limb whose work is tracked one side at a time.
+enum ExerciseSideLimb: String, Equatable {
+    case arm
+    case leg
+}
+
 /// Everything the coach needs to run one exercise. Register new exercises in `ExerciseCatalog.all`.
 struct ExerciseDefinition: Identifiable {
     let id: ExerciseID
@@ -78,9 +84,11 @@ struct ExerciseDefinition: Identifiable {
     /// Holding the start position for a moment begins a set. Off when the start position is just standing,
     /// so a set never starts by accident; "start" and the Start button always work.
     var startsByHolding = true
-    /// Each set is done one arm at a time: left, then right, then rest. Each arm's half is recorded as its
+    /// Each set is done one limb at a time: left, then right, then rest. Each side's half is recorded as its
     /// own entry in the set history.
     var perSide = false
+    /// Which limb the left/right set labels refer to when `perSide` is enabled.
+    var sideLimb: ExerciseSideLimb = .arm
     /// False when the phone deliberately leans back, as on the floor for push-ups.
     var warnsAboutTilt = true
     /// Decides what kind of weight can be recorded for a set.
@@ -92,7 +100,18 @@ struct ExerciseDefinition: Identifiable {
     /// Recorded entries that make up the full exercise.
     var setEntries: Int { perSide ? sets * 2 : sets }
 
-    /// "Set 2" or, one arm at a time, "Set 2 L".
+    /// Target suffixes used by Library, Train, routine, and reminder rows.
+    var perSideTargetSuffix: String {
+        guard perSide else { return "" }
+        return sideLimb == .leg ? " each leg" : " / side"
+    }
+
+    /// Human-readable side label for the HUD and spoken set prompts.
+    func sideLabel(_ side: BodySide) -> String {
+        "\(side == .left ? "Left" : "Right") \(sideLimb.rawValue)"
+    }
+
+    /// "Set 2" or, one side at a time, "Set 2 L".
     func setLabel(entry index: Int) -> String {
         perSide ? "Set \(index / 2 + 1) \(index % 2 == 0 ? "L" : "R")" : "Set \(index + 1)"
     }

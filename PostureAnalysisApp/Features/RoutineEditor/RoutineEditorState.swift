@@ -8,6 +8,7 @@ struct RoutineEditorItemState: Equatable, Identifiable {
     let symbolName: String
     let isAvailable: Bool
     let isPerSide: Bool
+    var sideLimb: ExerciseSideLimb = .arm
     var setCount: Int
     var minimumReps: Int
     var maximumReps: Int
@@ -18,7 +19,10 @@ struct RoutineEditorItemState: Equatable, Identifiable {
         return "\(setCount) × \(reps)"
     }
 
-    var targetLabel: String { setsAndRepsLabel + (isPerSide ? " / side" : "") }
+    var targetLabel: String {
+        guard isPerSide else { return setsAndRepsLabel }
+        return setsAndRepsLabel + (sideLimb == .leg ? " each leg" : " / side")
+    }
 }
 
 struct AddExercisePresentation: Equatable, Identifiable {

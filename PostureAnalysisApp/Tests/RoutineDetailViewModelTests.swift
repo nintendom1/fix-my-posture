@@ -57,6 +57,16 @@ final class RoutineDetailViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.state.routine?.steps.first?.targetLine, "2 × 8–10 · 20 lb")
     }
 
+    func testRearLungeRoutineTargetNamesEachLeg() throws {
+        let savedSet = SavedExerciseSet(name: "Lower Body", items: [
+            SavedExerciseSetItem(exerciseID: .rearLunge, setCount: 1,
+                                 targetRepMinimum: 5, targetRepMaximum: 5)
+        ])
+        let viewModel = makeViewModel(for: savedSet, repository: RoutinesTestRepository(sets: [savedSet]))
+
+        XCTAssertEqual(try XCTUnwrap(viewModel.state.routine?.steps.first?.target), "1 × 5 each leg")
+    }
+
     func testDuplicateUsesRoutineRepositoryAndTodayCopyName() {
         let savedSet = routine(name: "Upper Body", ids: [.shoulderPress])
         let repository = RoutinesTestRepository(sets: [savedSet])

@@ -47,8 +47,9 @@ extension ExerciseDefinition {
         return copy
     }
 
-    /// "2 sets × 8–10 reps", with "each arm" for one-arm-at-a-time exercises.
+    /// "2 sets × 8–10 reps", with the limb for one-side-at-a-time exercises.
     var setsAndRepsLabel: String {
-        "\(sets) \(sets == 1 ? "set" : "sets") × \(targetLabel) reps" + (perSide ? " each arm" : "")
+        "\(sets) \(sets == 1 ? "set" : "sets") × \(targetLabel) reps"
+            + (perSide ? " each \(sideLimb.rawValue)" : "")
     }
 }

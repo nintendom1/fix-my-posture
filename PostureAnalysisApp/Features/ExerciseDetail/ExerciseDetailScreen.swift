@@ -161,6 +161,9 @@ struct ExerciseDetailScreen: View {
             holdsDumbbells: exercise.guide.motion.holdsDumbbells,
             legs: sample.legs,
             torsoPitch: exercise.guide.motion.torsoPitch,
+            shape: sample.shape,
+            figureBounds: ExerciseDemoFigureView.bounds(for: exercise.guide.motion,
+                                                        cameraView: exercise.cameraView),
             tint: .white
         )
         .opacity(0.88)

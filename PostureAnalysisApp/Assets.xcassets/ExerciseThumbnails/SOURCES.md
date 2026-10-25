@@ -1,6 +1,6 @@
 # Exercise thumbnail sources
 
-This is the developer-facing source of truth for the bundled exercise photography. All six sources were explicitly approved in [issue #62](https://github.com/nintendom1/fix-my-posture/issues/62). Reconfirmed and retrieved on 2026-10-23. Do not substitute another photograph without approval.
+This is the developer-facing source of truth for the bundled exercise photography. The first six sources were explicitly approved in [issue #62](https://github.com/nintendom1/fix-my-posture/issues/62) and reconfirmed and retrieved on 2026-10-23. Stiff-Legged Dumbbell Deadlift and Dumbbell Rear Lunge were approved for [issue #78](https://github.com/nintendom1/fix-my-posture/issues/78) and retrieved on 2026-10-25. The deadlift photograph replaces the issue's first suggestion, which showed a sumo-style, deep-knee lift rather than a hip hinge; the repository owner approved the replacement. Do not substitute another photograph without approval.
 
 ## Asset and source mapping
 
@@ -14,6 +14,8 @@ Asset names below include the Xcode `ExerciseThumbnails` namespace. Each corresp
 | Push-Up | `ExerciseThumbnails/push_up` | Polina Tankilevitch | [Pexels](https://www.pexels.com/photo/woman-doing-push-up-6516167/) | 6516167 | Pexels License |
 | Shoulder Press | `ExerciseThumbnails/shoulder_press` | Senior Airman Greydon Furstenau | [U.S. Air Force / Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Discipline_in_motion,_Incirlik_Airman_inspires_others_through_fitness_(9444781).jpg) | 9444781; VIRIN 251104-F-XM554-1092 | U.S. government work; public domain in the United States |
 | Triceps Extension | `ExerciseThumbnails/triceps_extension` | Miguel González | [Pexels](https://www.pexels.com/photo/a-woman-lifting-a-dumbbell-14623619/) | 14623619 | Pexels License |
+| Stiff-Legged Dumbbell Deadlift | `ExerciseThumbnails/stiff_leg_deadlift` | marcuschanmedia (Pexels contributor) | [Pexels](https://www.pexels.com/photo/female-weightlifter-performing-deadlift-in-gym-29825217/) | 29825217 | Pexels License |
+| Dumbbell Rear Lunge | `ExerciseThumbnails/rear_lunge` | Anna Shvets | [Pexels](https://www.pexels.com/photo/senior-man-doing-sport-exercises-5067741/) | 5067741 | Pexels License |
 
 ## Processing
 
@@ -31,10 +33,12 @@ Crop coordinates are pixel bounds `(left, top, right, bottom)`, with an exclusiv
 | Push-Up | 2000 × 3000 | `(150, 1150, 2000, 3000)` | Removes tall empty space above the subject while retaining the complete planted-hand, extended-leg silhouette. The tucked knee is present in the approved source. |
 | Shoulder Press | 7419 × 4946 | `(4700, 800, 7400, 3500)` | Isolates the reflected subject, keeping both raised elbows and dumbbells; excludes most foreground occlusion and overhead signage. No prominent military identifiers. |
 | Triceps Extension | 4672 × 7008 | `(900, 850, 4300, 4250)` | Focuses on the overhead elbows, hands, and dumbbell behind the head; excludes lower-body and floor space. |
+| Stiff-Legged Dumbbell Deadlift | 4974 × 6217 | `(0, 900, 4974, 5874)` | Side view of the hinge: hips back, soft knees, flat torso, and both dumbbells at shin level; keeps head to shoes. |
+| Dumbbell Rear Lunge | 5972 × 3981 | `(1361, 0, 5342, 3981)` | Side view of the lowered split stance with both dumbbells hanging; keeps head to both shoes. |
 
 ## Retrieval and licensing
 
-The four Pexels files were retrieved using the original **Free download** link exposed by each exact approved source page, rather than an edited/AI derivative. The link format is `https://images.pexels.com/photos/<ID>/pexels-photo-<ID>.jpeg?cs=srgb&dl=<download-filename>&fm=jpg`. Download filenames were `pexels-polina-tankilevitch-6516212.jpg`, `pexels-polina-tankilevitch-6516167.jpg`, `pexels-airamdphoto-13106582.jpg`, and `pexels-mikegles-14623619.jpg`. Their use is under the [Pexels License](https://www.pexels.com/license/).
+The four Pexels files were retrieved using the original **Free download** link exposed by each exact approved source page, rather than an edited/AI derivative. The link format is `https://images.pexels.com/photos/<ID>/pexels-photo-<ID>.jpeg?cs=srgb&dl=<download-filename>&fm=jpg`. Download filenames were `pexels-polina-tankilevitch-6516212.jpg`, `pexels-polina-tankilevitch-6516167.jpg`, `pexels-airamdphoto-13106582.jpg`, and `pexels-mikegles-14623619.jpg`. Their use is under the [Pexels License](https://www.pexels.com/license/). The Stiff-Legged Dumbbell Deadlift and Dumbbell Rear Lunge originals were retrieved from `https://images.pexels.com/photos/<ID>/pexels-photo-<ID>.jpeg` for IDs 29825217 (4974 × 6217) and 5067741 (5972 × 3981). Their pages credit the contributors "@marcuschanmedia" and Anna Shvets. Pexels does not caption 29825217 as stiff-legged; it was chosen because it shows the hip-hinge working position. 5067741 shows a lowered lunge; the step direction is conveyed by the guide and ghost.
 
 The Hammer Curl file is the 2000-pixel image linked from the approved DVIDS page: `https://d1ldvf68ux039x.cloudfront.net/thumbs/photos/2007/6272440/2000w_q95.jpg` (actual dimensions 1999 × 1414). The page identifies the photographer, a capture date of July 13, 2020, and public-domain status. The page’s gallery ordinal is inconsistent; photo ID **6272440** and VIRIN **200710-M-CX982-0165** identify the approved photograph.
 
@@ -52,6 +56,8 @@ Government photography is subject to the [DVIDS use limitations and non-endorsem
 | `push_up.imageset/push_up.jpg` | `2e7eefee97d582882ab67d3d2ddcdaf8cf6a28dd235f76eb124c1345160b8b12` |
 | `shoulder_press.imageset/shoulder_press.jpg` | `23a7294635e58c4b5dbff282b5e5d8c94886c49b4068172b47a7ed96ce236582` |
 | `triceps_extension.imageset/triceps_extension.jpg` | `dcfc01c87bde5f19cb9a228e6eb920461a628e0e0c3711ea6b9316c83b820d90` |
+| `stiff_leg_deadlift.imageset/stiff_leg_deadlift.jpg` | `349fe4a2d0830332c98215c2f4a79eae6df83b0f379de978b18dd6701fcc51e3` |
+| `rear_lunge.imageset/rear_lunge.jpg` | `fcc75bdbf195f7cc972358e7598bc8ebdbd538bca6387c6dad0594f7331d9569` |
 
 ## Maintenance
 

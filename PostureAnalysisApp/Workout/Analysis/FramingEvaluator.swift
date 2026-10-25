@@ -10,6 +10,8 @@ enum FramingGuidance: String, Equatable {
     case moveRight
     case stepIntoViewSideOn
     case stepBackSideOn
+    case stepIntoViewSideFullBody
+    case stepBackSideFullBody
     case stepBackFullBody
     case stepIntoViewFloor
     case stepBackFloor
@@ -20,6 +22,8 @@ enum FramingGuidance: String, Equatable {
         case .stepBack: return "Step back until both arms and shoulders are in view."
         case .stepIntoViewSideOn: return "Step into view, standing side-on to the phone."
         case .stepBackSideOn: return "Step back until your arm and head are in view."
+        case .stepIntoViewSideFullBody: return "Stand side-on to the phone with your whole body in view."
+        case .stepBackSideFullBody: return "Step back until your whole body is in view, still side-on."
         case .stepBackFullBody: return "Step back until your whole body is in view, head to feet."
         case .stepIntoViewFloor: return "Get into a plank facing the phone."
         case .stepBackFloor: return "Move the phone back until your arms and shoulders are in view."
@@ -35,6 +39,8 @@ enum FramingGuidance: String, Equatable {
         case .stepBack: return "Step back: show both arms"
         case .stepIntoViewSideOn: return "Step into view, side-on"
         case .stepBackSideOn: return "Step back: show your arm"
+        case .stepIntoViewSideFullBody: return "Stand side-on, show your whole body"
+        case .stepBackSideFullBody: return "Step back: show whole body, side-on"
         case .stepBackFullBody: return "Step back: show your whole body"
         case .stepIntoViewFloor: return "Get into a plank facing the phone"
         case .stepBackFloor: return "Move the phone back: show your arms"
@@ -81,6 +87,11 @@ struct FramingEvaluator {
     private var lastPresent: TimeInterval?
     private(set) var isReliable = false
 
+    private var needsFullBodySideView: Bool {
+        requiredJoints.contains(.leftAnkle) || requiredJoints.contains(.rightAnkle)
+            || anyOfRequiredJoints.contains { $0.contains(.leftAnkle) || $0.contains(.rightAnkle) }
+    }
+
     init(requiredJoints: Set<LandmarkType>, anyOfRequiredJoints: [Set<LandmarkType>] = [], headroomArmLengths: CGFloat?,
          cameraView: ExerciseCameraView = .front, configuration: FramingConfiguration = FramingConfiguration()) {
         self.requiredJoints = requiredJoints
@@ -120,10 +131,11 @@ struct FramingEvaluator {
         let sideOn = cameraView == .side
         let floor = cameraView == .floor
         guard visible.count >= configuration.minimumBodyJoints else {
-            return sideOn ? .stepIntoViewSideOn : (floor ? .stepIntoViewFloor : .stepIntoView)
+            if sideOn { return needsFullBodySideView ? .stepIntoViewSideFullBody : .stepIntoViewSideOn }
+            return floor ? .stepIntoViewFloor : .stepIntoView
         }
         guard requiredPresent else {
-            if sideOn { return .stepBackSideOn }
+            if sideOn { return needsFullBodySideView ? .stepBackSideFullBody : .stepBackSideOn }
             if floor { return .stepBackFloor }
             return requiredJoints.contains(.leftAnkle) || requiredJoints.contains(.rightAnkle) ? .stepBackFullBody : .stepBack
         }

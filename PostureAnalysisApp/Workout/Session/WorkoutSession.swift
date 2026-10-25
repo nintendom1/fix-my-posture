@@ -248,13 +248,13 @@ struct WorkoutSession {
         return "Exercise \(planIndex + 1) of \(plan.items.count)"
     }
 
-    /// Reps both arms have completed in the current set.
+    /// Reps both sides have completed in the current set.
     var repCount: Int { min(sideReps[.left] ?? 0, sideReps[.right] ?? 0) }
 
-    /// Finished set entries in the current round (one per arm for one-arm-at-a-time exercises).
+    /// Finished set entries in the current round (one per side for per-side exercises).
     func completedSets(for id: ExerciseID) -> Int { progress[id]?.roundSetReps.count ?? 0 }
 
-    /// Whole sets finished in the current round; a one-arm set counts once both arms are done.
+    /// Whole sets finished in the current round; a per-side set counts once both sides are done.
     func setsDone(for exercise: ExerciseDefinition) -> Int {
         let entries = completedSets(for: exercise.id)
         return exercise.perSide ? entries / 2 : entries
@@ -266,7 +266,7 @@ struct WorkoutSession {
         return min(setsDone(for: exercise) + 1, exercise.sets)
     }
 
-    /// The arm in progress or up next, for exercises done one arm at a time.
+    /// The side in progress or up next, for exercises done one side at a time.
     var currentSide: BodySide? {
         guard let exercise, exercise.perSide else { return nil }
         return completedSets(for: exercise.id) % 2 == 0 ? .left : .right
@@ -492,7 +492,8 @@ struct WorkoutSession {
         sideReps = [.left: 0, .right: 0]
         let finished = completedSets(for: exercise.id)
         var effects = setCounting(false) + newAnalyzer() + clearFeedback()
-        let done = exercise.perSide ? (finished % 2 == 1 ? "Left arm done" : "Right arm done") : "Set \(finished) done"
+        let completedSide: BodySide = finished % 2 == 1 ? .left : .right
+        let done = exercise.perSide ? "\(exercise.sideLabel(completedSide)) done" : "Set \(finished) done"
         if finished >= exercise.setEntries, let item = currentPlanItem, let plan {
             planRecords[item.id] = PlanItemRecord(outcome: .completed, setReps: progress[exercise.id]?.roundSetReps ?? [],
                                                   setWeights: progress[exercise.id]?.roundSetWeights ?? [])
@@ -511,7 +512,7 @@ struct WorkoutSession {
             restDurationSeconds = nil
             effects.append(.speak(Utterance(text: "\(done), \(repPhrase(reps)). \(exercise.displayName) complete. \(completePrompt)")))
         } else if exercise.perSide, finished % 2 == 1 {
-            // Halfway through a one-arm set: switch arms without resting.
+            // Halfway through a per-side set: switch sides without resting.
             restEndsAt = nil
             restDurationSeconds = nil
             if framing.isReliable, framing.guidance == nil {
@@ -520,7 +521,10 @@ struct WorkoutSession {
             } else {
                 phase = .framing
             }
-            effects.append(.speak(Utterance(text: "\(done), \(repPhrase(reps)). Switch to your right arm. \(beginPrompt).")))
+            let switchPrompt = exercise.sideLimb == .leg
+                ? "Switch: step back with your right leg."
+                : "Switch to your right arm."
+            effects.append(.speak(Utterance(text: "\(done), \(repPhrase(reps)). \(switchPrompt) \(beginPrompt).")))
         } else if exercise.perSide {
             let set = finished / 2
             phase = .resting
@@ -909,7 +913,7 @@ struct WorkoutSession {
     private var setReply: String {
         guard let exercise else { return "No exercise selected yet." }
         let finished = setsDone(for: exercise)
-        let arm = currentSide.map { $0 == .left ? " Left arm." : " Right arm." } ?? ""
+        let side = currentSide.map { " \(exercise.sideLabel($0))." } ?? ""
         let position = planPositionLabel.map { "\($0). " } ?? ""
         switch phase {
         case .resting where isRestingBeforeNextExercise:
@@ -919,7 +923,7 @@ struct WorkoutSession {
         case .exerciseComplete:
             return "All \(exercise.sets) sets of \(exercise.spokenName) are done."
         default:
-            return "\(position)Set \(currentSetNumber) of \(exercise.sets).\(arm)"
+            return "\(position)Set \(currentSetNumber) of \(exercise.sets).\(side)"
         }
     }
 

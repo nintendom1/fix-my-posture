@@ -115,7 +115,8 @@ struct WorkoutFramePipeline {
         }
 
         let available = GhostCalibration.canFit(overlay: overlay, metrics: guideMetrics,
-                                                motion: exercise.guide.motion, cameraView: exercise.cameraView)
+                                                motion: exercise.guide.motion, cameraView: exercise.cameraView,
+                                                sample: exercise.guide.motion.startSample)
         let calibrated = ghostCalibrationGate.update(available: available, at: frame.timestamp)
         if calibrated && available {
             ghostFitOverlay = overlay
@@ -234,7 +235,9 @@ struct WorkoutFramePipeline {
 
     private mutating func updateGuideMetrics(_ frame: PoseFrame, for exercise: ExerciseDefinition) {
         let confidence = FramingConfiguration().minimumConfidence
-        guard let reference = metricsReference(frame, confidence: confidence, cameraView: exercise.cameraView) else { return }
+        guard let reference = metricsReference(frame, confidence: confidence,
+                                              cameraView: exercise.cameraView,
+                                              motion: exercise.guide.motion) else { return }
         let arms = BodySide.allCases.compactMap { ArmGeometry.arm($0, in: frame, minimumConfidence: confidence) }
         func measured(_ lengths: [CGFloat], typical: CGFloat) -> CGFloat {
             let plausible = lengths.filter { reference.plausible.contains($0 / reference.length) }
@@ -252,10 +255,33 @@ struct WorkoutFramePipeline {
                                     forearm: previous.forearm + (sample.forearm - previous.forearm) * k)
     }
 
-    /// Shoulder width is the frontal reference. Side views prefer torso length and fall back to a visible upper arm.
-    private func metricsReference(_ frame: PoseFrame, confidence: Double, cameraView: ExerciseCameraView)
+    /// Shoulder width is the frontal reference. Side-body motions use Ready's leg joints; other side views keep
+    /// preferring torso length and fall back to a visible upper arm.
+    func metricsReference(_ frame: PoseFrame, confidence: Double, cameraView: ExerciseCameraView,
+                          motion: ArmMotion)
         -> (length: CGFloat, upperArm: CGFloat, forearm: CGFloat, plausible: ClosedRange<CGFloat>)? {
         if cameraView == .side {
+            if motion.movesSideBody {
+                let figureHip = ExerciseDemoFigureView.sideFigureJoints[.leftHip] ?? .zero
+                let figureKnee = ExerciseDemoFigureView.sideFigureJoints[.leftKnee] ?? .zero
+                let figureAnkle = ExerciseDemoFigureView.sideFigureJoints[.leftAnkle] ?? .zero
+                let figureLeg = ArmGeometry.distance(figureHip, figureKnee)
+                    + ArmGeometry.distance(figureKnee, figureAnkle)
+                guard figureLeg > 1 else { return nil }
+                for side in BodySide.allCases {
+                    guard let shoulder = frame.point(side.shoulder, minimumConfidence: confidence),
+                          let hip = frame.point(side.hip, minimumConfidence: confidence),
+                          let knee = frame.point(side.knee, minimumConfidence: confidence),
+                          let ankle = frame.point(side.ankle, minimumConfidence: confidence) else { continue }
+                    let legLength = ArmGeometry.distance(hip, knee) + ArmGeometry.distance(knee, ankle)
+                    guard legLength > 1, ArmGeometry.distance(shoulder, hip) > 1 else { continue }
+                    return (legLength,
+                            ExerciseDemoFigureView.upperArm / figureLeg,
+                            ExerciseDemoFigureView.forearm / figureLeg,
+                            0.2...0.65)
+                }
+                return nil
+            }
             for side in BodySide.allCases {
                 guard let shoulder = frame.point(side.shoulder, minimumConfidence: confidence),
                       let hip = frame.point(side.hip, minimumConfidence: confidence) else { continue }
