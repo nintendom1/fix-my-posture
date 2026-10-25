@@ -42,6 +42,14 @@ struct RoutineDetailPresentation: Equatable, Identifiable {
         self.canStart = canStart
         self.isBuiltIn = isBuiltIn
     }
+
+    /// The header's Edit button edits in place, so starter routines don't show it.
+    var showsEditButton: Bool { !isBuiltIn }
+
+    /// The action buttons under the steps, in display order.
+    var actionButtons: [RoutineAction] {
+        isBuiltIn ? [.duplicateToEdit] : [.duplicate, .delete]
+    }
 }
 
 struct RoutineDetailState: Equatable {

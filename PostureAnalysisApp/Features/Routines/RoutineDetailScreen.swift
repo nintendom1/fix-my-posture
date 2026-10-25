@@ -73,7 +73,7 @@ struct RoutineDetailScreen: View {
 
             Spacer()
 
-            if state.routine?.isBuiltIn != true {
+            if state.routine?.showsEditButton == true {
                 Button { send(.edit) } label: {
                     Text("Edit")
                         .font(.system(size: 17, weight: .heavy, design: .rounded))
@@ -129,30 +129,25 @@ struct RoutineDetailScreen: View {
 
     private var actions: some View {
         HStack(spacing: 10) {
-            if state.routine?.isBuiltIn == true {
-                RoutineActionButton(
-                    title: "Duplicate to Edit",
-                    icon: "content_copy",
-                    tint: ColorTokens.palette().tabActive,
-                    action: { send(.edit) }
-                )
-                .designAnchor("routine.actions.duplicate")
-            } else {
-                RoutineActionButton(
-                    title: "Duplicate",
-                    icon: "content_copy",
-                    tint: ColorTokens.palette().tabActive,
-                    action: { send(.duplicate) }
-                )
-                .designAnchor("routine.actions.duplicate")
-
-                RoutineActionButton(
-                    title: "Delete",
-                    icon: "delete",
-                    tint: ColorTokens.palette().danger,
-                    action: { send(.requestDelete) }
-                )
-                .designAnchor("routine.actions.delete")
+            ForEach(state.routine?.actionButtons ?? [], id: \.self) { action in
+                switch action {
+                case .duplicate, .duplicateToEdit, .edit:
+                    RoutineActionButton(
+                        title: action.title,
+                        icon: "content_copy",
+                        tint: ColorTokens.palette().tabActive,
+                        action: { send(action == .duplicate ? .duplicate : .edit) }
+                    )
+                    .designAnchor("routine.actions.duplicate")
+                case .delete:
+                    RoutineActionButton(
+                        title: action.title,
+                        icon: "delete",
+                        tint: ColorTokens.palette().danger,
+                        action: { send(.requestDelete) }
+                    )
+                    .designAnchor("routine.actions.delete")
+                }
             }
         }
         .frame(height: 68)

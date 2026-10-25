@@ -60,12 +60,22 @@ final class RoutineRotationTests: XCTestCase {
         )
     }
 
-    func testCatalogStarterIsTheFallbackWhenThereAreNoOtherCandidates() throws {
+    func testFreshInstallPicksTheStarterRoutine() throws {
         let starter = try XCTUnwrap(BuiltInRoutines.all.first)
         let starterRecord = try builtInRecord(at: 0)
 
         XCTAssertEqual(RoutineRotation.upNext(routines: [starterRecord], records: [], override: nil)?.id, starter.id)
         XCTAssertNil(RoutineRotation.upNext(routines: [], records: [], override: nil))
+    }
+
+    func testOverrideSelectsANeverRunStarterEvenWhenTheUserOwnsARoutine() throws {
+        let user = record(name: "My routine", createdAt: date(10))
+        let starter = try builtInRecord(at: 0)
+
+        XCTAssertEqual(
+            RoutineRotation.upNext(routines: [user, starter], records: [], override: starter.set.id)?.id,
+            starter.set.id
+        )
     }
 
     func testLeastRecentlyDoneRoutineComesNextWhenAllHaveBeenDone() throws {
