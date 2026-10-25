@@ -17,6 +17,7 @@ struct LiveExerciseCatalog: ExerciseCatalogProviding {
 enum ExerciseCatalog {
     static let all: [ExerciseDefinition] = [
         ShoulderPressExercise.definition(),
+        LateralRaiseExercise.definition(),
         HammerCurlExercise.definition(),
         TricepsExtensionExercise.definition(),
         AirSquatExercise.definition(),

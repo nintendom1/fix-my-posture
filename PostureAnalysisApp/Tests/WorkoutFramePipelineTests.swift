@@ -250,6 +250,100 @@ final class WorkoutFramePipelineTests: XCTestCase {
         XCTAssertTrue(pipeline.isCounting)
     }
 
+    func testLateralSideRoomFeedsFramingReliabilityFromPipeline() {
+        let exercise = LateralRaiseExercise.definition()
+        let closePose: [LandmarkType: CGPoint] = [
+            .leftShoulder: CGPoint(x: 680, y: 600), .leftElbow: CGPoint(x: 680, y: 825),
+            .leftWrist: CGPoint(x: 680, y: 1050), .rightShoulder: CGPoint(x: 400, y: 600),
+            .rightElbow: CGPoint(x: 400, y: 825), .rightWrist: CGPoint(x: 400, y: 1050)
+        ]
+        var closePipeline = WorkoutFramePipeline(exercise: exercise)
+        var closeStatuses: [FramingStatus] = []
+        for index in 0...8 {
+            let time = Double(index) / 10
+            let output = closePipeline.process(frame: measurementFrame(closePose, at: time), at: time)
+            closeStatuses += output.events.compactMap { event in
+                guard case .framingChanged(let status) = event else { return nil }
+                return status
+            }
+        }
+        XCTAssertTrue(closeStatuses.contains {
+            !$0.isReliable && $0.guidance == .stepBackSideRoom
+        })
+        XCTAssertFalse(closeStatuses.contains(where: \.isReliable))
+
+        let fartherPose: [LandmarkType: CGPoint] = [
+            .leftShoulder: CGPoint(x: 630, y: 600), .leftElbow: CGPoint(x: 630, y: 750),
+            .leftWrist: CGPoint(x: 630, y: 900), .rightShoulder: CGPoint(x: 450, y: 600),
+            .rightElbow: CGPoint(x: 450, y: 750), .rightWrist: CGPoint(x: 450, y: 900)
+        ]
+        var fartherPipeline = WorkoutFramePipeline(exercise: exercise)
+        var fartherStatuses: [FramingStatus] = []
+        for index in 0...6 {
+            let time = Double(index) / 10
+            let output = fartherPipeline.process(frame: measurementFrame(fartherPose, at: time), at: time)
+            fartherStatuses += output.events.compactMap { event in
+                guard case .framingChanged(let status) = event else { return nil }
+                return status
+            }
+        }
+        XCTAssertTrue(fartherStatuses.contains { $0.isReliable && $0.guidance == nil })
+    }
+
+    func testLateralRaiseCalibratedGhostAndDumbbellsFitAtAcceptedSideRoomDistance() throws {
+        let exercise = LateralRaiseExercise.definition()
+        let imageSize = CGSize(width: 1080, height: 1920)
+        let containerSize = imageSize
+        let points: [LandmarkType: CGPoint] = [
+            .leftShoulder: CGPoint(x: 630, y: 600), .leftElbow: CGPoint(x: 630, y: 750),
+            .leftWrist: CGPoint(x: 630, y: 900), .rightShoulder: CGPoint(x: 450, y: 600),
+            .rightElbow: CGPoint(x: 450, y: 750), .rightWrist: CGPoint(x: 450, y: 900)
+        ]
+        let frame = measurementFrame(points, at: 0)
+        let overlay = WorkoutOverlayState(
+            imageSize: imageSize,
+            joints: frame.pose.landmarks.mapValues { OverlayJoint(location: $0.normalizedLocation, isStale: false) },
+            segments: [],
+            endPositionSides: [],
+            pose: frame.pose
+        )
+        let metrics = GuideMetrics(upperArm: 150, forearm: 150)
+        let imageBounds = CGRect(origin: .zero, size: imageSize)
+        let shoulderEdgeRoom: CGFloat = 450
+        let requiredEdgeRoom = try XCTUnwrap(exercise.sideroomArmLengths) * 300 + 0.02 * imageSize.width
+        XCTAssertGreaterThan(shoulderEdgeRoom, requiredEdgeRoom)
+
+        for (index, keyframe) in exercise.guide.motion.keyframes.enumerated() {
+            let figure = try XCTUnwrap(WorkoutGhostGeometry.calibrated(
+                fitOverlay: overlay,
+                metrics: metrics,
+                motion: exercise.guide.motion,
+                cameraView: exercise.cameraView,
+                containerSize: containerSize,
+                sample: exercise.guide.motion.sample(of: keyframe)
+            ), "Keyframe \(index) did not calibrate")
+            XCTAssertTrue(figure.isCalibrated)
+            XCTAssertEqual(figure.dumbbells.count, 2, "Keyframe \(index) must include both dumbbells")
+            for (joint, point) in figure.joints {
+                XCTAssertTrue(imageBounds.contains(point), "Keyframe \(index) \(joint) fell outside the image: \(point)")
+            }
+            if let nose = figure.joints[.nose] {
+                let headRadius = figure.bodyScale * ExerciseDemoFigureView.canvasSize.width * 0.05
+                let headBounds = CGRect(x: nose.x - headRadius,
+                                        y: nose.y - headRadius * 1.2,
+                                        width: headRadius * 2,
+                                        height: headRadius * 2.4)
+                XCTAssertTrue(imageBounds.contains(headBounds), "Keyframe \(index) head fell outside the image")
+            }
+            for (dumbbellIndex, dumbbell) in figure.dumbbells.enumerated() {
+                let bounds = DumbbellDrawing.bounds(elbow: dumbbell.elbow, wrist: dumbbell.wrist,
+                                                    forearmLength: figure.forearmLength)
+                XCTAssertTrue(imageBounds.contains(bounds),
+                              "Keyframe \(index) dumbbell \(dumbbellIndex) fell outside the image: \(bounds)")
+            }
+        }
+    }
+
     func testOffscreenWristsKeepSetFramingReliableAndDoNotEnterOverlay() {
         let exercise = ShoulderPressExercise.definition()
         var pipeline = WorkoutFramePipeline(exercise: exercise, analyzerEpoch: 1, isCounting: true)

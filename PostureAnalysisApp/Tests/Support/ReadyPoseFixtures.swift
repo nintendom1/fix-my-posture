@@ -85,10 +85,12 @@ enum ReadyPoseFixtures {
             preconditionFailure("Ready pose for \(exercise.id) has no joints to center.")
         }
         let centerX = pointsToCenter.reduce(0) { $0 + $1.x } / CGFloat(pointsToCenter.count)
-        let xOffset = CGFloat(540) - centerX * 3
-        let yOffset = (imageSize.height - ExerciseDemoFigureView.canvasSize.height * 3) / 2
+        // Exercises that need room beside the arms (side-room framing) stand a little farther back.
+        let scale: CGFloat = exercise.sideroomArmLengths == nil ? 3 : 2.5
+        let xOffset = CGFloat(540) - centerX * scale
+        let yOffset = (imageSize.height - ExerciseDemoFigureView.canvasSize.height * scale) / 2
         let landmarks = Dictionary(uniqueKeysWithValues: positions.map { type, point in
-            let pixel = CGPoint(x: point.x * 3 + xOffset, y: point.y * 3 + yOffset)
+            let pixel = CGPoint(x: point.x * scale + xOffset, y: point.y * scale + yOffset)
             return (type, Landmark(type: type,
                                    normalizedLocation: CoordinateConverter.imagePixelToNormalized(
                                     pixel: pixel, imageWidth: imageSize.width, imageHeight: imageSize.height),

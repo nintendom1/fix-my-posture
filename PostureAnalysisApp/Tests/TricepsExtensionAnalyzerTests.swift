@@ -105,6 +105,54 @@ final class TricepsExtensionAnalyzerTests: XCTestCase {
         XCTAssertEqual(empty.evaluate(frame(noArm, at: 0)).guidance, .stepBackSideOn)
     }
 
+    func testSideRoomFramingRejectsCloseLateralRaiseButLeavesOtherExercisesUnchanged() {
+        let lateral = LateralRaiseExercise.definition()
+        XCTAssertEqual(lateral.sideroomArmLengths, 1.1)
+        var lateralFraming = FramingEvaluator(requiredJoints: lateral.requiredJoints,
+                                               headroomArmLengths: lateral.headroomArmLengths,
+                                               sideroomArmLengths: lateral.sideroomArmLengths)
+        let closePose: [LandmarkType: CGPoint] = [
+            .leftShoulder: CGPoint(x: 680, y: 600), .leftElbow: CGPoint(x: 680, y: 825),
+            .leftWrist: CGPoint(x: 680, y: 1050), .rightShoulder: CGPoint(x: 400, y: 600),
+            .rightElbow: CGPoint(x: 400, y: 825), .rightWrist: CGPoint(x: 400, y: 1050)
+        ]
+        var closeStatus = FramingStatus.lost
+        for index in 0...8 {
+            closeStatus = lateralFraming.evaluate(frame(closePose, at: Double(index) / 10))
+            XCTAssertFalse(closeStatus.isReliable, "The close raised span must not become reliable.")
+            XCTAssertEqual(closeStatus.guidance, .stepBackSideRoom)
+        }
+        XCTAssertEqual(FramingGuidance.stepBackSideRoom.spokenText,
+                       "Step back so your arms have room out to the sides.")
+        XCTAssertEqual(FramingGuidance.stepBackSideRoom.shortText, "Step back: room for your arms")
+
+        let fartherPose: [LandmarkType: CGPoint] = [
+            .leftShoulder: CGPoint(x: 630, y: 600), .leftElbow: CGPoint(x: 630, y: 750),
+            .leftWrist: CGPoint(x: 630, y: 900), .rightShoulder: CGPoint(x: 450, y: 600),
+            .rightElbow: CGPoint(x: 450, y: 750), .rightWrist: CGPoint(x: 450, y: 900)
+        ]
+        var fartherFraming = FramingEvaluator(requiredJoints: lateral.requiredJoints,
+                                              headroomArmLengths: lateral.headroomArmLengths,
+                                              sideroomArmLengths: lateral.sideroomArmLengths)
+        var fartherStatus = FramingStatus.lost
+        for index in 0...6 {
+            fartherStatus = fartherFraming.evaluate(frame(fartherPose, at: Double(index) / 10))
+        }
+        XCTAssertTrue(fartherStatus.isReliable)
+        XCTAssertNil(fartherStatus.guidance)
+
+        let press = ShoulderPressExercise.definition()
+        XCTAssertNil(press.sideroomArmLengths)
+        var pressFraming = FramingEvaluator(requiredJoints: press.requiredJoints,
+                                            headroomArmLengths: press.headroomArmLengths)
+        var pressStatus = FramingStatus.lost
+        for index in 0...6 {
+            pressStatus = pressFraming.evaluate(frame(closePose, at: Double(index) / 10))
+        }
+        XCTAssertTrue(pressStatus.isReliable)
+        XCTAssertNil(pressStatus.guidance)
+    }
+
     // MARK: - Helpers
 
     private func variant(top: ArmAngles) -> ArmMotion {

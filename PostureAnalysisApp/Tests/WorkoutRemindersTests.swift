@@ -169,7 +169,7 @@ final class WorkoutRemindersTests: XCTestCase {
         guard case .exercise(let exercise)? = result else {
             return XCTFail("Expected an exercise recommendation")
         }
-        XCTAssertEqual(exercise.id, catalog.all[2].id)
+        XCTAssertEqual(exercise.id, .lateralRaise)
     }
 
     func testLeastRecentlyPerformedExerciseIsSelectedWhenAllHaveHistory() {

@@ -85,6 +85,33 @@ enum BuiltInRoutines {
                     targetRepMaximum: 5
                 )
             ]
+        ),
+        SavedExerciseSet(
+            id: UUID(uuid: (0x5E, 0x7A, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x79)),
+            name: "Shoulders & Arms",
+            items: [
+                SavedExerciseSetItem(
+                    id: UUID(uuid: (0x5E, 0x7A, 0x00, 0x79, 0x00, 0x00, 0x40, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01)),
+                    exerciseID: .shoulderPress,
+                    setCount: 1,
+                    targetRepMinimum: 8,
+                    targetRepMaximum: 8
+                ),
+                SavedExerciseSetItem(
+                    id: UUID(uuid: (0x5E, 0x7A, 0x00, 0x79, 0x00, 0x00, 0x40, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02)),
+                    exerciseID: .lateralRaise,
+                    setCount: 1,
+                    targetRepMinimum: 8,
+                    targetRepMaximum: 8
+                ),
+                SavedExerciseSetItem(
+                    id: UUID(uuid: (0x5E, 0x7A, 0x00, 0x79, 0x00, 0x00, 0x40, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03)),
+                    exerciseID: .hammerCurl,
+                    setCount: 1,
+                    targetRepMinimum: 10,
+                    targetRepMaximum: 10
+                )
+            ]
         )
     ]
 
