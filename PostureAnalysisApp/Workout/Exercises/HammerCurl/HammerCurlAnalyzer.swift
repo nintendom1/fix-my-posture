@@ -89,6 +89,9 @@ final class HammerCurlAnalyzer: ExerciseAnalyzing {
             }
             formSamples[side] = .init(ratio: ratio, zone: zone, confirmed: state.tracker.confirmed,
                                       flare: elbowFlare(arm, side: side, frame: frame))
+            if !frame.estimatedJoints.isDisjoint(with: Set(side.armJoints)) {
+                formMonitor.invalidate(side)
+            }
         }
 
         analysis.endPositionSides = Set(BodySide.allCases.filter { arms[$0]?.tracker.confirmed == .top })

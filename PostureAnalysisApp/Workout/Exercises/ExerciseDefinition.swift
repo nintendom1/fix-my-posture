@@ -85,6 +85,9 @@ struct ExerciseDefinition: Identifiable {
     var warnsAboutTilt = true
     /// Decides what kind of weight can be recorded for a set.
     var equipment: ExerciseEquipment = .dumbbells
+    /// Joints resting on the floor during a rep, such as push-up hands. One that drops out at the frame edge
+    /// is held where it was last seen instead of carried with its limb.
+    var plantedJoints: Set<LandmarkType> = []
 
     /// Recorded entries that make up the full exercise.
     var setEntries: Int { perSide ? sets * 2 : sets }

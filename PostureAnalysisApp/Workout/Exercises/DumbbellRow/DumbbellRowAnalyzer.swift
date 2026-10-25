@@ -67,6 +67,9 @@ final class DumbbellRowAnalyzer: ExerciseAnalyzing {
         let back = frame.point(side.hip, minimumConfidence: configuration.minimumJointConfidence).map { hip in
             Double(atan2(arm.shoulder.y - hip.y, abs(arm.shoulder.x - hip.x))) * 180 / .pi
         }
+        if !frame.estimatedJoints.isDisjoint(with: Set(side.armJoints)) {
+            formMonitor.invalidate()
+        }
         let form = formMonitor.update(at: time, sample: .init(ratio: ratio, zone: zone, confirmed: tracker.confirmed, backAngle: back),
                                       counting: counting)
         analysis.repForms = form.repForms

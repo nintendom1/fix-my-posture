@@ -380,6 +380,8 @@
 		A10000012B00000000000390 /* WorkoutGhostGeometryTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000390 /* WorkoutGhostGeometryTests.swift */; };
 		A10000012B00000000000391 /* GhostCalibration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000391 /* GhostCalibration.swift */; };
 		A10000012B00000000000392 /* GhostCalibrationTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000392 /* GhostCalibrationTests.swift */; };
+		A10000012B00000000000393 /* OffscreenJointEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000393 /* OffscreenJointEstimator.swift */; };
+		A10000012B00000000000394 /* OffscreenJointEstimatorTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000394 /* OffscreenJointEstimatorTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -768,6 +770,8 @@
 		B10000012B00000000000390 /* WorkoutGhostGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutGhostGeometryTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000391 /* GhostCalibration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhostCalibration.swift; sourceTree = "<group>"; };
 		B10000012B00000000000392 /* GhostCalibrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhostCalibrationTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000393 /* OffscreenJointEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OffscreenJointEstimator.swift; sourceTree = "<group>"; };
+		B10000012B00000000000394 /* OffscreenJointEstimatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OffscreenJointEstimatorTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1015,6 +1019,7 @@
 				B10000012B00000000000387 /* ReadyGhostInvariantTests.swift */,
 				B10000012B00000000000390 /* WorkoutGhostGeometryTests.swift */,
 				B10000012B00000000000392 /* GhostCalibrationTests.swift */,
+				B10000012B00000000000394 /* OffscreenJointEstimatorTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1080,6 +1085,7 @@
 				B10000012B00000000000063 /* FramingEvaluator.swift */,
 				B10000012B00000000000064 /* LandmarkSmoother.swift */,
 				B10000012B00000000000116 /* NearArmSelector.swift */,
+				B10000012B00000000000393 /* OffscreenJointEstimator.swift */,
 			);
 			path = Analysis;
 			sourceTree = "<group>";
@@ -1991,6 +1997,7 @@
 				A10000012B00000000000385 /* PersonaIntroCard.swift in Sources */,
 				A10000012B00000000000386 /* WorkoutGhostGeometry.swift in Sources */,
 				A10000012B00000000000391 /* GhostCalibration.swift in Sources */,
+				A10000012B00000000000393 /* OffscreenJointEstimator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2111,6 +2118,7 @@
 				A10000012B00000000000389 /* WorkoutCoachHarness.swift in TestSources */,
 				A10000012B00000000000390 /* WorkoutGhostGeometryTests.swift in TestSources */,
 				A10000012B00000000000392 /* GhostCalibrationTests.swift in TestSources */,
+				A10000012B00000000000394 /* OffscreenJointEstimatorTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

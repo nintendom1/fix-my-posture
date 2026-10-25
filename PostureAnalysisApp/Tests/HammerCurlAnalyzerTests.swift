@@ -67,6 +67,26 @@ final class HammerCurlAnalyzerTests: XCTestCase {
         XCTAssertFalse(run(motion, hips: false, sway: { $0 >= 4.5 ? 30 : 0 }).signals.contains { $0.contains(.curlBodyStill) })
     }
 
+    @MainActor
+    func testEstimatedWristInvalidatesFormAttemptWithoutLosingRep() {
+        let midway = ArmAngles(upperArmElevation: -82, forearmElevation: -20)
+        let recurl = ArmMotion(keyframes: [
+            ArmKeyframe(angles: motion.startAngles, moveDuration: 0, holdDuration: 1.0, stepIndex: 0),
+            ArmKeyframe(angles: motion.topAngles, moveDuration: 1.0, holdDuration: 0.4, stepIndex: 1),
+            ArmKeyframe(angles: midway, moveDuration: 0.8, holdDuration: 0.2, stepIndex: 2),
+            ArmKeyframe(angles: motion.topAngles, moveDuration: 0.8, holdDuration: 0.4, stepIndex: 1),
+            ArmKeyframe(angles: motion.startAngles, moveDuration: 1.5, holdDuration: 0, stepIndex: 2)
+        ], forearmPlane: .sagittal)
+
+        let observed = run(recurl, loops: 1)
+        XCTAssertEqual(observed.reps[.left], 1)
+        XCTAssertTrue(observed.forms.contains { $0.flags.contains(.curlStraightenAtBottom) })
+
+        let estimated = run(recurl, loops: 1, estimatedDuring: 1.5...4.5)
+        XCTAssertEqual(estimated.reps[.left], 1)
+        XCTAssertFalse(estimated.forms.contains { $0.flags.contains(.curlStraightenAtBottom) })
+    }
+
     private struct Run {
         var reps: [BodySide: Int] = [:]
         var forms: [RepForm] = []
@@ -78,10 +98,11 @@ final class HammerCurlAnalyzerTests: XCTestCase {
     @MainActor
     private func run(_ motion: ArmMotion, rightDelay: TimeInterval = 0, scale: CGFloat = 1, upperArm: CGFloat = 1,
                      forearm: CGFloat = 1, hips: Bool = true, elbowFlare: (TimeInterval) -> CGFloat = { _ in 0 },
-                     sway: (TimeInterval) -> CGFloat = { _ in 0 }) -> Run {
+                     sway: (TimeInterval) -> CGFloat = { _ in 0 }, loops: Int = 3,
+                     estimatedDuring: ClosedRange<TimeInterval>? = nil) -> Run {
         let analyzer = HammerCurlAnalyzer(epoch: 1)
         var result = Run()
-        let samples = Int((motion.duration * 3 + rightDelay) * 10)
+        let samples = Int((motion.duration * Double(loops) + rightDelay) * 10)
         for index in 0..<samples {
             let time = Double(index) / 10
             var joints = ExerciseDemoFigureView.figureJoints
@@ -107,7 +128,9 @@ final class HammerCurlAnalyzerTests: XCTestCase {
                 (type, Landmark(type: type, normalizedLocation: .zero,
                                 imageLocation: CGPoint(x: point.x * scale + 200, y: point.y * scale + 300), confidence: 0.9))
             })
-            let frame = PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 1080, imageHeight: 1920), timestamp: time)
+            let estimated: Set<LandmarkType> = estimatedDuring?.contains(time) == true ? [.leftWrist, .rightWrist] : []
+            let frame = PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 1080, imageHeight: 1920),
+                                  timestamp: time, estimatedJoints: estimated)
             let analysis = analyzer.process(frame, counting: true)
             for rep in analysis.repEvents {
                 for side in rep.sides { result.reps[side, default: 0] += 1 }

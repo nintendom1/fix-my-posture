@@ -83,6 +83,11 @@ final class AirSquatAnalyzer: ExerciseAnalyzing {
         analysis.endPositionSides = tracker.confirmed == .top ? Set(BodySide.allCases) : []
         analysis.startPositionHeld = tracker.confirmed == .bottom
 
+        let formJoints: Set<LandmarkType> = [.leftHip, .rightHip, .leftKnee, .rightKnee,
+                                             .leftAnkle, .rightAnkle, .leftShoulder, .rightShoulder]
+        if !frame.estimatedJoints.isDisjoint(with: formJoints) {
+            formMonitor.invalidate()
+        }
         let form = formMonitor.update(at: time, sample: .init(ratio: ratio, zone: zone, confirmed: tracker.confirmed,
                                                               kneesIn: kneesIn(legs), torso: torso(frame, legs: legs, ruler: reference.ruler)),
                                       counting: counting)

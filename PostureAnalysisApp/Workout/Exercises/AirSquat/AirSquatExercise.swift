@@ -101,6 +101,7 @@ enum AirSquatExercise {
             motionEnvelope: MotionEnvelope(above: 0.4, below: 2.4, outward: 0.3),
             startsByHolding: false,
             equipment: .bodyweight,
+            plantedJoints: [.leftAnkle, .rightAnkle],
             makeAnalyzer: { epoch in AirSquatAnalyzer(epoch: epoch, configuration: configuration) }
         )
     }

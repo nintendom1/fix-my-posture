@@ -38,6 +38,17 @@ final class AirSquatAnalyzerTests: XCTestCase {
         XCTAssertFalse(run(motion, shoulders: false, lean: { $0 >= 4.5 ? 0.4 : 0 }).signals.contains { $0.contains(.squatChestUp) })
     }
 
+    func testEstimatedAnkleInvalidatesFormAttemptWithoutLosingRep() {
+        let repeatedDepth = variant([0.9, 0.4, 0.9])
+        let observed = run(repeatedDepth, loops: 1)
+        XCTAssertEqual(observed.reps, 1)
+        XCTAssertTrue(observed.forms.contains { $0.flags.contains(.squatStandUp) })
+
+        let estimated = run(repeatedDepth, loops: 1, estimatedDuring: 1.5...4.5)
+        XCTAssertEqual(estimated.reps, 1)
+        XCTAssertFalse(estimated.forms.contains { $0.flags.contains(.squatStandUp) })
+    }
+
     // MARK: - Helpers
 
     /// Stand, then each depth in turn (with 0.3 s holds), then stand.
@@ -61,7 +72,8 @@ final class AirSquatAnalyzerTests: XCTestCase {
     /// Samples `motion` at 10 Hz for three loops on the demo figure, with optional scale and leg proportions,
     /// knees moving inward (pixels), and a forward lean (share of torso height lost at full depth).
     private func run(_ motion: ArmMotion, scale: CGFloat = 1, thigh: CGFloat = 1, shin: CGFloat = 1, shoulders: Bool = true,
-                     kneesIn: (TimeInterval) -> CGFloat = { _ in 0 }, lean: (TimeInterval) -> CGFloat = { _ in 0 }) -> Run {
+                     kneesIn: (TimeInterval) -> CGFloat = { _ in 0 }, lean: (TimeInterval) -> CGFloat = { _ in 0 },
+                     loops: Int = 3, estimatedDuring: ClosedRange<TimeInterval>? = nil) -> Run {
         var standing = ExerciseDemoFigureView.figureJoints
         for side in BodySide.allCases {
             guard let hip = standing[side.hip], let knee = standing[side.knee], let ankle = standing[side.ankle] else { continue }
@@ -71,7 +83,7 @@ final class AirSquatAnalyzerTests: XCTestCase {
         }
         let analyzer = AirSquatAnalyzer(epoch: 1)
         var result = Run()
-        for index in 0..<(Int(motion.duration * 10) * 3) {
+        for index in 0..<(Int(motion.duration * Double(loops) * 10)) {
             let time = Double(index) / 10
             let legs = motion.sample(at: time).legs
             var joints = ExerciseDemoFigureView.lowered(standing, by: legs)
@@ -89,7 +101,10 @@ final class AirSquatAnalyzerTests: XCTestCase {
                 (type, Landmark(type: type, normalizedLocation: .zero,
                                 imageLocation: CGPoint(x: point.x * scale + 300, y: point.y * scale + 200), confidence: 0.9))
             })
-            let analysis = AirSquatAnalyzer.process(analyzer, PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 1080, imageHeight: 1920), timestamp: time))
+            let estimated: Set<LandmarkType> = estimatedDuring?.contains(time) == true ? [.leftAnkle, .rightAnkle] : []
+            let frame = PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 1080, imageHeight: 1920),
+                                  timestamp: time, estimatedJoints: estimated)
+            let analysis = AirSquatAnalyzer.process(analyzer, frame)
             result.reps += analysis.repEvents.count
             result.forms += analysis.repForms
             result.signals.append(analysis.formSignals)
