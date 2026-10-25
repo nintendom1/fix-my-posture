@@ -4,7 +4,7 @@ import XCTest
 @MainActor
 final class WorkoutCoachModelTests: XCTestCase {
     func testConstructionDoesNotStartCameraVoiceAudioOrTiltServices() {
-        let harness = makeHarness()
+        let harness = WorkoutCoachHarness.make()
 
         XCTAssertEqual(harness.camera.starts, 0)
         XCTAssertEqual(harness.voice.enabledCount, 0)
@@ -13,18 +13,18 @@ final class WorkoutCoachModelTests: XCTestCase {
     }
 
     func testAuthorizedPermissionStartsCameraAndDeniedPermissionDoesNot() {
-        let authorized = makeHarness(permissionStatus: .authorized)
+        let authorized = WorkoutCoachHarness.make(permissionStatus: .authorized)
         authorized.model.onAppear(isApplicationActive: true)
         XCTAssertEqual(authorized.camera.starts, 1)
 
-        let denied = makeHarness(permissionStatus: .denied)
+        let denied = WorkoutCoachHarness.make(permissionStatus: .denied)
         denied.model.onAppear(isApplicationActive: true)
         XCTAssertEqual(denied.model.cameraStatus, .notAuthorized)
         XCTAssertEqual(denied.camera.starts, 0)
     }
 
     func testAudioInterruptionPausesActiveSession() {
-        let harness = makeHarness()
+        let harness = WorkoutCoachHarness.make()
         harness.model.onAppear(isApplicationActive: true)
         harness.camera.emit(.running)
         harness.model.send(.start)
@@ -36,7 +36,7 @@ final class WorkoutCoachModelTests: XCTestCase {
     }
 
     func testSchedulerTickRefreshesNowEveryHalfSecond() {
-        let harness = makeHarness()
+        let harness = WorkoutCoachHarness.make()
         harness.model.onAppear(isApplicationActive: true)
         XCTAssertEqual(harness.model.now, 10)
 
@@ -46,7 +46,7 @@ final class WorkoutCoachModelTests: XCTestCase {
     }
 
     func testTipExpiresAfterExistingDurationThroughScheduler() {
-        let harness = makeHarness()
+        let harness = WorkoutCoachHarness.make()
         harness.model.onAppear(isApplicationActive: true)
         harness.camera.emit(.running)
         harness.model.send(.start)
@@ -60,7 +60,7 @@ final class WorkoutCoachModelTests: XCTestCase {
     }
 
     func testHeardChipExpiresAfterOneAndAHalfSeconds() {
-        let harness = makeHarness()
+        let harness = WorkoutCoachHarness.make()
         harness.voice.emitHeard("pause")
         XCTAssertEqual(harness.model.heardPhrase, "pause")
 
@@ -76,11 +76,11 @@ final class WorkoutCoachModelTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
-        let first = makeHarness(preferences: UserDefaultsPreferences(defaults: defaults))
+        let first = WorkoutCoachHarness.make(preferences: UserDefaultsPreferences(defaults: defaults))
         first.model.setCoachMuted(true)
         first.model.setMicMuted(true)
 
-        let second = makeHarness(preferences: UserDefaultsPreferences(defaults: defaults))
+        let second = WorkoutCoachHarness.make(preferences: UserDefaultsPreferences(defaults: defaults))
         XCTAssertTrue(second.model.isCoachMuted)
         XCTAssertTrue(second.model.isMicMuted)
         XCTAssertTrue(second.voice.mutedValues.isEmpty, "Construction doesn't operate the voice service.")
@@ -91,7 +91,7 @@ final class WorkoutCoachModelTests: XCTestCase {
     func testDisabledTiltWarningsNeverSurfaceTiltInWorkoutModel() {
         let preferences = InMemoryPreferences()
         preferences.tiltWarningsEnabled = false
-        let harness = makeHarness(preferences: preferences)
+        let harness = WorkoutCoachHarness.make(preferences: preferences)
 
         harness.model.onAppear(isApplicationActive: true)
         harness.camera.emit(.running)
@@ -102,7 +102,7 @@ final class WorkoutCoachModelTests: XCTestCase {
     }
 
     func testVoiceCommandReachesReducer() {
-        let harness = makeHarness()
+        let harness = WorkoutCoachHarness.make()
         harness.model.onAppear(isApplicationActive: true)
         harness.camera.emit(.running)
         harness.model.send(.start)
@@ -113,44 +113,4 @@ final class WorkoutCoachModelTests: XCTestCase {
         XCTAssertEqual(harness.model.session.phase, .paused(.user))
     }
 
-    private func makeHarness(permissionStatus: CameraAuthorization = .authorized,
-                             preferences: any AppPreferencesStoring = UserDefaultsPreferences()) -> Harness {
-        let clock = ManualClock(now: 10)
-        let scheduler = ManualScheduler(clock: clock)
-        let camera = FakePoseFrameSource()
-        let permission = FakeCameraPermission(status: permissionStatus)
-        let speech = FakeSpeechCoach()
-        let audio = FakeAudioSession()
-        let tilt = FakeTiltMonitor()
-        let voice = FakeVoiceController()
-        let model = WorkoutCoachModel(
-            camera: camera,
-            previewProvider: nil,
-            permission: permission,
-            speech: speech,
-            audio: audio,
-            tiltMonitor: tilt,
-            voice: voice,
-            clock: clock,
-            scheduler: scheduler,
-            preferences: preferences,
-            exercises: ExerciseCatalog.all,
-            initialExercise: .shoulderPress,
-            plan: nil
-        )
-        return Harness(model: model, camera: camera, permission: permission, speech: speech,
-                       audio: audio, tilt: tilt, voice: voice, clock: clock, scheduler: scheduler)
-    }
-
-    private struct Harness {
-        let model: WorkoutCoachModel
-        let camera: FakePoseFrameSource
-        let permission: FakeCameraPermission
-        let speech: FakeSpeechCoach
-        let audio: FakeAudioSession
-        let tilt: FakeTiltMonitor
-        let voice: FakeVoiceController
-        let clock: ManualClock
-        let scheduler: ManualScheduler
-    }
 }

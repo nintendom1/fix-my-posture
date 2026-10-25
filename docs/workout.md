@@ -39,7 +39,7 @@ The guide and the live overlay share one description of the movement. `ExerciseG
 
 - **First-time guide.** The guide sheet opens automatically the first time each exercise is shown, and before the camera starts, so the permission prompt never covers it. An animated front-view figure with two dumbbells (drawn with the posture `AlignmentReferenceOverlayView` silhouette) loops start → press → lower, and the matching step is highlighted. **Start Workout** (or swiping the sheet down) goes straight to setup. **Read Aloud** speaks the steps through `SpeechCoach`, so other audio is ducked and restored. With Reduce Motion, the start and top positions are shown side by side. The guide is remembered per exercise (`workoutCoach.guideSeen.<id>`), so returning users skip it.
 - **On demand.** **Exercise guide** in the camera edge toolbar reopens the guide. Like realtime Details, it stops capture while open. An active set pauses, and stays paused after **Back to Workout**.
-- **Ghost demo.** While ready, translucent violet ghost arms with dumbbells loop the same motion. They're anchored to the user's smoothed shoulder dots and scaled to their smoothed, measured arm segments (typical proportions are used until measured). The status line reads "Hold the dumbbells just above your shoulders to begin".
+- **Ghost demo.** While ready, translucent violet ghost arms with dumbbells loop the same motion. They're anchored to the user's smoothed shoulder dots and scaled to their smoothed, measured arm segments (typical proportions are used until measured). The status line reads "Hold the dumbbells just above your shoulders to begin". Every exercise must show its alignment ghost whenever the workout reaches `.ready`; `WorkoutGhostGeometry` alone decides what the ghost draws. Ghost sizing uses joints Ready guarantees (`requiredJoints` plus any one `anyOfRequiredJoints` set) or a fallback, and optional landmarks may refine sizing but must never suppress the ghost. Until #69, Air Squat still needs both shoulders in view, and One-Arm Dumbbell Row and Band Triceps Extension a shoulder and its hip, for the ghost to appear.
 - **Auto-start.** While ready, holding the start position (both arms confirmed at the bottom) for 1 s begins the set with "Set 1 of 2. Go." After a rest, this works only once the rest timer has ended. Saying "start" or tapping Start always works.
 - **Hold ring.** While a hold is being timed, a ring labeled "Hold" fills over the second (`WorkoutSession.startHoldProgress`). It floats beside the body at chest height, just outside the widest visible joint on whichever side has more room, and is separate from the HUD. Letting go hides it. The set starts on the frame where the ring fills.
 - **Threshold lines.** During a set, each arm gets a short **Start ↓** and **Top ↑** segment, drawn from the analyzer's own per-arm thresholds, so the user sees exactly what counts. A rep begins and ends at Start and turns around at Top. The checkpoint an arm is heading toward is bright and dashed, the other is dim, and a segment turns solid once that arm reaches it (cyan for Start, green for Top). The heights are locked at the start position for each rep (see the rep rule), so the segments hold still while you press.
@@ -325,6 +325,7 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
 
 `./scripts/validate.sh` runs these alongside the existing suite. They use pure types only, with no camera, speech, or motion hardware.
 
+- `ReadyGhostInvariantTests` start each catalog exercise from its guide position with every joint and with only the joints framing requires (plus any third landmark framing needs to see a body). Each pose must reach Ready and draw ghost geometry for every guide keyframe; the three known gaps are strict expected failures until #69.
 - `ShoulderPressAnalyzerTests` sample the guide's own demonstration (`ExerciseDemoFigureView.pose` driven by `ArmMotion`) at 10 Hz:
   - one rep per loop;
   - identical readings, including form readings, at ½× and 2× scale;
@@ -372,13 +373,14 @@ Every new exercise ships with full guidance, even when the request only names it
 
 1. One folder under `Workout/Exercises` (definition, configuration, analyzer) and one line in `ExerciseCatalog`.
 2. Guide: steps, the Read Aloud walkthrough, the start-position instruction, and `ArmMotion` keyframes whose first keyframe is the start position. These drive the guide sheet, the first-time display, the ghost, and the hold ring.
-3. Threshold lines that match the movement's direction. Don't assume "top" means higher wrists.
-4. Validate the thresholds by running the guide's own demonstration through the analyzer. Expect exactly one rep per loop at any scale and proportions, with a scale-invariant ruler such as arm length. Report any deviation from the planned thresholds.
-5. Coaching: corrective cues with stable `CoachingCueID`s, priorities, and emphasized joints; visual-only reminders; and a `MotionEnvelope`. The demonstration should raise no cues.
-6. Voice aliases (`ExerciseDefinition.voiceAliases`); the parser, the help list, and the every-phrase test pick them up.
-7. Docs: the rep rule section, the coaching cues, and physical-device checklist items.
-8. Presentation: add the short name, muscles, filter groups, gradient token, SF Symbol, equipment and camera-setup lines, plus watch items keyed to the exercise's own cue IDs in `Workout/Exercises/ExercisePresentation.swift` (`ExerciseCatalogTests` enforces this).
-9. Non-diagnostic wording: never comment on grip, wrist rotation, dumbbell orientation, or injury.
+3. Ready-state ghost: a pose with only the joints framing requires must reach Ready and still produce ghost geometry for every guide keyframe (`ReadyGhostInvariantTests` checks every catalog exercise). Don't tighten framing to make the ghost render; add a sizing fallback in `WorkoutFramePipeline.metricsReference` or `WorkoutGhostGeometry` instead.
+4. Threshold lines that match the movement's direction. Don't assume "top" means higher wrists.
+5. Validate the thresholds by running the guide's own demonstration through the analyzer. Expect exactly one rep per loop at any scale and proportions, with a scale-invariant ruler such as arm length. Report any deviation from the planned thresholds.
+6. Coaching: corrective cues with stable `CoachingCueID`s, priorities, and emphasized joints; visual-only reminders; and a `MotionEnvelope`. The demonstration should raise no cues.
+7. Voice aliases (`ExerciseDefinition.voiceAliases`); the parser, the help list, and the every-phrase test pick them up.
+8. Docs: the rep rule section, the coaching cues, and physical-device checklist items.
+9. Presentation: add the short name, muscles, filter groups, gradient token, SF Symbol, equipment and camera-setup lines, plus watch items keyed to the exercise's own cue IDs in `Workout/Exercises/ExercisePresentation.swift` (`ExerciseCatalogTests` enforces this).
+10. Non-diagnostic wording: never comment on grip, wrist rotation, dumbbell orientation, or injury.
 
 ## Future options
 
@@ -394,7 +396,7 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
 
 - [ ] **1.** On a fresh install (deleting the app resets the guide), opening the coach shows the guide before any permission prompt. Read Aloud lowers your music and then restores it. Start Workout leads to the camera. Reopening the coach skips the guide. The ⓘ title reopens it, and doing so mid-set pauses the set.
 - [ ] **2.** Grant camera access and follow the framing guidance. Verify the headroom prompt when standing too close, and the left/right prompts.
-- [ ] **3.** When ready, the violet ghost arms line up with your shoulders and roughly match your arm length. Holding the dumbbells just above your shoulders shows the Hold ring beside you, filling over about 1 s, and then starts the set. Letting go early hides the ring. During rest it never starts before the timer ends.
+- [ ] **3.** For every exercise, the alignment ghost appears as soon as the status reads "Get in position" and lines up with you, including when you stand as close as framing allows (until #69, Air Squat, row, and triceps still need their sizing joints in view). For shoulder press, holding the dumbbells just above your shoulders shows the Hold ring beside you, filling over about 1 s, and then starts the set. Letting go early hides the ring. During rest it never starts before the timer ends.
 - [ ] **4.** Turn on Show Measurements. At the start position, each arm should read below 0.6 and 115° (↓). At the top, above 0.8 and 140° (↑). Do the same press close to the phone and far from it: the readings should be about the same. Each arm's Start segment turns solid at the start, and its Top segment turns solid green only once the wrist passes it with the arm nearly straight. The segments shouldn't drift while you press.
 - [ ] **5.** Lean the phone back more than 15°: after about a second, the tilt warning appears and is spoken. Stand it upright and the warning clears.
 - [ ] **6.** Do 10 presses and check that the count is exactly 10, with no double counts when pausing near either threshold. A half press must not count, and neither must a rep finished after stepping out of view mid-rep.
