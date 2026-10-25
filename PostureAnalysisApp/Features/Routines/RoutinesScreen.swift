@@ -274,12 +274,17 @@ private struct RoutineCardView: View {
         .buttonStyle(.plain)
         .overlay(alignment: .topTrailing) {
             Menu {
-                if routine.isBuiltIn {
-                    Button("Duplicate to Edit", systemImage: "doc.on.doc", action: edit)
-                } else {
-                    Button("Edit", action: edit)
-                    Button("Duplicate", systemImage: "doc.on.doc", action: duplicate)
-                    Button("Delete", systemImage: "trash", role: .destructive, action: delete)
+                ForEach(routine.menuActions, id: \.self) { action in
+                    switch action {
+                    case .edit:
+                        Button(action.title, action: edit)
+                    case .duplicate:
+                        Button(action.title, systemImage: "doc.on.doc", action: duplicate)
+                    case .duplicateToEdit:
+                        Button(action.title, systemImage: "doc.on.doc", action: edit)
+                    case .delete:
+                        Button(action.title, systemImage: "trash", role: .destructive, action: delete)
+                    }
                 }
             } label: {
                 Image(material: "more_horiz")

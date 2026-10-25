@@ -26,18 +26,14 @@ enum RoutineRotation {
             .sorted(by: creationOrder)
         if let first = neverDone.first { return first.set }
 
-        if let leastRecentlyDone = candidates.min(by: { lhs, rhs in
+        // With no user routines, every routine is a candidate, so a fresh install gets the first never-run
+        // starter routine in catalog (creation) order from the step above.
+        return candidates.min { lhs, rhs in
             let lhsDate = lastDone(routine: lhs.set, records: records) ?? .distantFuture
             let rhsDate = lastDone(routine: rhs.set, records: records) ?? .distantFuture
             if lhsDate != rhsDate { return lhsDate < rhsDate }
             return creationOrder(lhs, rhs)
-        }) {
-            return leastRecentlyDone.set
-        }
-
-        return BuiltInRoutines.all.first { routine in
-            routines.contains(where: { $0.set.id == routine.id }) && lastDone(routine: routine, records: records) == nil
-        }
+        }?.set
     }
 
     /// A stable plan identifier takes precedence. Name matching is reserved for legacy records

@@ -96,7 +96,10 @@ final class RoutinesViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.state.routines.map(\.id), [user.id])
         XCTAssertEqual(viewModel.state.starterRoutines.map(\.id), [builtIn.id])
-        XCTAssertTrue(try XCTUnwrap(viewModel.state.starterRoutines.first).isBuiltIn)
+        let starterCard = try XCTUnwrap(viewModel.state.starterRoutines.first)
+        XCTAssertTrue(starterCard.isBuiltIn)
+        XCTAssertEqual(starterCard.menuActions, [.duplicateToEdit])
+        XCTAssertEqual(try XCTUnwrap(viewModel.state.routines.first).menuActions, [.edit, .duplicate, .delete])
 
         viewModel.send(.requestDelete(builtIn.id))
         viewModel.send(.duplicate(builtIn.id))
