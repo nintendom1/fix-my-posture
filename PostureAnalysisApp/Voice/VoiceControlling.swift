@@ -33,6 +33,8 @@ protocol VoiceControlling: AnyObject {
     /// While true, "one more" and "I'm done" answer the bonus offer through `onBonus` and never run as commands.
     var acceptsBonusAnswer: Bool { get set }
     var onBonus: ((BonusAnswer) -> Void)? { get set }
+    /// While recording, "mark that" and "note, …" drop markers.
+    var acceptsMarkers: Bool { get set }
     func enable()
     func disable(status: VoiceStatus)
     func setMuted(_ muted: Bool)

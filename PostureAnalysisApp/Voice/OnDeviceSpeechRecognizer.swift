@@ -11,6 +11,9 @@ enum SpeechRecognizerState: Equatable {
 protocol SpeechRecognizing: AnyObject {
     var onTranscript: ((_ text: String, _ isFinal: Bool) -> Void)? { get set }
     var onStateChanged: ((SpeechRecognizerState) -> Void)? { get set }
+    /// A new recognition task began (including the recognizer's own refreshes and recoveries); transcripts after it
+    /// start over rather than extend the last one.
+    var onTaskStarted: (() -> Void)? { get set }
     func setContextualStrings(_ strings: [String])
     /// Starts the audio engine and a recognition task. The audio session must already be active.
     func start()
@@ -35,6 +38,7 @@ final class OnDeviceSpeechRecognizer: NSObject, SpeechRecognizing, SFSpeechRecog
 
     var onTranscript: ((String, Bool) -> Void)?
     var onStateChanged: ((SpeechRecognizerState) -> Void)?
+    var onTaskStarted: (() -> Void)?
 
     private let recognizer: SFSpeechRecognizer?
     private var engine = AVAudioEngine()
@@ -179,6 +183,7 @@ final class OnDeviceSpeechRecognizer: NSObject, SpeechRecognizing, SFSpeechRecog
         taskGeneration += 1
         let generation = taskGeneration
         receivedTranscript = false
+        onTaskStarted?()
         task = recognizer.recognitionTask(with: request) { [weak self] result, error in
             guard let self, generation == self.taskGeneration else { return }
             if let result {

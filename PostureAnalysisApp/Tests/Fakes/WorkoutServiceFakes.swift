@@ -234,6 +234,7 @@ final class FakeVoiceController: VoiceControlling {
         didSet { trace?.record("listen acceptsBonus \(acceptsBonusAnswer)") }
     }
     var onBonus: ((BonusAnswer) -> Void)?
+    var acceptsMarkers = false
     private(set) var mutedValues: [Bool] = []
     private(set) var enabledCount = 0
     private(set) var retryCount = 0
