@@ -71,7 +71,15 @@ struct WorkoutFramePipeline {
     private var tiltDetector = PhoneTiltDetector()
     private var lastReportedTilt = false
 
-    init(exercise: ExerciseDefinition? = nil, analyzerEpoch: Int = 0, isCounting: Bool = false) {
+    /// Framing and off-edge estimation settings; replay passes the ones a recording was made with.
+    let framingConfiguration: FramingConfiguration
+    let offscreenConfiguration: OffscreenJointConfiguration
+
+    init(exercise: ExerciseDefinition? = nil, analyzerEpoch: Int = 0, isCounting: Bool = false,
+         framingConfiguration: FramingConfiguration = FramingConfiguration(),
+         offscreenConfiguration: OffscreenJointConfiguration = OffscreenJointConfiguration()) {
+        self.framingConfiguration = framingConfiguration
+        self.offscreenConfiguration = offscreenConfiguration
         self.exercise = nil
         self.analyzerEpoch = analyzerEpoch
         self.isCounting = isCounting
@@ -198,9 +206,10 @@ struct WorkoutFramePipeline {
         self.exercise = exercise
 
         if trackingChanged {
-            framingEvaluator = exercise.map(Self.makeFramingEvaluator)
+            framingEvaluator = exercise.map(makeFramingEvaluator)
             offscreenJointEstimator = exercise.map {
-                OffscreenJointEstimator(joints: $0.focusJoints, plantedJoints: $0.plantedJoints)
+                OffscreenJointEstimator(joints: $0.focusJoints, plantedJoints: $0.plantedJoints,
+                                        configuration: offscreenConfiguration)
             }
             lastFramingStatus = nil
             smoother.reset()
@@ -291,13 +300,13 @@ struct WorkoutFramePipeline {
         analyzer = exercise?.makeAnalyzer(epoch)
     }
 
-    private static func makeFramingEvaluator(for exercise: ExerciseDefinition) -> FramingEvaluator {
+    private func makeFramingEvaluator(for exercise: ExerciseDefinition) -> FramingEvaluator {
         FramingEvaluator(requiredJoints: exercise.requiredJoints,
                          anyOfRequiredJoints: exercise.anyOfRequiredJoints,
                          headroomArmLengths: exercise.headroomArmLengths,
                          sideroomArmLengths: exercise.sideroomArmLengths,
                          maximumShoulderSpan: exercise.maximumShoulderSpan,
-                         cameraView: exercise.cameraView)
+                         cameraView: exercise.cameraView, configuration: framingConfiguration)
     }
 
     private mutating func updateGuideMetrics(_ frame: PoseFrame, for exercise: ExerciseDefinition) {

@@ -424,6 +424,8 @@
 		A10000012B00000000000434 /* AudioWorkTiming.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000434 /* AudioWorkTiming.swift */; };
 		A10000012B00000000000435 /* AudioWorkTimingTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000435 /* AudioWorkTimingTests.swift */; };
 		A10000012B00000000000436 /* RepRejectionTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000436 /* RepRejectionTests.swift */; };
+		A10000012B00000000000437 /* WorkoutSessionReplay.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000437 /* WorkoutSessionReplay.swift */; };
+		A10000012B00000000000438 /* WorkoutSessionReplayTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000438 /* WorkoutSessionReplayTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -856,6 +858,8 @@
 		B10000012B00000000000434 /* AudioWorkTiming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioWorkTiming.swift; sourceTree = "<group>"; };
 		B10000012B00000000000435 /* AudioWorkTimingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioWorkTimingTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000436 /* RepRejectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepRejectionTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000437 /* WorkoutSessionReplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionReplay.swift; sourceTree = "<group>"; };
+		B10000012B00000000000438 /* WorkoutSessionReplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionReplayTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1121,6 +1125,7 @@
 				B10000012B00000000000433 /* PendingFrameQueueTests.swift */,
 				B10000012B00000000000435 /* AudioWorkTimingTests.swift */,
 				B10000012B00000000000436 /* RepRejectionTests.swift */,
+				B10000012B00000000000438 /* WorkoutSessionReplayTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1357,6 +1362,7 @@
 				B10000012B00000000000384 /* PersonaFixtures.swift */,
 				B10000012B00000000000388 /* ReadyPoseFixtures.swift */,
 				B10000012B00000000000389 /* WorkoutCoachHarness.swift */,
+				B10000012B00000000000437 /* WorkoutSessionReplay.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -2343,6 +2349,8 @@
 				A10000012B00000000000433 /* PendingFrameQueueTests.swift in TestSources */,
 				A10000012B00000000000435 /* AudioWorkTimingTests.swift in TestSources */,
 				A10000012B00000000000436 /* RepRejectionTests.swift in TestSources */,
+				A10000012B00000000000437 /* WorkoutSessionReplay.swift in TestSources */,
+				A10000012B00000000000438 /* WorkoutSessionReplayTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
