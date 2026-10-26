@@ -50,6 +50,17 @@ Sessions are named by id, by their first 8 characters, or as `latest`. Times are
 
 Tests: `tools/session-replay/test/mcp.test.mjs` drives the server over stdio against a temporary folder.
 
+## Replay
+
+`make replay-sessions` (or `make replay-sessions SESSION_DIR=<folder>`) replays every pulled recording through the current pipeline in the simulator.
+
+- **Reading:** `WorkoutSessionReplayTests` reads each file with `WorkoutSessionFile`. Only an unclosed array or a cut-off last record (a crash mid-write) is tolerated; a bad record anywhere else is an error.
+- **Rebuilding:** `WorkoutSessionReplayer` rebuilds the pipeline with the recorded framing and off-edge settings, and each exercise from its recorded configuration. It applies the `pipe` controls and analyzes every frame the phone analyzed (`p: true`) in file order. Anything it can't reproduce is an error naming the line: an unknown exercise, view, control, or phase; an analyzed frame before any exercise; or a missing joint order or image size.
+- **Fidelity:** every analyzed frame must match what counting depends on: its rep events (timestamp, epoch, sides), framing reliability, the counting flag, and whether the start position is held. Guidance wording isn't compared, so new guidance doesn't fail older recordings.
+- **Report:** `build/replay-report.txt` (local, gitignored) shows the first differing frames for each recording, phone versus replay, and every attempt the analyzers let go, with the reason. It's rewritten on every run, and the target exits non-zero on any failure or an empty folder.
+
+Use the report to test a fix: change an analyzer or a configuration, replay, and compare the counts. Without a session folder, the local test skips. `testRecordedWorkoutsReplayToTheSameReps` records every catalog exercise's demonstration through the coach and replays it, so CI covers the format without personal data.
+
 ## Data rule
 
 Recordings are measurements of a real person's body, and this repository is public.

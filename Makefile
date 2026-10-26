@@ -1,4 +1,4 @@
-.PHONY: ios ios-devices diagnostics viewer design-reference design-snapshots design-diff design-check notification-character notification-character-check
+.PHONY: ios ios-devices diagnostics viewer replay-sessions design-reference design-snapshots design-diff design-check notification-character notification-character-check
 
 DESIGN_BUNDLE := fix-my-posture-mobile-app-design/project/Fix My Posture Redesign.dc.html
 DESIGN_DESTINATION ?= platform=iOS Simulator,name=iPhone 15 Pro
@@ -20,6 +20,20 @@ diagnostics:
 # Opens the session replay viewer for those recordings at http://127.0.0.1:4317 (Ctrl-C stops it).
 viewer:
 	@node tools/session-replay/server.mjs --open
+
+# Replays pulled recordings through the current pipeline: each must reproduce the reps the phone counted, and
+# build/replay-report.txt lists every attempt the analyzers let go. SESSION_DIR defaults to diagnostics/sessions.
+SESSION_DIR ?= diagnostics/sessions
+replay-sessions:
+	@mkdir -p build && rm -f build/replay-report.txt
+	@dir="$$(cd "$(SESSION_DIR)" && pwd)" || exit 1; status=0; \
+		TEST_RUNNER_FMP_SESSION_DIR="$$dir" TEST_RUNNER_FMP_REPLAY_REPORT="$$PWD/build/replay-report.txt" \
+		xcodebuild test -project PostureAnalysisApp.xcodeproj -scheme PostureAnalysisApp \
+		-destination 'platform=iOS Simulator,name=iPhone 15 Pro' \
+		-only-testing:PostureAnalysisAppTests/WorkoutSessionReplayTests/testLocalRecordingsReplayToWhatThePhoneCounted \
+		> build/replay-sessions.log 2>&1 || status=$$?; \
+		grep -E "error:|Executed .* tests|TEST (SUCCEEDED|FAILED)" build/replay-sessions.log | sort -u; \
+		cat build/replay-report.txt 2>/dev/null; exit $$status
 
 design-reference:
 	@if [ ! -f "$(DESIGN_BUNDLE)" ]; then \
