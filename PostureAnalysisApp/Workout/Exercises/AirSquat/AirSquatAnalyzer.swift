@@ -55,6 +55,11 @@ final class AirSquatAnalyzer: ExerciseAnalyzing {
         }
         let time = frame.timestamp
         if let last = lastSample, time - last > configuration.maximumSampleGap {
+            if case .active(_, let reachedSquat) = cycle, let lost = RepRejection.lost(at: time, .trackingGap(
+                seconds: time - last, maximum: configuration.maximumSampleGap,
+                stage: .of(reachedEnd: reachedSquat, zones: [tracker.lastZone ?? .bottom]))) {
+                analysis.rejections.append(lost)
+            }
             tracker.reset()
             cycle = .awaitingStart
             locked = nil
@@ -96,6 +101,10 @@ final class AirSquatAnalyzer: ExerciseAnalyzing {
         analysis.formReadings = formMonitor.readings
 
         guard counting else {
+            if case .active(_, let reachedSquat) = cycle,
+               let lost = RepRejection.lost(at: time, .countingStopped(stage: .of(reachedEnd: reachedSquat, zones: [zone]))) {
+                analysis.rejections.append(lost)
+            }
             cycle = .awaitingStart
             return analysis
         }
@@ -108,6 +117,9 @@ final class AirSquatAnalyzer: ExerciseAnalyzing {
             if newlyConfirmed == .bottom {
                 if reachedSquat, time - movementStart >= configuration.minimumRepDuration {
                     analysis.repEvents.append(RepEvent(epoch: epoch, timestamp: time, sides: Set(BodySide.allCases)))
+                } else if reachedSquat {
+                    analysis.rejections.append(RepRejection(timestamp: time, reason: .tooFast(
+                        duration: time - movementStart, minimum: configuration.minimumRepDuration)))
                 }
                 movementStart = time
                 reachedSquat = false

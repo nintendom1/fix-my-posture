@@ -53,10 +53,22 @@ final class DumbbellShrugAnalyzer: ExerciseAnalyzing {
         }
 
         let time = frame.timestamp
+        var rejections: [RepRejection] = []
+        func stage() -> RepAttemptStage? {
+            guard case .active(_, let reachedTop) = cycle else { return nil }
+            return .of(reachedEnd: reachedTop, zones: [tracker.lastZone ?? .bottom])
+        }
         if let lastCompleteSample, time - lastCompleteSample > configuration.maximumSampleGap {
+            if let stage = stage(), let lost = RepRejection.lost(at: time, .trackingGap(
+                seconds: time - lastCompleteSample, maximum: configuration.maximumSampleGap, stage: stage)) {
+                rejections.append(lost)
+            }
             invalidateCycleAndReferences()
         }
         if referenceExpired(at: time) {
+            if let stage = stage(), let lost = RepRejection.lost(at: time, .referenceExpired(stage: stage)) {
+                rejections.append(lost)
+            }
             invalidateCycleAndReferences()
         }
         lastCompleteSample = time
@@ -78,6 +90,7 @@ final class DumbbellShrugAnalyzer: ExerciseAnalyzing {
         updateLock(atRest: atRest, live: live, at: time)
 
         var analysis = ExerciseAnalysis()
+        analysis.rejections = rejections
         let arms = BodySide.allCases.compactMap { side in
             ArmGeometry.arm(side, in: frame, minimumConfidence: confidence).map { (side, $0) }
         }
@@ -115,6 +128,10 @@ final class DumbbellShrugAnalyzer: ExerciseAnalyzing {
         }
 
         guard counting else {
+            if case .active(_, let reachedTop) = cycle,
+               let lost = RepRejection.lost(at: time, .countingStopped(stage: .of(reachedEnd: reachedTop, zones: [zone]))) {
+                analysis.rejections.append(lost)
+            }
             cycle = .awaitingStart
             return analysis
         }
@@ -129,6 +146,9 @@ final class DumbbellShrugAnalyzer: ExerciseAnalyzing {
                 if reachedTop, time - movementStart >= configuration.minimumRepDuration {
                     // Both shoulders move together, so the rep counts for both sides.
                     analysis.repEvents.append(RepEvent(epoch: epoch, timestamp: time, sides: Set(BodySide.allCases)))
+                } else if reachedTop {
+                    analysis.rejections.append(RepRejection(timestamp: time, reason: .tooFast(
+                        duration: time - movementStart, minimum: configuration.minimumRepDuration)))
                 }
                 movementStart = time
                 reachedTop = false

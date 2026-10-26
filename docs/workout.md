@@ -538,6 +538,9 @@ Every new exercise ships with full guidance, even when the request only names it
 10. Presentation: add the short name, muscles, filter groups, gradient token, SF Symbol, equipment and camera-setup lines, plus watch items keyed to the exercise's own cue IDs in `Workout/Exercises/ExercisePresentation.swift` (`ExerciseCatalogTests` enforces this).
 11. Non-diagnostic wording: never comment on grip, wrist rotation, dumbbell orientation, or injury.
 12. Session recordings: make `<Name>Configuration` `Codable` and pass `diagnostics: ExerciseDiagnostics(configuration, definition: definition(configuration:))`, so recordings capture the tuning and replay can rebuild it (`ExerciseDiagnosticsTests` enforces this).
+13. Rejections: wherever the analyzer lets an attempt go without counting it, add a `RepRejection` to `ExerciseAnalysis.rejections`. Use `RepRejection.lost` for a gap, a counting stop, a side switch, or an expired reference, since nothing is lost at the start position. Report a counted end reached too quickly as `.tooFast`, and paired exercises report `.partialEnd`. `RepRejectionTests` runs every catalog demonstration clean, with a mid-rep gap, and with counting stopped mid-rep.
+
+**Rep rejections.** Every analyzer says why it let an attempt go: `tooFast` (duration, minimum), `partialEnd` (which arms reached the end), `trackingGap` (seconds, maximum), `countingStopped`, `sideSwitched`, and `referenceExpired`. Each of the last four also records how far the attempt had got: `moving` or `reachedEnd`. Recordings write them on the frame (`rej`). The viewer rings them in the reps lane and logs "Attempt not counted", and the MCP overview lists them, so a missed rep reads as form (too fast, one arm short) or tracking (a gap, counting stopped). Shallow attempts are judged as form attempts instead (`forms`). Rejections are diagnostic only: counting never reads them.
 
 ## Future options
 

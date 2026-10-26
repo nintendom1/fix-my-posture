@@ -203,6 +203,13 @@ async function overview(id) {
     + `${counted.length ? ` (${counted.slice(0, 60).map((rep) => `#${rep.count}${rep.outcome === "completedSet" ? " completing the set" : ""} at ${clock(rep.t)}`).join(", ")})` : ""}`
     + `${oneSide.length ? `; ${oneSide.length} on one side only (count unchanged)` : ""}`
     + `${dropped.length ? `; ${dropped.length} NOT counted (${dropped.slice(0, 20).map((rep) => `${clock(rep.t)}${rep.reason ? ` ${rep.reason}` : ""}`).join(", ")})` : ""}`);
+  if (s.rejections.length) {
+    lines.push("", `Attempts the analyzer let go (${s.rejections.length})`);
+    for (const rejection of s.rejections.slice(0, 40)) {
+      lines.push(`- ${clock(rejection.t)}${rejection.side ? ` ${rejection.side}` : ""}: ${rejection.text}`);
+    }
+    if (s.rejections.length > 40) lines.push(`(the first 40 of ${s.rejections.length})`);
+  }
   lines.push("", `Tracking losses (${s.losses.length})`);
   if (s.losses.length > 60) lines.push(`(the first 60 of ${s.losses.length})`);
   for (const loss of s.losses.slice(0, 60)) {

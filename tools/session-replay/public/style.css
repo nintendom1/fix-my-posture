@@ -136,6 +136,8 @@ code { font-family: var(--mono); background: var(--fill); padding: 1px 5px; bord
 .ticks { height: 20px; position: relative; border-bottom: 1px solid var(--line); }
 .ticks span { position: absolute; top: 0; bottom: 0; border-left: 1px solid rgba(255, 255, 255, .12); padding-left: 4px; font: 400 10px var(--mono); color: var(--faint); }
 .lane { height: 24px; position: relative; }
+/* Rep marks on top, rings for attempts the analyzer let go below them. */
+#repLane, .lane-label.reps-label { height: 42px; }
 .lane .seg { position: absolute; top: 4px; bottom: 4px; border-left: 2px solid; border-radius: 3px; overflow: hidden; white-space: nowrap; font-size: 10px; font-weight: 600; padding: 2px 5px; }
 .marks .mark { position: absolute; top: 4px; transform: translateX(-50%); min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; font: 700 9px/16px var(--mono); text-align: center; cursor: pointer; }
 .marks .diamond { position: absolute; top: 7px; width: 10px; height: 10px; transform: translateX(-50%) rotate(45deg); border-radius: 2px; cursor: pointer; }

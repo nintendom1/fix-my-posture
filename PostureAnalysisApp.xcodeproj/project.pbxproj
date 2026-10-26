@@ -423,6 +423,7 @@
 		A10000012B00000000000433 /* PendingFrameQueueTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000433 /* PendingFrameQueueTests.swift */; };
 		A10000012B00000000000434 /* AudioWorkTiming.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000434 /* AudioWorkTiming.swift */; };
 		A10000012B00000000000435 /* AudioWorkTimingTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000435 /* AudioWorkTimingTests.swift */; };
+		A10000012B00000000000436 /* RepRejectionTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000436 /* RepRejectionTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -854,6 +855,7 @@
 		B10000012B00000000000433 /* PendingFrameQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingFrameQueueTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000434 /* AudioWorkTiming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioWorkTiming.swift; sourceTree = "<group>"; };
 		B10000012B00000000000435 /* AudioWorkTimingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioWorkTimingTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000436 /* RepRejectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepRejectionTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1118,6 +1120,7 @@
 				B10000012B00000000000431 /* WorkoutRecordingReportTests.swift */,
 				B10000012B00000000000433 /* PendingFrameQueueTests.swift */,
 				B10000012B00000000000435 /* AudioWorkTimingTests.swift */,
+				B10000012B00000000000436 /* RepRejectionTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -2339,6 +2342,7 @@
 				A10000012B00000000000431 /* WorkoutRecordingReportTests.swift in TestSources */,
 				A10000012B00000000000433 /* PendingFrameQueueTests.swift in TestSources */,
 				A10000012B00000000000435 /* AudioWorkTimingTests.swift in TestSources */,
+				A10000012B00000000000436 /* RepRejectionTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

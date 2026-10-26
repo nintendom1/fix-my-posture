@@ -123,6 +123,8 @@ export class Session {
     this.framingSpans = this.#framingSpans();
     this.losses = this.#losses();
     this.reps = this.#classifyReps();
+    this.rejections = this.frames.flatMap((frame) => (Array.isArray(frame.rej) ? frame.rej : [])
+      .map((rejection) => ({ ...rejection, t: frame.t, text: describeRejection(rejection) })));
     this.timeline = this.#timeline();
   }
 
@@ -253,6 +255,9 @@ export class Session {
       else add(span.start, span.wasReliable ? "warn" : "info", span.wasReliable ? "Tracking lost" : "Not tracking", span.guidance ?? "");
       previous = span;
     }
+    for (const rejection of this.rejections) {
+      add(rejection.t, "warn", "Attempt not counted", `${rejection.side ? `${rejection.side} · ` : ""}${rejection.text}`);
+    }
     for (const rep of this.reps) {
       const sides = rep.sides.join("+");
       const after = rep.after?.sideReps ? ` · L ${rep.after.sideReps.left} R ${rep.after.sideReps.right}` : "";
@@ -370,6 +375,23 @@ export const PRESETS = {
 };
 
 export const RATES = [10, 5, 2, 1, 0];
+
+const STAGES = { atStart: "at the start", moving: "partway", reachedEnd: "after reaching the counted end" };
+
+/** Why the analyzer let a rep attempt go, in words, from a frame's `rej` entry. */
+export function describeRejection(rejection) {
+  const stage = STAGES[rejection.stage] ?? rejection.stage ?? "";
+  const seconds = (value) => (Number.isFinite(Number(value)) ? `${Number(value).toFixed(2)} s` : "?");
+  switch (rejection.reason) {
+    case "tooFast": return `too fast: ${seconds(rejection.duration)}, the minimum is ${seconds(rejection.minimum)}`;
+    case "partialEnd": return `only ${(rejection.reached ?? []).join("+") || "no side"} reached the counted end`;
+    case "trackingGap": return `tracking gap of ${seconds(rejection.seconds)} (over ${seconds(rejection.maximum)}) ${stage}`;
+    case "countingStopped": return `counting stopped ${stage}`;
+    case "sideSwitched": return `switched to the other side ${stage}`;
+    case "referenceExpired": return `away from the start too long ${stage}`;
+    default: return String(rejection.reason ?? "unknown");
+  }
+}
 
 export function clock(seconds, tenths = true) {
   const total = Math.max(0, seconds);

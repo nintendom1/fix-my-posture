@@ -66,6 +66,57 @@ struct ExerciseAnalysis {
     var formSignals: Set<CoachingCueID> = []
     /// The last attempt's form values, for Show Measurements.
     var formReadings: [FormReading] = []
+    /// Rep attempts let go on this frame without counting, and why. Diagnostic only: nothing counts from it.
+    var rejections: [RepRejection] = []
+}
+
+/// How far a rep attempt had got when it was let go.
+enum RepAttemptStage: String, Equatable {
+    /// Still at the start position: nothing was lost.
+    case atStart
+    /// Left the start but hadn't reached the counted end.
+    case moving
+    /// Reached the counted end (on at least one side) but hadn't come back.
+    case reachedEnd
+
+    /// `reachedEnd` wins; otherwise any zone away from the start means moving.
+    static func of(reachedEnd: Bool, zones: some Sequence<MovementZone>) -> RepAttemptStage {
+        if reachedEnd { return .reachedEnd }
+        return zones.contains { $0 != .bottom } ? .moving : .atStart
+    }
+}
+
+/// Why an analyzer let a rep attempt go without counting it.
+enum RepRejectionReason: Equatable {
+    /// Back at the start sooner than the exercise's minimum rep time.
+    case tooFast(duration: TimeInterval, minimum: TimeInterval)
+    /// Back at the start with only some arms having reached the counted end.
+    case partialEnd(reached: Set<BodySide>)
+    /// The joints the analyzer needs were missing for longer than it allows, so the attempt was reset.
+    case trackingGap(seconds: TimeInterval, maximum: TimeInterval, stage: RepAttemptStage)
+    /// Counting stopped partway through the attempt: tracking became unreliable, or the set paused.
+    case countingStopped(stage: RepAttemptStage)
+    /// The analyzer switched to the other arm or leg partway through the attempt.
+    case sideSwitched(stage: RepAttemptStage)
+    /// Away from the start longer than the exercise allows, so its start reference and the attempt were dropped.
+    case referenceExpired(stage: RepAttemptStage)
+}
+
+struct RepRejection: Equatable {
+    /// The sample timestamp of the frame that let the attempt go.
+    var timestamp: TimeInterval
+    /// The arm or leg, for exercises that count sides separately; nil when the body counts as one.
+    var side: BodySide?
+    var reason: RepRejectionReason
+
+    /// A gap or a counting stop at the start position loses nothing, so it isn't reported.
+    static func lost(at timestamp: TimeInterval, side: BodySide? = nil, _ reason: RepRejectionReason) -> RepRejection? {
+        switch reason {
+        case .trackingGap(_, _, .atStart), .countingStopped(.atStart), .sideSwitched(.atStart),
+             .referenceExpired(.atStart): return nil
+        default: return RepRejection(timestamp: timestamp, side: side, reason: reason)
+        }
+    }
 }
 
 /// Exercise-specific rep counting over reliable, unmirrored pixel geometry.
