@@ -314,6 +314,27 @@ final class WorkoutCoachModelRecordingTests: XCTestCase {
 
     // MARK: - Helpers
 
+    func testASpokenMarkerIsRecordedWithItsNoteAndConfirmed() throws {
+        let (harness, writer) = makeRecordingHarness()
+        harness.model.onAppear(isApplicationActive: true)
+        harness.camera.emit(.running)
+        let phase = harness.model.session.phase
+
+        XCTAssertTrue(harness.voice.acceptsMarkers, "Markers work once the recording has started.")
+        harness.scheduler.advance(by: 5)
+        harness.voice.emitHeard("Mark: that rep should have counted")
+        harness.voice.emit(.mark(note: "that rep should have counted", heardSecondsAgo: 3))
+
+        let marker = try XCTUnwrap(writer.objects(kind: "marker").first)
+        XCTAssertEqual(marker["source"] as? String, "voice")
+        XCTAssertEqual(marker["text"] as? String, "that rep should have counted")
+        let heardAt = try XCTUnwrap(marker["heardAt"] as? Double)
+        XCTAssertEqual((marker["t"] as? Double ?? 0) - heardAt, 3, accuracy: 0.01, "Placed when the trigger was heard.")
+        XCTAssertEqual(harness.speech.utterances.last?.text, "Marked.")
+        XCTAssertEqual(harness.model.session.phase, phase, "A marker leaves the workout alone.")
+        XCTAssertEqual(writer.events(type: "command").last?["command"] as? String, "mark")
+    }
+
     func testBlockingAudioWorkIsRecordedWithItsDuration() throws {
         let store = MemoryWorkoutRecordingStore()
         let recorder = WorkoutSessionRecorder(store: store)
@@ -326,6 +347,21 @@ final class WorkoutCoachModelRecordingTests: XCTestCase {
         let work = try XCTUnwrap(store.writer(for: recorder.id).events(type: "audio.work").last)
         XCTAssertEqual(work["step"] as? String, "restoreOtherAudio")
         XCTAssertGreaterThanOrEqual(work["ms"] as? Double ?? 0, 10)
+    }
+
+    func testMarkersAreOffWithoutARecordingAndAfterItEnds() {
+        XCTAssertFalse(WorkoutCoachHarness.make().voice.acceptsMarkers)
+        let store = MemoryWorkoutRecordingStore()
+        store.failsToCreate = true
+        let failed = WorkoutCoachHarness.make(preferences: InMemoryPreferences(), recorder: WorkoutSessionRecorder(store: store))
+        failed.model.onAppear(isApplicationActive: true)
+        XCTAssertFalse(failed.voice.acceptsMarkers, "No markers when the recording couldn't start.")
+
+        let (harness, _) = makeRecordingHarness()
+        harness.model.onAppear(isApplicationActive: true)
+        XCTAssertTrue(harness.voice.acceptsMarkers)
+        harness.model.onDisappear()
+        XCTAssertFalse(harness.voice.acceptsMarkers)
     }
 
     func testWithoutARecordingAudioWorkIsNotTimed() {

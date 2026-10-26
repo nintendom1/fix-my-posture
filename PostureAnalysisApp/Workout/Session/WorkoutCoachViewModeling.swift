@@ -66,6 +66,8 @@ protocol WorkoutCoachViewModeling: AnyObject, Observable {
     var heardPhrase: String? { get }
     var session: WorkoutSession { get }
     var exercises: [ExerciseDefinition] { get }
+    /// While recording, voice markers work and the Voice Commands list shows them.
+    var isRecording: Bool { get }
     var captureSession: AVCaptureSession? { get }
     var hasOpened: Bool { get }
     var isCoachSpeaking: Bool { get }

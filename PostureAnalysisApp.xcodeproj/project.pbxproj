@@ -426,6 +426,10 @@
 		A10000012B00000000000436 /* RepRejectionTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000436 /* RepRejectionTests.swift */; };
 		A10000012B00000000000437 /* WorkoutSessionReplay.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000437 /* WorkoutSessionReplay.swift */; };
 		A10000012B00000000000438 /* WorkoutSessionReplayTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000438 /* WorkoutSessionReplayTests.swift */; };
+		A10000012B00000000000439 /* MarkerPhraseParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000439 /* MarkerPhraseParser.swift */; };
+		A10000012B00000000000440 /* MarkerPhraseParserTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000440 /* MarkerPhraseParserTests.swift */; };
+		A10000012B00000000000441 /* FakeSpeechRecognizer.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000441 /* FakeSpeechRecognizer.swift */; };
+		A10000012B00000000000442 /* WorkoutVoiceControllerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000442 /* WorkoutVoiceControllerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -860,6 +864,10 @@
 		B10000012B00000000000436 /* RepRejectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepRejectionTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000437 /* WorkoutSessionReplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionReplay.swift; sourceTree = "<group>"; };
 		B10000012B00000000000438 /* WorkoutSessionReplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionReplayTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000439 /* MarkerPhraseParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkerPhraseParser.swift; sourceTree = "<group>"; };
+		B10000012B00000000000440 /* MarkerPhraseParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkerPhraseParserTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000441 /* FakeSpeechRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakeSpeechRecognizer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000442 /* WorkoutVoiceControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutVoiceControllerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1126,6 +1134,8 @@
 				B10000012B00000000000435 /* AudioWorkTimingTests.swift */,
 				B10000012B00000000000436 /* RepRejectionTests.swift */,
 				B10000012B00000000000438 /* WorkoutSessionReplayTests.swift */,
+				B10000012B00000000000440 /* MarkerPhraseParserTests.swift */,
+				B10000012B00000000000442 /* WorkoutVoiceControllerTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1247,6 +1257,7 @@
 				B10000012B00000000000162 /* AudioSessionControlling.swift */,
 				B10000012B00000000000163 /* VoiceControlling.swift */,
 				B10000012B00000000000434 /* AudioWorkTiming.swift */,
+				B10000012B00000000000439 /* MarkerPhraseParser.swift */,
 			);
 			path = Voice;
 			sourceTree = "<group>";
@@ -1677,6 +1688,7 @@
 				B10000012B00000000000346 /* MemoryNotificationEventLog.swift */,
 				B10000012B00000000000371 /* MemoryPersonaTraceStore.swift */,
 				B10000012B00000000000423 /* MemoryWorkoutRecordingStore.swift */,
+				B10000012B00000000000441 /* FakeSpeechRecognizer.swift */,
 			);
 			path = Fakes;
 			sourceTree = "<group>";
@@ -2210,6 +2222,7 @@
 				A10000012B00000000000430 /* WorkoutRecordingReport.swift in Sources */,
 				A10000012B00000000000432 /* PendingFrameQueue.swift in Sources */,
 				A10000012B00000000000434 /* AudioWorkTiming.swift in Sources */,
+				A10000012B00000000000439 /* MarkerPhraseParser.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2351,6 +2364,9 @@
 				A10000012B00000000000436 /* RepRejectionTests.swift in TestSources */,
 				A10000012B00000000000437 /* WorkoutSessionReplay.swift in TestSources */,
 				A10000012B00000000000438 /* WorkoutSessionReplayTests.swift in TestSources */,
+				A10000012B00000000000440 /* MarkerPhraseParserTests.swift in TestSources */,
+				A10000012B00000000000441 /* FakeSpeechRecognizer.swift in TestSources */,
+				A10000012B00000000000442 /* WorkoutVoiceControllerTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

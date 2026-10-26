@@ -50,6 +50,9 @@ enum WorkoutCommand: Equatable {
     /// Stops listening; turning it back on is touch-only, since a muted microphone can't hear.
     case muteMicrophone
     case endWorkout
+    /// Drops a marker on the workout's recording, placed when its trigger was heard, with an optional dictated note.
+    /// Voice only, while recording; the coach records it, so the workout itself is unaffected.
+    case mark(note: String?, heardSecondsAgo: TimeInterval)
 }
 
 struct Utterance: Equatable {
@@ -448,7 +451,7 @@ struct WorkoutSession {
             return [.repeatLastInstruction]
         case .help:
             return [.speak(Utterance(text: helpText, isInstruction: false))]
-        case .closeHelp, .muteCoach:
+        case .closeHelp, .muteCoach, .mark:
             return []
         case .unmuteCoach:
             return [.speak(Utterance(text: "Coach voice on.", isInstruction: false))]

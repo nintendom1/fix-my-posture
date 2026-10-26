@@ -40,6 +40,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     private(set) var isGuidePresented = false
     /// The REC chip's state while a developer session recording runs; nil when not recording.
     private(set) var recordingHUD: WorkoutRecordingHUD?
+    var isRecording: Bool { recordingHUD != nil }
     /// Shared with the saved history record, so a recording and its workout can be matched.
     let workoutID: UUID
 
@@ -215,6 +216,10 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         let phrase = source == .voice ? lastHeardPhrase : nil
         lastHeardPhrase = nil
         recorder?.recordEvent(.command(command, source: source, phrase: phrase), at: clock.now)
+        if case .mark(let note, let secondsAgo) = command {
+            dropMarker(WorkoutMarkerRequest(source: .voice, note: note, heardAt: clock.now - secondsAgo))
+            return
+        }
         switch command {
         case .help:
             presentHelp(true)
@@ -626,6 +631,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         guard recorder.isRecording else { return }
         framePipeline.collectsDiagnostics = true
         recordingHUD = WorkoutRecordingHUD(markerCount: 0, confirmation: nil)
+        voice?.acceptsMarkers = true
         recordState()
     }
 
@@ -648,6 +654,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         markerConfirmationExpiry?.cancel()
         markerConfirmationExpiry = nil
         recordingHUD = nil
+        voice?.acceptsMarkers = false
     }
 
     /// Speaks through the coach unless `muted`, and records the line either way.
