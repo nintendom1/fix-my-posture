@@ -12,13 +12,13 @@ import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { Session, applyNote, emptyNotes, normalizeFileText, NOTES_SCHEMA } from "./lib/session.mjs";
+import { createStore, StoreError } from "./lib/store.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_PORT = 4317;
+export const REPOSITORY_ROOT = path.resolve(here, "../..");
 const MAX_IMPORT_BYTES = 300 * 1024 * 1024;
 const MAX_JSON_BYTES = 8 * 1024 * 1024;
-const ID = /^[0-9A-Fa-f-]{36}$/;
 const STATIC = {
   "/": ["public/index.html", "text/html; charset=utf-8"],
   "/app.js": ["public/app.js", "text/javascript; charset=utf-8"],
@@ -28,9 +28,8 @@ const STATIC = {
 };
 
 /** The viewer's server. `root` is the repository; recordings live in `root/diagnostics/sessions`. */
-export function createServer({ root = path.resolve(here, "../.."), port = DEFAULT_PORT } = {}) {
-  const sessionsDir = path.join(root, "diagnostics", "sessions");
-  const outboxDir = path.join(root, "diagnostics", "outbox");
+export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT } = {}) {
+  const store = createStore(root);
   const clients = new Set();
   let viewerState = null;
   let lastSent = null;
@@ -40,107 +39,23 @@ export function createServer({ root = path.resolve(here, "../.."), port = DEFAUL
     for (const client of clients) client.write(data);
   }
 
-  async function readJSON(file, fallback) {
-    try {
-      return JSON.parse(await fs.readFile(file, "utf8"));
-    } catch {
-      return fallback;
-    }
-  }
-
-  let temporaryCount = 0;
-  async function writeAtomic(file, text) {
-    await fs.mkdir(path.dirname(file), { recursive: true });
-    temporaryCount += 1;
-    const temporary = `${file}.${process.pid}.${temporaryCount}.tmp`;
-    await fs.writeFile(temporary, text);
-    await fs.rename(temporary, file);
-  }
-
-  // Read-modify-write work on one key (a recording's notes, or the outbox) runs one at a time, so two saves can't
-  // both read the old document and lose each other's change.
-  const queues = new Map();
-  function serialized(key, work) {
-    const run = (queues.get(key) ?? Promise.resolve()).then(work, work);
-    const settled = run.catch(() => {});
-    queues.set(key, settled);
-    settled.then(() => { if (queues.get(key) === settled) queues.delete(key); });
-    return run;
-  }
-
-  const recordingFile = (id) => path.join(sessionsDir, `${id}.json`);
-  const notesFile = (id) => path.join(sessionsDir, `${id}.notes.json`);
-  const summaryFile = (id) => path.join(sessionsDir, `${id}.summary.json`);
-
-  async function notesFor(id) {
-    const document = await readJSON(notesFile(id), null);
-    return document?.schema === NOTES_SCHEMA ? document : emptyNotes(id);
-  }
-
-  /** A summary for the list, from the phone's sidecar or, for imported files, from the recording itself. */
-  async function summaryFor(id) {
-    const stored = await readJSON(summaryFile(id), null);
-    if (stored) return stored;
-    const session = Session.fromText(await fs.readFile(recordingFile(id), "utf8"));
-    const summary = {
-      id, startedAt: session.header.startedAt ?? null, endedAt: session.end?.endedAt ?? null, title: session.title,
-      exerciseIDs: session.exerciseSpans.map((span) => span.label), frameCount: session.frames.length,
-      markerCount: session.markers.length, isComplete: session.isComplete,
-    };
-    await serialized(`recording:${id}`, () => writeAtomic(summaryFile(id), JSON.stringify(summary)));
-    return summary;
-  }
-
-  async function listSessions() {
-    let names = [];
-    try {
-      names = await fs.readdir(sessionsDir);
-    } catch {
-      return [];
-    }
-    const ids = names.filter((name) => name.endsWith(".json") && !name.endsWith(".summary.json") && !name.endsWith(".notes.json"))
-      .map((name) => name.slice(0, -5)).filter((id) => ID.test(id));
-    const sessions = [];
-    for (const id of ids) {
-      try {
-        const summary = await summaryFor(id);
-        const stat = await fs.stat(recordingFile(id));
-        const notes = await notesFor(id);
-        sessions.push({ ...summary, id, bytes: stat.size, noteCount: notes.notes.length });
-      } catch {
-        // An unreadable file is left out of the list.
-      }
-    }
-    return sessions.sort((a, b) => String(b.startedAt ?? "").localeCompare(String(a.startedAt ?? "")));
-  }
-
-  async function importRecording(text) {
-    const normalized = normalizeFileText(text);
-    const session = Session.fromText(normalized);
-    if (session.header.schema !== "fmp.workout-session/1" || !ID.test(session.id)) {
-      throw new HTTPError(422, "Not an FMP workout recording (schema fmp.workout-session/1).");
-    }
-    await serialized(`recording:${session.id}`, async () => {
-      await writeAtomic(recordingFile(session.id), normalized);
-      await fs.rm(summaryFile(session.id), { force: true });
-    });
-    return { id: session.id, title: session.title };
-  }
-
   async function handle(request, response) {
     const url = new URL(request.url, `http://${request.headers.host}`);
     const host = request.headers.host ?? "";
     // Only this Mac may call; a page elsewhere can't reach the server through DNS rebinding.
-    if (!/^(127\.0\.0\.1|localhost)(:\d+)?$/.test(host)) throw new HTTPError(403, "Forbidden host.");
+    if (!/^(127\.0\.0\.1|localhost)(:\d+)?$/.test(host)) throw new StoreError(403, "Forbidden host.");
     if (request.method === "POST" && request.headers["x-fmp-replay"] !== "1") {
-      throw new HTTPError(403, "Missing X-FMP-Replay header.");
+      throw new StoreError(403, "Missing X-FMP-Replay header.");
     }
 
     if (request.method === "GET" && STATIC[url.pathname]) {
       const [file, type] = STATIC[url.pathname];
       return send(response, 200, await fs.readFile(path.join(here, file)), type);
     }
-    if (request.method === "GET" && url.pathname === "/api/sessions") return sendJSON(response, await listSessions());
+    if (request.method === "GET" && url.pathname === "/api/sessions") return sendJSON(response, await store.listSessions());
+    if (request.method === "GET" && url.pathname === "/api/identity") {
+      return sendJSON(response, { app: "fmp-replay", root: await fs.realpath(root).catch(() => root) });
+    }
     if (request.method === "GET" && url.pathname === "/api/events") {
       response.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
       response.write(": connected\n\n");
@@ -149,28 +64,24 @@ export function createServer({ root = path.resolve(here, "../.."), port = DEFAUL
       return;
     }
     if (url.pathname === "/api/import" && request.method === "POST") {
-      return sendJSON(response, await importRecording(await body(request, MAX_IMPORT_BYTES)));
+      return sendJSON(response, await store.importRecording(await body(request, MAX_IMPORT_BYTES)));
     }
     if (url.pathname === "/api/viewer/state") {
-      if (request.method === "GET") return sendJSON(response, viewerState);
+      if (request.method === "GET") return sendJSON(response, { ...viewerState, viewers: clients.size });
       if (request.method === "POST") {
         viewerState = { ...JSON.parse(await body(request, MAX_JSON_BYTES)), updatedAt: new Date().toISOString() };
         return sendJSON(response, viewerState);
       }
     }
     if (url.pathname === "/api/viewer/sent") {
-      if (request.method === "GET") return sendJSON(response, lastSent);
+      if (request.method === "GET") return sendJSON(response, lastSent ?? await store.readOutbox());
       if (request.method === "POST") {
         const sent = JSON.parse(await body(request, MAX_JSON_BYTES));
-        if (typeof sent.markdown !== "string") throw new HTTPError(400, "markdown is required.");
-        const file = path.join(outboxDir, "latest.md");
-        await serialized("outbox", async () => {
-          lastSent = { ...sent, sentAt: new Date().toISOString() };
-          await writeAtomic(file, sent.markdown);
-          await writeAtomic(path.join(outboxDir, "latest.json"), JSON.stringify(lastSent, null, 2));
-        });
+        if (typeof sent.markdown !== "string") throw new StoreError(400, "markdown is required.");
+        const { record, path: file } = await store.writeOutbox(sent);
+        lastSent = record;
         broadcast({ type: "sent", sessionId: sent.sessionId ?? null });
-        return sendJSON(response, { path: path.relative(root, file), tokens: Math.ceil(sent.markdown.length / 3.6) });
+        return sendJSON(response, { path: file, tokens: Math.ceil(sent.markdown.length / 3.6) });
       }
     }
     if (url.pathname === "/api/viewer/command" && request.method === "POST") {
@@ -182,41 +93,27 @@ export function createServer({ root = path.resolve(here, "../.."), port = DEFAUL
     if (match) {
       const [, id, part] = match;
       if (part === "file" && request.method === "GET") {
-        return send(response, 200, await fs.readFile(recordingFile(id)), "application/json; charset=utf-8");
+        return send(response, 200, await store.readRecordingText(id), "application/json; charset=utf-8");
       }
-      if (part === "notes" && request.method === "GET") return sendJSON(response, await notesFor(id));
+      if (part === "notes" && request.method === "GET") return sendJSON(response, await store.notesFor(id));
       if (part === "notes" && request.method === "POST") {
-        await fs.access(recordingFile(id));
-        const note = JSON.parse(await body(request, MAX_JSON_BYTES));
-        if (typeof note.id !== "string" || !Number.isFinite(Number(note.t))) throw new HTTPError(400, "A note needs id and t.");
-        const document = await serialized(`notes:${id}`, async () => {
-          const updated = applyNote(await notesFor(id), note);
-          await writeAtomic(notesFile(id), JSON.stringify(updated, null, 2) + "\n");
-          return updated;
-        });
+        const document = await store.saveNote(id, JSON.parse(await body(request, MAX_JSON_BYTES)));
         broadcast({ type: "notes", sessionId: id });
         return sendJSON(response, document);
       }
     }
-    throw new HTTPError(404, "Not found.");
+    throw new StoreError(404, "Not found.");
   }
 
   const server = createHTTPServer((request, response) => {
     handle(request, response).catch((error) => {
-      const status = error instanceof HTTPError ? error.status : error?.code === "ENOENT" ? 404 : 500;
+      const status = error instanceof StoreError ? error.status : error instanceof SyntaxError ? 400 : error?.code === "ENOENT" ? 404 : 500;
       sendJSON(response, { error: error?.message ?? String(error) }, status);
     });
   });
   server.urlFor = (actualPort = server.address()?.port ?? port) => `http://127.0.0.1:${actualPort}/`;
   server.closeClients = () => { for (const client of clients) client.end(); clients.clear(); };
   return server;
-}
-
-class HTTPError extends Error {
-  constructor(status, message) {
-    super(message);
-    this.status = status;
-  }
 }
 
 function send(response, status, data, type) {
@@ -235,7 +132,7 @@ function body(request, limit) {
     request.on("data", (chunk) => {
       size += chunk.length;
       if (size > limit) {
-        reject(new HTTPError(413, "Too large."));
+        reject(new StoreError(413, "Too large."));
         request.destroy();
       } else {
         chunks.push(chunk);
@@ -251,7 +148,7 @@ async function main() {
   const portIndex = args.indexOf("--port");
   const port = portIndex >= 0 ? Number(args[portIndex + 1]) : Number(process.env.FMP_REPLAY_PORT ?? DEFAULT_PORT);
   const shouldOpen = args.includes("--open");
-  const server = createServer({ port });
+  const server = createServer({ root: process.env.FMP_REPLAY_ROOT ?? REPOSITORY_ROOT, port });
   const url = `http://127.0.0.1:${port}/`;
   server.on("error", (error) => {
     if (error.code === "EADDRINUSE") {

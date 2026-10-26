@@ -83,10 +83,12 @@ test("the frame gap check uses camera timestamps, not when the coach handled the
   assert.match(views.checks(session, index(frames[60])), /fail">✗<\/span><span>Camera frame gap<\/span><span class="v fail">0\.40 s/);
 });
 
-test("the rep lane numbers counted reps and marks analyzer events separately", () => {
-  const session = new Session(records());
-  const lane = views.repLane(session);
-  assert.equal((lane.match(/class="mark"/g) ?? []).length, 1);
-  assert.match(lane, /class="mark"[^>]*>1<\/span>/);
-  assert.equal((lane.match(/analyzer-dot/g) ?? []).length, 1);
+test("the rep lane numbers counted reps and marks the ones the coach didn't count", () => {
+  const items = records();
+  items.push({ k: "e", t: 17, type: "rep", epoch: 0, ts: 1017, sides: ["left", "right"] });
+  items.sort((a, b) => (a.k === "header" ? -1 : b.k === "header" ? 1 : (a.t ?? 0) - (b.t ?? 0)));
+  const lane = views.repLane(new Session(items));
+  assert.match(lane, /class="mark"[^>]*color:#3ddc97[^>]*>1<\/span>/);
+  assert.match(lane, /class="mark"[^>]*title="0:17\.0 · sides left\+right · not counted"[^>]*>×<\/span>/);
+  assert.equal((lane.match(/>×</g) ?? []).length, 1);
 });

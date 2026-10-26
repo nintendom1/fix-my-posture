@@ -66,14 +66,17 @@ export function framingLane(session) {
   }).join("");
 }
 
-/** Numbered marks where the displayed rep count went up, and small dots for the analyzer's own rep events, which the
- * coach may not count (a stale analyzer, counting off, or one side of an independently counted exercise). */
+/** A numbered mark for each rep the coach counted, a small dot for a rep on one side that left the count unchanged,
+ * and a red × for an analyzer rep the coach didn't count. */
 export function repLane(session) {
-  const counted = session.timeline.filter((item) => item.kind === "rep").map((item) =>
-    `<span class="mark" data-t="${num(item.t)}" style="left:${at(session, item.t)};background:rgba(61,220,151,.18);color:#3ddc97" title="${esc(`${item.title} at ${clock(num(item.t))}${item.detail ? ` · ${item.detail}` : ""}`)}">${esc(item.title.replace(/^Rep /, ""))}</span>`);
-  const raw = session.timeline.filter((item) => item.kind === "analyzer").map((item) =>
-    `<span class="analyzer-dot" data-t="${num(item.t)}" style="left:${at(session, item.t)}" title="${esc(`${item.title} at ${clock(num(item.t))} · ${item.detail}`)}"></span>`);
-  return raw.concat(counted).join("");
+  return session.reps.map((rep) => {
+    const title = esc(`${clock(num(rep.t))} · sides ${rep.sides.join("+")} · ${rep.outcome === "notCounted" ? `not counted${rep.reason ? `: ${rep.reason}` : ""}` : rep.outcome === "oneSide" ? "one side, count unchanged" : `rep ${rep.count}${rep.outcome === "completedSet" ? ", set complete" : ""}`}`);
+    if (rep.outcome === "counted" || rep.outcome === "completedSet") {
+      return `<span class="mark" data-t="${num(rep.t)}" style="left:${at(session, rep.t)};background:rgba(61,220,151,.18);color:#3ddc97" title="${title}">${num(rep.count)}</span>`;
+    }
+    if (rep.outcome === "oneSide") return `<span class="analyzer-dot" data-t="${num(rep.t)}" style="left:${at(session, rep.t)}" title="${title}"></span>`;
+    return `<span class="mark" data-t="${num(rep.t)}" style="left:${at(session, rep.t)};background:#ff5d73;color:#fff" title="${title}">×</span>`;
+  }).join("");
 }
 
 export function issueLane(session) {

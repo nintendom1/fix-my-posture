@@ -43,8 +43,8 @@ test("the session model finds frames, state, exercise, and tracking losses", () 
   const titles = session.timeline.map((item) => `${item.t} ${item.title}`);
   assert.ok(titles.includes("8.25 Tracking lost"));
   assert.ok(titles.includes("1 Command: start"));
-  assert.ok(titles.includes("15 Analyzer rep"), "the analyzer's event is labeled as such");
-  assert.ok(titles.includes("15 Rep 1"), "the displayed count comes from the coach's state");
+  assert.ok(titles.includes("15 Rep 1"), "the analyzer's event, counted by the coach");
+  assert.deepEqual(session.reps.map((rep) => [rep.t, rep.outcome, rep.count]), [[15, "counted", 1]]);
   assert.ok(titles.includes("16 Marker (voice)"));
 });
 
@@ -170,4 +170,37 @@ test("an excerpt across two exercises keeps both exercises' joints and labels ea
   assert.match(text, /^t,ex,frm,cnt,g,LS,RS,LW,LK,LA,/m);
   assert.match(text, /^9\.5,push_up,/m);
   assert.match(text, /^10\.5,air_squat,/m);
+});
+
+test("each analyzer rep is classified by what the coach did with it", () => {
+  const header = records()[0];
+  const state = (t, fields) => ({ k: "state", t, phase: "exercising", ex: "push_up", set: 1, reps: 0, counting: true, epoch: 1,
+    sideReps: { left: 0, right: 0 }, ...fields });
+  const rep = (t, sides, epoch = 1) => ({ k: "e", t, type: "rep", epoch, ts: 1000 + t, sides });
+  const session = new Session([
+    header,
+    state(1, {}),
+    // Arms counted one at a time: the left arm alone leaves the count at 0, then the right arm makes it 1.
+    rep(2, ["left"]), state(2, { sideReps: { left: 1, right: 0 } }),
+    rep(3, ["right"]), state(3.001, { reps: 1, sideReps: { left: 1, right: 1 } }),
+    // The set completes on this rep, which resets the count before the next state is recorded.
+    rep(4, ["left", "right"]), state(4, { phase: "resting", set: 2, reps: 0, counting: false }),
+    // During rest, and from an older analyzer: neither counts.
+    rep(5, ["left", "right"]),
+    state(6, { phase: "exercising", set: 2, epoch: 2 }),
+    rep(7, ["left", "right"], 1),
+    state(8, { counting: false, set: 2, epoch: 2 }),
+    rep(9, ["left", "right"], 2),
+  ]);
+  assert.deepEqual(session.reps.map((r) => [r.t, r.outcome, r.count, r.reason]), [
+    [2, "oneSide", null, null],
+    [3, "counted", 1, null],
+    [4, "completedSet", 2, null],
+    [5, "notCounted", null, "phase resting"],
+    [7, "notCounted", null, "stale analyzer (epoch 1, coach at 2)"],
+    [9, "notCounted", null, "counting off"],
+  ]);
+  const titles = session.timeline.filter((item) => ["rep", "analyzer", "warn"].includes(item.kind)).map((item) => `${item.t} ${item.title}`);
+  assert.deepEqual(titles, ["2 Rep on one side, count unchanged", "3 Rep 1", "4 Rep 2, set complete", "5 Analyzer rep not counted",
+    "7 Analyzer rep not counted", "9 Analyzer rep not counted"]);
 });
