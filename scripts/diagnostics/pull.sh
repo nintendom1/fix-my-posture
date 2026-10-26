@@ -17,10 +17,22 @@ xcrun --find devicectl >/dev/null 2>&1 || fail "Install Xcode 16.4+ and select i
 [[ -n "${IOS_DEVICE:-}" ]] || fail "Set IOS_DEVICE in ios.local.env (see 'make ios-devices')."
 [[ -n "${IOS_BUNDLE_ID:-}" ]] || fail "Set IOS_BUNDLE_ID in ios.local.env to the identifier 'make ios' installs."
 
-inbox="diagnostics/inbox"
 sessions="diagnostics/sessions"
-rm -rf "$inbox"
-mkdir -p "$inbox" "$sessions"
+mkdir -p "$sessions"
+# One pull at a time (Claude's MCP tool and a manual `make diagnostics` can overlap); a lock left by a killed pull is
+# taken over once its process is gone.
+lock="diagnostics/.pull.lock"
+until mkdir "$lock" 2>/dev/null; do
+    holder="$(cat "$lock/pid" 2>/dev/null || true)"
+    if [[ -n "$holder" ]] && ! kill -0 "$holder" 2>/dev/null; then
+        rm -rf "$lock"
+        continue
+    fi
+    fail "Another pull is running. Try again when it finishes."
+done
+echo $$ > "$lock/pid"
+inbox="$(mktemp -d diagnostics/inbox.XXXXXX)"
+trap 'rm -rf "$lock" "$inbox"' EXIT
 
 echo "Copying workout recordings from $IOS_DEVICE..."
 xcrun devicectl device copy from --device "$IOS_DEVICE" \

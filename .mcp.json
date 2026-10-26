@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "fmp-replay": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["tools/session-replay/mcp.mjs"]
+    }
+  }
+}

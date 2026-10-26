@@ -122,6 +122,7 @@ export class Session {
     this.phaseSpans = this.#spans(this.states, (s) => s.phase);
     this.framingSpans = this.#framingSpans();
     this.losses = this.#losses();
+    this.reps = this.#classifyReps();
     this.timeline = this.#timeline();
   }
 
@@ -185,6 +186,36 @@ export class Session {
     return losses;
   }
 
+  /**
+   * What the coach made of each analyzer rep event, from the state recorded right after it: counted (the displayed
+   * count went up, or the set completed on it, which resets the count at once), one side only (the count is the
+   * smaller side's), or not counted at all (a stale analyzer, or counting off).
+   */
+  #classifyReps() {
+    const reps = [];
+    for (const event of this.events) {
+      if (event.type !== "rep") continue;
+      const before = this.states[lastAtOrBefore(this.states, event.t - 1e-6)] ?? null;
+      const after = this.states.find((state) => state.t >= event.t && state.t <= event.t + 0.05) ?? null;
+      const item = { t: event.t, epoch: event.epoch, sides: event.sides ?? [], before, after, outcome: "notCounted", count: null, reason: null };
+      if (after && before && after.reps > before.reps) {
+        item.outcome = "counted";
+        item.count = after.reps;
+      } else if (after && before && after.set !== before.set || after && before && after.phase !== before.phase && /^exercising/.test(before.phase ?? "")) {
+        item.outcome = "completedSet";
+        item.count = (before?.reps ?? 0) + 1;
+      } else if (after && before && after.sideReps && before.sideReps
+        && (after.sideReps.left !== before.sideReps.left || after.sideReps.right !== before.sideReps.right)) {
+        item.outcome = "oneSide";
+      } else if (before) {
+        item.reason = before.epoch != null && event.epoch != null && before.epoch !== event.epoch ? `stale analyzer (epoch ${event.epoch}, coach at ${before.epoch})`
+          : !/^exercising/.test(before.phase ?? "") ? `phase ${before.phase}` : before.counting === false ? "counting off" : null;
+      }
+      reps.push(item);
+    }
+    return reps;
+  }
+
   /** The event log: what happened, in order, with a kind for coloring and filtering. */
   #timeline() {
     const items = [];
@@ -195,8 +226,7 @@ export class Session {
           add(event.t, "command", `Command: ${event.command}`, event.source === "voice" ? `voice${event.phrase ? ` · “${event.phrase}”` : ""}` : "touch");
           break;
         case "rep":
-          // The analyzer's event, before the coach accepts it; counted reps come from the state below.
-          add(event.t, "analyzer", "Analyzer rep", `sides ${(event.sides ?? []).join("+")}, epoch ${event.epoch}`);
+          // Added below with what the coach made of it.
           break;
         case "speak": add(event.t, "voice", event.muted ? "Coach (muted)" : "Coach says", `“${event.text}”`); break;
         case "tip": add(event.t, "cue", `Tip: ${event.cue}`, event.text ? `“${event.text}”` : ""); break;
@@ -219,14 +249,17 @@ export class Session {
       else add(span.start, span.wasReliable ? "warn" : "info", span.wasReliable ? "Tracking lost" : "Not tracking", span.guidance ?? "");
       previous = span;
     }
+    for (const rep of this.reps) {
+      const sides = rep.sides.join("+");
+      const after = rep.after?.sideReps ? ` · L ${rep.after.sideReps.left} R ${rep.after.sideReps.right}` : "";
+      if (rep.outcome === "counted") add(rep.t, "rep", `Rep ${rep.count}`, `sides ${sides}${after}`);
+      else if (rep.outcome === "completedSet") add(rep.t, "rep", `Rep ${rep.count}, set complete`, `sides ${sides}`);
+      else if (rep.outcome === "oneSide") add(rep.t, "analyzer", "Rep on one side, count unchanged", `sides ${sides}${after}`);
+      else add(rep.t, "warn", "Analyzer rep not counted", `sides ${sides}${rep.reason ? ` · ${rep.reason}` : ""}`);
+    }
     let last = null;
     for (const state of this.states) {
       if (last && state.phase !== last.phase) add(state.t, "set", `Phase: ${state.phase}`, state.ex ? `${state.ex} · set ${state.set}` : "");
-      if (last && state.reps > last.reps) add(state.t, "rep", `Rep ${state.reps}`, state.sideReps ? `L ${state.sideReps.left} · R ${state.sideReps.right}` : "");
-      else if (last && state.sideReps && last.sideReps && state.reps === last.reps
-        && (state.sideReps.left !== last.sideReps.left || state.sideReps.right !== last.sideReps.right)) {
-        add(state.t, "analyzer", "Side rep, count unchanged", `L ${state.sideReps.left} · R ${state.sideReps.right}`);
-      }
       if (last && state.counting !== last.counting && state.counting !== undefined) add(state.t, "info", state.counting ? "Counting on" : "Counting off");
       last = state;
     }

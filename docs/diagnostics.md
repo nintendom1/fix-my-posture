@@ -20,11 +20,35 @@ A developer recording captures one workout in detail, so a problem can be descri
 - **Timeline:** phase, tracking (reliable, lost, or not tracking, split where the framing guidance changes), reps, each side's main signal and angle, the weakest required joint's confidence against the 0.4 and 0.3 lines, issues (tracking losses, cues, tilt), and notes. The reps lane numbers the coach's displayed count, and its small dots are the analyzer's own rep events, which the coach may not count (a stale analyzer, counting off, or one side of an exercise counted per arm). Click or drag to scrub, and shift-drag to select a range.
 - **Keys:** Space plays, ←/→ step a frame, Shift steps a second, [ and ] jump between log events, N adds a note at the playhead (or across the selection), E opens the export, and Esc clears the selection.
 - **Notes** are saved beside the recording as `<uuid>.notes.json` (schema `fmp.session-notes/1`), so pulling the recording again never overwrites them. Notes have an author, you or Claude.
-- **Export for Claude:** a Markdown excerpt with the window, notes, the exercise's tuning, the state in force when the window starts (phase, exercise, set, reps, counting, framing), the events and pipeline controls in the window, and a frame table as CSV (with an exercise column, and every exercise's focus joints, when the window spans more than one). The window is fixed when the dialog opens, so what is copied, saved, or sent is exactly the preview. It has presets (*Rep counting*, *Tracking & framing*, *Form cue*, *Session flow*), a window (selection, around the playhead, the exercise, or everything), a rate (10, 5, 2, or 1 Hz, or events only), the joints to include (focus joints, all, or none), and channel toggles. It shows a live token estimate. **Copy** and **Save .md** keep it on the Mac; **Send to Claude** writes `diagnostics/outbox/latest.md` (and `latest.json`). Then tell Claude Code "look at what I sent".
+- **Export for Claude:** a Markdown excerpt with the window, notes, the exercise's tuning, the state in force when the window starts (phase, exercise, set, reps, counting, framing), the events and pipeline controls in the window, and a frame table as CSV (with an exercise column, and every exercise's focus joints, when the window spans more than one). The window is fixed when the dialog opens, so what is copied, saved, or sent is exactly the preview. It has presets (*Rep counting*, *Tracking & framing*, *Form cue*, *Session flow*), a window (selection, around the playhead, the exercise, or everything), a rate (10, 5, 2, or 1 Hz, or events only), the joints to include (focus joints, all, or none), and channel toggles. It shows a live token estimate. **Copy** and **Save .md** keep it on the Mac; **Send to Claude** writes `diagnostics/outbox/latest.md` (and `latest.json`). Then tell Claude Code "look at what I sent"; it reads the excerpt with `fmp_viewer_selection` (see below), or from that file.
 - **Links:** `?session=<id>&t=13.3&from=12.3&to=15.4&export=1` opens a recording at a time, with a range selected and the export open.
 - **Server:** binds to 127.0.0.1 only, refuses other Host headers, and accepts writes only with its `X-FMP-Replay` header. Its API: `GET /api/sessions`, `GET /api/sessions/<id>/file`, `GET`/`POST /api/sessions/<id>/notes`, `POST /api/import`, `GET`/`POST /api/viewer/state` (the open recording, playhead, and selection), `GET`/`POST /api/viewer/sent`, `POST /api/viewer/command` (relays `{"command":"seek","sessionId":…,"t":…,"from":…,"to":…,"note":…}` to open viewers), and `GET /api/events` (a server-sent event stream).
 - **Markup safety:** recordings and notes can come from anywhere, so every string goes through `views.mjs`, which escapes text and forces numbers before anything reaches the page. A test renders every view from a hostile recording. Note saves and other writes are serialized per file, so concurrent saves never lose each other.
 - Tests: `node --test tools/session-replay/test/*.test.mjs`, run by `validate.sh` with synthetic recordings only.
+
+## Claude link (MCP)
+
+The repository's `.mcp.json` registers `fmp-replay`, an MCP server over stdio (`tools/session-replay/mcp.mjs`, Node 20 or later, no dependencies), so Claude Code can work with recordings directly. Claude Code asks once to approve a project's MCP servers; after a restart, `/mcp` shows it. Recordings are read straight from `diagnostics/sessions/`. The viewer's server is used only for live work, and `fmp_open_viewer` starts it when needed.
+
+| Tool | What it does |
+|---|---|
+| `fmp_pull_device` | Runs `make diagnostics` to copy the phone's recordings. |
+| `fmp_list_sessions` | Recordings, newest first. |
+| `fmp_session_overview` | One recording without frame data (about 1k tokens): device, exercises and tuning, phases, counted reps compared with the analyzer's rep events, every tracking loss with its guidance, markers, notes, other issues, and suggested windows to query. |
+| `fmp_query` | A window as the same Markdown excerpt the viewer exports. Takes a preset, rate, joints, and channel overrides. More than 300 frame rows (or about 17k tokens) needs `allowLarge`. |
+| `fmp_events` | Timeline events, optionally in a window and of some kinds. |
+| `fmp_viewer_selection` | What the user last sent with **Send to Claude**, and where the open viewer is (recording, playhead, selection). |
+| `fmp_viewer_seek` | Moves the user's open viewer to a time and range, with a short message, so they see the frame Claude means. |
+| `fmp_add_note` | Adds a note from Claude. It is saved through the viewer's server when it runs, so open viewers show it at once. |
+| `fmp_open_viewer` | Opens the viewer in the browser at a recording, time, and range, optionally with the export open. |
+
+Sessions are named by id, by their first 8 characters, or as `latest`. Times are seconds or `m:ss.s`. Arguments are checked against each tool's schema, and a bad argument is a JSON-RPC invalid-params error. The server's instructions remind Claude that recordings are a real person's body data.
+
+- **Reps:** each analyzer rep event is classified by the coach's state recorded right after it. It is *counted*, or *counted, completing the set* (the coach resets the count at once, so no higher count is ever recorded). It can be *on one side only*, when an exercise counts each arm and the count is the smaller side's. Or it is *not counted*, with the reason when the state shows it: a stale analyzer, counting off, or not exercising. The viewer's reps lane draws the same classes as numbers, dots, and red ×.
+- **Live calls** go only to a viewer server that reports this checkout (`GET /api/identity`), with a 2 s timeout, so notes and seeks never land in another copy of the repository.
+- **Concurrency:** note saves take a lock file beside the notes (`<id>.notes.json.lock`, taken over when older than 10 s), so the viewer's server and any number of Claude sessions never lose each other's notes. Pulls run one at a time: calls in one session share a pull, and `pull.sh` refuses to start while another pull holds `diagnostics/.pull.lock`, staging each pull in its own folder.
+
+Tests: `tools/session-replay/test/mcp.test.mjs` drives the server over stdio against a temporary folder.
 
 ## Data rule
 

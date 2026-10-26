@@ -66,7 +66,7 @@ PostureAnalysisApp/
     └── Design/                  # Metrics, anchors, frame coverage, and pending frames
 scripts/design/                  # Reference extraction/rendering, anchors, masks, and pixel diff
 scripts/diagnostics/             # `make diagnostics`: pull workout recordings from the iPhone
-tools/session-replay/            # `make viewer`: local replay viewer, server, notes, and excerpts for Claude (Node, no deps)
+tools/session-replay/            # `make viewer` replay viewer + server; mcp.mjs is the `fmp-replay` MCP server in .mcp.json (Node, no deps)
 diagnostics/                     # Gitignored: pulled workout recordings (never commit)
 Design/Metrics/                  # Committed metrics generated from the local design bundle
 Design/AppIcon/                  # App icon SVG source, export script, and notices
