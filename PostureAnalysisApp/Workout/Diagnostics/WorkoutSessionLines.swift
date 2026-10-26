@@ -289,6 +289,8 @@ enum WorkoutSessionLines {
             fields = [("type", "audio.interruptionBegan")]
         case .audioInterruptionEnded(let shouldResume):
             fields = [("type", "audio.interruptionEnded"), ("shouldResume", .bool(shouldResume))]
+        case .audioWork(let step, let seconds):
+            fields = [("type", "audio.work"), ("step", .string(step.rawValue)), ("ms", .rounded(seconds * 1000, places: 1))]
         case .guidePresented(let shown):
             fields = [("type", "ui.guide"), ("shown", .bool(shown))]
         case .helpPresented(let shown):

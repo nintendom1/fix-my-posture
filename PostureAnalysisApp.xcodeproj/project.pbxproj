@@ -421,6 +421,8 @@
 		A10000012B00000000000431 /* WorkoutRecordingReportTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000431 /* WorkoutRecordingReportTests.swift */; };
 		A10000012B00000000000432 /* PendingFrameQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000432 /* PendingFrameQueue.swift */; };
 		A10000012B00000000000433 /* PendingFrameQueueTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000433 /* PendingFrameQueueTests.swift */; };
+		A10000012B00000000000434 /* AudioWorkTiming.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000434 /* AudioWorkTiming.swift */; };
+		A10000012B00000000000435 /* AudioWorkTimingTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000435 /* AudioWorkTimingTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -850,6 +852,8 @@
 		B10000012B00000000000431 /* WorkoutRecordingReportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutRecordingReportTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000432 /* PendingFrameQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingFrameQueue.swift; sourceTree = "<group>"; };
 		B10000012B00000000000433 /* PendingFrameQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingFrameQueueTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000434 /* AudioWorkTiming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioWorkTiming.swift; sourceTree = "<group>"; };
+		B10000012B00000000000435 /* AudioWorkTimingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioWorkTimingTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1113,6 +1117,7 @@
 				B10000012B00000000000429 /* WorkoutRecordingsViewModelTests.swift */,
 				B10000012B00000000000431 /* WorkoutRecordingReportTests.swift */,
 				B10000012B00000000000433 /* PendingFrameQueueTests.swift */,
+				B10000012B00000000000435 /* AudioWorkTimingTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1233,6 +1238,7 @@
 				B10000012B00000000000082 /* VoiceCommandParsing.swift */,
 				B10000012B00000000000162 /* AudioSessionControlling.swift */,
 				B10000012B00000000000163 /* VoiceControlling.swift */,
+				B10000012B00000000000434 /* AudioWorkTiming.swift */,
 			);
 			path = Voice;
 			sourceTree = "<group>";
@@ -2194,6 +2200,7 @@
 				A10000012B00000000000422 /* WorkoutRecordingsScreen.swift in Sources */,
 				A10000012B00000000000430 /* WorkoutRecordingReport.swift in Sources */,
 				A10000012B00000000000432 /* PendingFrameQueue.swift in Sources */,
+				A10000012B00000000000434 /* AudioWorkTiming.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2331,6 +2338,7 @@
 				A10000012B00000000000429 /* WorkoutRecordingsViewModelTests.swift in TestSources */,
 				A10000012B00000000000431 /* WorkoutRecordingReportTests.swift in TestSources */,
 				A10000012B00000000000433 /* PendingFrameQueueTests.swift in TestSources */,
+				A10000012B00000000000435 /* AudioWorkTimingTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

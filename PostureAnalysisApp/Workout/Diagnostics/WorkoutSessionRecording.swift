@@ -63,6 +63,8 @@ enum WorkoutRecordingEvent: Equatable {
     case cameraFailed(String)
     case audioInterruptionBegan
     case audioInterruptionEnded(shouldResume: Bool)
+    /// Audio work that ran synchronously on the main thread, and how long it took.
+    case audioWork(AudioWorkStep, seconds: TimeInterval)
     case guidePresented(Bool)
     case helpPresented(Bool)
     case measurementsShown(Bool)

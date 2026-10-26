@@ -131,7 +131,8 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
          speech: SpeechCoaching, audio: AudioSessionControlling?, tiltMonitor: PhoneTiltMonitoring?,
          voice: VoiceControlling?, clock: Clock, scheduler: Scheduling, preferences: any AppPreferencesStoring,
          exercises: [ExerciseDefinition], initialExercise: ExerciseID?, plan: WorkoutPlan?,
-         settings: WorkoutSettings = WorkoutSettings(), recorder: (any WorkoutSessionRecording)? = nil) {
+         settings: WorkoutSettings = WorkoutSettings(), recorder: (any WorkoutSessionRecording)? = nil,
+         audioTiming: AudioWorkTiming? = nil) {
         self.camera = camera
         self.previewProvider = previewProvider
         self.permission = permission
@@ -150,6 +151,13 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         session = WorkoutSession(exercises: exercises, initialExercise: initialExercise, plan: plan, settings: settings)
         now = clock.now
         audio?.onEvent = { [weak self] event in self?.handleAudio(event) }
+        // Only recordings use the timings: they show what a main-thread stall around coach speech is made of.
+        if recorder != nil {
+            audioTiming?.onMeasured = { [weak self] step, seconds in
+                guard let self else { return }
+                self.recorder?.recordEvent(.audioWork(step, seconds: seconds), at: self.clock.now)
+            }
+        }
         speech.onActivityChanged = { [weak self] speaking in
             self?.coachSpeakingChanged(speaking)
         }

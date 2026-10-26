@@ -32,9 +32,11 @@ final class SpeechCoach: NSObject, SpeechCoaching {
     private var current: AVSpeechUtterance?
     private var isActive = false
     private var watchdog: Timer?
+    private let timing: AudioWorkTiming?
 
-    init(audio: AudioSessionControlling) {
+    init(audio: AudioSessionControlling, timing: AudioWorkTiming? = nil) {
         self.audio = audio
+        self.timing = timing
         voice = Self.preferredVoice()
         super.init()
         synthesizer.delegate = self
@@ -45,7 +47,7 @@ final class SpeechCoach: NSObject, SpeechCoaching {
         if utterance.interrupts {
             queue.removeAll()
             // The cancel callback advances to this utterance; speaking immediately after a stop can be dropped.
-            if current != nil { synthesizer.stopSpeaking(at: .immediate) }
+            if current != nil { stopSynthesizer() }
         }
         queue.append(utterance)
         if queue.count > Self.maximumQueued { queue.removeFirst(queue.count - Self.maximumQueued) }
@@ -59,7 +61,7 @@ final class SpeechCoach: NSObject, SpeechCoaching {
     func stopAll() {
         queue.removeAll()
         current = nil
-        synthesizer.stopSpeaking(at: .immediate)
+        stopSynthesizer()
         finishActivity()
     }
 
@@ -79,8 +81,16 @@ final class SpeechCoach: NSObject, SpeechCoaching {
         let spoken = AVSpeechUtterance(string: next.text)
         spoken.voice = voice
         current = spoken
-        synthesizer.speak(spoken)
+        measured(.speechStart) { synthesizer.speak(spoken) }
         armWatchdog(for: spoken)
+    }
+
+    private func stopSynthesizer() {
+        measured(.speechStop) { _ = synthesizer.stopSpeaking(at: .immediate) }
+    }
+
+    private func measured(_ step: AudioWorkStep, _ work: () -> Void) {
+        if let timing { timing.measure(step, work) } else { work() }
     }
 
     private func finishActivity() {
