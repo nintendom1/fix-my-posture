@@ -26,7 +26,7 @@ struct FocusSegment: Hashable {
 }
 
 /// Where the user faces relative to the phone.
-enum ExerciseCameraView: Equatable {
+enum ExerciseCameraView: String, Equatable {
     /// Facing the phone; both arms visible.
     case front
     /// Side-on to the phone; the arm nearer the phone is tracked.
@@ -120,6 +120,8 @@ struct ExerciseDefinition: Identifiable {
         perSide ? "Set \(index / 2 + 1) \(index % 2 == 0 ? "L" : "R")" : "Set \(index + 1)"
     }
     let makeAnalyzer: (_ epoch: Int) -> ExerciseAnalyzing
+    /// The analyzer's tuning for session recordings, and a way to rebuild this exercise from a recorded tuning.
+    var diagnostics: ExerciseDiagnostics? = nil
 
     var focusJoints: Set<LandmarkType> {
         Set(focusSegments.flatMap { [$0.from, $0.to] })

@@ -283,7 +283,7 @@ struct SettingsScreen: View {
         case .postureDisplay:
             SettingsPostureDisplayPage(viewModel: viewModel)
         case .privacy:
-            SettingsPrivacyPage()
+            SettingsPrivacyPage(recordsWorkouts: viewModel.workoutRecordings?.isRecordingEnabled ?? false)
         case .about:
             SettingsAboutPage()
         case .acknowledgements:
@@ -297,6 +297,10 @@ struct SettingsScreen: View {
         case .personaDebug:
             if let personaDebug = viewModel.personaDebug {
                 PersonaDebugScreen(viewModel: personaDebug)
+            }
+        case .workoutRecordings:
+            if let workoutRecordings = viewModel.workoutRecordings {
+                WorkoutRecordingsScreen(viewModel: workoutRecordings)
             }
         }
     }

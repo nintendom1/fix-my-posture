@@ -141,11 +141,16 @@ struct WorkoutCameraScreen: View {
             topBar
 
             let chip = micChip
-            cameraMicChip(title: chip.title, icon: chip.icon, tint: chip.tint)
-                .designAnchor("camera.micChip")
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
+            HStack(spacing: 6) {
+                if let recording = state.recording {
+                    recordingChip(recording)
+                }
+                cameraMicChip(title: chip.title, icon: chip.icon, tint: chip.tint)
+                    .designAnchor("camera.micChip")
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .padding(.horizontal, 16)
+            .padding(.top, 10)
 
             if let heardPhrase = state.heardPhrase {
                 StatusChip(title: "Heard: “\(heardPhrase)”", icon: "waveform",
@@ -244,6 +249,21 @@ struct WorkoutCameraScreen: View {
         .frame(height: 44)
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 16)
+    }
+
+    /// Developer builds only: shows that the session is being recorded; tapping it marks this moment.
+    private func recordingChip(_ recording: WorkoutRecordingHUD) -> some View {
+        Button {
+            toolbarVisibility.interact()
+            onIntent(.dropMarker)
+        } label: {
+            cameraMicChip(title: recording.confirmation ?? (recording.markerCount > 0 ? "REC · \(recording.markerCount)" : "REC"),
+                          icon: recording.confirmation == nil ? "record.circle" : "checkmark.circle.fill",
+                          tint: recording.confirmation == nil ? Color(hex: 0xFF9AA6) : ColorTokens.palette().success)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(recording.confirmation ?? "Recording. Mark this moment")
+        .accessibilityIdentifier("workoutRecordingChip")
     }
 
     private func cameraMicChip(title: String, icon: String, tint: Color) -> some View {

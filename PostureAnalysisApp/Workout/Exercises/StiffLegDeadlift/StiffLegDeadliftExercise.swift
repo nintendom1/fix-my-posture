@@ -14,7 +14,7 @@ extension CoachingCueID {
 
 /// Prototype thresholds for a side-view dumbbell hip hinge. All angles come from pixel geometry and are
 /// scale-free; tune them on device.
-struct StiffLegDeadliftConfiguration {
+struct StiffLegDeadliftConfiguration: Codable {
     var standMaxPitch: Double = 15
     var hingeMinPitch: Double = 55
     var confirmationSamples = 2
@@ -100,7 +100,8 @@ enum StiffLegDeadliftExercise {
             startsByHolding: false,
             equipment: .dumbbells,
             plantedJoints: [.leftAnkle, .rightAnkle],
-            makeAnalyzer: { epoch in StiffLegDeadliftAnalyzer(epoch: epoch, configuration: configuration) }
+            makeAnalyzer: { epoch in StiffLegDeadliftAnalyzer(epoch: epoch, configuration: configuration) },
+            diagnostics: ExerciseDiagnostics(configuration, definition: definition(configuration:))
         )
     }
 

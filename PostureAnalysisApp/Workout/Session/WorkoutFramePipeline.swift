@@ -12,6 +12,39 @@ struct WorkoutFramePipeline {
         let readings: [BodySide: ArmReading]
         let thresholds: [BodySide: ArmThresholds]
         let formReadings: [FormReading]
+        /// Everything this frame decided, for a session recording; nil unless `collectsDiagnostics` is on.
+        let diagnostics: FrameDiagnostics?
+    }
+
+    /// One frame's inputs and decisions, beyond what the overlay and HUD need.
+    struct FrameDiagnostics {
+        /// The frame framing and the analyzer saw: during a set it carries joints estimated past the frame edge.
+        let analyzedFrame: PoseFrame
+        /// This frame's framing result; `events` reports it only when it changes.
+        let framing: FramingStatus?
+        /// The counting flag passed to the analyzer.
+        let counting: Bool
+        let analysis: ExerciseAnalysis?
+    }
+
+    /// A change the coach makes between frames. The coach and session replay both go through `apply`,
+    /// so a recording's controls rebuild exactly the pipeline state the coach had.
+    enum Control {
+        case sessionPhase(WorkoutPhase)
+        case exercise(ExerciseDefinition?, analyzerEpoch: Int)
+        case resetAnalyzer(epoch: Int)
+        case counting(Bool)
+        case resetTracking
+    }
+
+    /// The state controls change. A control that leaves it unchanged was a no-op, so a recording can skip it.
+    struct ControlState: Equatable {
+        var exerciseID: ExerciseID?
+        var cameraView: ExerciseCameraView?
+        var analyzerEpoch: Int
+        var hasAnalyzer: Bool
+        var isCounting: Bool
+        var sessionPhase: WorkoutPhase
     }
 
     private(set) var exercise: ExerciseDefinition?
@@ -23,6 +56,8 @@ struct WorkoutFramePipeline {
     private(set) var readings: [BodySide: ArmReading] = [:]
     private(set) var thresholds: [BodySide: ArmThresholds] = [:]
     private(set) var formReadings: [FormReading] = []
+    /// Attaches `FrameDiagnostics` to every output, for a session recording.
+    var collectsDiagnostics = false
 
     private var analyzer: ExerciseAnalyzing?
     private var framingEvaluator: FramingEvaluator?
@@ -32,7 +67,7 @@ struct WorkoutFramePipeline {
     private var smoother = LandmarkSmoother()
     private var lastStartPositionHeld = false
     private var emphasizedJoints: Set<LandmarkType> = []
-    private var sessionPhase: WorkoutPhase = .framing
+    private(set) var sessionPhase: WorkoutPhase = .framing
     private var tiltDetector = PhoneTiltDetector()
     private var lastReportedTilt = false
 
@@ -45,12 +80,35 @@ struct WorkoutFramePipeline {
         }
     }
 
+    var controlState: ControlState {
+        ControlState(exerciseID: exercise?.id, cameraView: exercise?.cameraView, analyzerEpoch: analyzerEpoch,
+                     hasAnalyzer: analyzer != nil, isCounting: isCounting, sessionPhase: sessionPhase)
+    }
+
+    /// Applies one control and returns any events it produced.
+    mutating func apply(_ control: Control) -> [WorkoutEvent] {
+        switch control {
+        case .sessionPhase(let phase):
+            setSessionPhase(phase)
+        case .exercise(let exercise, let epoch):
+            exerciseChanged(to: exercise, analyzerEpoch: epoch)
+        case .resetAnalyzer(let epoch):
+            resetAnalyzer(epoch: epoch)
+        case .counting(let counting):
+            setCounting(counting)
+        case .resetTracking:
+            return resetTracking()
+        }
+        return []
+    }
+
     mutating func process(frame: PoseFrame, at now: TimeInterval) -> FrameOutput {
         guard let exercise else {
             overlay = nil
             ghostCalibrationGate.reset()
             ghostFitOverlay = nil
-            return output(events: [])
+            return output(events: [], diagnostics: collectsDiagnostics
+                ? FrameDiagnostics(analyzedFrame: frame, framing: nil, counting: isCounting, analysis: nil) : nil)
         }
 
         var completed = frame
@@ -61,9 +119,11 @@ struct WorkoutFramePipeline {
         let counted = sessionPhase == .exercising ? completed : frame
 
         var events: [WorkoutEvent] = []
+        var framing: FramingStatus?
         if var evaluator = framingEvaluator {
             let status = evaluator.evaluate(counted)
             framingEvaluator = evaluator
+            framing = status
             if status != lastFramingStatus {
                 let previous = lastFramingStatus
                 lastFramingStatus = status
@@ -80,8 +140,11 @@ struct WorkoutFramePipeline {
         updateGuideMetrics(frame, for: exercise)
 
         var endSides: Set<BodySide> = []
+        var analyzed: ExerciseAnalysis?
+        let analyzedCounting = isCounting
         if let analyzer {
             let analysis = analyzer.process(counted, counting: isCounting)
+            analyzed = analysis
             if isCounting { endSides = analysis.endPositionSides }
             readings = analysis.readings
             thresholds = analysis.thresholds
@@ -123,7 +186,9 @@ struct WorkoutFramePipeline {
         } else if !calibrated {
             ghostFitOverlay = nil
         }
-        return output(events: events)
+        return output(events: events, diagnostics: collectsDiagnostics
+            ? FrameDiagnostics(analyzedFrame: counted, framing: framing, counting: analyzedCounting, analysis: analyzed)
+            : nil)
     }
 
     /// Rebuilds framing and counting state when a new exercise or camera view is selected.
@@ -329,8 +394,8 @@ struct WorkoutFramePipeline {
         return display
     }
 
-    private func output(events: [WorkoutEvent]) -> FrameOutput {
+    private func output(events: [WorkoutEvent], diagnostics: FrameDiagnostics?) -> FrameOutput {
         FrameOutput(events: events, overlay: overlay, ghostFitOverlay: ghostFitOverlay, guideMetrics: guideMetrics,
-                    readings: readings, thresholds: thresholds, formReadings: formReadings)
+                    readings: readings, thresholds: thresholds, formReadings: formReadings, diagnostics: diagnostics)
     }
 }

@@ -36,8 +36,8 @@ struct WorkoutRecord: Codable, Equatable, Identifiable {
     var totalReps: Int { entries.flatMap(\.sets).map(\.reps).reduce(0, +) }
 
     /// Everything the session recorded, or nil when nothing was done. A Saved Set is recorded by occurrence;
-    /// otherwise by exercise, with every round included.
-    init?(session: WorkoutSession, startedAt: Date, endedAt: Date) {
+    /// otherwise by exercise, with every round included. `id` matches the workout's session recording, if any.
+    init?(session: WorkoutSession, startedAt: Date, endedAt: Date, id: UUID = UUID()) {
         func sets(_ reps: [Int], _ weights: [WorkoutWeight?], for exercise: ExerciseDefinition?) -> [RecordedSet] {
             reps.enumerated().map { index, count in
                 RecordedSet(reps: count, side: exercise?.perSide == true ? (index % 2 == 0 ? "L" : "R") : nil,
@@ -62,7 +62,7 @@ struct WorkoutRecord: Codable, Equatable, Identifiable {
             }
         }
         guard entries.contains(where: { !$0.sets.isEmpty }) else { return nil }
-        self.init(startedAt: startedAt, endedAt: endedAt, planID: session.plan?.id,
+        self.init(id: id, startedAt: startedAt, endedAt: endedAt, planID: session.plan?.id,
                   planName: session.plan?.name, entries: entries)
     }
 

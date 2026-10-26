@@ -147,6 +147,23 @@ final class OffscreenJointEstimatorTests: XCTestCase {
         XCTAssertNil(estimator.complete(frame([.leftElbow: CGPoint(x: 500, y: 280)], at: 0.2)).pose[.leftWrist])
     }
 
+    func testCompletedFramesKeepTheirSequenceAndLowConfidenceJoints() throws {
+        var estimator = estimator()
+        _ = estimator.complete(frame([.leftElbow: CGPoint(x: 500, y: 350), .leftWrist: CGPoint(x: 500, y: 150)], at: 0))
+        _ = estimator.complete(frame([.leftElbow: CGPoint(x: 500, y: 330), .leftWrist: CGPoint(x: 500, y: 130)], at: 0.1))
+        var input = frame([.leftElbow: CGPoint(x: 510, y: 80)], at: 0.2)
+        input.sequence = 12
+        let faint = Landmark(type: .leftWrist, normalizedLocation: CGPoint(x: 0.5, y: 1), imageLocation: CGPoint(x: 540, y: 2),
+                             confidence: 0.12)
+        input.lowConfidenceLandmarks = [.leftWrist: faint]
+
+        let completed = estimator.complete(input)
+
+        XCTAssertTrue(completed.estimatedJoints.contains(.leftWrist))
+        XCTAssertEqual(completed.sequence, 12)
+        XCTAssertEqual(completed.lowConfidenceLandmarks, [.leftWrist: faint])
+    }
+
     private func estimator(joints: Set<LandmarkType> = [.leftWrist], planted: Set<LandmarkType> = []) -> OffscreenJointEstimator {
         OffscreenJointEstimator(joints: joints, plantedJoints: planted)
     }

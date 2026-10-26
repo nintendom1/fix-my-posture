@@ -87,6 +87,14 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertEqual(preferences.weightUnit, .lb)
         XCTAssertTrue(preferences.startByHolding)
         XCTAssertNil(preferences.upNextOverride)
+        // Tests build in Debug, where developer recordings are on until turned off.
+        XCTAssertEqual(preferences.workoutRecordingEnabled, WorkoutRecordingDefault.isEnabled)
+        XCTAssertTrue(WorkoutRecordingDefault.isEnabled)
+        XCTAssertFalse(InMemoryPreferences().workoutRecordingEnabled)
+
+        preferences.workoutRecordingEnabled = false
+        XCTAssertEqual(defaults.object(forKey: "dev.workoutRecordingEnabled") as? Bool, false)
+        XCTAssertFalse(preferences.workoutRecordingEnabled)
     }
 
     func testAlignmentTargetsPreferenceDefaultsOnAndRoundTrips() throws {

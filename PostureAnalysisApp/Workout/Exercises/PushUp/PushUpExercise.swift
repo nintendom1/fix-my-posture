@@ -19,7 +19,7 @@ extension CoachingCueID {
 ///   (locked at the top) is a full ruler at any distance. Arms straight reads about 1; at the bottom the
 ///   shoulders sink toward the hands.
 /// - The 2D elbow angle pairs with `h`, so leaning without bending the arms isn't counted.
-struct PushUpConfiguration {
+struct PushUpConfiguration: Codable {
     /// Up (the start): arms nearly straight, shoulders well above the hands.
     var upMinRatio: Double = 0.8
     var upMinElbowAngle: Double = 150
@@ -102,7 +102,8 @@ enum PushUpExercise {
             warnsAboutTilt: false,
             equipment: .bodyweight,
             plantedJoints: [.leftWrist, .rightWrist],
-            makeAnalyzer: { epoch in PushUpAnalyzer(epoch: epoch, configuration: configuration) }
+            makeAnalyzer: { epoch in PushUpAnalyzer(epoch: epoch, configuration: configuration) },
+            diagnostics: ExerciseDiagnostics(configuration, definition: definition(configuration:))
         )
     }
 

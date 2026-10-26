@@ -1,4 +1,4 @@
-.PHONY: ios ios-devices design-reference design-snapshots design-diff design-check notification-character notification-character-check
+.PHONY: ios ios-devices diagnostics design-reference design-snapshots design-diff design-check notification-character notification-character-check
 
 DESIGN_BUNDLE := fix-my-posture-mobile-app-design/project/Fix My Posture Redesign.dc.html
 DESIGN_DESTINATION ?= platform=iOS Simulator,name=iPhone 15 Pro
@@ -12,6 +12,10 @@ ios:
 
 ios-devices:
 	@xcrun devicectl list devices --timeout 30
+
+# Copies developer workout recordings from the iPhone into diagnostics/sessions/ (gitignored).
+diagnostics:
+	@bash scripts/diagnostics/pull.sh
 
 design-reference:
 	@if [ ! -f "$(DESIGN_BUNDLE)" ]; then \

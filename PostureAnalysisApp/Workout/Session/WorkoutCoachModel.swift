@@ -38,6 +38,10 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     private(set) var formReadings: [FormReading] = []
     private(set) var showsMeasurements: Bool
     private(set) var isGuidePresented = false
+    /// The REC chip's state while a developer session recording runs; nil when not recording.
+    private(set) var recordingHUD: WorkoutRecordingHUD?
+    /// Shared with the saved history record, so a recording and its workout can be matched.
+    let workoutID: UUID
 
     var captureSession: AVCaptureSession? { previewProvider?.previewSession }
     var exercises: [ExerciseDefinition] { session.exercises }
@@ -75,7 +79,8 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
             isMicMuted: isMicMuted,
             heardPhrase: heardPhrase,
             isCoachMuted: isCoachMuted,
-            showsMeasurements: showsMeasurements
+            showsMeasurements: showsMeasurements,
+            recording: recordingHUD
         )
     }
 
@@ -89,6 +94,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     @ObservationIgnored private let preferences: any AppPreferencesStoring
     @ObservationIgnored private let clock: Clock
     @ObservationIgnored private let scheduler: Scheduling
+    @ObservationIgnored private let recorder: (any WorkoutSessionRecording)?
 
     @ObservationIgnored private var framePipeline = WorkoutFramePipeline()
     @ObservationIgnored private var generation = UUID()
@@ -96,23 +102,28 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     @ObservationIgnored private var isApplicationActive = false
     @ObservationIgnored private var isRequestingPermission = false
     @ObservationIgnored private var didApplyInitialMicMute = false
+    @ObservationIgnored private var didBeginRecording = false
     @ObservationIgnored private var tickTimer: Cancellable?
     @ObservationIgnored private var tipExpiry: Cancellable?
     @ObservationIgnored private var heardExpiry: Cancellable?
     @ObservationIgnored private var unmuteTipTask: Cancellable?
     @ObservationIgnored private var heardGeneration = 0
+    @ObservationIgnored private var lastHeardPhrase: String?
+    @ObservationIgnored private var markerConfirmationExpiry: Cancellable?
 
-    static let tickInterval: TimeInterval = 0.5
+    nonisolated static let tickInterval: TimeInterval = 0.5
     static let heardChipDuration: TimeInterval = 1.5
     static let tipDuration = CoachingCueScheduler.Configuration().tipDuration
     /// Spoken once per install, after the intro, when voice first works.
     static let voiceTip = "Say \u{201C}what can I say\u{201D} anytime to see voice commands."
+    /// How long the REC chip shows "Marked" after a marker.
+    static let markerConfirmationDuration: TimeInterval = 3
 
     init(camera: PoseFrameSource, previewProvider: CameraPreviewProviding?, permission: CameraPermissionProviding,
          speech: SpeechCoaching, audio: AudioSessionControlling?, tiltMonitor: PhoneTiltMonitoring?,
          voice: VoiceControlling?, clock: Clock, scheduler: Scheduling, preferences: any AppPreferencesStoring,
          exercises: [ExerciseDefinition], initialExercise: ExerciseID?, plan: WorkoutPlan?,
-         settings: WorkoutSettings = WorkoutSettings()) {
+         settings: WorkoutSettings = WorkoutSettings(), recorder: (any WorkoutSessionRecording)? = nil) {
         self.camera = camera
         self.previewProvider = previewProvider
         self.permission = permission
@@ -123,6 +134,8 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         self.preferences = preferences
         self.clock = clock
         self.scheduler = scheduler
+        self.recorder = recorder
+        workoutID = recorder?.id ?? UUID()
         isCoachMuted = preferences.workoutCoachCoachMuted
         isMicMuted = preferences.workoutCoachMicMuted
         showsMeasurements = preferences.workoutCoachShowMeasurements
@@ -132,8 +145,11 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         speech.onActivityChanged = { [weak self] speaking in
             self?.coachSpeakingChanged(speaking)
         }
-        voice?.onCommand = { [weak self] command in self?.handleVoiceCommand(command) }
-        voice?.onHeard = { [weak self] phrase in self?.showHeard(phrase) }
+        voice?.onCommand = { [weak self] command in self?.handleVoiceCommand(command, source: .voice) }
+        voice?.onHeard = { [weak self] phrase in
+            self?.lastHeardPhrase = phrase
+            self?.showHeard(phrase)
+        }
         voice?.onStatusChanged = { [weak self] status in self?.voiceStatusChanged(status) }
     }
 
@@ -144,6 +160,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     }
 
     func onAppear(isApplicationActive: Bool) {
+        beginRecordingIfNeeded()
         isViewActive = true
         self.isApplicationActive = isApplicationActive
         if isMicMuted, !didApplyInitialMicMute {
@@ -161,25 +178,30 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         stopCapture()
         speech.stopAll()
         audio?.deactivate()
+        endRecording(.closed)
     }
 
     func setApplicationActive(_ active: Bool) {
         guard active != isApplicationActive else { return }
         isApplicationActive = active
         if active {
-            apply(session.handle(.appForegrounded, at: clock.now))
+            dispatch(.appForegrounded)
             startCaptureIfPossible()
         } else {
-            apply(session.handle(.appBackgrounded, at: clock.now))
+            dispatch(.appBackgrounded)
             stopCapture()
             speech.stopAll()
+            recorder?.flush()
         }
     }
 
-    private func handleVoiceCommand(_ command: WorkoutCommand) {
+    private func handleVoiceCommand(_ command: WorkoutCommand, source: WorkoutCommandSource = .touch) {
+        let phrase = source == .voice ? lastHeardPhrase : nil
+        lastHeardPhrase = nil
+        recorder?.recordEvent(.command(command, source: source, phrase: phrase), at: clock.now)
         switch command {
         case .help:
-            isHelpPresented = true
+            presentHelp(true)
         case .repCount, .whichSet, .repeatLast:
             // Info keeps the help open so the list stays visible.
             break
@@ -192,9 +214,9 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
             setMicMuted(true)
         default:
             // Close, cancel, and anything that changes the workout show the workout again.
-            isHelpPresented = false
+            presentHelp(false)
         }
-        apply(session.handle(.command(command), at: clock.now))
+        dispatch(.command(command))
     }
 
     func send(_ intent: WorkoutIntent) {
@@ -220,14 +242,17 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         case .stopSpeaking:
             stopSpeaking()
         case .showVoiceHelp:
-            isHelpPresented = true
+            presentHelp(true)
         case .hideVoiceHelp:
-            isHelpPresented = false
+            presentHelp(false)
         case .retryVoice:
             retryVoice()
         case .toggleMeasurements:
             showsMeasurements.toggle()
             preferences.workoutCoachShowMeasurements = showsMeasurements
+            recorder?.recordEvent(.measurementsShown(showsMeasurements), at: clock.now)
+        case .dropMarker:
+            dropMarker(WorkoutMarkerRequest(source: .tap))
         case .dismissTip:
             setActiveTip(nil)
         case .closeWorkout:
@@ -242,7 +267,13 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
 
     /// Touch path for the Voice Commands help; opening it this way doesn't speak.
     func setHelpPresented(_ presented: Bool) {
+        presentHelp(presented)
+    }
+
+    private func presentHelp(_ presented: Bool) {
+        guard presented != isHelpPresented else { return }
         isHelpPresented = presented
+        recorder?.recordEvent(.helpPresented(presented), at: clock.now)
     }
 
     // MARK: - Guide
@@ -250,7 +281,10 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     /// The guide covers the camera, so capture stops while it is open and an active set pauses.
     func setGuidePresented(_ presented: Bool) {
         guard presented != isGuidePresented else { return }
+        // The first-time guide opens before the screen appears, so the recording starts here too.
+        beginRecordingIfNeeded()
         isGuidePresented = presented
+        recorder?.recordEvent(.guidePresented(presented), at: clock.now)
         if presented {
             if session.phase == .exercising { handleVoiceCommand(.pause) }
             stopCapture()
@@ -272,6 +306,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         guard muted != isCoachMuted else { return }
         isCoachMuted = muted
         preferences.workoutCoachCoachMuted = muted
+        recordState()
         if muted {
             // Cut the current line now; this also restores any ducked audio.
             unmuteTipTask?.cancel()
@@ -292,6 +327,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         guard muted != isMicMuted else { return }
         isMicMuted = muted
         preferences.workoutCoachMicMuted = muted
+        recordState()
         voice?.setMuted(muted)
         didApplyInitialMicMute = true
         if !muted, canCapture { voice?.enable() }
@@ -303,7 +339,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         case .muted: setMicMuted(false)
         case .listening, .coachSpeaking: setMicMuted(true)
         case .paused, .off: retryVoice()
-        case .needsPermission, .unavailable: isHelpPresented = true
+        case .needsPermission, .unavailable: presentHelp(true)
         case .requestingPermission: break
         }
     }
@@ -315,7 +351,8 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
 
     func readGuideAloud() {
         guard let guide = session.exercise?.guide else { return }
-        speech.speak(Utterance(text: guide.walkthrough, isInstruction: false, interrupts: true))
+        // An explicit tap, so it plays even with the coach muted.
+        say(Utterance(text: guide.walkthrough, isInstruction: false, interrupts: true), muted: false)
     }
 
     func stopSpeaking() {
@@ -368,7 +405,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         tiltMonitor?.stop()
         if let event = framePipeline.resetTilt() {
             if case .phoneTiltChanged(let tilted) = event { isPhoneTilted = tilted }
-            apply(session.handle(event, at: clock.now))
+            dispatch(event)
         }
         if cameraStatus == .running || cameraStatus == .starting || cameraStatus == .interrupted {
             cameraStatus = .idle
@@ -381,22 +418,25 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         case .running:
             let wasInterrupted = cameraStatus == .interrupted
             cameraStatus = .running
+            recorder?.recordEvent(.cameraRunning, at: clock.now)
             if !hasOpened {
                 hasOpened = true
-                apply(session.handle(.opened, at: clock.now))
+                dispatch(.opened)
                 speakVoiceTipIfNeeded()
             } else if wasInterrupted {
-                apply(session.handle(.interruptionEnded, at: clock.now))
+                dispatch(.interruptionEnded)
             }
         case .frame(let frame):
             process(frame)
         case .interrupted:
             cameraStatus = .interrupted
-            apply(session.handle(.interruptionBegan, at: clock.now))
+            recorder?.recordEvent(.cameraInterrupted, at: clock.now)
+            dispatch(.interruptionBegan)
             resetTracking()
         case .failed(let message):
             cameraStatus = .failed(message)
-            apply(session.handle(.interruptionBegan, at: clock.now))
+            recorder?.recordEvent(.cameraFailed(message), at: clock.now)
+            dispatch(.interruptionBegan)
             resetTracking()
             speech.stopAll()
         }
@@ -407,12 +447,15 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
             hasPoseFrame = false
             overlay = nil
             ghostFitOverlay = nil
+            recorder?.recordFrame(frame, output: nil, pitchDegrees: tiltMonitor?.latestTilt?.pitchDegrees, at: clock.now)
             return
         }
         hasPoseFrame = true
-        framePipeline.setSessionPhase(session.phase)
-        framePipeline.exerciseChanged(to: session.exercise, analyzerEpoch: session.analyzerEpoch)
+        applyControl(.sessionPhase(session.phase))
+        applyControl(.exercise(session.exercise, analyzerEpoch: session.analyzerEpoch))
         let output = framePipeline.process(frame: frame, at: clock.now)
+        // Before this frame's events, so the controls they cause follow it in the recording.
+        recorder?.recordFrame(frame, output: output, pitchDegrees: tiltMonitor?.latestTilt?.pitchDegrees, at: clock.now)
         overlay = output.overlay
         ghostFitOverlay = output.ghostFitOverlay
         guideMetrics = output.guideMetrics
@@ -422,16 +465,16 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
 
         var checkedStartHold = false
         for event in output.events {
-            apply(session.handle(event, at: clock.now))
+            dispatch(event)
             // A full start hold starts on this frame, before any rep event from the same sample.
             if !checkedStartHold, isStartHoldComplete(at: clock.now),
                isStartPositionEvent(event) || isRepEvent(event) {
-                apply(session.handle(.tick, at: clock.now))
+                dispatch(.tick)
                 checkedStartHold = true
             }
         }
         if !checkedStartHold, isStartHoldComplete(at: clock.now) {
-            apply(session.handle(.tick, at: clock.now))
+            dispatch(.tick)
         }
     }
 
@@ -455,7 +498,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     }
 
     private func resetTracking() {
-        let events = framePipeline.resetTracking()
+        let events = applyControl(.resetTracking)
         hasPoseFrame = false
         overlay = framePipeline.overlay
         ghostFitOverlay = framePipeline.ghostFitOverlay
@@ -463,31 +506,58 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         armReadings = framePipeline.readings
         armThresholds = framePipeline.thresholds
         formReadings = framePipeline.formReadings
-        for event in events { apply(session.handle(event, at: clock.now)) }
+        for event in events { dispatch(event) }
         if session.framing != .lost {
-            apply(session.handle(.framingChanged(.lost), at: clock.now))
+            dispatch(.framingChanged(.lost))
         }
     }
 
     // MARK: - Effects
 
+    /// Every reducer input goes through here, so a recording sees each one and the state it led to.
+    private func dispatch(_ event: WorkoutEvent, at time: TimeInterval? = nil) {
+        let now = time ?? clock.now
+        if let recorder, let recorded = WorkoutRecordingEvent(input: event) {
+            recorder.recordEvent(recorded, at: now)
+        }
+        apply(session.handle(event, at: now))
+        recordState()
+    }
+
+    /// Pipeline changes go through here, so a recording can rebuild the same pipeline state on replay.
+    @discardableResult
+    private func applyControl(_ control: WorkoutFramePipeline.Control) -> [WorkoutEvent] {
+        let before = framePipeline.controlState
+        let events = framePipeline.apply(control)
+        if let recorder {
+            var alwaysRecorded = false
+            if case .resetTracking = control { alwaysRecorded = true }
+            if alwaysRecorded || framePipeline.controlState != before {
+                recorder.recordControl(control, at: clock.now)
+            }
+        }
+        return events
+    }
+
     private func apply(_ effects: [WorkoutEffect]) {
         for effect in effects {
             switch effect {
             case .speak(let utterance):
-                if !isCoachMuted { speech.speak(utterance) }
+                say(utterance, muted: isCoachMuted)
             case .repeatLastInstruction:
+                recorder?.recordEvent(.repeatLastInstruction(muted: isCoachMuted), at: clock.now)
                 if !isCoachMuted { speech.repeatLastInstruction() }
             case .resetAnalyzer(let epoch):
                 guard let exercise = session.exercise else {
-                    framePipeline.exerciseChanged(to: nil, analyzerEpoch: epoch)
+                    applyControl(.exercise(nil, analyzerEpoch: epoch))
                     continue
                 }
-                framePipeline.exerciseChanged(to: exercise, analyzerEpoch: epoch)
-                framePipeline.resetAnalyzer(epoch: epoch)
+                applyControl(.exercise(exercise, analyzerEpoch: epoch))
+                applyControl(.resetAnalyzer(epoch: epoch))
             case .setCounting(let counting):
-                framePipeline.setCounting(counting)
+                applyControl(.counting(counting))
             case .clearFeedback:
+                recorder?.recordEvent(.clearFeedback, at: clock.now)
                 overlay?.endPositionSides = []
                 setActiveTip(nil)
             case .showTip(let tip):
@@ -495,7 +565,66 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
             case .stopCaptureAndVoice:
                 stopTicks()
                 stopCapture()
+                if session.phase == .ended { endRecording(.workoutEnded) }
             }
+        }
+    }
+
+    // MARK: - Recording
+
+    private func beginRecordingIfNeeded() {
+        guard let recorder, !didBeginRecording else { return }
+        didBeginRecording = true
+        recorder.begin(WorkoutRecordingContext(startedAt: Date(), timeZone: .current, exercises: session.exercises,
+                                               plan: session.plan, settings: session.settings,
+                                               tiltWarningsEnabled: preferences.tiltWarningsEnabled,
+                                               isCoachMuted: isCoachMuted, isMicMuted: isMicMuted),
+                       at: clock.now)
+        // The chip and the extra per-frame output appear only when a file is actually being written.
+        guard recorder.isRecording else { return }
+        framePipeline.collectsDiagnostics = true
+        recordingHUD = WorkoutRecordingHUD(markerCount: 0, confirmation: nil)
+        recordState()
+    }
+
+    private func recordState() {
+        guard let recorder, recorder.isRecording else { return }
+        recorder.recordState(WorkoutStateSnapshot(session: session, isPhoneTilted: isPhoneTilted, activeTip: activeTip,
+                                                  isCoachSpeaking: isCoachSpeaking, micStatus: micStatus,
+                                                  isCoachMuted: isCoachMuted, isMicMuted: isMicMuted,
+                                                  cameraStatus: cameraStatus),
+                             at: clock.now)
+    }
+
+    private func endRecording(_ reason: WorkoutRecordingEnd) {
+        guard let recorder, recorder.isRecording else { return }
+        recordState()
+        let now = Date()
+        let saved = WorkoutRecord(session: session, startedAt: now, endedAt: now) != nil
+        recorder.end(reason, workoutRecordID: saved ? workoutID : nil, at: clock.now)
+        framePipeline.collectsDiagnostics = false
+        markerConfirmationExpiry?.cancel()
+        markerConfirmationExpiry = nil
+        recordingHUD = nil
+    }
+
+    /// Speaks through the coach unless `muted`, and records the line either way.
+    private func say(_ utterance: Utterance, muted: Bool) {
+        recorder?.recordEvent(.speak(utterance, muted: muted), at: clock.now)
+        if !muted { speech.speak(utterance) }
+    }
+
+    /// Records a marker and confirms it on the REC chip and, unless the coach is muted, out loud.
+    private func dropMarker(_ request: WorkoutMarkerRequest) {
+        guard let marker = recorder?.recordMarker(request, at: clock.now) else { return }
+        markerConfirmationExpiry?.cancel()
+        recordingHUD = WorkoutRecordingHUD(markerCount: recorder?.markers.count ?? 0,
+                                           confirmation: "Marked \(WorkoutRecordingHUD.clockLabel(marker.time))")
+        say(Utterance(text: "Marked.", isInstruction: false), muted: isCoachMuted)
+        markerConfirmationExpiry = scheduler.schedule(after: Self.markerConfirmationDuration) { [weak self] in
+            guard let self else { return }
+            self.markerConfirmationExpiry = nil
+            self.recordingHUD?.confirmation = nil
         }
     }
 
@@ -514,31 +643,36 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
 
     private func tick() {
         now = clock.now
+        if let recorder, recorder.duration(at: now) >= WorkoutSessionRecorder.maximumDuration {
+            endRecording(.timeLimit)
+        }
         if preferences.tiltWarningsEnabled {
             if let event = framePipeline.processTiltSample(pitchDegrees: tiltMonitor?.latestTilt?.pitchDegrees, at: now) {
                 if case .phoneTiltChanged(let tilted) = event { isPhoneTilted = tilted }
-                apply(session.handle(event, at: now))
+                dispatch(event, at: now)
             }
         } else {
             isPhoneTilted = false
             if let event = framePipeline.resetTilt() {
-                apply(session.handle(event, at: now))
+                dispatch(event, at: now)
             }
         }
-        apply(session.handle(.tick, at: now))
+        dispatch(.tick, at: now)
     }
 
     private func handleAudio(_ event: AudioSessionEvent) {
         switch event {
         case .interruptionBegan:
             // Calls and Siri: pause, stop listening, and let other audio return.
+            recorder?.recordEvent(.audioInterruptionBegan, at: clock.now)
             voice?.disable(status: .paused)
             speech.stopAll()
-            apply(session.handle(.interruptionBegan, at: clock.now))
+            dispatch(.interruptionBegan)
         case .interruptionEnded(let shouldResume):
             // The workout stays paused; voice resumes only when the system says so.
+            recorder?.recordEvent(.audioInterruptionEnded(shouldResume: shouldResume), at: clock.now)
             if shouldResume, canCapture, !isMicMuted { voice?.enable() }
-            apply(session.handle(.interruptionEnded, at: clock.now))
+            dispatch(.interruptionEnded)
         case .mediaServicesReset:
             speech.stopAll()
             voice?.handleAudioEvent(event)
@@ -551,7 +685,9 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         let wasUsable = micStatus.isUsable
         micStatus = status
         if status.isUsable != wasUsable {
-            apply(session.handle(.voiceControlChanged(status.isUsable), at: clock.now))
+            dispatch(.voiceControlChanged(status.isUsable))
+        } else {
+            recordState()
         }
         speakVoiceTipIfNeeded()
     }
@@ -560,20 +696,25 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     private func speakVoiceTipIfNeeded() {
         guard hasOpened, micStatus.isUsable, !isCoachMuted, !preferences.workoutCoachVoiceTipSpoken else { return }
         preferences.workoutCoachVoiceTipSpoken = true
-        speech.speak(Utterance(text: Self.voiceTip, isInstruction: false))
+        say(Utterance(text: Self.voiceTip, isInstruction: false), muted: false)
     }
 
     private func coachSpeakingChanged(_ speaking: Bool) {
         isCoachSpeaking = speaking
         voice?.setCoachSpeaking(speaking)
-        apply(session.handle(.coachSpeakingChanged(speaking), at: clock.now))
+        dispatch(.coachSpeakingChanged(speaking))
     }
 
     /// Shows a tip for `tipDuration`; a newer tip or a cleared one cancels the pending hide.
     private func setActiveTip(_ tip: CoachingTip?) {
         tipExpiry?.cancel()
         tipExpiry = nil
+        if let recorder {
+            if let tip { recorder.recordEvent(.tipShown(tip), at: clock.now) }
+            else if activeTip != nil { recorder.recordEvent(.tipCleared, at: clock.now) }
+        }
         activeTip = tip
+        recordState()
         framePipeline.setEmphasizedJoints(emphasizedJoints)
         overlay?.emphasizedJoints = emphasizedJoints
         guard let id = tip?.id else { return }

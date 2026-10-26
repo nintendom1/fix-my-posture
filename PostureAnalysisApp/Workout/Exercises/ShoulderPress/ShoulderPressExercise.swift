@@ -18,7 +18,7 @@ extension ExerciseID {
 ///   overhead gives `h` ≈ 0.95–1.0, and `h` = sin(elevation) for any straight arm, so the top needs a
 ///   straight arm at least about 53° above horizontal. Side raises don't count.
 /// - Raise `bottomMaxHeight` if a user's start position never registers; Show Measurements helps.
-struct ShoulderPressConfiguration {
+struct ShoulderPressConfiguration: Codable {
     /// Start: elbows bent, forearms pointing up, wrists at most this many arm lengths above the shoulders.
     var bottomMaxHeight: Double = 0.6
     var bottomMaxElbowAngle: Double = 115
@@ -118,7 +118,8 @@ enum ShoulderPressExercise {
             ],
             // From the shoulders up one arm length overhead, and out past the flared elbows and dumbbells.
             motionEnvelope: MotionEnvelope(above: 1.05, below: 0.3, outward: 0.75),
-            makeAnalyzer: { epoch in ShoulderPressAnalyzer(epoch: epoch, configuration: configuration) }
+            makeAnalyzer: { epoch in ShoulderPressAnalyzer(epoch: epoch, configuration: configuration) },
+            diagnostics: ExerciseDiagnostics(configuration, definition: definition(configuration:))
         )
     }
 

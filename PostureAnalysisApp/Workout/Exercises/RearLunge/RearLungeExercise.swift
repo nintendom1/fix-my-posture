@@ -13,7 +13,7 @@ extension CoachingCueID {
 }
 
 /// Prototype pixel-space thresholds for a side-view rear lunge.
-struct RearLungeConfiguration {
+struct RearLungeConfiguration: Codable {
     var standMaxDrop = 0.08
     var lungeMinDrop = 0.30
     var confirmationSamples = 2
@@ -94,7 +94,8 @@ enum RearLungeExercise {
             perSide: true,
             sideLimb: .leg,
             equipment: .dumbbells,
-            makeAnalyzer: { epoch in RearLungeAnalyzer(epoch: epoch, configuration: configuration) }
+            makeAnalyzer: { epoch in RearLungeAnalyzer(epoch: epoch, configuration: configuration) },
+            diagnostics: ExerciseDiagnostics(configuration, definition: definition(configuration:))
         )
     }
 

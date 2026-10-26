@@ -28,6 +28,21 @@ struct WorkoutHUDViewState: Equatable {
     let heardPhrase: String?
     let isCoachMuted: Bool
     let showsMeasurements: Bool
+    /// Shown only while a developer session recording runs.
+    var recording: WorkoutRecordingHUD? = nil
+}
+
+/// The REC chip: tapping it drops a marker, and it briefly confirms each one.
+struct WorkoutRecordingHUD: Equatable {
+    var markerCount: Int
+    /// "Marked 1:56", shown for a few seconds after a marker.
+    var confirmation: String?
+
+    /// Minutes and seconds since the recording began, such as "1:56".
+    static func clockLabel(_ seconds: TimeInterval) -> String {
+        let whole = max(0, Int(seconds.rounded(.down)))
+        return "\(whole / 60):\(String(format: "%02d", whole % 60))"
+    }
 }
 
 enum WorkoutCameraStatus: Equatable {
@@ -58,6 +73,8 @@ protocol WorkoutCoachViewModeling: AnyObject, Observable {
     var isMicMuted: Bool { get }
     var isHelpPresented: Bool { get }
     var isGuidePresented: Bool { get }
+    /// Shared with the saved history record and any session recording.
+    var workoutID: UUID { get }
 
     func send(_ intent: WorkoutIntent)
     func onAppear(isApplicationActive: Bool)

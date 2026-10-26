@@ -28,6 +28,8 @@ final class WorkoutCameraController: NSObject, PoseFrameSource, CameraPreviewPro
     private var receive: PoseFrameReceiver?
     private var gate = FeedbackRefreshGate()
     private var interrupted = false
+    /// Counts accepted samples for the lifetime of the controller, so dropped deliveries show as gaps.
+    private var sequence = 0
 
     init(estimator: FramePoseEstimator = AppleVisionPoseEstimator()) {
         self.estimator = estimator
@@ -94,16 +96,22 @@ final class WorkoutCameraController: NSObject, PoseFrameSource, CameraPreviewPro
         let presentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
         let time = presentationTime.isValid ? presentationTime.seconds : ProcessInfo.processInfo.systemUptime
         guard gate.accepts(time: time, rate: Self.frameRate) else { return }
+        sequence += 1
+        let sequence = sequence
         autoreleasepool {
             let pose: BodyPose
+            var lowConfidence: [LandmarkType: Landmark] = [:]
             do {
-                pose = RealtimePoseProcessing.reliablePose(try estimator.estimatePose(in: buffer))
+                let split = RealtimePoseProcessing.split(try estimator.estimatePose(in: buffer))
+                pose = split.reliable
+                lowConfidence = split.low
             } catch {
                 // An empty pose reads as tracking loss rather than reusing stale joints.
                 pose = BodyPose(landmarks: [:], imageWidth: CGFloat(CVPixelBufferGetWidth(buffer)),
                                 imageHeight: CGFloat(CVPixelBufferGetHeight(buffer)))
             }
-            deliver(PoseFrame(pose: pose, timestamp: time), generation: generation, receive: receive)
+            deliver(PoseFrame(pose: pose, timestamp: time, sequence: sequence, lowConfidenceLandmarks: lowConfidence),
+                    generation: generation, receive: receive)
         }
     }
 

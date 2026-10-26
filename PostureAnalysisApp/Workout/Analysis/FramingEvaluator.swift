@@ -69,7 +69,7 @@ struct FramingStatus: Equatable {
 }
 
 /// Prototype framing thresholds; tune on device.
-struct FramingConfiguration {
+struct FramingConfiguration: Codable {
     var minimumConfidence: Double = 0.4
     /// Required joints must stay visible this long before tracking is reliable.
     var reliableAfter: TimeInterval = 0.6
