@@ -8,6 +8,8 @@ fail() { echo "Error: $*" >&2; exit 1; }
 
 echo "=== Posture Analysis App Simulator Validation ==="
 python3 -m unittest discover -s scripts/tests -q || fail "Python helper tests failed."
+command -v node >/dev/null 2>&1 || fail "Node 20 or later is required for the session replay viewer tests."
+node --test tools/session-replay/test/*.test.mjs || fail "Session replay viewer tests failed."
 python3 scripts/pbxproj.py check || fail "Xcode project Swift registration check failed."
 xcodebuild -version >/dev/null 2>&1 || fail "Install full Xcode and select it with xcode-select before running validation."
 xcrun --find simctl >/dev/null 2>&1 || fail "The selected Xcode installation does not provide simctl."

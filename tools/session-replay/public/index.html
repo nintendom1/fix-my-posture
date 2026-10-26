@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FMP Session Replay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="brand"><span class="logo"></span>FMP Session Replay</div>
+    <select id="sessionPicker" aria-label="Recording"></select>
+    <span id="sessionInfo" class="muted mono"></span>
+    <div class="spacer"></div>
+    <span id="deviceInfo" class="muted mono small"></span>
+    <label class="button ghost" title="Import a recording shared from the phone (or drop it anywhere on this page)">
+      <input id="fileInput" type="file" accept=".json,.jsonl,.fmpsession,application/json" hidden>Open file…
+    </label>
+  </header>
+
+  <main class="stage-column">
+    <div class="toggles">
+      <span class="label">Overlay</span>
+      <button class="chip" data-toggle="hud">App HUD</button>
+      <button class="chip" data-toggle="angles">Angles</button>
+      <button class="chip" data-toggle="thresholds">Threshold lines</button>
+      <button class="chip" data-toggle="labels">Joint names</button>
+      <button class="chip" data-toggle="trail">Motion trail</button>
+      <button class="chip" data-toggle="mirror" title="Mirrored like the phone's selfie preview; L/R stay the user's own sides">Mirror</button>
+      <div class="spacer"></div>
+      <span class="muted mono small">No video recorded · skeleton only</span>
+    </div>
+    <div class="stage-wrap">
+      <div id="stage" class="stage">
+        <svg id="stageSVG" preserveAspectRatio="xMidYMid meet"></svg>
+        <div id="hud" class="hud">
+          <div class="hud-card"><span id="hudSet" class="hud-set"></span><span class="hud-reps"><span id="hudReps"></span></span></div>
+          <div id="hudBanner" class="hud-banner" hidden></div>
+        </div>
+        <div id="emptyState" class="empty" hidden>
+          <p><strong>No recordings yet.</strong></p>
+          <p>Run <code>make diagnostics</code> with the phone connected, or drop a shared <code>FMP … .json</code> file here.</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <aside class="panel">
+    <section class="now">
+      <div class="time-row"><span id="timeBig" class="time-big mono">0:00.00</span><span id="frameLabel" class="muted mono small"></span></div>
+      <div class="state-row"><span id="stateChip" class="state-chip"><span class="dot"></span><span id="stateLabel"></span></span><span id="stateSince" class="muted small"></span></div>
+    </section>
+    <section id="stats" class="stats"></section>
+    <section>
+      <h3>Checks at this frame</h3>
+      <div id="checks" class="checks"></div>
+    </section>
+    <section id="readingsSection">
+      <h3>Readings</h3>
+      <div id="readings" class="readings mono"></div>
+    </section>
+    <section>
+      <div class="section-head"><h3>Notes</h3><button id="addNote" class="mini">+ Note (N)</button></div>
+      <div id="notes" class="notes"></div>
+    </section>
+    <section>
+      <h3>Joint confidence</h3>
+      <div id="confidence" class="confidence mono"></div>
+    </section>
+    <section>
+      <div class="section-head"><h3>Event log</h3><div id="filters" class="filters"></div></div>
+      <div id="log" class="log"></div>
+    </section>
+  </aside>
+
+  <footer class="timeline-area">
+    <div class="controls">
+      <button class="icon" id="prevEvent" title="Previous event ( [ )">⏮</button>
+      <button class="icon" id="stepBack" title="Back one frame ( ← )">‹</button>
+      <button class="icon play" id="playPause" title="Play / pause ( space )">▶</button>
+      <button class="icon" id="stepFwd" title="Forward one frame ( → )">›</button>
+      <button class="icon" id="nextEvent" title="Next event ( ] )">⏭</button>
+      <span class="mono clock"><span id="timeSmall">0:00.00</span><span class="muted"> / <span id="duration">0:00.00</span></span></span>
+      <div id="speeds" class="segmented"></div>
+      <span id="selectionLabel" class="muted small mono"></span>
+      <div class="spacer"></div>
+      <span class="muted small">Space play · ←/→ frame · Shift+←/→ 1 s · [ ] events · Shift-drag select · N note · E export</span>
+      <button class="button primary" id="openExport">Export for Claude…</button>
+    </div>
+    <div class="lanes">
+      <div class="lane-labels">
+        <div class="tick-pad"></div>
+        <div class="lane-label">State</div>
+        <div class="lane-label">Tracking</div>
+        <div class="lane-label">Reps</div>
+        <div class="lane-label chart"><span>Signal</span><span class="mono tiny"><span class="left">L</span> <span class="right">R</span></span></div>
+        <div class="lane-label chart"><span>Angle</span><span class="mono tiny"><span class="left">L</span> <span class="right">R</span></span></div>
+        <div class="lane-label chart small-chart"><span>Min confidence</span><span class="mono tiny">required · 0.4 / 0.3</span></div>
+        <div class="lane-label">Issues</div>
+        <div class="lane-label">Notes</div>
+      </div>
+      <div id="track" class="track">
+        <div id="ticks" class="ticks"></div>
+        <div id="phaseLane" class="lane"></div>
+        <div id="framingLane" class="lane"></div>
+        <div id="repLane" class="lane marks"></div>
+        <svg id="signalChart" class="chart" viewBox="0 0 1000 64" preserveAspectRatio="none"></svg>
+        <svg id="angleChart" class="chart" viewBox="0 0 1000 64" preserveAspectRatio="none"></svg>
+        <svg id="confidenceChart" class="chart small-chart" viewBox="0 0 1000 40" preserveAspectRatio="none"></svg>
+        <div id="issueLane" class="lane marks"></div>
+        <div id="noteLane" class="lane marks"></div>
+        <div id="selection" class="selection" hidden></div>
+        <div id="playhead" class="playhead"><span></span></div>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<dialog id="noteDialog" class="dialog">
+  <form method="dialog" id="noteForm">
+    <h3 id="noteTitle">Note</h3>
+    <textarea id="noteText" rows="4" placeholder="What went wrong here? (Claude sees this with the data.)"></textarea>
+    <div class="dialog-actions">
+      <button value="delete" id="noteDelete" class="button danger" type="submit">Delete</button>
+      <div class="spacer"></div>
+      <button value="cancel" class="button ghost" type="submit">Cancel</button>
+      <button value="save" class="button primary" type="submit">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="exportDialog" class="dialog wide">
+  <form method="dialog" id="exportForm">
+    <div class="section-head"><h3>Export for Claude</h3><span id="exportSize" class="muted mono small"></span></div>
+    <div class="export-grid">
+      <div class="export-options">
+        <label>Preset</label><div id="presetButtons" class="segmented wrap"></div>
+        <label>Window</label>
+        <select id="windowChoice">
+          <option value="selection">Selection</option>
+          <option value="around">Around the playhead (8 s before, 2 s after)</option>
+          <option value="exercise">Current exercise</option>
+          <option value="all">Whole recording</option>
+        </select>
+        <label>Rate</label><select id="rateChoice"></select>
+        <label>Joints</label>
+        <select id="jointChoice"><option value="focus">Exercise focus joints</option><option value="all">All 19</option><option value="none">None</option></select>
+        <label>Include</label>
+        <div class="checkboxes" id="channelChoices"></div>
+      </div>
+      <textarea id="exportPreview" class="mono" readonly></textarea>
+    </div>
+    <div class="dialog-actions">
+      <span id="exportStatus" class="muted small"></span>
+      <div class="spacer"></div>
+      <button value="cancel" class="button ghost" type="submit">Close</button>
+      <button value="save" id="exportSave" class="button ghost" type="button">Save .md</button>
+      <button value="copy" id="exportCopy" class="button ghost" type="button">Copy</button>
+      <button value="send" id="exportSend" class="button primary" type="button" title="Writes diagnostics/outbox/latest.md for Claude Code">Send to Claude</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast" hidden></div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

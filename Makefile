@@ -1,4 +1,4 @@
-.PHONY: ios ios-devices diagnostics design-reference design-snapshots design-diff design-check notification-character notification-character-check
+.PHONY: ios ios-devices diagnostics viewer design-reference design-snapshots design-diff design-check notification-character notification-character-check
 
 DESIGN_BUNDLE := fix-my-posture-mobile-app-design/project/Fix My Posture Redesign.dc.html
 DESIGN_DESTINATION ?= platform=iOS Simulator,name=iPhone 15 Pro
@@ -16,6 +16,10 @@ ios-devices:
 # Copies developer workout recordings from the iPhone into diagnostics/sessions/ (gitignored).
 diagnostics:
 	@bash scripts/diagnostics/pull.sh
+
+# Opens the session replay viewer for those recordings at http://127.0.0.1:4317 (Ctrl-C stops it).
+viewer:
+	@node tools/session-replay/server.mjs --open
 
 design-reference:
 	@if [ ! -f "$(DESIGN_BUNDLE)" ]; then \
