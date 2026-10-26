@@ -231,6 +231,10 @@ export class Session {
         case "speak": add(event.t, "voice", event.muted ? "Coach (muted)" : "Coach says", `“${event.text}”`); break;
         case "tip": add(event.t, "cue", `Tip: ${event.cue}`, event.text ? `“${event.text}”` : ""); break;
         case "tilt": add(event.t, "warn", event.tilted ? "Phone tilted" : "Phone upright"); break;
+        case "audio.work":
+          // Audio work blocks the main thread; long steps delay frames and the HUD.
+          if (event.ms >= 100) add(event.t, "warn", "Main thread blocked", `${Math.round(event.ms)} ms · ${event.step}`);
+          break;
         case "camera.interrupted": case "camera.failed": case "app.background": case "interruptionBegan":
           add(event.t, "warn", event.type, event.message ?? "");
           break;

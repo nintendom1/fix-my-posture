@@ -49,8 +49,10 @@ final class OnDeviceSpeechRecognizer: NSObject, SpeechRecognizing, SFSpeechRecog
     private var consecutiveFailures = 0
     private var refreshTimer: Timer?
     private var retryWork: DispatchWorkItem?
+    private let timing: AudioWorkTiming?
 
-    init(locale: Locale = .current) {
+    init(locale: Locale = .current, timing: AudioWorkTiming? = nil) {
+        self.timing = timing
         let english = locale.language.languageCode?.identifier == "en" ? locale : Locale(identifier: "en-US")
         recognizer = SFSpeechRecognizer(locale: english) ?? SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
         super.init()
@@ -96,8 +98,7 @@ final class OnDeviceSpeechRecognizer: NSObject, SpeechRecognizing, SFSpeechRecog
         refreshTimer?.invalidate()
         refreshTimer = nil
         cancelTask()
-        engine.stop()
-        engine.inputNode.removeTap(onBus: 0)
+        stopEngine(removingTap: true)
         onStateChanged?(.idle)
     }
 
@@ -109,7 +110,7 @@ final class OnDeviceSpeechRecognizer: NSObject, SpeechRecognizing, SFSpeechRecog
 
     func reconfigureInput() {
         guard isRunning else { return }
-        engine.stop()
+        stopEngine(removingTap: false)
         do {
             try startEngine()
         } catch {
@@ -117,14 +118,30 @@ final class OnDeviceSpeechRecognizer: NSObject, SpeechRecognizing, SFSpeechRecog
         }
     }
 
+    private func measured<T>(_ step: AudioWorkStep, _ work: () throws -> T) rethrows -> T {
+        if let timing { return try timing.measure(step, work) }
+        return try work()
+    }
+
     func rebuild() {
         stop()
-        engine = AVAudioEngine()
+        measured(.engineRebuild) { engine = AVAudioEngine() }
     }
 
     // MARK: - Engine and tasks
 
     private func startEngine() throws {
+        try measured(.engineStart) { try installTapAndStartEngine() }
+    }
+
+    private func stopEngine(removingTap: Bool) {
+        measured(.engineStop) {
+            engine.stop()
+            if removingTap { engine.inputNode.removeTap(onBus: 0) }
+        }
+    }
+
+    private func installTapAndStartEngine() throws {
         let input = engine.inputNode
         input.removeTap(onBus: 0)
         let format = input.outputFormat(forBus: 0)
@@ -144,6 +161,11 @@ final class OnDeviceSpeechRecognizer: NSObject, SpeechRecognizing, SFSpeechRecog
     }
 
     private func startTask() {
+        guard recognizer != nil else { return }
+        measured(.taskStart) { beginRecognitionTask() }
+    }
+
+    private func beginRecognitionTask() {
         guard let recognizer else { return }
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.requiresOnDeviceRecognition = true
@@ -177,6 +199,10 @@ final class OnDeviceSpeechRecognizer: NSObject, SpeechRecognizing, SFSpeechRecog
     }
 
     private func cancelTask() {
+        measured(.taskCancel) { endRecognitionTask() }
+    }
+
+    private func endRecognitionTask() {
         taskGeneration += 1
         task?.cancel()
         task = nil

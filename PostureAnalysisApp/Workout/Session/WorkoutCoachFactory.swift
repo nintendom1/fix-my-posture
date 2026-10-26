@@ -22,7 +22,8 @@ final class WorkoutCoachFactory {
         let plan = routineID.flatMap { id in
             try? routines?.list().first(where: { $0.id == id })?.plan(in: exerciseCatalog.all)
         }
-        let audio = WorkoutAudioSession()
+        let audioTiming = AudioWorkTiming()
+        let audio = WorkoutAudioSession(timing: audioTiming)
         // Sets and reps the user adjusted on the list apply here; Saved Sets bring their own.
         let exercises = ExerciseTargetStore.applying(to: exerciseCatalog.all, preferences: preferences)
         let settings = WorkoutSettings(
@@ -30,7 +31,7 @@ final class WorkoutCoachFactory {
             weightUnit: preferences.weightUnit,
             startByHolding: preferences.startByHolding
         )
-        let voice = WorkoutVoiceController(recognizer: OnDeviceSpeechRecognizer(),
+        let voice = WorkoutVoiceController(recognizer: OnDeviceSpeechRecognizer(timing: audioTiming),
                                            parser: VoiceCommandParser(exercises: exercises,
                                                                      preferredWeightUnit: settings.weightUnit),
                                            permissions: SystemVoicePermissions(), audio: audio)
@@ -39,10 +40,10 @@ final class WorkoutCoachFactory {
         let recorder = preferences.workoutRecordingEnabled
             ? recordings.map { WorkoutSessionRecorder(store: $0) } : nil
         return WorkoutCoachModel(camera: camera, previewProvider: camera,
-                                 permission: SystemCameraPermission(), speech: SpeechCoach(audio: audio),
+                                 permission: SystemCameraPermission(), speech: SpeechCoach(audio: audio, timing: audioTiming),
                                  audio: audio, tiltMonitor: CoreMotionTiltMonitor(), voice: voice,
                                  clock: SystemClock(), scheduler: MainScheduler(), preferences: preferences,
                                  exercises: exercises, initialExercise: exerciseID ?? exercises.first?.id,
-                                 plan: plan, settings: settings, recorder: recorder)
+                                 plan: plan, settings: settings, recorder: recorder, audioTiming: audioTiming)
     }
 }

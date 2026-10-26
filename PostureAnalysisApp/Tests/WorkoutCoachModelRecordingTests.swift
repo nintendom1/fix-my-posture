@@ -314,6 +314,26 @@ final class WorkoutCoachModelRecordingTests: XCTestCase {
 
     // MARK: - Helpers
 
+    func testBlockingAudioWorkIsRecordedWithItsDuration() throws {
+        let store = MemoryWorkoutRecordingStore()
+        let recorder = WorkoutSessionRecorder(store: store)
+        let timing = AudioWorkTiming()
+        let harness = WorkoutCoachHarness.make(preferences: InMemoryPreferences(), recorder: recorder, audioTiming: timing)
+        harness.model.onAppear(isApplicationActive: true)
+
+        timing.measure(.restoreOtherAudio) { Thread.sleep(forTimeInterval: 0.01) }
+
+        let work = try XCTUnwrap(store.writer(for: recorder.id).events(type: "audio.work").last)
+        XCTAssertEqual(work["step"] as? String, "restoreOtherAudio")
+        XCTAssertGreaterThanOrEqual(work["ms"] as? Double ?? 0, 10)
+    }
+
+    func testWithoutARecordingAudioWorkIsNotTimed() {
+        let timing = AudioWorkTiming()
+        _ = WorkoutCoachHarness.make(audioTiming: timing)
+        XCTAssertNil(timing.onMeasured)
+    }
+
     private func makeRecordingHarness() -> (WorkoutCoachHarness, MemoryWorkoutSessionWriter) {
         let store = MemoryWorkoutRecordingStore()
         let recorder = WorkoutSessionRecorder(store: store)

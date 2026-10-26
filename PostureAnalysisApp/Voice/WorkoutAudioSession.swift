@@ -21,13 +21,15 @@ final class WorkoutAudioSession: AudioSessionControlling {
     private var keepsActive = false
     var onEvent: ((Event) -> Void)?
     private var restoreAttempt = 0
+    private let timing: AudioWorkTiming?
 
     /// Deactivation can report busy while the synthesizer releases output; retry briefly so other
     /// audio is never left lowered.
     static let restoreRetryDelay: TimeInterval = 0.25
     static let maximumRestoreAttempts = 4
 
-    init() {
+    init(timing: AudioWorkTiming? = nil) {
+        self.timing = timing
         observe(AVAudioSession.interruptionNotification) { [weak self] notification in
             guard let self,
                   let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
@@ -88,6 +90,10 @@ final class WorkoutAudioSession: AudioSessionControlling {
 
     /// Activates the recording category for listening. Returns false if the session can't activate.
     func activateForListening() -> Bool {
+        measured(.activateForListening) { activateSessionForListening() }
+    }
+
+    private func activateSessionForListening() -> Bool {
         keepsActive = true
         guard !isDucking else { return false }
         configureBaseCategory()
@@ -98,13 +104,19 @@ final class WorkoutAudioSession: AudioSessionControlling {
     func stopListening() {
         keepsActive = false
         guard !isDucking, isActive else { return }
-        try? session.setActive(false, options: .notifyOthersOnDeactivation)
-        isActive = false
+        measured(.stopListening) {
+            try? session.setActive(false, options: .notifyOthersOnDeactivation)
+            isActive = false
+        }
     }
 
     /// Lowers other audio. Listening must already be stopped. Speech still plays if this fails.
     func beginDucking() {
         guard !isDucking else { return }
+        measured(.beginDucking) { duck() }
+    }
+
+    private func duck() {
         restoreAttempt = 0
         // Ducking applies on activation, so an already-active listening session is cycled first.
         if isActive {
@@ -132,19 +144,26 @@ final class WorkoutAudioSession: AudioSessionControlling {
     }
 
     private func restoreOtherAudio() {
+        let reactivatedLate = measured(.restoreOtherAudio) { attemptRestore() }
+        // After the timing, so the recognizer work it triggers is timed on its own.
+        if reactivatedLate { onEvent?(.reactivated) }
+    }
+
+    /// Returns true when a retry reactivated the session for listening.
+    private func attemptRestore() -> Bool {
         do {
             try session.setActive(false, options: .notifyOthersOnDeactivation)
             isActive = false
             configureBaseCategory()
             if keepsActive {
                 _ = setActive(true)
-                if restoreAttempt > 0 { onEvent?(.reactivated) }
+                return restoreAttempt > 0
             }
         } catch {
             restoreAttempt += 1
             guard restoreAttempt < Self.maximumRestoreAttempts else {
                 configureBaseCategory()
-                return
+                return false
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.restoreRetryDelay) { [weak self] in
                 MainActor.assumeIsolated {
@@ -154,14 +173,21 @@ final class WorkoutAudioSession: AudioSessionControlling {
                 }
             }
         }
+        return false
     }
 
     /// Ends ducking and releases the session when leaving the workout.
     func deactivate() {
         keepsActive = false
         endDucking()
-        try? session.setActive(false, options: .notifyOthersOnDeactivation)
-        isActive = false
+        measured(.deactivate) {
+            try? session.setActive(false, options: .notifyOthersOnDeactivation)
+            isActive = false
+        }
+    }
+
+    private func measured<T>(_ step: AudioWorkStep, _ work: () -> T) -> T {
+        timing.map { $0.measure(step, work) } ?? work()
     }
 
     private func setActive(_ active: Bool) -> Bool {

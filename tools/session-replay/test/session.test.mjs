@@ -204,3 +204,14 @@ test("each analyzer rep is classified by what the coach did with it", () => {
   assert.deepEqual(titles, ["2 Rep on one side, count unchanged", "3 Rep 1", "4 Rep 2, set complete", "5 Analyzer rep not counted",
     "7 Analyzer rep not counted", "9 Analyzer rep not counted"]);
 });
+
+test("audio work that blocks the main thread for 100 ms or more is flagged", () => {
+  const items = records();
+  const end = items.findIndex((r) => r.k === "end");
+  items.splice(end, 0,
+    { k: "e", t: 3.5, type: "audio.work", step: "restoreOtherAudio", ms: 412.3 },
+    { k: "e", t: 3.6, type: "audio.work", step: "taskStart", ms: 4.2 });
+  const timeline = Session.fromText(arrayText(items)).timeline;
+  const blocked = timeline.filter((item) => item.title === "Main thread blocked");
+  assert.deepEqual(blocked.map((item) => [item.t, item.kind, item.detail]), [[3.5, "warn", "412 ms · restoreOtherAudio"]]);
+});
