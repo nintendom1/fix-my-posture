@@ -41,6 +41,15 @@ struct ExercisePhotography: Identifiable {
             license: "Pexels License"
         ),
         ExercisePhotography(
+            id: .gluteBridge,
+            exerciseName: "Glute Bridge",
+            assetName: "ExerciseThumbnails/glute_bridge",
+            photographer: "Vlada Karpovich",
+            source: "Pexels",
+            sourceURL: URL(string: "https://www.pexels.com/photo/a-woman-doing-yoga-in-the-room-4534643/")!,
+            license: "Pexels License"
+        ),
+        ExercisePhotography(
             id: .dumbbellRow,
             exerciseName: "Dumbbell Row",
             assetName: "ExerciseThumbnails/dumbbell_row",

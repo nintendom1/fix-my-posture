@@ -116,6 +116,7 @@ final class RoutineDetailViewModel: RoutineDetailViewModeling {
             case .front: camera = "Front camera"
             case .side: camera = "Side camera"
             case .floor: camera = "Floor camera"
+            case .lyingSide: camera = "Floor-level side camera"
             }
             return RoutineStepPresentation(
                 id: item.id,

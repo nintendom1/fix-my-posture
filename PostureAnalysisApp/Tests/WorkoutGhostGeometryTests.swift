@@ -240,22 +240,23 @@ final class WorkoutGhostGeometryTests: XCTestCase {
     }
 
     func testRightSideReadyPosesBlendWithoutExtraIdealLimbs() throws {
-        let exercises = [StiffLegDeadliftExercise.definition(), RearLungeExercise.definition()]
+        let exercises = [StiffLegDeadliftExercise.definition(), RearLungeExercise.definition(),
+                         GluteBridgeExercise.definition()]
         for exercise in exercises {
             let variant = try XCTUnwrap(ReadyPoseFixtures.variants(for: exercise).first { $0.name == "minimal right" })
             let readyFrame = ReadyPoseFixtures.frame(variant, at: 0)
             let overlay = overlay(from: readyFrame)
-            let samples = exercise.id == .rearLunge
+            let samples = exercise.id == .rearLunge || exercise.id == .gluteBridge
                 ? [exercise.guide.motion.startSample, exercise.guide.motion.topSample]
                 : [exercise.guide.motion.startSample]
 
             for sample in samples {
                 let calibrated = try XCTUnwrap(WorkoutGhostGeometry.calibrated(
                     fitOverlay: overlay, metrics: nil, motion: exercise.guide.motion,
-                    cameraView: .side, containerSize: containerSize, sample: sample
+                    cameraView: exercise.cameraView, containerSize: containerSize, sample: sample
                 ), "\(exercise.id) did not calibrate from the right-side Ready pose")
                 let ideal = WorkoutGhostGeometry.ideal(overlay: nil, motion: exercise.guide.motion,
-                                                       cameraView: .side, containerSize: containerSize,
+                                                       cameraView: exercise.cameraView, containerSize: containerSize,
                                                        sample: sample)
                 let blended = WorkoutGhostGeometry.blended(from: ideal, to: calibrated, progress: 1)
 
@@ -273,8 +274,217 @@ final class WorkoutGhostGeometryTests: XCTestCase {
                     XCTAssertNil(blended.joints[.rightKnee])
                     XCTAssertNil(blended.joints[.rightAnkle])
                 }
+                if exercise.id == .gluteBridge {
+                    XCTAssertNotNil(blended.joints[.leftElbow])
+                    XCTAssertNotNil(blended.joints[.leftWrist])
+                    XCTAssertNil(blended.joints[.rightHip])
+                }
             }
         }
+    }
+
+    func testLyingSidePoseUsesItsOwnFloorLayoutAndStraightTopLine() throws {
+        let bridge = GluteBridgeExercise.definition()
+        let down = ExerciseDemoFigureView.pose(for: bridge.guide.motion.startSample,
+                                               cameraView: .lyingSide).jointLocations
+        let top = ExerciseDemoFigureView.pose(for: bridge.guide.motion.topSample,
+                                              cameraView: .lyingSide).jointLocations
+        let shoulder = try XCTUnwrap(down[.leftShoulder])
+        let downHip = try XCTUnwrap(down[.leftHip])
+        let downAnkle = try XCTUnwrap(down[.leftAnkle])
+        let upHip = try XCTUnwrap(top[.leftHip])
+        let upKnee = try XCTUnwrap(top[.leftKnee])
+        let upAnkle = try XCTUnwrap(top[.leftAnkle])
+
+        XCTAssertEqual(downHip.y, ExerciseDemoFigureView.lyingSideFloorY - 20, accuracy: 0.001)
+        XCTAssertEqual(shoulder.y, downAnkle.y)
+        XCTAssertEqual(down[.leftElbow]?.y, shoulder.y)
+        XCTAssertGreaterThan(try XCTUnwrap(down[.leftWrist]).x, try XCTUnwrap(down[.leftElbow]).x)
+        XCTAssertLessThan(upHip.y, downHip.y)
+        XCTAssertEqual(try XCTUnwrap(top[.leftShoulder]), shoulder)
+        XCTAssertEqual(upAnkle, downAnkle)
+
+        let hipAngle = GluteBridgeAnalyzer.hipAngle(shoulder: shoulder, hip: upHip, knee: upKnee, facing: 1)
+        XCTAssertEqual(hipAngle, 180, accuracy: 0.01)
+        let cross = (upHip.x - shoulder.x) * (upKnee.y - upHip.y)
+            - (upHip.y - shoulder.y) * (upKnee.x - upHip.x)
+        XCTAssertEqual(cross, 0, accuracy: 0.01)
+        XCTAssertNotEqual(try XCTUnwrap(down[.nose]), try XCTUnwrap(down[.neck]))
+    }
+
+    func testLyingSideGhostAnchorsExactReadyJointsAndDoesNotNeedArmMetrics() throws {
+        let bridge = GluteBridgeExercise.definition()
+        let poses: [(joints: [LandmarkType: CGPoint], facing: CGFloat)] = [
+            ([.rightShoulder: CGPoint(x: 0.72, y: 0.72),
+              .rightHip: CGPoint(x: 0.59, y: 0.72),
+              .rightKnee: CGPoint(x: 0.43, y: 0.68),
+              .rightAnkle: CGPoint(x: 0.25, y: 0.72)], -1),
+            ([.rightShoulder: CGPoint(x: 0.25, y: 0.72),
+              .rightHip: CGPoint(x: 0.41, y: 0.72),
+              .rightKnee: CGPoint(x: 0.57, y: 0.68),
+              .rightAnkle: CGPoint(x: 0.75, y: 0.72)], 1)
+        ]
+        let sample = bridge.guide.motion.startSample
+        for pose in poses {
+            let overlay = makeOverlay(pose.joints)
+            let canFit = GhostCalibration.canFit(overlay: overlay, metrics: nil,
+                                                 motion: bridge.guide.motion, cameraView: .lyingSide,
+                                                 sample: sample)
+            let figure = WorkoutGhostGeometry.calibrated(fitOverlay: overlay, metrics: nil,
+                                                         motion: bridge.guide.motion, cameraView: .lyingSide,
+                                                         containerSize: containerSize, sample: sample)
+            XCTAssertEqual(canFit, figure != nil)
+            let calibrated = try XCTUnwrap(figure)
+            let fit = CoordinateConverter.aspectFitRect(for: overlay.imageSize, in: containerSize)
+            func expected(_ joint: LandmarkType) -> CGPoint {
+                CoordinateConverter.normalizedToContainer(normalized: pose.joints[joint] ?? .zero,
+                                                          imageSize: overlay.imageSize,
+                                                          containerSize: containerSize)
+            }
+            XCTAssertEqual(calibrated.joints[.leftShoulder], expected(.rightShoulder))
+            XCTAssertEqual(calibrated.joints[.leftAnkle], expected(.rightAnkle))
+            XCTAssertEqual(calibrated.joints[.leftHip], expected(.rightHip))
+            XCTAssertEqual(calibrated.joints[.leftKnee], expected(.rightKnee))
+            XCTAssertTrue(fit.contains(expected(.rightShoulder)))
+
+            let top = try XCTUnwrap(WorkoutGhostGeometry.calibrated(
+                fitOverlay: overlay, metrics: nil, motion: bridge.guide.motion,
+                cameraView: .lyingSide, containerSize: containerSize,
+                sample: bridge.guide.motion.topSample
+            ))
+            let topHip = try XCTUnwrap(top.joints[.leftHip])
+            let topKnee = try XCTUnwrap(top.joints[.leftKnee])
+            let topAnkle = try XCTUnwrap(top.joints[.leftAnkle])
+            let startHip = expected(.rightHip)
+            let startKnee = expected(.rightKnee)
+            let startAnkle = expected(.rightAnkle)
+            XCTAssertLessThan(topHip.y, startHip.y)
+            XCTAssertEqual(ArmGeometry.distance(topHip, topKnee),
+                           ArmGeometry.distance(startHip, startKnee), accuracy: 0.01)
+            XCTAssertEqual(ArmGeometry.distance(topKnee, topAnkle),
+                           ArmGeometry.distance(startKnee, startAnkle), accuracy: 0.01)
+
+            let geometry = WorkoutGhostGeometry.make(overlay: overlay, metrics: nil, motion: bridge.guide.motion,
+                                                     cameraView: .lyingSide, containerSize: containerSize,
+                                                     sample: sample)
+            XCTAssertEqual(geometry.limbs.map(\.joints), [
+                [.leftShoulder, .leftElbow, .leftWrist], [.leftAnkle, .leftKnee, .leftHip]
+            ])
+            XCTAssertTrue(geometry.limbs.allSatisfy { !$0.points.isEmpty })
+
+            var incompleteJoints = pose.joints
+            incompleteJoints[.rightKnee] = nil
+            let incomplete = makeOverlay(incompleteJoints)
+            XCTAssertFalse(GhostCalibration.canFit(overlay: incomplete, metrics: nil,
+                                                   motion: bridge.guide.motion, cameraView: .lyingSide,
+                                                   sample: sample))
+            XCTAssertNil(WorkoutGhostGeometry.calibrated(fitOverlay: incomplete, metrics: nil,
+                                                         motion: bridge.guide.motion, cameraView: .lyingSide,
+                                                         containerSize: containerSize, sample: sample))
+        }
+    }
+
+    func testLyingBridgeGhostTopUsesMeasuredProportionsAndStaysStraight() throws {
+        let bridge = GluteBridgeExercise.definition()
+        let cases: [(torso: CGFloat, thigh: CGFloat, shin: CGFloat, footDistance: CGFloat,
+                     shoulder: CGPoint)] = [
+            (80, 100, 80, 170, CGPoint(x: 300, y: 800)),
+            (60, 120, 75, 210, CGPoint(x: 300, y: 800)),
+            (110, 80, 100, 150, CGPoint(x: 300, y: 800)),
+            (95, 85, 125, 245, CGPoint(x: 300, y: 800)),
+            // The review's geometry: S (100,500), H (200,500), K (250,413.397), A (300,500).
+            (100, 100, 100, 200, CGPoint(x: 100, y: 500))
+        ]
+        let halfway = ArmMotionSample(angles: bridge.guide.motion.startAngles, stepIndex: 0,
+                                      shape: FigureShape(hipLift: 0.5))
+
+        for item in cases {
+            for facing: CGFloat in [-1, 1] {
+                let shoulder = item.shoulder
+                let hip = CGPoint(x: shoulder.x + facing * item.torso, y: shoulder.y)
+                let ankle = CGPoint(x: shoulder.x + facing * item.footDistance, y: shoulder.y)
+                let knee = ArmGeometry.twoBoneKnee(hip: hip, ankle: ankle,
+                                                   thighLength: item.thigh, shinLength: item.shin,
+                                                   bendDirection: facing)
+                let overlay = makePixelOverlay([
+                    .rightShoulder: shoulder, .rightHip: hip, .rightKnee: knee, .rightAnkle: ankle
+                ])
+                let start = try XCTUnwrap(WorkoutGhostGeometry.calibrated(
+                    fitOverlay: overlay, metrics: nil, motion: bridge.guide.motion,
+                    cameraView: .lyingSide, containerSize: containerSize,
+                    sample: bridge.guide.motion.startSample
+                ))
+                let top = try XCTUnwrap(WorkoutGhostGeometry.calibrated(
+                    fitOverlay: overlay, metrics: nil, motion: bridge.guide.motion,
+                    cameraView: .lyingSide, containerSize: containerSize,
+                    sample: bridge.guide.motion.topSample
+                ))
+                let middle = try XCTUnwrap(WorkoutGhostGeometry.calibrated(
+                    fitOverlay: overlay, metrics: nil, motion: bridge.guide.motion,
+                    cameraView: .lyingSide, containerSize: containerSize, sample: halfway
+                ))
+                let startShoulder = try XCTUnwrap(start.joints[.leftShoulder])
+                let startHip = try XCTUnwrap(start.joints[.leftHip])
+                let startKnee = try XCTUnwrap(start.joints[.leftKnee])
+                let startAnkle = try XCTUnwrap(start.joints[.leftAnkle])
+                let topHip = try XCTUnwrap(top.joints[.leftHip])
+                let topKnee = try XCTUnwrap(top.joints[.leftKnee])
+                let topAnkle = try XCTUnwrap(top.joints[.leftAnkle])
+                let middleHip = try XCTUnwrap(middle.joints[.leftHip])
+                let expectedShoulder = try XCTUnwrap(containerPoint(.rightShoulder, in: overlay))
+                let expectedHip = try XCTUnwrap(containerPoint(.rightHip, in: overlay))
+                let expectedKnee = try XCTUnwrap(containerPoint(.rightKnee, in: overlay))
+                let expectedAnkle = try XCTUnwrap(containerPoint(.rightAnkle, in: overlay))
+                let label = "torso \(item.torso), thigh \(item.thigh), shin \(item.shin), feet \(item.footDistance), facing \(facing)"
+
+                XCTAssertEqual(startShoulder, expectedShoulder, label)
+                XCTAssertEqual(startHip, expectedHip, label)
+                XCTAssertEqual(startKnee, expectedKnee, label)
+                XCTAssertEqual(startAnkle, expectedAnkle, label)
+                XCTAssertEqual(topAnkle, expectedAnkle, label)
+                XCTAssertEqual(middleHip.x, (startHip.x + topHip.x) / 2, accuracy: 0.01, label)
+                XCTAssertEqual(middleHip.y, (startHip.y + topHip.y) / 2, accuracy: 0.01, label)
+                XCTAssertEqual(ArmGeometry.distance(topHip, topKnee),
+                               ArmGeometry.distance(startHip, startKnee), accuracy: 0.01, label)
+                XCTAssertEqual(ArmGeometry.distance(topKnee, topAnkle),
+                               ArmGeometry.distance(startKnee, startAnkle), accuracy: 0.01, label)
+                XCTAssertEqual(ArmGeometry.distance(startShoulder, startHip),
+                               ArmGeometry.distance(startShoulder, topHip), accuracy: 0.01, label)
+                let angle = GluteBridgeAnalyzer.hipAngle(shoulder: startShoulder, hip: topHip,
+                                                         knee: topKnee, facing: facing)
+                XCTAssertGreaterThanOrEqual(angle, 175, label)
+                XCTAssertGreaterThan(angle, 165, label)
+            }
+        }
+    }
+
+    func testLyingBridgeGhostClampsUnreachableTopWithoutNonfinitePoints() throws {
+        let bridge = GluteBridgeExercise.definition()
+        let shoulder = CGPoint(x: 300, y: 500)
+        let hip = CGPoint(x: 550, y: 500)
+        let ankle = CGPoint(x: 500, y: 500)
+        let knee = ArmGeometry.twoBoneKnee(hip: hip, ankle: ankle,
+                                           thighLength: 100, shinLength: 50, bendDirection: 1)
+        let overlay = makePixelOverlay([
+            .rightShoulder: shoulder, .rightHip: hip, .rightKnee: knee, .rightAnkle: ankle
+        ])
+        let top = try XCTUnwrap(WorkoutGhostGeometry.calibrated(
+            fitOverlay: overlay, metrics: nil, motion: bridge.guide.motion,
+            cameraView: .lyingSide, containerSize: containerSize,
+            sample: bridge.guide.motion.topSample
+        ))
+        for point in top.joints.values {
+            XCTAssertTrue(point.x.isFinite && point.y.isFinite)
+        }
+        let topHip = try XCTUnwrap(top.joints[.leftHip])
+        let topKnee = try XCTUnwrap(top.joints[.leftKnee])
+        let topAnkle = try XCTUnwrap(top.joints[.leftAnkle])
+        XCTAssertEqual(ArmGeometry.distance(try XCTUnwrap(top.joints[.leftShoulder]), topHip),
+                       ArmGeometry.distance(try XCTUnwrap(top.joints[.leftShoulder]),
+                                            try XCTUnwrap(containerPoint(.rightHip, in: overlay))),
+                       accuracy: 0.01)
+        XCTAssertEqual(ArmGeometry.distance(topHip, topKnee), 100 * (containerSize.width / 1080), accuracy: 0.01)
+        XCTAssertGreaterThan(ArmGeometry.distance(topKnee, topAnkle), 50 * (containerSize.width / 1080))
     }
 
     func testSideBodyIdealFitsHingeAndSplitStanceAtTwoSizes() throws {
@@ -393,6 +603,9 @@ final class WorkoutGhostGeometryTests: XCTestCase {
                         continue
                     case .floor:
                         missingOverlay.joints[.leftWrist] = nil
+                    case .lyingSide:
+                        missingOverlay.joints[.leftAnkle] = nil
+                        missingOverlay.joints[.rightAnkle] = nil
                     }
                     XCTAssertFalse(GhostCalibration.canFit(overlay: missingOverlay,
                                                            metrics: firstReadyMetrics,
@@ -861,6 +1074,14 @@ final class WorkoutGhostGeometryTests: XCTestCase {
                                   endPositionSides: [],
                                   pose: BodyPose(landmarks: [:], imageWidth: imageSize.width,
                                                  imageHeight: imageSize.height))
+    }
+
+    private func makePixelOverlay(_ joints: [LandmarkType: CGPoint]) -> WorkoutOverlayState {
+        let imageSize = CGSize(width: 1080, height: 1920)
+        let normalized = joints.mapValues {
+            CGPoint(x: $0.x / imageSize.width, y: $0.y / imageSize.height)
+        }
+        return makeOverlay(normalized)
     }
 
     private func overlay(from frame: PoseFrame) -> WorkoutOverlayState {

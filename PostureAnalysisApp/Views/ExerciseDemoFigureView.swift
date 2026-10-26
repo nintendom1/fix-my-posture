@@ -118,6 +118,13 @@ struct ExerciseDemoFigureView: View {
 
     /// Hands planted on the floor in the floor view; the shoulders hang above them by the arm pose.
     static let floorHands: [BodySide: CGPoint] = [.left: CGPoint(x: 196, y: 430), .right: CGPoint(x: 104, y: 430)]
+    /// Lying side-view anchors. Both planted feet and the shoulder rest on the same floor line.
+    static let lyingSideShoulder = CGPoint(x: 100, y: 410)
+    static let lyingSideDownHip = CGPoint(x: 145, y: 410)
+    static let lyingSideAnkle = CGPoint(x: 250, y: 410)
+    static let lyingSideThigh: CGFloat = 75
+    static let lyingSideShin: CGFloat = 75
+    static let lyingSideFloorY: CGFloat = 430
 
     /// Seen from a phone on the floor facing the head: hands planted, shoulders above them by the arm
     /// pose, head above the shoulders, and the hips just beyond them as the body recedes.
@@ -153,6 +160,7 @@ struct ExerciseDemoFigureView: View {
         let angles = sample.angles
         let legs = sample.legs
         if cameraView == .floor { return floorPose(for: angles) }
+        if cameraView == .lyingSide { return lyingSidePose(for: sample) }
         if cameraView == .side {
             var joints = sidePose(shape: sample.shape)
             if let shoulder = joints[.leftShoulder] {
@@ -174,6 +182,37 @@ struct ExerciseDemoFigureView: View {
             joints[side.wrist] = arm.wrist
         }
         return ReferencePose(jointLocations: joints)
+    }
+
+    /// An independent supine profile layout. At hipLift 1, the shoulder, hip, and solved knee are collinear.
+    private static func lyingSidePose(for sample: ArmMotionSample) -> ReferencePose {
+        let shoulder = lyingSideShoulder
+        let ankle = lyingSideAnkle
+        let downHip = lyingSideDownHip
+        let direction = CGVector(dx: cos(.pi / 6), dy: -sin(.pi / 6))
+        let shoulderToHipAtTop = lyingSideThigh * 0.7333333333
+        let topHip = CGPoint(x: shoulder.x + direction.dx * shoulderToHipAtTop,
+                             y: shoulder.y + direction.dy * shoulderToHipAtTop)
+        let hip = CGPoint(x: downHip.x + (topHip.x - downHip.x) * CGFloat(sample.shape.hipLift),
+                          y: downHip.y + (topHip.y - downHip.y) * CGFloat(sample.shape.hipLift))
+        let knee = ArmGeometry.twoBoneKnee(hip: hip, ankle: ankle,
+                                           thighLength: lyingSideThigh, shinLength: lyingSideShin,
+                                           bendDirection: 1)
+        let arm = ArmMotion.place(shoulder: shoulder, outward: 1,
+                                  upperArm: upperArm, forearm: forearm,
+                                  angles: sample.angles)
+        let head = CGPoint(x: shoulder.x - 48, y: lyingSideFloorY - 20)
+        let neck = CGPoint(x: shoulder.x - 20, y: shoulder.y)
+        return ReferencePose(jointLocations: [
+            .nose: head,
+            .neck: neck,
+            .leftShoulder: shoulder,
+            .leftElbow: arm.elbow,
+            .leftWrist: arm.wrist,
+            .leftHip: hip,
+            .leftKnee: knee,
+            .leftAnkle: ankle
+        ])
     }
 
     /// The smallest canvas-space rectangle that contains the original canvas and all poses in a motion.
@@ -314,7 +353,9 @@ struct ExerciseDemoFigureView: View {
             ZStack {
                 AlignmentReferenceOverlayView(referencePose: localPose,
                                               imageSize: bounds.size, containerSize: size,
-                                              style: .silhouette, strokeColor: tint, fillColor: tint.opacity(0.5),
+                                              style: .silhouette,
+                                              headOrientation: cameraView == .lyingSide ? .noseToNeck : .vertical,
+                                              strokeColor: tint, fillColor: tint.opacity(0.5),
                                               proportionWidth: Self.canvasSize.width * scale)
                 Canvas { context, _ in
                     guard fit.width > 0 else { return }

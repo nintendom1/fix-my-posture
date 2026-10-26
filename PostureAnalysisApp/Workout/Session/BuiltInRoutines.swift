@@ -132,6 +132,33 @@ enum BuiltInRoutines {
                     targetRepMaximum: 15
                 )
             ]
+        ),
+        SavedExerciseSet(
+            id: UUID(uuid: (0x5E, 0x7A, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x81)),
+            name: "Legs & Glutes",
+            items: [
+                SavedExerciseSetItem(
+                    id: UUID(uuid: (0x5E, 0x7A, 0x00, 0x81, 0x00, 0x00, 0x40, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01)),
+                    exerciseID: .airSquat,
+                    setCount: 1,
+                    targetRepMinimum: 10,
+                    targetRepMaximum: 10
+                ),
+                SavedExerciseSetItem(
+                    id: UUID(uuid: (0x5E, 0x7A, 0x00, 0x81, 0x00, 0x00, 0x40, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02)),
+                    exerciseID: .stiffLegDeadlift,
+                    setCount: 1,
+                    targetRepMinimum: 8,
+                    targetRepMaximum: 8
+                ),
+                SavedExerciseSetItem(
+                    id: UUID(uuid: (0x5E, 0x7A, 0x00, 0x81, 0x00, 0x00, 0x40, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03)),
+                    exerciseID: .gluteBridge,
+                    setCount: 1,
+                    targetRepMinimum: 10,
+                    targetRepMaximum: 10
+                )
+            ]
         )
     ]
 

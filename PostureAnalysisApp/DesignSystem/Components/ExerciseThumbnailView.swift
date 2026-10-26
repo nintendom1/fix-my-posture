@@ -31,6 +31,7 @@ struct ExerciseThumbnailView: View {
         switch exerciseID {
         case .shoulderPress, .lateralRaise, .dumbbellRow, .dumbbellShrug: return 0
         case .airSquat: return 0.25
+        case .gluteBridge: return 0.3
         default: return 0.5
         }
     }

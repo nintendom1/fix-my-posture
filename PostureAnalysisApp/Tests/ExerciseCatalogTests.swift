@@ -35,6 +35,16 @@ final class ExerciseCatalogTests: XCTestCase {
         }
     }
 
+    func testGluteBridgeIsRegisteredAfterRearLungeWithItsOwnPresentation() throws {
+        let rearLungeIndex = try XCTUnwrap(ExerciseCatalog.all.firstIndex { $0.id == .rearLunge })
+        let bridgeIndex = try XCTUnwrap(ExerciseCatalog.all.firstIndex { $0.id == .gluteBridge })
+        XCTAssertEqual(bridgeIndex, rearLungeIndex + 1)
+        let bridge = try XCTUnwrap(ExerciseCatalog.definition(for: .gluteBridge))
+        XCTAssertEqual(bridge.presentation.gradient.token, .bridge)
+        XCTAssertEqual(bridge.presentation.cameraSetupLine, "Floor-level side camera")
+        XCTAssertEqual(bridge.presentation.filterGroups, [.lower, .bodyweight])
+    }
+
     func testEveryPresentationSymbolResolves() {
         for exercise in ExerciseCatalog.all {
             XCTAssertNotNil(UIImage(systemName: exercise.presentation.symbolName),
