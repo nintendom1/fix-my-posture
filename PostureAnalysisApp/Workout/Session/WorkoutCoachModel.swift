@@ -110,6 +110,14 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     @ObservationIgnored private var heardGeneration = 0
     @ObservationIgnored private var lastHeardPhrase: String?
     @ObservationIgnored private var markerConfirmationExpiry: Cancellable?
+    /// The capture moment, on `clock`, of the frame being processed; nil between frames.
+    @ObservationIgnored private var frameTime: TimeInterval?
+    @ObservationIgnored private var lastPoseTime = -TimeInterval.infinity
+    /// Frames captured before counting last started or the analyzer was replaced are recorded but not analyzed, so
+    /// a backlog delivered after a Start or Resume can't count movement from before it.
+    @ObservationIgnored private var analysisStart = -TimeInterval.infinity
+    /// The reducer time of the input whose effects are being applied.
+    @ObservationIgnored private var dispatchTime: TimeInterval?
 
     nonisolated static let tickInterval: TimeInterval = 0.5
     static let heardChipDuration: TimeInterval = 1.5
@@ -443,10 +451,18 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     }
 
     private func process(_ frame: PoseFrame) {
+        // A backlog delivered after a stall is placed at its capture moments, so a start hold can't complete
+        // on pose evidence that later frames in it contradict.
+        frameTime = poseTime(of: frame)
+        defer { frameTime = nil }
         guard session.exercise != nil else {
             hasPoseFrame = false
             overlay = nil
             ghostFitOverlay = nil
+            recorder?.recordFrame(frame, output: nil, pitchDegrees: tiltMonitor?.latestTilt?.pitchDegrees, at: clock.now)
+            return
+        }
+        guard let time = frameTime, time >= analysisStart else {
             recorder?.recordFrame(frame, output: nil, pitchDegrees: tiltMonitor?.latestTilt?.pitchDegrees, at: clock.now)
             return
         }
@@ -463,19 +479,28 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         armThresholds = output.thresholds
         formReadings = output.formReadings
 
+        dispatch(.poseObserved)
         var checkedStartHold = false
         for event in output.events {
             dispatch(event)
             // A full start hold starts on this frame, before any rep event from the same sample.
-            if !checkedStartHold, isStartHoldComplete(at: clock.now),
+            if !checkedStartHold, isStartHoldComplete(at: reducerTime),
                isStartPositionEvent(event) || isRepEvent(event) {
                 dispatch(.tick)
                 checkedStartHold = true
             }
         }
-        if !checkedStartHold, isStartHoldComplete(at: clock.now) {
+        if !checkedStartHold, isStartHoldComplete(at: reducerTime) {
             dispatch(.tick)
         }
+    }
+
+    /// The frame's capture moment on `clock`. Only earlier frames bound it, never reducer inputs such as ticks or
+    /// speech changes made during a stall.
+    private func poseTime(of frame: PoseFrame) -> TimeInterval {
+        let time = max(lastPoseTime, clock.now - frame.deliveryDelay)
+        lastPoseTime = time
+        return time
     }
 
     private func isStartHoldComplete(at time: TimeInterval) -> Bool {
@@ -515,14 +540,21 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     // MARK: - Effects
 
     /// Every reducer input goes through here, so a recording sees each one and the state it led to.
+    /// Recordings keep delivery time; the reducer gets the processed frame's capture time when there is one.
     private func dispatch(_ event: WorkoutEvent, at time: TimeInterval? = nil) {
-        let now = time ?? clock.now
         if let recorder, let recorded = WorkoutRecordingEvent(input: event) {
-            recorder.recordEvent(recorded, at: now)
+            recorder.recordEvent(recorded, at: time ?? clock.now)
         }
+        let now = time ?? reducerTime
+        let outer = dispatchTime
+        dispatchTime = now
+        defer { dispatchTime = outer }
         apply(session.handle(event, at: now))
         recordState()
     }
+
+    /// The reducer's time for the next input: the frame being processed, else the clock.
+    private var reducerTime: TimeInterval { frameTime ?? clock.now }
 
     /// Pipeline changes go through here, so a recording can rebuild the same pipeline state on replay.
     @discardableResult
@@ -548,6 +580,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
                 recorder?.recordEvent(.repeatLastInstruction(muted: isCoachMuted), at: clock.now)
                 if !isCoachMuted { speech.repeatLastInstruction() }
             case .resetAnalyzer(let epoch):
+                analysisStart = max(analysisStart, dispatchTime ?? clock.now)
                 guard let exercise = session.exercise else {
                     applyControl(.exercise(nil, analyzerEpoch: epoch))
                     continue
@@ -555,6 +588,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
                 applyControl(.exercise(exercise, analyzerEpoch: epoch))
                 applyControl(.resetAnalyzer(epoch: epoch))
             case .setCounting(let counting):
+                if counting { analysisStart = max(analysisStart, dispatchTime ?? clock.now) }
                 applyControl(.counting(counting))
             case .clearFeedback:
                 recorder?.recordEvent(.clearFeedback, at: clock.now)

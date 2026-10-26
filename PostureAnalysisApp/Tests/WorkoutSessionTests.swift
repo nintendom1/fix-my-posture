@@ -17,6 +17,22 @@ final class WorkoutSessionTests: XCTestCase {
         XCTAssertTrue(spoken(effects).contains("Set 1 of 2. Go."))
     }
 
+    func testAStartHoldCountsOnlyUpToTheLatestAnalyzedFrame() {
+        var session = readySession()
+        _ = session.handle(.startPositionChanged(true), at: 2)
+        _ = session.handle(.poseObserved, at: 2.8)
+
+        // Frames stopped arriving (a stall); the clock alone can't finish the hold.
+        _ = session.handle(.tick, at: 3.5)
+        XCTAssertEqual(session.phase, .ready)
+        XCTAssertEqual(session.startHoldProgress(at: 3.5) ?? 0, 0.8, accuracy: 1e-9)
+
+        _ = session.handle(.poseObserved, at: 3)
+        let effects = session.handle(.tick, at: 3.5)
+        XCTAssertEqual(session.phase, .exercising, "A frame captured a full second into the hold completes it.")
+        XCTAssertTrue(effects.contains(.setCounting(true)))
+    }
+
     func testRaisedStraightArmsDoNotStartShrugSetHoldTimer() {
         let shrug = DumbbellShrugExercise.definition()
         var session = readySession(exercise: shrug)
