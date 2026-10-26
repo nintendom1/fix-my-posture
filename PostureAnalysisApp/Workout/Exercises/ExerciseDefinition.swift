@@ -68,6 +68,8 @@ struct ExerciseDefinition: Identifiable {
     let headroomArmLengths: CGFloat?
     /// Horizontal room needed at each shoulder, in arm lengths; nil skips the check.
     var sideroomArmLengths: CGFloat? = nil
+    /// Widest the shoulders may span in setup, as a fraction of image width; wider asks for the phone farther away.
+    var maximumShoulderSpan: CGFloat? = nil
     /// Each arm counts separately; displayed reps are the reps both arms completed.
     let countsArmsIndependently: Bool
     /// Spoken when the exercise is selected.

@@ -79,8 +79,11 @@ enum PushUpExercise {
                 FocusSegment(from: .leftShoulder, to: .rightShoulder, style: .reference)
             ],
             headroomArmLengths: nil,
+            // Recordings lost the whole body before the bottom of every rep at 34% or more, and kept it at 30%
+            // or less: with the phone near the face, Vision stops seeing a body.
+            maximumShoulderSpan: 0.32,
             countsArmsIndependently: false,
-            setupLine: "Push-ups, two sets of 10. Lay the phone on the floor a step in front of your hands, tilted up to see you, and get into a plank facing it.",
+            setupLine: "Push-ups, two sets of 10. Lay the phone on the floor a long step in front of your hands, tilted up to see you, and get into a plank facing it.",
             voiceAliases: ["push ups", "pushups", "push up", "press ups"],
             guide: guide,
             coachingCues: [
@@ -114,12 +117,12 @@ enum PushUpExercise {
         return ExerciseGuide(
             summary: "2 sets × 10 reps · No equipment · Phone on the floor",
             steps: [
-                GuideStep(title: "Start", detail: "Lay the phone on the floor a step in front of your hands, tilted up to see you. Get into a plank facing it, hands under your shoulders and arms straight."),
+                GuideStep(title: "Start", detail: "Lay the phone on the floor a long step in front of your hands, tilted up to see you. Get into a plank facing it, hands under your shoulders and arms straight."),
                 GuideStep(title: "Lower", detail: "Bend your elbows to lower your chest toward the floor, keeping your body in a straight line."),
                 GuideStep(title: "Push", detail: "Push back up until your arms are straight. That's one rep.")
             ],
             tip: "Prop the phone against something so it leans back a little; the tilt warning stays off for push-ups.",
-            walkthrough: "This is the push-up. Lay the phone on the floor a step in front of your hands, tilted up to see you. "
+            walkthrough: "This is the push-up. Lay the phone on the floor a long step in front of your hands, tilted up to see you. "
                 + "Get into a plank facing the phone, with your hands under your shoulders and your arms straight. "
                 + "Bend your elbows to lower your chest toward the floor, keeping your body in a straight line. "
                 + "Then push back up until your arms are straight. That's one rep.",

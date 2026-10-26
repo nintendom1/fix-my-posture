@@ -817,6 +817,16 @@ struct WorkoutSession {
                 }
                 return [.speak(Utterance(text: "Rest is up. \(exercise?.setupLine ?? "")"))]
             }
+            // Tracked but badly placed (say, the phone moved too close): set up again, as for Ready, before an
+            // automatic start. Out of view, the usual prompt below applies.
+            if framing.isReliable, let guidance = framing.guidance {
+                self.restEndsAt = nil
+                restDurationSeconds = nil
+                phase = .framing
+                lastSpokenGuidance = guidance
+                lastGuidanceSpokenAt = now
+                return [.speak(Utterance(text: "Rest is up. \(guidance.spokenText)"))]
+            }
             if startHoldProgress(at: now) == 1 { return beginSet(at: now) }
             guard !restDoneAnnounced else { return [] }
             restDoneAnnounced = true

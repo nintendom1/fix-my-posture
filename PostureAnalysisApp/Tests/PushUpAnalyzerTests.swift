@@ -126,4 +126,64 @@ final class PushUpAnalyzerTests: XCTestCase {
         }
         return reps
     }
+
+    // MARK: - Phone distance
+
+    func testAPhoneTooCloseAsksToMoveItFartherWithoutBlockingTracking() {
+        let pushUp = PushUpExercise.definition()
+        var framing = Self.framing(for: pushUp)
+        // Shoulders across 36% of the frame: recordings lost the body at the bottom of every rep from 34%.
+        var status = framing.evaluate(Self.plank(shoulderSpan: 0.36, at: 0))
+        XCTAssertEqual(status.guidance, .movePhoneFartherFloor)
+        status = framing.evaluate(Self.plank(shoulderSpan: 0.36, at: 0.7))
+        XCTAssertTrue(status.isReliable, "Too close holds setup but never stops counting mid-set.")
+        XCTAssertEqual(status.guidance, .movePhoneFartherFloor)
+        XCTAssertEqual(FramingGuidance.movePhoneFartherFloor.spokenText,
+                       "Move the phone farther from your hands, so you stay in view at the bottom.")
+    }
+
+    func testAPhoneFarEnoughAwayGivesNoDistanceGuidance() {
+        var framing = Self.framing(for: PushUpExercise.definition())
+        XCTAssertNil(framing.evaluate(Self.plank(shoulderSpan: 0.28, at: 0)).guidance)
+    }
+
+    func testTheDistanceWarningClearsOnlyWellBelowTheLimit() {
+        var framing = Self.framing(for: PushUpExercise.definition())
+        let spans: [(CGFloat, FramingGuidance?)] = [(0.33, .movePhoneFartherFloor), (0.31, .movePhoneFartherFloor),
+                                                     (0.29, nil), (0.31, nil), (0.33, .movePhoneFartherFloor)]
+        for (index, (span, expected)) in spans.enumerated() {
+            XCTAssertEqual(framing.evaluate(Self.plank(shoulderSpan: span, at: Double(index) / 10)).guidance, expected,
+                           "span \(span)")
+        }
+    }
+
+    func testOtherExercisesIgnoreShoulderSpan() {
+        let squat = AirSquatExercise.definition()
+        XCTAssertNil(squat.maximumShoulderSpan)
+        XCTAssertEqual(PushUpExercise.definition().maximumShoulderSpan, 0.32)
+    }
+
+    private static func framing(for exercise: ExerciseDefinition) -> FramingEvaluator {
+        FramingEvaluator(requiredJoints: exercise.requiredJoints, anyOfRequiredJoints: exercise.anyOfRequiredJoints,
+                         headroomArmLengths: exercise.headroomArmLengths, sideroomArmLengths: exercise.sideroomArmLengths,
+                         maximumShoulderSpan: exercise.maximumShoulderSpan, cameraView: exercise.cameraView)
+    }
+
+    /// A centered top-of-plank pose seen from the floor, straight arms, with the shoulders `shoulderSpan` of the width apart.
+    private static func plank(shoulderSpan: CGFloat, at time: TimeInterval) -> PoseFrame {
+        let width: CGFloat = 1080, height: CGFloat = 1920
+        let half = shoulderSpan * width / 2
+        let points: [LandmarkType: CGPoint] = [
+            .leftShoulder: CGPoint(x: 540 + half, y: 900), .rightShoulder: CGPoint(x: 540 - half, y: 900),
+            .leftElbow: CGPoint(x: 540 + half, y: 1150), .rightElbow: CGPoint(x: 540 - half, y: 1150),
+            .leftWrist: CGPoint(x: 540 + half, y: 1400), .rightWrist: CGPoint(x: 540 - half, y: 1400)
+        ]
+        let landmarks = Dictionary(uniqueKeysWithValues: points.map { type, point in
+            (type, Landmark(type: type,
+                            normalizedLocation: CoordinateConverter.imagePixelToNormalized(pixel: point, imageWidth: width,
+                                                                                         imageHeight: height),
+                            imageLocation: point, confidence: 0.9))
+        })
+        return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: width, imageHeight: height), timestamp: time)
+    }
 }
