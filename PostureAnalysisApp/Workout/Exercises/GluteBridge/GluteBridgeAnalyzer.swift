@@ -46,8 +46,18 @@ final class GluteBridgeAnalyzer: ExerciseAnalyzing {
         }
         let body = selection.body
         let time = frame.timestamp
-        let hasGap = lastSample.map { time - $0 > configuration.maximumSampleGap } ?? false
-        if selection.switched || hasGap { resetTracking() }
+        let gap = lastSample.map { time - $0 } ?? 0
+        let hasGap = gap > configuration.maximumSampleGap
+        if selection.switched || hasGap {
+            if case .active(_, let reachedUp) = cycle {
+                let stage = RepAttemptStage.of(reachedEnd: reachedUp, zones: [tracker.lastZone ?? .bottom])
+                let reason: RepRejectionReason = selection.switched
+                    ? .sideSwitched(stage: stage)
+                    : .trackingGap(seconds: gap, maximum: configuration.maximumSampleGap, stage: stage)
+                if let lost = RepRejection.lost(at: time, reason) { analysis.rejections.append(lost) }
+            }
+            resetTracking()
+        }
         lastSample = time
 
         let angle = Self.hipAngle(shoulder: body.shoulder, hip: body.hip, knee: body.knee,
@@ -84,6 +94,10 @@ final class GluteBridgeAnalyzer: ExerciseAnalyzing {
         analysis.formReadings = formMonitor.readings
 
         guard counting else {
+            if case .active(_, let reachedUp) = cycle,
+               let lost = RepRejection.lost(at: time, .countingStopped(stage: .of(reachedEnd: reachedUp, zones: [zone]))) {
+                analysis.rejections.append(lost)
+            }
             cycle = .awaitingStart
             return analysis
         }
@@ -100,6 +114,9 @@ final class GluteBridgeAnalyzer: ExerciseAnalyzing {
                     // A bridge is a whole-body rep even though Ready tracks one side.
                     analysis.repEvents.append(RepEvent(epoch: epoch, timestamp: time,
                                                        sides: Set(BodySide.allCases)))
+                } else if reachedUp {
+                    analysis.rejections.append(RepRejection(timestamp: time, reason: .tooFast(
+                        duration: time - movementStart, minimum: configuration.minimumRepDuration)))
                 }
                 movementStart = time
                 reachedUp = false

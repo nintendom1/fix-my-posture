@@ -229,6 +229,31 @@ enum WorkoutSessionLines {
                 members.append(("end", .strings(analysis.endPositionSides.map(\.rawValue))))
             }
             if analysis.startPositionHeld { members.append(("start", true)) }
+            if !analysis.rejections.isEmpty {
+                members.append(("rej", .array(analysis.rejections.map(rejection))))
+            }
+        }
+        return .object(members)
+    }
+
+    /// `{"ts", "side", "reason", ...}` with the reason's numbers: why an analyzer let a rep attempt go.
+    static func rejection(_ rejection: RepRejection) -> DiagnosticJSON {
+        var members: [(key: String, value: DiagnosticJSON)] = [("ts", .double(rejection.timestamp))]
+        if let side = rejection.side { members.append(("side", .string(side.rawValue))) }
+        switch rejection.reason {
+        case .tooFast(let duration, let minimum):
+            members += [("reason", "tooFast"), ("duration", .rounded(duration, places: 3)), ("minimum", .double(minimum))]
+        case .partialEnd(let reached):
+            members += [("reason", "partialEnd"), ("reached", .strings(reached.map(\.rawValue)))]
+        case .trackingGap(let seconds, let maximum, let stage):
+            members += [("reason", "trackingGap"), ("seconds", .rounded(seconds, places: 3)), ("maximum", .double(maximum)),
+                        ("stage", .string(stage.rawValue))]
+        case .countingStopped(let stage):
+            members += [("reason", "countingStopped"), ("stage", .string(stage.rawValue))]
+        case .sideSwitched(let stage):
+            members += [("reason", "sideSwitched"), ("stage", .string(stage.rawValue))]
+        case .referenceExpired(let stage):
+            members += [("reason", "referenceExpired"), ("stage", .string(stage.rawValue))]
         }
         return .object(members)
     }

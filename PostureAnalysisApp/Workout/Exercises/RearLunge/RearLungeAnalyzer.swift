@@ -49,8 +49,18 @@ final class RearLungeAnalyzer: ExerciseAnalyzing {
         }
         let body = selection.body
         let time = frame.timestamp
-        let hasGap = lastSample.map { time - $0 > configuration.maximumSampleGap } ?? false
-        if selection.switched || hasGap { resetTracking() }
+        let gap = lastSample.map { time - $0 } ?? 0
+        let hasGap = gap > configuration.maximumSampleGap
+        if selection.switched || hasGap {
+            if case .active(_, let reachedLunge) = cycle {
+                let stage = RepAttemptStage.of(reachedEnd: reachedLunge, zones: [tracker.lastZone ?? .bottom])
+                let reason: RepRejectionReason = selection.switched
+                    ? .sideSwitched(stage: stage)
+                    : .trackingGap(seconds: gap, maximum: configuration.maximumSampleGap, stage: stage)
+                if let lost = RepRejection.lost(at: time, reason) { analysis.rejections.append(lost) }
+            }
+            resetTracking()
+        }
         lastSample = time
 
         let hip = signalHip(in: frame, fallback: body.hip)
@@ -90,6 +100,10 @@ final class RearLungeAnalyzer: ExerciseAnalyzing {
         analysis.formReadings = formMonitor.readings
 
         guard counting else {
+            if case .active(_, let reachedLunge) = cycle,
+               let lost = RepRejection.lost(at: time, .countingStopped(stage: .of(reachedEnd: reachedLunge, zones: [zone]))) {
+                analysis.rejections.append(lost)
+            }
             cycle = .awaitingStart
             return analysis
         }
@@ -107,6 +121,9 @@ final class RearLungeAnalyzer: ExerciseAnalyzing {
                     // are only used to choose reliable geometry and are not the stepping leg.
                     analysis.repEvents.append(RepEvent(epoch: epoch, timestamp: time,
                                                        sides: Set(BodySide.allCases)))
+                } else if reachedLunge {
+                    analysis.rejections.append(RepRejection(timestamp: time, reason: .tooFast(
+                        duration: time - movementStart, minimum: configuration.minimumRepDuration)))
                 }
                 movementStart = time
                 reachedLunge = false

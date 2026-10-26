@@ -67,9 +67,19 @@ export function framingLane(session) {
 }
 
 /** A numbered mark for each rep the coach counted, a small dot for a rep on one side that left the count unchanged,
- * and a red × for an analyzer rep the coach didn't count. */
+ * a red × for an analyzer rep the coach didn't count, and an orange ring for an attempt the analyzer let go. */
 export function repLane(session) {
-  return session.reps.map((rep) => {
+  // Rejections on the same frame (both curl arms, say) share one ring, below the rep marks so neither hides the other.
+  const byTime = new Map();
+  for (const rejection of session.rejections ?? []) {
+    byTime.set(rejection.t, [...(byTime.get(rejection.t) ?? []), rejection]);
+  }
+  const rejections = [...byTime].map(([t, group]) => {
+    const reasons = group.map((rejection) => `${rejection.side ? `${rejection.side}: ` : ""}${rejection.text}`).join("; ");
+    const title = esc(`${clock(num(t))} · attempt not counted · ${reasons}`);
+    return `<span class="mark" data-t="${num(t)}" style="left:${at(session, t)};top:22px;background:transparent;color:#ffb347;border:1px solid #ffb347" title="${title}">${group.length > 1 ? num(group.length) : "○"}</span>`;
+  }).join("");
+  return rejections + session.reps.map((rep) => {
     const title = esc(`${clock(num(rep.t))} · sides ${rep.sides.join("+")} · ${rep.outcome === "notCounted" ? `not counted${rep.reason ? `: ${rep.reason}` : ""}` : rep.outcome === "oneSide" ? "one side, count unchanged" : `rep ${rep.count}${rep.outcome === "completedSet" ? ", set complete" : ""}`}`);
     if (rep.outcome === "counted" || rep.outcome === "completedSet") {
       return `<span class="mark" data-t="${num(rep.t)}" style="left:${at(session, rep.t)};background:rgba(61,220,151,.18);color:#3ddc97" title="${title}">${num(rep.count)}</span>`;

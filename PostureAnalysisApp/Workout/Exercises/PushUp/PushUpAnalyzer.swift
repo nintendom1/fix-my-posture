@@ -48,6 +48,11 @@ final class PushUpAnalyzer: ExerciseAnalyzing {
         }
         let time = frame.timestamp
         if let last = lastSample, time - last > configuration.maximumSampleGap {
+            if case .active(_, let reachedDown) = cycle, let lost = RepRejection.lost(at: time, .trackingGap(
+                seconds: time - last, maximum: configuration.maximumSampleGap,
+                stage: .of(reachedEnd: reachedDown, zones: [tracker.lastZone ?? .bottom]))) {
+                analysis.rejections.append(lost)
+            }
             tracker.reset()
             cycle = .awaitingStart
             locked = nil
@@ -84,6 +89,10 @@ final class PushUpAnalyzer: ExerciseAnalyzing {
         analysis.formReadings = formMonitor.readings
 
         guard counting else {
+            if case .active(_, let reachedDown) = cycle,
+               let lost = RepRejection.lost(at: time, .countingStopped(stage: .of(reachedEnd: reachedDown, zones: [zone]))) {
+                analysis.rejections.append(lost)
+            }
             cycle = .awaitingStart
             return analysis
         }
@@ -96,6 +105,9 @@ final class PushUpAnalyzer: ExerciseAnalyzing {
             if newlyConfirmed == .bottom {
                 if reachedDown, time - movementStart >= configuration.minimumRepDuration {
                     analysis.repEvents.append(RepEvent(epoch: epoch, timestamp: time, sides: Set(BodySide.allCases)))
+                } else if reachedDown {
+                    analysis.rejections.append(RepRejection(timestamp: time, reason: .tooFast(
+                        duration: time - movementStart, minimum: configuration.minimumRepDuration)))
                 }
                 movementStart = time
                 reachedDown = false

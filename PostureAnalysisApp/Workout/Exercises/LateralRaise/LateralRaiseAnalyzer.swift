@@ -48,12 +48,20 @@ final class LateralRaiseAnalyzer: ExerciseAnalyzing {
         }
 
         let time = frame.timestamp
+        var rejections: [RepRejection] = []
         if let lastCompleteSample, time - lastCompleteSample > configuration.maximumSampleGap {
+            if case .active(_, let reachedTop) = cycle, let lost = RepRejection.lost(at: time, .trackingGap(
+                seconds: time - lastCompleteSample, maximum: configuration.maximumSampleGap,
+                stage: .of(reachedEnd: !reachedTop.isEmpty,
+                           zones: BodySide.allCases.map { trackers[$0]?.lastZone ?? .bottom }))) {
+                rejections.append(lost)
+            }
             invalidateCycleAndReferences()
         }
         lastCompleteSample = time
 
         var analysis = ExerciseAnalysis()
+        analysis.rejections = rejections
         var zones: [BodySide: MovementZone] = [:]
         var newlyConfirmed: [BodySide: MovementZone] = [:]
         var formSamples: [BodySide: LateralRaiseFormMonitor.ArmSample] = [:]
@@ -103,6 +111,10 @@ final class LateralRaiseAnalyzer: ExerciseAnalyzing {
         }
 
         guard counting else {
+            if case .active(_, let reachedTop) = cycle, let lost = RepRejection.lost(at: time, .countingStopped(
+                stage: .of(reachedEnd: !reachedTop.isEmpty, zones: zones.values))) {
+                analysis.rejections.append(lost)
+            }
             cycle = .awaitingStart
             return analysis
         }
@@ -118,9 +130,14 @@ final class LateralRaiseAnalyzer: ExerciseAnalyzing {
                 reachedTop.insert(side)
             }
             if !reachedTop.isEmpty, bothAtStart {
-                if reachedTop.count == BodySide.allCases.count,
-                   time - movementStart >= configuration.minimumRepDuration {
+                let duration = time - movementStart
+                if reachedTop.count < BodySide.allCases.count {
+                    analysis.rejections.append(RepRejection(timestamp: time, reason: .partialEnd(reached: reachedTop)))
+                } else if duration >= configuration.minimumRepDuration {
                     analysis.repEvents.append(RepEvent(epoch: epoch, timestamp: time, sides: Set(BodySide.allCases)))
+                } else {
+                    analysis.rejections.append(RepRejection(timestamp: time, reason: .tooFast(
+                        duration: duration, minimum: configuration.minimumRepDuration)))
                 }
                 cycle = .active(movementStart: time, reachedTop: [])
             } else {

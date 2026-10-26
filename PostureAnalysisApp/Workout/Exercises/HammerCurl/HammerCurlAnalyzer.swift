@@ -59,6 +59,11 @@ final class HammerCurlAnalyzer: ExerciseAnalyzing {
             }
             points[side] = arm
             if let last = state.lastSample, time - last > configuration.maximumSampleGap {
+                if case .active(_, let reachedTop) = state.cycle, let lost = RepRejection.lost(at: time, side: side, .trackingGap(
+                    seconds: time - last, maximum: configuration.maximumSampleGap,
+                    stage: .of(reachedEnd: reachedTop, zones: [state.tracker.lastZone ?? .bottom]))) {
+                    analysis.rejections.append(lost)
+                }
                 state.tracker.reset()
                 state.cycle = .awaitingBottom
                 state.locked = nil
@@ -81,10 +86,19 @@ final class HammerCurlAnalyzer: ExerciseAnalyzing {
             analysis.thresholds[side] = thresholds
 
             if counting {
-                if let rep = countRep(&state, zone: zone, newlyConfirmed: newlyConfirmed, at: time) {
+                let outcome = countRep(&state, zone: zone, newlyConfirmed: newlyConfirmed, at: time)
+                if let rep = outcome.rep {
                     analysis.repEvents.append(RepEvent(epoch: epoch, timestamp: rep, sides: [side]))
                 }
+                if let tooFast = outcome.tooFast {
+                    analysis.rejections.append(RepRejection(timestamp: time, side: side, reason: .tooFast(
+                        duration: tooFast, minimum: configuration.minimumRepDuration)))
+                }
             } else {
+                if case .active(_, let reachedTop) = state.cycle, let lost = RepRejection.lost(at: time, side: side,
+                    .countingStopped(stage: .of(reachedEnd: reachedTop, zones: [zone]))) {
+                    analysis.rejections.append(lost)
+                }
                 state.cycle = .awaitingBottom
             }
             formSamples[side] = .init(ratio: ratio, zone: zone, confirmed: state.tracker.confirmed,
@@ -108,24 +122,28 @@ final class HammerCurlAnalyzer: ExerciseAnalyzing {
 
     // MARK: - Counting
 
-    /// Returns the rep's timestamp when this arm completes one.
+    /// The rep's timestamp when this arm completes one, or how long an attempt that came back too fast took.
     private func countRep(_ state: inout ArmState, zone: MovementZone, newlyConfirmed: MovementZone?,
-                          at time: TimeInterval) -> TimeInterval? {
+                          at time: TimeInterval) -> (rep: TimeInterval?, tooFast: TimeInterval?) {
         switch state.cycle {
         case .awaitingBottom:
             if state.tracker.confirmed == .bottom { state.cycle = .active(movementStart: time, reachedTop: false) }
-            return nil
+            return (nil, nil)
         case .active(var movementStart, var reachedTop):
             if !reachedTop, zone == .bottom { movementStart = time }
             if newlyConfirmed == .top { reachedTop = true }
-            var rep: TimeInterval?
+            var outcome: (rep: TimeInterval?, tooFast: TimeInterval?) = (nil, nil)
             if newlyConfirmed == .bottom {
-                if reachedTop, time - movementStart >= configuration.minimumRepDuration { rep = time }
+                if reachedTop, time - movementStart >= configuration.minimumRepDuration {
+                    outcome.rep = time
+                } else if reachedTop {
+                    outcome.tooFast = time - movementStart
+                }
                 movementStart = time
                 reachedTop = false
             }
             state.cycle = .active(movementStart: movementStart, reachedTop: reachedTop)
-            return rep
+            return outcome
         }
     }
 

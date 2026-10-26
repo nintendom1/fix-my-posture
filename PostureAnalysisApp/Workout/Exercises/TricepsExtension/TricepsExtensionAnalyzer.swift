@@ -57,9 +57,19 @@ final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
             return analysis
         }
         let side = observation.side
-        if observation.switched { startTracking() }
         let time = frame.timestamp
+        func lost(_ reason: (RepAttemptStage) -> RepRejectionReason) {
+            guard case .active(_, let reachedTop) = cycle,
+                  let lost = RepRejection.lost(at: time, reason(.of(reachedEnd: reachedTop, zones: [tracker.lastZone ?? .bottom])))
+            else { return }
+            analysis.rejections.append(lost)
+        }
+        if observation.switched {
+            lost { .sideSwitched(stage: $0) }
+            startTracking()
+        }
         if let last = lastSample, time - last > configuration.maximumSampleGap {
+            lost { .trackingGap(seconds: time - last, maximum: configuration.maximumSampleGap, stage: $0) }
             invalidate()
         }
         lastSample = time
@@ -103,6 +113,10 @@ final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
         analysis.formReadings = formMonitor.readings
 
         guard counting else {
+            if case .active(_, let reachedTop) = cycle,
+               let lost = RepRejection.lost(at: time, .countingStopped(stage: .of(reachedEnd: reachedTop, zones: [zone]))) {
+                analysis.rejections.append(lost)
+            }
             cycle = .awaitingBottom
             return analysis
         }
@@ -115,6 +129,9 @@ final class TricepsExtensionAnalyzer: ExerciseAnalyzing {
             if newlyConfirmed == .bottom {
                 if reachedTop, time - movementStart >= configuration.minimumRepDuration {
                     analysis.repEvents.append(RepEvent(epoch: epoch, timestamp: time, sides: Set(BodySide.allCases)))
+                } else if reachedTop {
+                    analysis.rejections.append(RepRejection(timestamp: time, reason: .tooFast(
+                        duration: time - movementStart, minimum: configuration.minimumRepDuration)))
                 }
                 movementStart = time
                 reachedTop = false

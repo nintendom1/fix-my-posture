@@ -45,7 +45,15 @@ final class DumbbellRowAnalyzer: ExerciseAnalyzing {
             return analysis
         }
         let time = frame.timestamp
-        if switched || lastSample.map({ time - $0 > configuration.maximumSampleGap }) ?? false {
+        let gap = lastSample.map { time - $0 } ?? 0
+        if switched || gap > configuration.maximumSampleGap {
+            if case .active(_, let reachedTop) = cycle {
+                let stage = RepAttemptStage.of(reachedEnd: reachedTop, zones: [tracker.lastZone ?? .bottom])
+                let reason: RepRejectionReason = switched
+                    ? .sideSwitched(stage: stage)
+                    : .trackingGap(seconds: gap, maximum: configuration.maximumSampleGap, stage: stage)
+                if let lost = RepRejection.lost(at: time, reason) { analysis.rejections.append(lost) }
+            }
             resetTracking(keepRuler: !switched)
         }
         lastSample = time
@@ -77,6 +85,10 @@ final class DumbbellRowAnalyzer: ExerciseAnalyzing {
         analysis.formReadings = formMonitor.readings
 
         guard counting else {
+            if case .active(_, let reachedTop) = cycle,
+               let lost = RepRejection.lost(at: time, .countingStopped(stage: .of(reachedEnd: reachedTop, zones: [zone]))) {
+                analysis.rejections.append(lost)
+            }
             cycle = .awaitingBottom
             return analysis
         }
@@ -89,6 +101,9 @@ final class DumbbellRowAnalyzer: ExerciseAnalyzing {
             if newlyConfirmed == .bottom {
                 if reachedTop, time - movementStart >= configuration.minimumRepDuration {
                     analysis.repEvents.append(RepEvent(epoch: epoch, timestamp: time, sides: Set(BodySide.allCases)))
+                } else if reachedTop {
+                    analysis.rejections.append(RepRejection(timestamp: time, reason: .tooFast(
+                        duration: time - movementStart, minimum: configuration.minimumRepDuration)))
                 }
                 movementStart = time
                 reachedTop = false

@@ -92,3 +92,32 @@ test("the rep lane numbers counted reps and marks the ones the coach didn't coun
   assert.match(lane, /class="mark"[^>]*title="0:17\.0 · sides left\+right · not counted"[^>]*>×<\/span>/);
   assert.equal((lane.match(/>×</g) ?? []).length, 1);
 });
+
+test("the rep lane rings attempts the analyzer let go, with the reason", () => {
+  const items = records();
+  const frame = items.find((r) => r.k === "f" && r.t >= 12);
+  frame.rej = [{ ts: frame.ts, reason: "tooFast", duration: 0.62, minimum: 0.8 }];
+  const lane = views.repLane(new Session(items));
+  assert.match(lane, /title="[^"]*attempt not counted · too fast: 0\.62 s, the minimum is 0\.80 s"[^>]*>○<\/span>/);
+});
+
+test("rejections on the same frame share one ring that lists each", () => {
+  const items = records();
+  const frame = items.find((r) => r.k === "f" && r.t >= 12);
+  frame.rej = [{ ts: frame.ts, side: "left", reason: "tooFast", duration: 0.5, minimum: 0.8 },
+    { ts: frame.ts, side: "right", reason: "tooFast", duration: 0.55, minimum: 0.8 }];
+  const lane = views.repLane(new Session(items));
+  assert.equal((lane.match(/color:#ffb347/g) ?? []).length, 1);
+  assert.match(lane, /title="[^"]*left: too fast: 0\.50 s[^"]*; right: too fast: 0\.55 s[^"]*"[^>]*>2<\/span>/);
+  assert.match(lane, /top:22px/, "below the rep marks");
+});
+
+test("the reps lane is tall enough for the ring row below the rep marks", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const css = await readFile(new URL("../public/style.css", import.meta.url), "utf8");
+  const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
+  const height = Number(css.match(/#repLane, \.lane-label\.reps-label \{ height: (\d+)px; \}/)?.[1]);
+  const mark = Number(css.match(/\.marks \.mark \{[^}]*height: (\d+)px/)?.[1]);
+  assert.ok(height >= 22 + mark, `lane ${height}px, ring ${22 + mark}px`);
+  assert.match(html, /class="lane-label reps-label">Reps</, "the label row matches the lane");
+});

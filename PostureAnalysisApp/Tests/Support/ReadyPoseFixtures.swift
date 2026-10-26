@@ -53,6 +53,17 @@ enum ReadyPoseFixtures {
         PoseFrame(pose: variant.pose, timestamp: time)
     }
 
+    /// The exercise's guide demonstration at `motionTime`, every joint the figure draws, placed like the ready poses.
+    /// `mirrored` turns the figure around, so a side-view exercise sees the other arm or leg.
+    static func demoFrame(_ exercise: ExerciseDefinition, motionTime: TimeInterval, at time: TimeInterval,
+                          mirrored isMirrored: Bool = false) -> PoseFrame {
+        let motion = exercise.guide.motion
+        let drawn = ExerciseDemoFigureView.pose(for: motion.sample(at: motionTime), forearmPlane: motion.forearmPlane,
+                                                cameraView: exercise.cameraView).jointLocations
+        let reference = isMirrored ? mirrored(drawn) : drawn
+        return PoseFrame(pose: pose(for: Set(reference.keys), reference: reference, exercise: exercise), timestamp: time)
+    }
+
     private static func pose(for joints: Set<LandmarkType>, reference: [LandmarkType: CGPoint],
                              exercise: ExerciseDefinition) -> BodyPose {
         // The side figure shows only its left side; a right-side variant turns the whole figure around.

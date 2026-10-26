@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Session, parseRecords, normalizeFileText, renderExcerpt, sampleFrames, PRESETS, applyNote, emptyNotes,
-  shortJoint, clock, estimateTokens } from "../lib/session.mjs";
+  shortJoint, clock, estimateTokens, describeRejection } from "../lib/session.mjs";
 import { ID, records, arrayText, linesText } from "./fixtures.mjs";
 
 test("reads a closed JSON array, an unclosed one, and older JSON Lines alike", () => {
@@ -214,4 +214,18 @@ test("audio work that blocks the main thread for 100 ms or more is flagged", () 
   const timeline = Session.fromText(arrayText(items)).timeline;
   const blocked = timeline.filter((item) => item.title === "Main thread blocked");
   assert.deepEqual(blocked.map((item) => [item.t, item.kind, item.detail]), [[3.5, "warn", "412 ms · restoreOtherAudio"]]);
+});
+
+test("attempts the analyzer let go are listed and logged in words", () => {
+  const items = records();
+  const frame = items.find((r) => r.k === "f" && r.t >= 9);
+  frame.rej = [{ ts: frame.ts, side: "left", reason: "trackingGap", seconds: 0.9, maximum: 0.28, stage: "reachedEnd" }];
+  const session = Session.fromText(arrayText(items));
+  assert.equal(session.rejections.length, 1);
+  assert.equal(session.rejections[0].t, frame.t);
+  const logged = session.timeline.find((item) => item.title === "Attempt not counted");
+  assert.equal(logged.detail, "left · tracking gap of 0.90 s (over 0.28 s) after reaching the counted end");
+  assert.equal(describeRejection({ reason: "partialEnd", reached: ["right"] }), "only right reached the counted end");
+  assert.equal(describeRejection({ reason: "countingStopped", stage: "moving" }), "counting stopped partway");
+  assert.equal(describeRejection({ reason: "<b>" }), "<b>", "unknown reasons pass through; views escape them");
 });
