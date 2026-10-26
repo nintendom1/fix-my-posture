@@ -4,8 +4,10 @@ import Foundation
 
 /// Front-camera pose capture for the workout coach.
 /// Configuration and synchronous inference run on one serial queue at 10 Hz. Frames reach the main actor
-/// through a single pending slot: at most one hop is in flight, newer frames replace older ones, and no
-/// camera buffers are retained.
+/// through a short queue shared with status events: at most one hop is in flight, a hop delivers everything
+/// waiting in capture order, and no camera buffers are retained. A main-thread stall delays analysis instead of
+/// dropping frames, so a rep in progress survives it. Each frame carries its `deliveryDelay`: how long it waited,
+/// on the uptime clock, from entering the queue until it was handed over.
 final class WorkoutCameraController: NSObject, PoseFrameSource, CameraPreviewProviding, AVCaptureVideoDataOutputSampleBufferDelegate {
     static let frameRate = 10
 
@@ -16,11 +18,12 @@ final class WorkoutCameraController: NSObject, PoseFrameSource, CameraPreviewPro
     private let estimator: FramePoseEstimator
     private var observers: [NSObjectProtocol] = []
 
-    // The request generation and the pending frame slot cross queues under these locks.
+    // The request generation and the pending deliveries cross queues under these locks.
     private let requestLock = NSLock()
     private var requestedGeneration: UUID?
     private let pendingLock = NSLock()
-    private var pending: (generation: UUID, frame: PoseFrame, receive: PoseFrameReceiver)?
+    private var pending = PendingFrameQueue<(generation: UUID, event: PoseFrameSourceEvent, receive: PoseFrameReceiver,
+                                             queuedAt: TimeInterval)>()
     private var isDeliveryScheduled = false
 
     // The remaining mutable fields belong exclusively to queue.
@@ -79,7 +82,7 @@ final class WorkoutCameraController: NSObject, PoseFrameSource, CameraPreviewPro
     func stop() {
         request(nil)
         pendingLock.lock()
-        pending = nil
+        pending.removeAll()
         pendingLock.unlock()
         queue.async { [weak self] in
             guard let self else { return }
@@ -110,40 +113,50 @@ final class WorkoutCameraController: NSObject, PoseFrameSource, CameraPreviewPro
                 pose = BodyPose(landmarks: [:], imageWidth: CGFloat(CVPixelBufferGetWidth(buffer)),
                                 imageHeight: CGFloat(CVPixelBufferGetHeight(buffer)))
             }
-            deliver(PoseFrame(pose: pose, timestamp: time, sequence: sequence, lowConfidenceLandmarks: lowConfidence),
+            deliver(.frame(PoseFrame(pose: pose, timestamp: time, sequence: sequence, lowConfidenceLandmarks: lowConfidence)),
                     generation: generation, receive: receive)
         }
     }
 
     // MARK: - Delivery
 
-    private func deliver(_ frame: PoseFrame, generation: UUID, receive: @escaping PoseFrameReceiver) {
+    private func deliver(_ event: PoseFrameSourceEvent, generation: UUID, receive: @escaping PoseFrameReceiver) {
+        let queuedAt = ProcessInfo.processInfo.systemUptime
         pendingLock.lock()
-        pending = (generation, frame, receive)
+        if case .frame = event {
+            pending.appendFrame((generation, event, receive, queuedAt))
+        } else {
+            pending.appendStatus((generation, event, receive, queuedAt))
+        }
         let shouldSchedule = !isDeliveryScheduled
         isDeliveryScheduled = true
         pendingLock.unlock()
         guard shouldSchedule else { return }
-        DispatchQueue.main.async { [weak self] in self?.drainPendingFrame() }
+        DispatchQueue.main.async { [weak self] in self?.drainPendingFrames() }
     }
 
-    private func drainPendingFrame() {
+    private func drainPendingFrames() {
         pendingLock.lock()
-        let next = pending
-        pending = nil
+        let waiting = pending.drain()
         isDeliveryScheduled = false
         pendingLock.unlock()
-        guard let next, isCurrent(next.generation) else { return }
-        MainActor.assumeIsolated { next.receive(next.generation, .frame(next.frame)) }
+        for next in waiting {
+            // Anything handled earlier in this batch can stop or restart capture.
+            guard isCurrent(next.generation) else { continue }
+            var event = next.event
+            if case .frame(var frame) = event {
+                // Measured just before handing over, so time spent on earlier frames in the batch counts.
+                frame.deliveryDelay = max(0, ProcessInfo.processInfo.systemUptime - next.queuedAt)
+                event = .frame(frame)
+            }
+            MainActor.assumeIsolated { next.receive(next.generation, event) }
+        }
     }
 
-    /// Status events use the same main queue as frames, so they arrive in order.
+    /// Status events share the frames' queue, so they arrive in capture order with them.
     private func publish(_ event: PoseFrameSourceEvent) {
         guard let generation, isCurrent(generation), let receive else { return }
-        DispatchQueue.main.async { [weak self] in
-            guard let self, self.isCurrent(generation) else { return }
-            MainActor.assumeIsolated { receive(generation, event) }
-        }
+        deliver(event, generation: generation, receive: receive)
     }
 
     // MARK: - Generations

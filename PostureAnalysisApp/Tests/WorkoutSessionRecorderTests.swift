@@ -70,6 +70,8 @@ final class WorkoutSessionRecorderTests: XCTestCase {
             var frame = PoseFrame(pose: BodyPose(landmarks: [:], imageWidth: 1080, imageHeight: 1920),
                                   timestamp: Double(sequence))
             frame.sequence = sequence
+            // The frame after the gap arrived late, behind a stall.
+            if sequence == 5 { frame.deliveryDelay = 0.2 }
             recorder.recordFrame(frame, output: nil, pitchDegrees: nil, at: Double(sequence))
         }
         recorder.end(.closed, workoutRecordID: nil, at: 6)
@@ -77,6 +79,8 @@ final class WorkoutSessionRecorderTests: XCTestCase {
         let frames = writer(store).objects(kind: "f")
         XCTAssertNotNil(frames[0]["wh"])
         XCTAssertNil(frames[1]["wh"], "The image size is written only when it changes.")
+        XCTAssertNil(frames[1]["delay"], "Frames without a measured delay omit it.")
+        XCTAssertEqual(frames[2]["delay"] as? Double, 0.2)
         let end = try XCTUnwrap(writer(store).objects(kind: "end").first)
         XCTAssertEqual(end["frames"] as? Int, 3)
         XCTAssertEqual(end["seqGaps"] as? Int, 2)

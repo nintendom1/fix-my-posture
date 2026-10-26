@@ -82,6 +82,9 @@ enum WorkoutEvent: Equatable {
     case formObserved(FormObservation)
     /// Corrective cues wait for the coach to finish speaking, so a tip and its spoken line match.
     case coachSpeakingChanged(Bool)
+    /// A camera frame was analyzed, at its capture moment. A start hold counts only up to the latest one, so a
+    /// stall can't complete it on stale pose evidence.
+    case poseObserved
 }
 
 enum WorkoutEffect: Equatable {
@@ -184,6 +187,7 @@ struct WorkoutSession {
     private var restDoneAnnounced = false
     private var lastReadyAnnouncedAt: TimeInterval?
     private var startPositionSince: TimeInterval?
+    private var lastPoseObservedAt: TimeInterval?
     private var readySince: TimeInterval?
     private var lastTiltWarningAt: TimeInterval?
     private var restLeadsToNextExercise = false
@@ -287,7 +291,9 @@ struct WorkoutSession {
             return nil
         }
         guard effectiveStartsByHolding, framing.isReliable, let held = startPositionSince else { return nil }
-        return max(0, min(1, (now - max(held, phaseStart)) / Self.startHoldDuration))
+        // Holding is only known up to the latest analyzed frame. Without frames (reducer tests), the clock decides.
+        let observed = lastPoseObservedAt.map { min(now, $0) } ?? now
+        return max(0, min(1, (observed - max(held, phaseStart)) / Self.startHoldDuration))
     }
 
     func restRemaining(at now: TimeInterval) -> TimeInterval? {
@@ -333,6 +339,9 @@ struct WorkoutSession {
             return tipEffects(coaching.update(observation, speaking: isCoachSpeaking, at: now))
         case .coachSpeakingChanged(let speaking):
             isCoachSpeaking = speaking
+            return []
+        case .poseObserved:
+            lastPoseObservedAt = max(lastPoseObservedAt ?? now, now)
             return []
         }
     }

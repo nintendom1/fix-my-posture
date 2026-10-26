@@ -169,6 +169,7 @@ enum WorkoutSessionLines {
             ("k", "f"), ("t", time(t)), ("ts", .double(frame.timestamp))
         ]
         if let sequence = frame.sequence { members.append(("seq", .int(sequence))) }
+        if frame.deliveryDelay > 0 { members.append(("delay", .rounded(frame.deliveryDelay, places: 3))) }
         members.append(("p", .bool(output != nil)))
         if let diagnostics { members.append(("cnt", .bool(diagnostics.counting))) }
         if imageSizeChanged {
@@ -382,7 +383,7 @@ enum WorkoutSessionLines {
         case .interruptionBegan: return [("type", "interruptionBegan")]
         case .interruptionEnded: return [("type", "interruptionEnded")]
         case .voiceControlChanged(let active): return [("type", "voiceControl"), ("active", .bool(active))]
-        case .tick, .command, .formObserved, .coachSpeakingChanged:
+        case .tick, .command, .formObserved, .coachSpeakingChanged, .poseObserved:
             return [("type", .string(String(describing: event)))]
         }
     }

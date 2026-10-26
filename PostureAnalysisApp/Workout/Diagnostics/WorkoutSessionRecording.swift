@@ -70,7 +70,7 @@ enum WorkoutRecordingEvent: Equatable {
     /// The reducer inputs worth recording; the rest are recorded another way or are too frequent.
     init?(input event: WorkoutEvent) {
         switch event {
-        case .tick, .command, .formObserved, .coachSpeakingChanged:
+        case .tick, .command, .formObserved, .coachSpeakingChanged, .poseObserved:
             return nil
         default:
             self = .input(event)
