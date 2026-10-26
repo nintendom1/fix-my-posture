@@ -114,6 +114,7 @@ enum WorkoutSessionLines {
             ("planted", joints(exercise.plantedJoints)),
             ("headroomArmLengths", .number(exercise.headroomArmLengths)),
             ("sideroomArmLengths", .number(exercise.sideroomArmLengths)),
+            ("maximumShoulderSpan", .number(exercise.maximumShoulderSpan)),
             ("perSide", .bool(exercise.perSide)),
             ("countsArmsIndependently", .bool(exercise.countsArmsIndependently)),
             ("startsByHolding", .bool(exercise.startsByHolding)),

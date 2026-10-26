@@ -18,6 +18,7 @@ enum FramingGuidance: String, Equatable {
     case stepBackFloor
     case stepIntoViewLyingSide
     case stepBackLyingSide
+    case movePhoneFartherFloor
 
     var spokenText: String {
         switch self {
@@ -33,6 +34,7 @@ enum FramingGuidance: String, Equatable {
         case .stepBackFloor: return "Move the phone back until your arms and shoulders are in view."
         case .stepIntoViewLyingSide: return "Lie on your back side-on to the phone."
         case .stepBackLyingSide: return "Lie on your back side-on to the phone, knees bent, with your whole body in view."
+        case .movePhoneFartherFloor: return "Move the phone farther from your hands, so you stay in view at the bottom."
         case .moreHeadroom: return "Step back a little more so there's room above your hands."
         case .moveLeft: return "Move a little to your left."
         case .moveRight: return "Move a little to your right."
@@ -53,6 +55,7 @@ enum FramingGuidance: String, Equatable {
         case .stepBackFloor: return "Move the phone back: show your arms"
         case .stepIntoViewLyingSide: return "Lie down, side-on"
         case .stepBackLyingSide: return "Step back: show your whole body"
+        case .movePhoneFartherFloor: return "Move the phone farther away"
         case .moreHeadroom: return "Step back: leave room overhead"
         case .moveLeft: return "Move a little to your left"
         case .moveRight: return "Move a little to your right"
@@ -81,6 +84,9 @@ struct FramingConfiguration: Codable {
     var centerTolerance: CGFloat = 0.17
     /// Fewer confident joints than this means nobody is in view.
     var minimumBodyJoints = 3
+    /// The shoulder span must fall this far below an exercise's limit to clear the phone-distance warning, so a
+    /// span near the limit doesn't flicker.
+    var shoulderSpanClearance: CGFloat = 0.02
 }
 
 /// Decides tracking reliability and framing guidance from an exercise's required joints.
@@ -92,11 +98,16 @@ struct FramingEvaluator {
     let headroomArmLengths: CGFloat?
     /// Horizontal room needed at each shoulder, in measured arm lengths; nil skips the check.
     let sideroomArmLengths: CGFloat?
+    /// Widest the shoulders may span, as a fraction of image width, before the phone is too close; nil skips the
+    /// check. Guidance only: it holds setup but never affects reliability, because the shoulders widen as the body
+    /// nears the phone during every rep.
+    let maximumShoulderSpan: CGFloat?
     let cameraView: ExerciseCameraView
     let configuration: FramingConfiguration
     private var presentSince: TimeInterval?
     private var lastPresent: TimeInterval?
     private(set) var isReliable = false
+    private var isPhoneTooClose = false
 
     private var needsFullBodySideView: Bool {
         requiredJoints.contains(.leftAnkle) || requiredJoints.contains(.rightAnkle)
@@ -104,12 +115,13 @@ struct FramingEvaluator {
     }
 
     init(requiredJoints: Set<LandmarkType>, anyOfRequiredJoints: [Set<LandmarkType>] = [], headroomArmLengths: CGFloat?,
-         sideroomArmLengths: CGFloat? = nil,
+         sideroomArmLengths: CGFloat? = nil, maximumShoulderSpan: CGFloat? = nil,
          cameraView: ExerciseCameraView = .front, configuration: FramingConfiguration = FramingConfiguration()) {
         self.requiredJoints = requiredJoints
         self.anyOfRequiredJoints = anyOfRequiredJoints
         self.headroomArmLengths = headroomArmLengths
         self.sideroomArmLengths = sideroomArmLengths
+        self.maximumShoulderSpan = maximumShoulderSpan
         self.cameraView = cameraView
         self.configuration = configuration
     }
@@ -121,6 +133,7 @@ struct FramingEvaluator {
         }
         let requiredPresent = visible(requiredJoints)
             && (anyOfRequiredJoints.isEmpty || anyOfRequiredJoints.contains(where: visible))
+        updatePhoneDistance(frame)
         let present = requiredPresent && !lacksSideRoom(frame)
         if present {
             let since = presentSince ?? time
@@ -138,6 +151,22 @@ struct FramingEvaluator {
         presentSince = nil
         lastPresent = nil
         isReliable = false
+        isPhoneTooClose = false
+    }
+
+    /// Too close above `maximumShoulderSpan`, clear again below it by `shoulderSpanClearance`. Unseen shoulders keep
+    /// the last answer; missing joints have their own guidance.
+    private mutating func updatePhoneDistance(_ frame: PoseFrame) {
+        let confidence = configuration.minimumConfidence
+        guard let maximumShoulderSpan, frame.pose.imageWidth > 0,
+              let left = frame.point(.leftShoulder, minimumConfidence: confidence),
+              let right = frame.point(.rightShoulder, minimumConfidence: confidence) else { return }
+        let span = hypot(left.x - right.x, left.y - right.y) / frame.pose.imageWidth
+        if span > maximumShoulderSpan {
+            isPhoneTooClose = true
+        } else if span < maximumShoulderSpan - configuration.shoulderSpanClearance {
+            isPhoneTooClose = false
+        }
     }
 
     private func guidance(for frame: PoseFrame, requiredPresent: Bool) -> FramingGuidance? {
@@ -167,6 +196,8 @@ struct FramingEvaluator {
         }
 
         if lacksSideRoom(frame) { return .stepBackSideRoom }
+
+        if isPhoneTooClose { return .movePhoneFartherFloor }
 
         if cameraView == .lyingSide { return nil }
 

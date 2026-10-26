@@ -272,7 +272,9 @@ Rear lunges are filmed side-on with the whole body in view. Framing accepts eith
 
 ## Push-up rep rule
 
-Push-ups are filmed by a phone lying on the floor a step in front of the hands, tilted up to face the head (`ExerciseCameraView.floor`). The hands sit near the bottom of the frame and the shoulders rise and fall above them. Thresholds live in `PushUpConfiguration`.
+Push-ups are filmed by a phone lying on the floor a long step in front of the hands, tilted up to face the head (`ExerciseCameraView.floor`). The hands sit near the bottom of the frame and the shoulders rise and fall above them. Thresholds live in `PushUpConfiguration`.
+
+- Distance: while setting up, shoulders spanning more than 32% of the frame width (`ExerciseDefinition.maximumShoulderSpan`) hold setup with "Move the phone farther from your hands, so you stay in view at the bottom." The warning clears below 30% (`FramingConfiguration.shoulderSpanClearance`), so a span near the limit doesn't flicker. If it shows when rest ends, the coach sets up again ("Rest is up. Move the phone…") instead of starting on a hold. In recordings, Vision lost the whole body before the bottom of every rep at 34% or more (the face nears the phone), and kept it at 30% or less. Guidance only: it never affects tracking reliability, because the shoulders widen as the body nears the phone during every rep. Saying "start" still begins a set.
 
 - Signal: `h` = how far the shoulders sit above the planted hands, in arm lengths (upper arm + forearm), averaged over both arms, plus the average 2D elbow angle. The arms stand roughly upright in the image, so the longest recent arm length, locked at the top, is a full ruler at any distance.
 - Up (the start) when `h ≥ 0.8` and the elbows are at least 150°. Down (the counted end) when `h ≤ 0.5` and the elbows are at most 110°. A rep is up → down → up within at least 0.8 s. The lines are drawn across the shoulders as **Up ↑** and **Down ↓**.
@@ -642,7 +644,8 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Half pulls get "Pull your elbow up past your back."
     - The summary and completion card list "Set 1 L", "Set 1 R", and so on.
 - [ ] **34.** Push-ups:
-    - Lay the phone on the floor a step in front of your hands, propped to lean back, and get into a plank facing it. No tilt warning appears.
+    - Lay the phone on the floor a long step in front of your hands, propped to lean back, and get into a plank facing it. No tilt warning appears.
+    - With the phone close enough that your shoulders fill about a third of the screen, the coach says "Move the phone farther from your hands…" and waits; moving it back clears the prompt.
     - The ghost figure rises from your hands. Holding the plank fills the Hold ring.
     - Ten push-ups to the Down line count exactly 10. Shallow ones get "Go a little lower."
     - With your hands at the bottom edge of the frame, reps still count.

@@ -296,6 +296,7 @@ struct WorkoutFramePipeline {
                          anyOfRequiredJoints: exercise.anyOfRequiredJoints,
                          headroomArmLengths: exercise.headroomArmLengths,
                          sideroomArmLengths: exercise.sideroomArmLengths,
+                         maximumShoulderSpan: exercise.maximumShoulderSpan,
                          cameraView: exercise.cameraView)
     }
 

@@ -83,6 +83,37 @@ final class WorkoutSessionTests: XCTestCase {
         XCTAssertEqual(session.currentSetNumber, 2)
     }
 
+    func testSetupGuidanceAtTheEndOfRestSetsUpAgainBeforeAnAutomaticStart() throws {
+        var session = readySession(exercise: PushUpExercise.definition())
+        _ = session.handle(.command(.start), at: 2)
+        _ = session.handle(.command(.nextSet), at: 10)
+        XCTAssertEqual(session.phase, .resting)
+
+        // The phone moved closer during rest; the user holds the plank as rest ends.
+        let tooClose = FramingStatus(isReliable: true, guidance: .movePhoneFartherFloor)
+        _ = session.handle(.framingChanged(tooClose), at: 60)
+        _ = session.handle(.startPositionChanged(true), at: 60)
+        let restEnd = try XCTUnwrap(session.restEndsAt)
+        let effects = session.handle(.tick, at: restEnd + 1.5)
+        XCTAssertEqual(session.phase, .framing, "No automatic start while the coach asks for the phone farther away.")
+        XCTAssertTrue(spoken(effects).contains("Rest is up. Move the phone farther from your hands, so you stay in view at the bottom."))
+        XCTAssertTrue(spoken(session.handle(.tick, at: restEnd + 3)).isEmpty, "Said once, not repeated straight away.")
+
+        _ = session.handle(.framingChanged(FramingStatus(isReliable: true, guidance: nil)), at: restEnd + 4)
+        XCTAssertEqual(session.phase, .ready)
+        _ = session.handle(.tick, at: restEnd + 5.5)
+        XCTAssertEqual(session.phase, .exercising)
+        XCTAssertEqual(session.currentSetNumber, 2)
+    }
+
+    func testStartStillBeginsASetWhileTheCoachAsksForThePhoneFarther() {
+        var session = readySession(exercise: PushUpExercise.definition())
+        _ = session.handle(.framingChanged(FramingStatus(isReliable: true, guidance: .movePhoneFartherFloor)), at: 2)
+        XCTAssertEqual(session.phase, .framing)
+        _ = session.handle(.command(.start), at: 3)
+        XCTAssertEqual(session.phase, .exercising)
+    }
+
     func testExerciseDefaultRestUsesEachExercisesDuration() {
         var pressSession = readySession()
         _ = pressSession.handle(.command(.start), at: 2)
