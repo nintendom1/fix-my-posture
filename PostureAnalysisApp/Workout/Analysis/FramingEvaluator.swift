@@ -16,6 +16,8 @@ enum FramingGuidance: String, Equatable {
     case stepBackFullBody
     case stepIntoViewFloor
     case stepBackFloor
+    case stepIntoViewLyingSide
+    case stepBackLyingSide
 
     var spokenText: String {
         switch self {
@@ -29,6 +31,8 @@ enum FramingGuidance: String, Equatable {
         case .stepBackFullBody: return "Step back until your whole body is in view, head to feet."
         case .stepIntoViewFloor: return "Get into a plank facing the phone."
         case .stepBackFloor: return "Move the phone back until your arms and shoulders are in view."
+        case .stepIntoViewLyingSide: return "Lie on your back side-on to the phone."
+        case .stepBackLyingSide: return "Lie on your back side-on to the phone, knees bent, with your whole body in view."
         case .moreHeadroom: return "Step back a little more so there's room above your hands."
         case .moveLeft: return "Move a little to your left."
         case .moveRight: return "Move a little to your right."
@@ -47,6 +51,8 @@ enum FramingGuidance: String, Equatable {
         case .stepBackFullBody: return "Step back: show your whole body"
         case .stepIntoViewFloor: return "Get into a plank facing the phone"
         case .stepBackFloor: return "Move the phone back: show your arms"
+        case .stepIntoViewLyingSide: return "Lie down, side-on"
+        case .stepBackLyingSide: return "Step back: show your whole body"
         case .moreHeadroom: return "Step back: leave room overhead"
         case .moveLeft: return "Move a little to your left"
         case .moveRight: return "Move a little to your right"
@@ -140,10 +146,12 @@ struct FramingEvaluator {
         let sideOn = cameraView == .side
         let floor = cameraView == .floor
         guard visible.count >= configuration.minimumBodyJoints else {
+            if cameraView == .lyingSide { return .stepIntoViewLyingSide }
             if sideOn { return needsFullBodySideView ? .stepIntoViewSideFullBody : .stepIntoViewSideOn }
             return floor ? .stepIntoViewFloor : .stepIntoView
         }
         guard requiredPresent else {
+            if cameraView == .lyingSide { return .stepBackLyingSide }
             if sideOn { return needsFullBodySideView ? .stepBackSideFullBody : .stepBackSideOn }
             if floor { return .stepBackFloor }
             return requiredJoints.contains(.leftAnkle) || requiredJoints.contains(.rightAnkle) ? .stepBackFullBody : .stepBack
@@ -159,6 +167,8 @@ struct FramingEvaluator {
         }
 
         if lacksSideRoom(frame) { return .stepBackSideRoom }
+
+        if cameraView == .lyingSide { return nil }
 
         let anchors = [LandmarkType.leftShoulder, .rightShoulder, .leftHip, .rightHip]
             .compactMap { frame.point($0, minimumConfidence: confidence) }

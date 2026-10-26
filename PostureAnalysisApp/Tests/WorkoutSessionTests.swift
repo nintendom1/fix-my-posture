@@ -207,6 +207,74 @@ final class WorkoutSessionTests: XCTestCase {
         XCTAssertEqual(session.progress[shrug.id]?.setReps, [shrug.autoCompleteReps])
     }
 
+    func testGluteBridgeCreditsBothSidesAndCompletesItsSessionTarget() {
+        let bridge = GluteBridgeExercise.definition()
+        var session = readySession(exercise: bridge)
+        _ = session.handle(.command(.start), at: 2)
+
+        let analyzer = GluteBridgeAnalyzer(epoch: session.analyzerEpoch)
+        let motion = bridge.guide.motion
+        let sampleCount = Int(motion.duration * Double(bridge.autoCompleteReps) * 10)
+        var creditedSides = Set<BodySide>()
+        for index in 0..<sampleCount {
+            let time = Double(index) / 10
+            let joints = ExerciseDemoFigureView.pose(for: motion.sample(at: time),
+                                                     cameraView: .lyingSide).jointLocations
+            let landmarks = Dictionary(uniqueKeysWithValues: joints.map { type, point in
+                (type, Landmark(type: type, normalizedLocation: .zero, imageLocation: point, confidence: 0.9))
+            })
+            let frame = PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 800, imageHeight: 900),
+                                  timestamp: time)
+
+            for event in analyzer.process(frame, counting: true).repEvents {
+                creditedSides.formUnion(event.sides)
+                XCTAssertEqual(event.sides, Set(BodySide.allCases))
+                _ = session.handle(.repCompleted(event), at: time + 2)
+            }
+        }
+
+        XCTAssertEqual(creditedSides, Set(BodySide.allCases))
+        XCTAssertEqual(session.phase, .resting)
+        XCTAssertEqual(session.progress[bridge.id]?.setReps, [bridge.autoCompleteReps])
+    }
+
+    func testGluteBridgeFinalTargetPeakFaultReachesTheSessionBeforeCompletion() {
+        var bridge = GluteBridgeExercise.definition()
+        bridge.autoCompleteReps = 2
+        var session = readySession(exercise: bridge)
+        _ = session.handle(.command(.start), at: 2)
+        let analyzer = GluteBridgeAnalyzer(epoch: session.analyzerEpoch)
+        let attempt = [130, 130, 155] + Array(repeating: 200.0, count: 10)
+            + [160, 160, 172, 155, 130, 130]
+        var time: TimeInterval = 4.5
+        var finalPeakFaultReachedSet = false
+        var showedStraightLineCue = false
+
+        for attemptIndex in 0..<2 {
+            for angle in attempt {
+                let analysis = analyzer.process(bridgeFrame(angle: angle, time: time), counting: true)
+                for event in analysis.repEvents {
+                    _ = session.handle(.repCompleted(event), at: time)
+                }
+                if let form = analysis.repForms.first {
+                    let observation = FormObservation(epoch: analyzer.epoch, repForms: analysis.repForms)
+                    let effects = session.handle(.formObserved(observation), at: time)
+                    if attemptIndex == 1, form.flags.contains(.bridgeStraightLine) {
+                        finalPeakFaultReachedSet = true
+                    }
+                    showedStraightLineCue = showedStraightLineCue
+                        || tips(effects).contains { $0.cue.id == .bridgeStraightLine }
+                }
+                time += 0.1
+            }
+        }
+
+        XCTAssertTrue(finalPeakFaultReachedSet, "The target attempt's peak fault must reach form observation.")
+        XCTAssertTrue(showedStraightLineCue, "The session must accept the final attempt before completing the set.")
+        XCTAssertEqual(session.phase, .resting)
+        XCTAssertEqual(session.progress[bridge.id]?.setReps, [2])
+    }
+
     func testTiltWarningIsRateLimited() {
         var session = readySession()
         XCTAssertEqual(spoken(session.handle(.phoneTiltChanged(true), at: 5)).count, 1)
@@ -522,6 +590,23 @@ final class WorkoutSessionTests: XCTestCase {
             (type, Landmark(type: type, normalizedLocation: .zero, imageLocation: point, confidence: 0.9))
         })
         return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 1080, imageHeight: 1920),
+                         timestamp: time)
+    }
+
+    private func bridgeFrame(angle: Double, time: TimeInterval) -> PoseFrame {
+        let shoulder = CGPoint(x: 100, y: 300)
+        let knee = CGPoint(x: 200, y: 300)
+        let minorAngle = angle > 180 ? 360 - angle : angle
+        let height = 50 / CGFloat(tan(minorAngle * .pi / 360))
+        let hip = CGPoint(x: 150, y: angle <= 180 ? 300 + height : 300 - height)
+        let joints: [LandmarkType: CGPoint] = [
+            .leftShoulder: shoulder, .leftHip: hip, .leftKnee: knee,
+            .leftAnkle: CGPoint(x: 230, y: 370)
+        ]
+        let landmarks = Dictionary(uniqueKeysWithValues: joints.map { type, point in
+            (type, Landmark(type: type, normalizedLocation: .zero, imageLocation: point, confidence: 0.9))
+        })
+        return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 800, imageHeight: 900),
                          timestamp: time)
     }
 

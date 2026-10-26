@@ -7,10 +7,10 @@ final class ExerciseFilterTests: XCTestCase {
 
     func testEachChipMatchesItsCatalogFilterGroups() {
         let expected: [(ExerciseFilterChip, [ExerciseID])] = [
-            (.all, [.shoulderPress, .lateralRaise, .hammerCurl, .tricepsExtension, .airSquat, .stiffLegDeadlift, .rearLunge, .dumbbellRow, .dumbbellShrug, .pushUp]),
+            (.all, [.shoulderPress, .lateralRaise, .hammerCurl, .tricepsExtension, .airSquat, .stiffLegDeadlift, .rearLunge, .gluteBridge, .dumbbellRow, .dumbbellShrug, .pushUp]),
             (.upper, [.shoulderPress, .lateralRaise, .hammerCurl, .tricepsExtension, .dumbbellRow, .dumbbellShrug, .pushUp]),
-            (.lower, [.airSquat, .stiffLegDeadlift, .rearLunge]),
-            (.bodyweight, [.airSquat, .pushUp]),
+            (.lower, [.airSquat, .stiffLegDeadlift, .rearLunge, .gluteBridge]),
+            (.bodyweight, [.airSquat, .gluteBridge, .pushUp]),
             (.dumbbells, [.shoulderPress, .lateralRaise, .hammerCurl, .stiffLegDeadlift, .rearLunge, .dumbbellRow, .dumbbellShrug])
         ]
 

@@ -261,13 +261,18 @@ struct WorkoutFramePipeline {
     func metricsReference(_ frame: PoseFrame, confidence: Double, cameraView: ExerciseCameraView,
                           motion: ArmMotion)
         -> (length: CGFloat, upperArm: CGFloat, forearm: CGFloat, plausible: ClosedRange<CGFloat>)? {
-        if cameraView == .side {
+        if cameraView == .side || cameraView == .lyingSide {
             if motion.movesSideBody {
-                let figureHip = ExerciseDemoFigureView.sideFigureJoints[.leftHip] ?? .zero
-                let figureKnee = ExerciseDemoFigureView.sideFigureJoints[.leftKnee] ?? .zero
-                let figureAnkle = ExerciseDemoFigureView.sideFigureJoints[.leftAnkle] ?? .zero
-                let figureLeg = ArmGeometry.distance(figureHip, figureKnee)
-                    + ArmGeometry.distance(figureKnee, figureAnkle)
+                let figureLeg: CGFloat
+                if cameraView == .lyingSide {
+                    figureLeg = ExerciseDemoFigureView.lyingSideThigh + ExerciseDemoFigureView.lyingSideShin
+                } else {
+                    let figureHip = ExerciseDemoFigureView.sideFigureJoints[.leftHip] ?? .zero
+                    let figureKnee = ExerciseDemoFigureView.sideFigureJoints[.leftKnee] ?? .zero
+                    let figureAnkle = ExerciseDemoFigureView.sideFigureJoints[.leftAnkle] ?? .zero
+                    figureLeg = ArmGeometry.distance(figureHip, figureKnee)
+                        + ArmGeometry.distance(figureKnee, figureAnkle)
+                }
                 guard figureLeg > 1 else { return nil }
                 for side in BodySide.allCases {
                     guard let shoulder = frame.point(side.shoulder, minimumConfidence: confidence),

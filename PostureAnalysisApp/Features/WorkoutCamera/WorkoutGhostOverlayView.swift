@@ -63,6 +63,7 @@ struct WorkoutGhostOverlayView: View {
                     imageSize: imageSize,
                     containerSize: size,
                     style: .silhouette,
+                    headOrientation: cameraView == .lyingSide ? .noseToNeck : .vertical,
                     strokeColor: Self.ghostColor,
                     fillColor: Self.ghostColor.opacity(0.5),
                     proportionWidth: ExerciseDemoFigureView.canvasSize.width * figure.bodyScale

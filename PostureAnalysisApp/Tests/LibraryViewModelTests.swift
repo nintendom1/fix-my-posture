@@ -15,7 +15,7 @@ final class LibraryViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.state.groups[0].exercises.map(\.id), [
             .shoulderPress, .lateralRaise, .hammerCurl, .tricepsExtension, .dumbbellRow, .dumbbellShrug, .pushUp
         ])
-        XCTAssertEqual(viewModel.state.groups[1].exercises.map(\.id), [.airSquat, .stiffLegDeadlift, .rearLunge])
+        XCTAssertEqual(viewModel.state.groups[1].exercises.map(\.id), [.airSquat, .stiffLegDeadlift, .rearLunge, .gluteBridge])
     }
 
     func testFilterChipAndQueryUpdateStateAndResults() {

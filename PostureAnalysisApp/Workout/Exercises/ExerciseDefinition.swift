@@ -34,6 +34,8 @@ enum ExerciseCameraView: Equatable {
     /// The phone lies on the floor facing the head, as for push-ups: hands planted near the bottom of the
     /// frame, shoulders rising and falling above them.
     case floor
+    /// The phone stands upright at floor height, side-on to a person lying on their back.
+    case lyingSide
 }
 
 /// The limb whose work is tracked one side at a time.

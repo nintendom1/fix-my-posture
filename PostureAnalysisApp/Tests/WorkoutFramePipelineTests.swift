@@ -151,6 +151,30 @@ final class WorkoutFramePipelineTests: XCTestCase {
                        ExerciseDemoFigureView.forearm, accuracy: 0.001)
     }
 
+    func testLyingSideBridgeMetricsUseTheLyingGuideLegProportions() throws {
+        let bridge = GluteBridgeExercise.definition()
+        let hip = CGPoint(x: 250, y: 700)
+        let knee = CGPoint(x: 340, y: 760)
+        let ankle = CGPoint(x: 430, y: 700)
+        let frame = measurementFrame([
+            .leftShoulder: CGPoint(x: 170, y: 700),
+            .leftHip: hip,
+            .leftKnee: knee,
+            .leftAnkle: ankle
+        ], at: 0)
+        let pipeline = WorkoutFramePipeline(exercise: bridge)
+
+        let reference = try XCTUnwrap(pipeline.metricsReference(frame, confidence: 0.8,
+                                                               cameraView: .lyingSide,
+                                                               motion: bridge.guide.motion))
+        let legLength = ArmGeometry.distance(hip, knee) + ArmGeometry.distance(knee, ankle)
+        let guideLegLength = ExerciseDemoFigureView.lyingSideThigh + ExerciseDemoFigureView.lyingSideShin
+
+        XCTAssertEqual(reference.length, legLength, accuracy: 0.001)
+        XCTAssertEqual(reference.upperArm, ExerciseDemoFigureView.upperArm / guideLegLength, accuracy: 0.001)
+        XCTAssertEqual(reference.forearm, ExerciseDemoFigureView.forearm / guideLegLength, accuracy: 0.001)
+    }
+
     func testRowMetricsUseTypicalForearmWhenMeasuredForearmIsImplausible() throws {
         let shoulder = CGPoint(x: 320, y: 260)
         let elbow = CGPoint(x: 420, y: 260)

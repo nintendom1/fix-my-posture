@@ -104,6 +104,13 @@ struct WorkoutGhostGeometry: Equatable {
                           dumbbells: result.dumbbells, forearmLength: result.forearmLength,
                           isCalibrated: true)
         }
+        if cameraView == .lyingSide {
+            guard let result = lyingSideBody(overlay: fitOverlay, motion: motion,
+                                             containerSize: containerSize, sample: sample) else { return nil }
+            return Figure(joints: result.joints, bodyScale: result.bodyScale,
+                          dumbbells: result.dumbbells, forearmLength: result.forearmLength,
+                          isCalibrated: true)
+        }
 
         let limbs = make(overlay: fitOverlay, metrics: metrics, motion: motion, cameraView: cameraView,
                          containerSize: containerSize, sample: sample).limbs
@@ -284,6 +291,10 @@ struct WorkoutGhostGeometry: Equatable {
         if cameraView == .side, motion.movesSideBody {
             return sideBody(overlay: overlay, motion: motion, containerSize: containerSize,
                             sample: sample)?.geometry ?? WorkoutGhostGeometry()
+        }
+        if cameraView == .lyingSide {
+            return lyingSideBody(overlay: overlay, motion: motion, containerSize: containerSize,
+                                 sample: sample)?.geometry ?? WorkoutGhostGeometry()
         }
 
         if cameraView == .floor {
@@ -498,6 +509,125 @@ struct WorkoutGhostGeometry: Equatable {
                               dumbbells: dumbbells, forearmLength: armLengths.1)
     }
 
+    /// Calibrates the supine guide from the Ready-guaranteed shoulder and ankle. The top hip follows the
+    /// user's measured torso and thigh lengths, with the first sample kept exact on the person.
+    private static func lyingSideBody(overlay: WorkoutOverlayState, motion: ArmMotion,
+                                      containerSize: CGSize, sample: ArmMotionSample) -> SideBodyResult? {
+        guard overlay.imageSize.width > 0, overlay.imageSize.height > 0,
+              containerSize.width > 0, containerSize.height > 0,
+              let side = sideBodySide(in: overlay),
+              let shoulder = point(side.shoulder, in: overlay, containerSize: containerSize),
+              let hipStart = point(side.hip, in: overlay, containerSize: containerSize),
+              let kneeStart = point(side.knee, in: overlay, containerSize: containerSize),
+              let ankle = point(side.ankle, in: overlay, containerSize: containerSize) else { return nil }
+
+        let thighLength = ArmGeometry.distance(hipStart, kneeStart)
+        let shinLength = ArmGeometry.distance(kneeStart, ankle)
+        let torsoLength = ArmGeometry.distance(shoulder, hipStart)
+        let facing = ankle.x >= shoulder.x ? CGFloat(1) : CGFloat(-1)
+        let startPose = ExerciseDemoFigureView.pose(for: motion.startSample,
+                                                    forearmPlane: motion.forearmPlane,
+                                                    cameraView: .lyingSide)
+        let samplePose = ExerciseDemoFigureView.pose(for: sample,
+                                                     forearmPlane: motion.forearmPlane,
+                                                     cameraView: .lyingSide)
+        guard let guideShoulder = startPose.jointLocations[.leftShoulder],
+              let guideAnkle = startPose.jointLocations[.leftAnkle] else { return nil }
+
+        let guideAxisLength = ArmGeometry.distance(guideShoulder, guideAnkle)
+        let userAxisLength = ArmGeometry.distance(shoulder, ankle)
+        let scale = guideAxisLength > 0 ? userAxisLength / guideAxisLength : 1
+        let axisX = userAxisLength > 0 ? (ankle.x - shoulder.x) / userAxisLength : facing
+        let axisY = userAxisLength > 0 ? (ankle.y - shoulder.y) / userAxisLength : 0
+        let normalX = -axisY * facing
+        let normalY = abs(axisX)
+
+        func transform(_ point: CGPoint) -> CGPoint {
+            let along = (point.x - guideShoulder.x) * scale
+            let across = (point.y - guideShoulder.y) * scale
+            return CGPoint(x: shoulder.x + along * axisX + across * normalX,
+                           y: shoulder.y + along * axisY + across * normalY)
+        }
+
+        var joints = samplePose.jointLocations.mapValues(transform)
+        let top = lyingBridgeTop(shoulder: shoulder, ankle: ankle, downHip: hipStart,
+                                 torsoLength: torsoLength, thighLength: thighLength,
+                                 shinLength: shinLength)
+        let hipLift = CGFloat(sample.shape.hipLift)
+        let hip = CGPoint(x: hipStart.x + (top.hip.x - hipStart.x) * hipLift,
+                          y: hipStart.y + (top.hip.y - hipStart.y) * hipLift)
+        let knee: CGPoint
+        if hipLift == 0 || sample.shape == motion.startSample.shape {
+            knee = kneeStart
+        } else if abs(hipLift - 1) < 0.000_001 {
+            knee = top.knee
+        } else {
+            knee = ArmGeometry.twoBoneKnee(hip: hip, ankle: ankle, thighLength: thighLength,
+                                            shinLength: shinLength, bendDirection: facing)
+        }
+
+        // Labels match the single near-side figure in the guide, including for right-side-only Ready poses.
+        joints[.leftShoulder] = shoulder
+        joints[.leftHip] = hip
+        joints[.leftKnee] = knee
+        joints[.leftAnkle] = ankle
+
+        guard let elbow = joints[.leftElbow], let wrist = joints[.leftWrist] else { return nil }
+        var geometry = WorkoutGhostGeometry()
+        geometry.limbs = [
+            Stroke(points: [shoulder, elbow, wrist], lineWidth: max(8, thighLength * 0.12),
+                   joints: [.leftShoulder, .leftElbow, .leftWrist]),
+            Stroke(points: [ankle, knee, hip], lineWidth: max(8, thighLength * 0.12),
+                   joints: [.leftAnkle, .leftKnee, .leftHip])
+        ]
+        return SideBodyResult(geometry: geometry, joints: joints, bodyScale: scale,
+                              dumbbells: [], forearmLength: 0)
+    }
+
+    /// Solves the straight top chain from the planted shoulder and ankle. If the measured segments cannot
+    /// close exactly, it keeps torso and thigh lengths and chooses the nearest reachable shin length.
+    private static func lyingBridgeTop(shoulder: CGPoint, ankle: CGPoint, downHip: CGPoint,
+                                       torsoLength: CGFloat, thighLength: CGFloat,
+                                       shinLength: CGFloat) -> (hip: CGPoint, knee: CGPoint) {
+        let radius = torsoLength + thighLength
+        let dx = ankle.x - shoulder.x
+        let dy = ankle.y - shoulder.y
+        let centerDistance = hypot(dx, dy)
+        guard radius.isFinite, radius > 0, shinLength.isFinite, shinLength > 0,
+              centerDistance.isFinite else {
+            return (downHip, ArmGeometry.twoBoneKnee(hip: downHip, ankle: ankle,
+                                                      thighLength: thighLength, shinLength: shinLength))
+        }
+
+        guard centerDistance > 0.000_001 else {
+            let knee = CGPoint(x: shoulder.x, y: shoulder.y - radius)
+            let hip = CGPoint(x: shoulder.x, y: shoulder.y - torsoLength)
+            return (hip, knee)
+        }
+
+        let minimumReach = abs(radius - centerDistance)
+        let maximumReach = radius + centerDistance
+        let reachableShin = min(max(shinLength, minimumReach), maximumReach)
+        let along = (radius * radius + centerDistance * centerDistance
+                     - reachableShin * reachableShin) / (2 * centerDistance)
+        let acrossSquared = max(0, radius * radius - along * along)
+        let across = sqrt(acrossSquared)
+        let unitX = dx / centerDistance
+        let unitY = dy / centerDistance
+        let perpendicularX = -unitY
+        let perpendicularY = unitX
+        let base = CGPoint(x: shoulder.x + unitX * along, y: shoulder.y + unitY * along)
+        let firstKnee = CGPoint(x: base.x + perpendicularX * across,
+                                y: base.y + perpendicularY * across)
+        let secondKnee = CGPoint(x: base.x - perpendicularX * across,
+                                 y: base.y - perpendicularY * across)
+        let knee = firstKnee.y <= secondKnee.y ? firstKnee : secondKnee
+        let ratio = torsoLength / radius
+        let hip = CGPoint(x: shoulder.x + (knee.x - shoulder.x) * ratio,
+                          y: shoulder.y + (knee.y - shoulder.y) * ratio)
+        return (hip, knee)
+    }
+
     private static func sideBodySide(in overlay: WorkoutOverlayState) -> BodySide? {
         func tracked(_ joint: LandmarkType) -> Bool { overlay.joints[joint].map { !$0.isStale } ?? false }
         let candidates = BodySide.allCases.filter { side in
@@ -546,11 +676,20 @@ struct WorkoutGhostGeometry: Equatable {
         case .floor:
             // Floor exercises anchor on the hands instead; see the floor geometry above.
             return []
+        case .lyingSide:
+            // The lying path uses the shoulder and ankle as a two-point body axis.
+            return []
         }
     }
 
     private static func idealNeedsMirror(overlay: WorkoutOverlayState?, motion: ArmMotion,
                                          cameraView: ExerciseCameraView, containerSize: CGSize) -> Bool {
+        if cameraView == .lyingSide, let overlay,
+           let side = sideBodySide(in: overlay),
+           let shoulder = point(side.shoulder, in: overlay, containerSize: containerSize),
+           let ankle = point(side.ankle, in: overlay, containerSize: containerSize) {
+            return ankle.x < shoulder.x
+        }
         if cameraView == .side {
             if motion.movesSideBody, let overlay,
                let side = sideBodySide(in: overlay),

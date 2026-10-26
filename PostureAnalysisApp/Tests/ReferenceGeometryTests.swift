@@ -1,6 +1,7 @@
 import XCTest
 import CoreGraphics
 import UIKit
+import SwiftUI
 @testable import PostureAnalysisApp
 
 private final class CustomTestProvider: PostureReferenceProviding {
@@ -69,6 +70,27 @@ final class ReferenceGeometryTests: XCTestCase {
                 }
             }
         }
+    }
+
+    func testHeadOrientationStaysVerticalUnlessTheLyingFigureOptsIn() throws {
+        let standingJoints: [LandmarkType: CGPoint] = [
+            .nose: CGPoint(x: 150, y: 100), .neck: CGPoint(x: 120, y: 140)
+        ]
+        let standingHead = AlignmentReferenceOverlayView.headEllipsePath(
+            center: CGPoint(x: 150, y: 100), radius: 10, joints: standingJoints, orientation: .vertical
+        )
+        XCTAssertEqual(standingHead.boundingRect.width, 20, accuracy: 0.001)
+        XCTAssertEqual(standingHead.boundingRect.height, 24, accuracy: 0.001)
+
+        let bridge = GluteBridgeExercise.definition()
+        let lyingPose = ExerciseDemoFigureView.pose(for: bridge.guide.motion.startSample,
+                                                    cameraView: .lyingSide)
+        let lyingHead = AlignmentReferenceOverlayView.headEllipsePath(
+            center: try XCTUnwrap(lyingPose.jointLocations[.nose]), radius: 10,
+            joints: lyingPose.jointLocations, orientation: .noseToNeck
+        )
+        XCTAssertGreaterThan(lyingHead.boundingRect.width, lyingHead.boundingRect.height,
+                             "The supine head oval should follow its horizontal nose-to-neck direction.")
     }
 
     // MARK: - Helper Fixtures

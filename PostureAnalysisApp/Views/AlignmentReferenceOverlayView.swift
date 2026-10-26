@@ -9,12 +9,19 @@ public enum ReferenceStyle: String, CaseIterable, Identifiable {
     public var id: String { rawValue }
 }
 
+/// Controls whether the reference head keeps its standing oval or follows the pose's head direction.
+public enum ReferenceHeadOrientation: Equatable {
+    case vertical
+    case noseToNeck
+}
+
 /// Canvas overlay rendering a stylized figure (Silhouette, Skeleton, or Combined) for reference geometry.
 public struct AlignmentReferenceOverlayView: View {
     public let referencePose: ReferencePose
     public let imageSize: CGSize
     public let containerSize: CGSize
     public let style: ReferenceStyle
+    public let headOrientation: ReferenceHeadOrientation
     public var strokeColor: Color = .purple
     public var fillColor: Color = Color.purple.opacity(0.3)
     public var proportionWidth: CGFloat? = nil
@@ -24,6 +31,7 @@ public struct AlignmentReferenceOverlayView: View {
         imageSize: CGSize,
         containerSize: CGSize,
         style: ReferenceStyle = .combined,
+        headOrientation: ReferenceHeadOrientation = .vertical,
         strokeColor: Color = .purple,
         fillColor: Color = Color.purple.opacity(0.3),
         proportionWidth: CGFloat? = nil
@@ -32,6 +40,7 @@ public struct AlignmentReferenceOverlayView: View {
         self.imageSize = imageSize
         self.containerSize = containerSize
         self.style = style
+        self.headOrientation = headOrientation
         self.strokeColor = strokeColor
         self.fillColor = fillColor
         self.proportionWidth = proportionWidth
@@ -59,6 +68,15 @@ public struct AlignmentReferenceOverlayView: View {
             context.clip(to: Path(fitRect))
 
             let joints = referencePose.jointLocations
+
+            if style == .silhouette || style == .combined,
+               let floorY = lyingFloorLineY(in: joints, imageSize: imageSize) {
+                var floorPath = Path()
+                floorPath.move(to: convertPixelPoint(CGPoint(x: 0, y: floorY)))
+                floorPath.addLine(to: convertPixelPoint(CGPoint(x: imageSize.width, y: floorY)))
+                context.stroke(floorPath, with: .color(strokeColor.opacity(0.6)),
+                               lineWidth: max(2, proportion * 0.008))
+            }
 
             // 1. Draw Silhouette (Torso, Limb Capsules, Head)
             if style == .silhouette || style == .combined {
@@ -97,13 +115,8 @@ public struct AlignmentReferenceOverlayView: View {
                 if let hPt = headOrigin {
                     let containerCenter = convertPixelPoint(hPt)
                     let headRadius: CGFloat = proportion * 0.05
-                    let headRect = CGRect(
-                        x: containerCenter.x - headRadius,
-                        y: containerCenter.y - headRadius * 1.2,
-                        width: headRadius * 2,
-                        height: headRadius * 2.4
-                    )
-                    let headPath = Path(ellipseIn: headRect)
+                    let headPath = Self.headEllipsePath(center: containerCenter, radius: headRadius,
+                                                        joints: joints, orientation: headOrientation)
                     context.fill(headPath, with: .color(fillColor))
                     context.stroke(headPath, with: .color(strokeColor.opacity(0.6)), lineWidth: 2)
                 }
@@ -170,5 +183,45 @@ public struct AlignmentReferenceOverlayView: View {
                 }
             }
         }
+    }
+
+    /// Returns a baseline only for a nearly horizontal side pose with a planted shoulder and ankle.
+    private func lyingFloorLineY(in joints: [LandmarkType: CGPoint], imageSize: CGSize) -> CGFloat? {
+        for side in BodySide.allCases {
+            guard let shoulder = joints[side.shoulder], let ankle = joints[side.ankle],
+                  let hip = joints[side.hip], let knee = joints[side.knee] else { continue }
+            let bodyLength = ArmGeometry.distance(shoulder, ankle)
+            guard bodyLength > 0,
+                  abs(shoulder.y - ankle.y) <= max(imageSize.height * 0.03, bodyLength * 0.08),
+                  hip.x.isFinite, knee.x.isFinite else { continue }
+            return max(shoulder.y, ankle.y) + min(bodyLength * 0.13, imageSize.height * 0.025)
+        }
+        return nil
+    }
+
+    /// Computes the oval geometry used by the Canvas, so orientation behavior stays testable without rendering.
+    static func headEllipsePath(center: CGPoint, radius: CGFloat,
+                                joints: [LandmarkType: CGPoint],
+                                orientation: ReferenceHeadOrientation) -> Path {
+        let bounds = CGRect(x: -radius, y: -radius * 1.2, width: radius * 2, height: radius * 2.4)
+        let angle = headRotation(in: joints, orientation: orientation)
+        guard angle != 0 else {
+            return Path(ellipseIn: CGRect(x: center.x + bounds.minX, y: center.y + bounds.minY,
+                                          width: bounds.width, height: bounds.height))
+        }
+        let transform = CGAffineTransform(a: cos(angle), b: sin(angle), c: -sin(angle), d: cos(angle),
+                                          tx: center.x, ty: center.y)
+        return Path(ellipseIn: bounds).applying(transform)
+    }
+
+    /// The nose-to-neck vector is horizontal for the supine figure. Assessment references stay vertical by default.
+    private static func headRotation(in joints: [LandmarkType: CGPoint],
+                                     orientation: ReferenceHeadOrientation) -> CGFloat {
+        guard orientation == .noseToNeck else { return 0 }
+        guard let nose = joints[.nose], let neck = joints[.neck] else { return 0 }
+        let dx = neck.x - nose.x
+        let dy = neck.y - nose.y
+        guard hypot(dx, dy) > 0.001 else { return 0 }
+        return atan2(dy, dx) - .pi / 2
     }
 }

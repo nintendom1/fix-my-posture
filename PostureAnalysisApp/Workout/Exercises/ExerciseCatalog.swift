@@ -23,6 +23,7 @@ enum ExerciseCatalog {
         AirSquatExercise.definition(),
         StiffLegDeadliftExercise.definition(),
         RearLungeExercise.definition(),
+        GluteBridgeExercise.definition(),
         DumbbellRowExercise.definition(),
         DumbbellShrugExercise.definition(),
         PushUpExercise.definition()

@@ -398,6 +398,9 @@
 		A10000012B00000000000408 /* DumbbellShrugExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000408 /* DumbbellShrugExercise.swift */; };
 		A10000012B00000000000409 /* DumbbellShrugAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000409 /* DumbbellShrugAnalyzer.swift */; };
 		A10000012B00000000000410 /* DumbbellShrugAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000410 /* DumbbellShrugAnalyzerTests.swift */; };
+		A10000012B00000000000411 /* GluteBridgeExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000411 /* GluteBridgeExercise.swift */; };
+		A10000012B00000000000412 /* GluteBridgeAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000412 /* GluteBridgeAnalyzer.swift */; };
+		A10000012B00000000000413 /* GluteBridgeAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000413 /* GluteBridgeAnalyzerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -804,6 +807,9 @@
 		B10000012B00000000000408 /* DumbbellShrugExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DumbbellShrugExercise.swift; sourceTree = "<group>"; };
 		B10000012B00000000000409 /* DumbbellShrugAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DumbbellShrugAnalyzer.swift; sourceTree = "<group>"; };
 		B10000012B00000000000410 /* DumbbellShrugAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DumbbellShrugAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000411 /* GluteBridgeExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GluteBridgeExercise.swift; sourceTree = "<group>"; };
+		B10000012B00000000000412 /* GluteBridgeAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GluteBridgeAnalyzer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000413 /* GluteBridgeAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GluteBridgeAnalyzerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1058,6 +1064,7 @@
 				B10000012B00000000000404 /* RearLungeAnalyzerTests.swift */,
 				B10000012B00000000000407 /* LateralRaiseAnalyzerTests.swift */,
 				B10000012B00000000000410 /* DumbbellShrugAnalyzerTests.swift */,
+				B10000012B00000000000413 /* GluteBridgeAnalyzerTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1104,6 +1111,7 @@
 				H10000012B00000000000062 /* RearLunge */,
 				H10000012B00000000000063 /* LateralRaise */,
 				H10000012B00000000000064 /* DumbbellShrug */,
+				H10000012B00000000000065 /* GluteBridge */,
 			);
 			path = Exercises;
 			sourceTree = "<group>";
@@ -1727,6 +1735,15 @@
 			path = DumbbellShrug;
 			sourceTree = "<group>";
 		};
+		H10000012B00000000000065 /* GluteBridge */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000411 /* GluteBridgeExercise.swift */,
+				B10000012B00000000000412 /* GluteBridgeAnalyzer.swift */,
+			);
+			path = GluteBridge;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -2088,6 +2105,8 @@
 				A10000012B00000000000406 /* LateralRaiseAnalyzer.swift in Sources */,
 				A10000012B00000000000408 /* DumbbellShrugExercise.swift in Sources */,
 				A10000012B00000000000409 /* DumbbellShrugAnalyzer.swift in Sources */,
+				A10000012B00000000000411 /* GluteBridgeExercise.swift in Sources */,
+				A10000012B00000000000412 /* GluteBridgeAnalyzer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2215,6 +2234,7 @@
 				A10000012B00000000000404 /* RearLungeAnalyzerTests.swift in TestSources */,
 				A10000012B00000000000407 /* LateralRaiseAnalyzerTests.swift in TestSources */,
 				A10000012B00000000000410 /* DumbbellShrugAnalyzerTests.swift in TestSources */,
+				A10000012B00000000000413 /* GluteBridgeAnalyzerTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -67,6 +67,13 @@ final class RoutineDetailViewModelTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(viewModel.state.routine?.steps.first?.target), "1 × 5 each leg")
     }
 
+    func testRoutineShowsFloorLevelSideCameraForGluteBridge() throws {
+        let savedSet = routine(name: "Legs & Glutes", ids: [.gluteBridge])
+        let viewModel = makeViewModel(for: savedSet, repository: RoutinesTestRepository(sets: [savedSet]))
+
+        XCTAssertEqual(try XCTUnwrap(viewModel.state.routine?.steps.first?.camera), "Floor-level side camera")
+    }
+
     func testDuplicateUsesRoutineRepositoryAndTodayCopyName() {
         let savedSet = routine(name: "Upper Body", ids: [.shoulderPress])
         let repository = RoutinesTestRepository(sets: [savedSet])
