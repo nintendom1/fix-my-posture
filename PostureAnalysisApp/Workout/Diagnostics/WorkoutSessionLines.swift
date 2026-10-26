@@ -421,6 +421,8 @@ enum WorkoutSessionLines {
         switch command {
         case .selectExercise(let id): return "selectExercise(\(id.rawValue))"
         case .setWeight(let weight): return "setWeight(\(weight.label))"
+        // The marker line carries the note.
+        case .mark: return "mark"
         default: return String(describing: command)
         }
     }

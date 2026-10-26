@@ -26,6 +26,8 @@ protocol VoiceControlling: AnyObject {
     var onStatusChanged: ((VoiceStatus) -> Void)? { get set }
     var onCommand: ((WorkoutCommand) -> Void)? { get set }
     var onHeard: ((String) -> Void)? { get set }
+    /// While recording, "mark that" and "note, …" drop markers.
+    var acceptsMarkers: Bool { get set }
     func enable()
     func disable(status: VoiceStatus)
     func setMuted(_ muted: Bool)

@@ -22,7 +22,8 @@ enum VoiceCommandHelp {
         var id: String { title }
     }
 
-    static func sections(exercises: [ExerciseDefinition]) -> [Section] {
+    /// `includesMarkers` adds the recording-only marker phrases.
+    static func sections(exercises: [ExerciseDefinition], includesMarkers: Bool = false) -> [Section] {
         func entries(_ items: [(WorkoutCommand, String)]) -> [Entry] {
             items.compactMap { command, detail in entry(command, detail: detail) }
         }
@@ -65,8 +66,15 @@ enum VoiceCommandHelp {
                 (.anotherRound, "After the last set, does the exercise again from set 1."),
                 (.endWorkout, "Ends the workout and shows your summary.")
             ]))
-        ]
+        ] + (includesMarkers ? [diagnostics] : [])
     }
+
+    /// Recording-only: markers come from `MarkerPhraseParser`, not the alias table.
+    static let diagnostics = Section(title: "Diagnostics", entries: [
+        Entry(command: .mark(note: nil, heardSecondsAgo: 0), title: "Mark that",
+              detail: "Marks this moment in the workout's recording for review later. Keep talking to add a note, or start with \u{201C}Note\u{201D}.",
+              alternates: ["flag that", "note, that rep should have counted"], isDestructive: false)
+    ])
 
     /// Entries for "Right now", in the order given.
     static func entries(for commands: [WorkoutCommand], exercises: [ExerciseDefinition]) -> [Entry] {

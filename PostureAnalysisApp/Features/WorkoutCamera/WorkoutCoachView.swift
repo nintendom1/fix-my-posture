@@ -98,7 +98,7 @@ struct WorkoutCoachView: View {
         .sheet(isPresented: Binding(get: { model.isHelpPresented },
                                     set: { routeIntent($0 ? .showVoiceHelp : .hideVoiceHelp) })) {
             VoiceCommandsHelpView(
-                sections: VoiceCommandHelp.sections(exercises: model.exercises),
+                sections: VoiceCommandHelp.sections(exercises: model.exercises, includesMarkers: model.isRecording),
                 suggestions: VoiceCommandHelp.entries(for: model.session.suggestedCommands, exercises: model.exercises),
                 micStatus: model.micStatus,
                 isMicMuted: model.isMicMuted,

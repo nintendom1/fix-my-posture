@@ -113,6 +113,7 @@ final class FakeVoiceController: VoiceControlling {
     var onStatusChanged: ((VoiceStatus) -> Void)?
     var onCommand: ((WorkoutCommand) -> Void)?
     var onHeard: ((String) -> Void)?
+    var acceptsMarkers = false
     private(set) var mutedValues: [Bool] = []
     private(set) var enabledCount = 0
     private(set) var retryCount = 0

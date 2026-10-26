@@ -716,6 +716,7 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
 
 - [ ] **R1.** With a Debug build, the REC chip shows beside the microphone chip during a workout. Settings › Developer diagnostics › Workout recordings lists the workout afterwards with its length and size. Share sends a readable `FMP <exercise> <date>.json` file that previews as text, and Copy report pastes a text report with the timeline and tracking-loss windows.
 - [ ] **R2.** Tap REC mid-set: the chip shows "Marked m:ss" for about 3 s and the coach says "Marked." With the coach muted, the chip still confirms but nothing is spoken.
+- [ ] **R2a.** Mid-set, say "mark that, the rep should have counted": about 1.5 s after you stop talking, the chip shows "Marked m:ss", the coach says "Marked.", and the recording's marker carries the note. "Note, pause didn't work" marks without pausing. Voice Commands lists the marker phrases under Diagnostics only while recording.
 - [ ] **R3.** Run a Saved Set, then `make diagnostics`: the recording lands in `diagnostics/sessions/`, its id matches the History entry, and its markers and frame count are listed.
 - [ ] **R4.** Background the app mid-set and return: the recording continues, with a gap in frames. Force-quit mid-workout: the recording is listed as incomplete with its markers and frame count, and still pulls.
 - [ ] **R5.** Turn Record workouts off: the next workout shows no REC chip and adds no recording.
