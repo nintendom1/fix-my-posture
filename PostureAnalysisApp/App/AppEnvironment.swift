@@ -30,6 +30,8 @@ final class AppEnvironment {
     /// Persona decision traces and engagement. Nil for in-memory environments (previews and tests), which keeps the
     /// persona quiet there.
     let personaTraceStore: (any PersonaTraceStoring)?
+    /// Developer workout session recordings. Nil for in-memory environments, so previews and tests never record.
+    let workoutRecordings: (any WorkoutRecordingStoring)?
 
     init(inMemory: Bool = false) {
         router = AppRouter()
@@ -50,6 +52,8 @@ final class AppEnvironment {
             personaContentError = String(describing: error)
         }
         personaTraceStore = inMemory ? nil : FilePersonaTraceStore()
+        let workoutRecordings: (any WorkoutRecordingStoring)? = inMemory ? nil : FileWorkoutRecordingStore()
+        self.workoutRecordings = workoutRecordings
         let isAppActive: () -> Bool = { UIApplication.shared.applicationState == .active }
 
         do {
@@ -74,7 +78,8 @@ final class AppEnvironment {
             workoutCoachFactory = WorkoutCoachFactory(
                 preferences: preferences,
                 exerciseCatalog: exerciseCatalog,
-                routines: repositories.routines
+                routines: repositories.routines,
+                recordings: workoutRecordings
             )
             trainHomeViewModel = TrainHomeViewModel(
                 routines: repositories.routines,
@@ -129,7 +134,8 @@ final class AppEnvironment {
             workoutCoachFactory = WorkoutCoachFactory(
                 preferences: preferences,
                 exerciseCatalog: exerciseCatalog,
-                routines: nil
+                routines: nil,
+                recordings: workoutRecordings
             )
             trainHomeViewModel = TrainHomeViewModel(
                 routines: nil,
@@ -184,6 +190,10 @@ final class AppEnvironment {
             scheduler: UserNotificationPreviewScheduler(),
             preferences: preferences
         )
+    }
+
+    func makeWorkoutRecordingsViewModel() -> WorkoutRecordingsViewModel? {
+        workoutRecordings.map { WorkoutRecordingsViewModel(store: $0, preferences: preferences) }
     }
 
     func makeNotificationPreviewViewModel() -> NotificationPreviewViewModel {

@@ -13,7 +13,7 @@ extension CoachingCueID {
 }
 
 /// Prototype thresholds for a supine side-view bridge. The signed hip angle is scale-free.
-struct GluteBridgeConfiguration {
+struct GluteBridgeConfiguration: Codable {
     var downMaxAngle: Double = 145
     var upMinAngle: Double = 165
     var confirmationSamples = 2
@@ -100,7 +100,8 @@ enum GluteBridgeExercise {
             startsByHolding: false,
             equipment: .bodyweight,
             plantedJoints: [.leftAnkle, .rightAnkle],
-            makeAnalyzer: { epoch in GluteBridgeAnalyzer(epoch: epoch, configuration: configuration) }
+            makeAnalyzer: { epoch in GluteBridgeAnalyzer(epoch: epoch, configuration: configuration) },
+            diagnostics: ExerciseDiagnostics(configuration, definition: definition(configuration:))
         )
     }
 

@@ -20,7 +20,7 @@ extension CoachingCueID {
 ///   drop to the knees' height on screen and `d` falls toward 0. The thigh is its own ruler (longest recent
 ///   hip-to-knee length, locked while standing), so the rule is the same at any distance and for any build.
 /// - Standing is the start; the squat is the counted end of the rep.
-struct AirSquatConfiguration {
+struct AirSquatConfiguration: Codable {
     /// Standing: hips at least this many thigh lengths above the knees.
     var standMinRatio: Double = 0.85
     /// Squat: hips at most this far above the knees.
@@ -102,7 +102,8 @@ enum AirSquatExercise {
             startsByHolding: false,
             equipment: .bodyweight,
             plantedJoints: [.leftAnkle, .rightAnkle],
-            makeAnalyzer: { epoch in AirSquatAnalyzer(epoch: epoch, configuration: configuration) }
+            makeAnalyzer: { epoch in AirSquatAnalyzer(epoch: epoch, configuration: configuration) },
+            diagnostics: ExerciseDiagnostics(configuration, definition: definition(configuration:))
         )
     }
 

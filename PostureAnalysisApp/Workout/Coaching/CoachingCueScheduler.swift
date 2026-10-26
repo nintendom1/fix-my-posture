@@ -10,7 +10,7 @@ import Foundation
 /// - A corrective cue doesn't start while the coach is speaking, so its tip and spoken line match.
 /// - Reminders show one at set start, then one after `reminderInterval` without any cue.
 struct CoachingCueScheduler {
-    struct Configuration {
+    struct Configuration: Codable {
         var continuousHold: TimeInterval = 0.5
         var repWindow = 3
         var repsRequired = 2

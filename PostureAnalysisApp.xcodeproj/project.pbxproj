@@ -401,6 +401,24 @@
 		A10000012B00000000000411 /* GluteBridgeExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000411 /* GluteBridgeExercise.swift */; };
 		A10000012B00000000000412 /* GluteBridgeAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000412 /* GluteBridgeAnalyzer.swift */; };
 		A10000012B00000000000413 /* GluteBridgeAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000413 /* GluteBridgeAnalyzerTests.swift */; };
+		A10000012B00000000000414 /* DiagnosticJSON.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000414 /* DiagnosticJSON.swift */; };
+		A10000012B00000000000415 /* ExerciseDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000415 /* ExerciseDiagnostics.swift */; };
+		A10000012B00000000000416 /* WorkoutSessionRecording.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000416 /* WorkoutSessionRecording.swift */; };
+		A10000012B00000000000417 /* WorkoutSessionLines.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000417 /* WorkoutSessionLines.swift */; };
+		A10000012B00000000000418 /* WorkoutSessionFileWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000418 /* WorkoutSessionFileWriter.swift */; };
+		A10000012B00000000000419 /* WorkoutRecordingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000419 /* WorkoutRecordingStore.swift */; };
+		A10000012B00000000000420 /* WorkoutSessionRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000420 /* WorkoutSessionRecorder.swift */; };
+		A10000012B00000000000421 /* WorkoutRecordingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000421 /* WorkoutRecordingsViewModel.swift */; };
+		A10000012B00000000000422 /* WorkoutRecordingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000422 /* WorkoutRecordingsScreen.swift */; };
+		A10000012B00000000000423 /* MemoryWorkoutRecordingStore.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000423 /* MemoryWorkoutRecordingStore.swift */; };
+		A10000012B00000000000424 /* DiagnosticJSONTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000424 /* DiagnosticJSONTests.swift */; };
+		A10000012B00000000000425 /* WorkoutSessionRecorderTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000425 /* WorkoutSessionRecorderTests.swift */; };
+		A10000012B00000000000426 /* WorkoutRecordingStoreTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000426 /* WorkoutRecordingStoreTests.swift */; };
+		A10000012B00000000000427 /* WorkoutCoachModelRecordingTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000427 /* WorkoutCoachModelRecordingTests.swift */; };
+		A10000012B00000000000428 /* ExerciseDiagnosticsTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000428 /* ExerciseDiagnosticsTests.swift */; };
+		A10000012B00000000000429 /* WorkoutRecordingsViewModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000429 /* WorkoutRecordingsViewModelTests.swift */; };
+		A10000012B00000000000430 /* WorkoutRecordingReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000430 /* WorkoutRecordingReport.swift */; };
+		A10000012B00000000000431 /* WorkoutRecordingReportTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000431 /* WorkoutRecordingReportTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -810,6 +828,24 @@
 		B10000012B00000000000411 /* GluteBridgeExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GluteBridgeExercise.swift; sourceTree = "<group>"; };
 		B10000012B00000000000412 /* GluteBridgeAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GluteBridgeAnalyzer.swift; sourceTree = "<group>"; };
 		B10000012B00000000000413 /* GluteBridgeAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GluteBridgeAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000414 /* DiagnosticJSON.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticJSON.swift; sourceTree = "<group>"; };
+		B10000012B00000000000415 /* ExerciseDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseDiagnostics.swift; sourceTree = "<group>"; };
+		B10000012B00000000000416 /* WorkoutSessionRecording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionRecording.swift; sourceTree = "<group>"; };
+		B10000012B00000000000417 /* WorkoutSessionLines.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionLines.swift; sourceTree = "<group>"; };
+		B10000012B00000000000418 /* WorkoutSessionFileWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionFileWriter.swift; sourceTree = "<group>"; };
+		B10000012B00000000000419 /* WorkoutRecordingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutRecordingStore.swift; sourceTree = "<group>"; };
+		B10000012B00000000000420 /* WorkoutSessionRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionRecorder.swift; sourceTree = "<group>"; };
+		B10000012B00000000000421 /* WorkoutRecordingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutRecordingsViewModel.swift; sourceTree = "<group>"; };
+		B10000012B00000000000422 /* WorkoutRecordingsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutRecordingsScreen.swift; sourceTree = "<group>"; };
+		B10000012B00000000000423 /* MemoryWorkoutRecordingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryWorkoutRecordingStore.swift; sourceTree = "<group>"; };
+		B10000012B00000000000424 /* DiagnosticJSONTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticJSONTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000425 /* WorkoutSessionRecorderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionRecorderTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000426 /* WorkoutRecordingStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutRecordingStoreTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000427 /* WorkoutCoachModelRecordingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCoachModelRecordingTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000428 /* ExerciseDiagnosticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseDiagnosticsTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000429 /* WorkoutRecordingsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutRecordingsViewModelTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000430 /* WorkoutRecordingReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutRecordingReport.swift; sourceTree = "<group>"; };
+		B10000012B00000000000431 /* WorkoutRecordingReportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutRecordingReportTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1065,6 +1101,13 @@
 				B10000012B00000000000407 /* LateralRaiseAnalyzerTests.swift */,
 				B10000012B00000000000410 /* DumbbellShrugAnalyzerTests.swift */,
 				B10000012B00000000000413 /* GluteBridgeAnalyzerTests.swift */,
+				B10000012B00000000000424 /* DiagnosticJSONTests.swift */,
+				B10000012B00000000000425 /* WorkoutSessionRecorderTests.swift */,
+				B10000012B00000000000426 /* WorkoutRecordingStoreTests.swift */,
+				B10000012B00000000000427 /* WorkoutCoachModelRecordingTests.swift */,
+				B10000012B00000000000428 /* ExerciseDiagnosticsTests.swift */,
+				B10000012B00000000000429 /* WorkoutRecordingsViewModelTests.swift */,
+				B10000012B00000000000431 /* WorkoutRecordingReportTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1087,6 +1130,7 @@
 				H10000012B00000000000018 /* Camera */,
 				H10000012B00000000000021 /* Coaching */,
 				H10000012B00000000000030 /* Presentation */,
+				H10000012B00000000000066 /* Diagnostics */,
 			);
 			path = Workout;
 			sourceTree = "<group>";
@@ -1428,6 +1472,7 @@
 				H10000012B00000000000053 /* VoiceCommands */,
 				H10000012B00000000000058 /* NotificationPreview */,
 				H10000012B00000000000059 /* PersonaDebug */,
+				H10000012B00000000000067 /* WorkoutRecordings */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -1610,6 +1655,7 @@
 				B10000012B00000000000339 /* MemoryWorkoutReminderScheduler.swift */,
 				B10000012B00000000000346 /* MemoryNotificationEventLog.swift */,
 				B10000012B00000000000371 /* MemoryPersonaTraceStore.swift */,
+				B10000012B00000000000423 /* MemoryWorkoutRecordingStore.swift */,
 			);
 			path = Fakes;
 			sourceTree = "<group>";
@@ -1742,6 +1788,30 @@
 				B10000012B00000000000412 /* GluteBridgeAnalyzer.swift */,
 			);
 			path = GluteBridge;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000066 /* Diagnostics */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000414 /* DiagnosticJSON.swift */,
+				B10000012B00000000000415 /* ExerciseDiagnostics.swift */,
+				B10000012B00000000000416 /* WorkoutSessionRecording.swift */,
+				B10000012B00000000000417 /* WorkoutSessionLines.swift */,
+				B10000012B00000000000418 /* WorkoutSessionFileWriter.swift */,
+				B10000012B00000000000419 /* WorkoutRecordingStore.swift */,
+				B10000012B00000000000420 /* WorkoutSessionRecorder.swift */,
+				B10000012B00000000000430 /* WorkoutRecordingReport.swift */,
+			);
+			path = Diagnostics;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000067 /* WorkoutRecordings */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000421 /* WorkoutRecordingsViewModel.swift */,
+				B10000012B00000000000422 /* WorkoutRecordingsScreen.swift */,
+			);
+			path = WorkoutRecordings;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -2107,6 +2177,16 @@
 				A10000012B00000000000409 /* DumbbellShrugAnalyzer.swift in Sources */,
 				A10000012B00000000000411 /* GluteBridgeExercise.swift in Sources */,
 				A10000012B00000000000412 /* GluteBridgeAnalyzer.swift in Sources */,
+				A10000012B00000000000414 /* DiagnosticJSON.swift in Sources */,
+				A10000012B00000000000415 /* ExerciseDiagnostics.swift in Sources */,
+				A10000012B00000000000416 /* WorkoutSessionRecording.swift in Sources */,
+				A10000012B00000000000417 /* WorkoutSessionLines.swift in Sources */,
+				A10000012B00000000000418 /* WorkoutSessionFileWriter.swift in Sources */,
+				A10000012B00000000000419 /* WorkoutRecordingStore.swift in Sources */,
+				A10000012B00000000000420 /* WorkoutSessionRecorder.swift in Sources */,
+				A10000012B00000000000421 /* WorkoutRecordingsViewModel.swift in Sources */,
+				A10000012B00000000000422 /* WorkoutRecordingsScreen.swift in Sources */,
+				A10000012B00000000000430 /* WorkoutRecordingReport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2235,6 +2315,14 @@
 				A10000012B00000000000407 /* LateralRaiseAnalyzerTests.swift in TestSources */,
 				A10000012B00000000000410 /* DumbbellShrugAnalyzerTests.swift in TestSources */,
 				A10000012B00000000000413 /* GluteBridgeAnalyzerTests.swift in TestSources */,
+				A10000012B00000000000423 /* MemoryWorkoutRecordingStore.swift in TestSources */,
+				A10000012B00000000000424 /* DiagnosticJSONTests.swift in TestSources */,
+				A10000012B00000000000425 /* WorkoutSessionRecorderTests.swift in TestSources */,
+				A10000012B00000000000426 /* WorkoutRecordingStoreTests.swift in TestSources */,
+				A10000012B00000000000427 /* WorkoutCoachModelRecordingTests.swift in TestSources */,
+				A10000012B00000000000428 /* ExerciseDiagnosticsTests.swift in TestSources */,
+				A10000012B00000000000429 /* WorkoutRecordingsViewModelTests.swift in TestSources */,
+				A10000012B00000000000431 /* WorkoutRecordingReportTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

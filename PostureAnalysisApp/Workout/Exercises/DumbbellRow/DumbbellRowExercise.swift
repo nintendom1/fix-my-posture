@@ -19,7 +19,7 @@ extension CoachingCueID {
 ///   −1; pulled up past the back, about −0.2. From the side the upper arm swings in the image plane, so its
 ///   longest recent length is a full ruler at any distance and for any proportions.
 /// - The start also needs a nearly straight elbow, so a bent arm hanging low isn't mistaken for the start.
-struct DumbbellRowConfiguration {
+struct DumbbellRowConfiguration: Codable {
     /// Start: arm hanging straight below the shoulder.
     var bottomMaxRatio: Double = -0.85
     var bottomMinElbowAngle: Double = 150
@@ -100,7 +100,8 @@ enum DumbbellRowExercise {
             cameraView: .side,
             anyOfRequiredJoints: [[.leftShoulder, .leftElbow, .leftWrist], [.rightShoulder, .rightElbow, .rightWrist]],
             perSide: true,
-            makeAnalyzer: { epoch in DumbbellRowAnalyzer(epoch: epoch, configuration: configuration) }
+            makeAnalyzer: { epoch in DumbbellRowAnalyzer(epoch: epoch, configuration: configuration) },
+            diagnostics: ExerciseDiagnostics(configuration, definition: definition(configuration:))
         )
     }
 

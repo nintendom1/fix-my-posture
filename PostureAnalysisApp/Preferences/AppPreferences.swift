@@ -53,6 +53,17 @@ enum PreferenceKey {
 
     /// Developer tools use the dev. namespace.
     static let notificationPreviewDelay = "dev.notificationPreviewDelay"
+    static let workoutRecordingEnabled = "dev.workoutRecordingEnabled"
+}
+
+/// Developer session recordings are on by default in Debug builds, so a problem noticed after a workout is
+/// already captured. Release builds record only after the toggle is turned on.
+enum WorkoutRecordingDefault {
+    #if DEBUG
+    static let isEnabled = true
+    #else
+    static let isEnabled = false
+    #endif
 }
 
 /// Limits for the developer notification preview's send delay. iOS needs at least one second.
@@ -94,6 +105,8 @@ protocol AppPreferencesStoring: AnyObject {
     /// Set by Reset Persona. History before it still counts for factual records but not for familiarity.
     var personaResetDate: Date? { get set }
     var personaIntroCardDismissed: Bool { get set }
+    /// Records each workout's joints, analyzer output, and events on this iPhone for developer review.
+    var workoutRecordingEnabled: Bool { get set }
 }
 
 /// UserDefaults-backed preferences. Existing keys and value formats are retained for upgrade compatibility.
@@ -258,6 +271,11 @@ final class UserDefaultsPreferences: AppPreferencesStoring {
         set { defaults.set(newValue, forKey: PreferenceKey.personaIntroCardDismissed) }
     }
 
+    var workoutRecordingEnabled: Bool {
+        get { defaults.object(forKey: PreferenceKey.workoutRecordingEnabled) as? Bool ?? WorkoutRecordingDefault.isEnabled }
+        set { defaults.set(newValue, forKey: PreferenceKey.workoutRecordingEnabled) }
+    }
+
     var upNextOverride: UUID? {
         get { defaults.string(forKey: PreferenceKey.upNextOverride).flatMap(UUID.init(uuidString:)) }
         set {
@@ -299,6 +317,8 @@ final class InMemoryPreferences: AppPreferencesStoring {
     var extraPersonableEnabled = true
     var personaResetDate: Date?
     var personaIntroCardDismissed = false
+    /// Off, so tests and previews never record unless they ask to.
+    var workoutRecordingEnabled = false
 
     private var storedNotificationPreviewDelay = NotificationPreviewDelay.defaultSeconds
     var notificationPreviewDelaySeconds: Int {

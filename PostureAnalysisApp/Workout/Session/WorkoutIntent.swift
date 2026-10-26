@@ -27,6 +27,8 @@ enum WorkoutIntent: Equatable {
     case retryVoice
     case toggleMeasurements
     case dismissTip
+    /// Flags this moment in the developer session recording.
+    case dropMarker
     /// The view owns history persistence and SwiftUI dismissal for this action.
     case closeWorkout
     /// The view owns the system Settings URL for this action.

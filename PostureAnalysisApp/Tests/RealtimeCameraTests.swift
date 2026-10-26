@@ -126,6 +126,19 @@ final class RealtimeCameraTests: XCTestCase {
         XCTAssertTrue(assessment.measurements.isEmpty)
     }
 
+    func testSplitSeparatesTheLandmarksTheFloorRemoves() {
+        var pose = samplePose()
+        pose[.rightShoulder]?.confidence = 0.29
+        pose[.leftShoulder]?.confidence = 0.3
+
+        let split = RealtimePoseProcessing.split(pose)
+
+        XCTAssertEqual(split.reliable, RealtimePoseProcessing.reliablePose(pose))
+        XCTAssertNotNil(split.reliable[.leftShoulder], "The floor itself is reliable.")
+        XCTAssertEqual(Array(split.low.keys), [.rightShoulder])
+        XCTAssertEqual(split.reliable.landmarks.count + split.low.count, pose.landmarks.count)
+    }
+
     func testRefreshRatesAndPreferenceChanges() {
         for rate in [2, 5, 10] {
             var gate = FeedbackRefreshGate()

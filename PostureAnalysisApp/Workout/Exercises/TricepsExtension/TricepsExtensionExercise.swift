@@ -22,7 +22,7 @@ extension CoachingCueID {
 /// - The elbow angle (2D) pairs with `s` so a forearm that's merely tilted back doesn't count as the top.
 /// - Folded behind the head, the hands often disappear from view. While the near arm's elbow stays raised
 ///   after lowering, a hidden hand counts as being at the start, so tracking and counting carry on.
-struct TricepsExtensionConfiguration {
+struct TricepsExtensionConfiguration: Codable {
     /// Start: hands lowered behind the head, elbow bent. Set just below horizontal so the start registers
     /// before the hands are hidden.
     var bottomMaxRatio: Double = -0.25
@@ -115,7 +115,8 @@ enum TricepsExtensionExercise {
             // The hands can hide behind the head at the start, so a shoulder and elbow are enough.
             anyOfRequiredJoints: [[.leftShoulder, .leftElbow], [.rightShoulder, .rightElbow]],
             equipment: .band,
-            makeAnalyzer: { epoch in TricepsExtensionAnalyzer(epoch: epoch, configuration: configuration) }
+            makeAnalyzer: { epoch in TricepsExtensionAnalyzer(epoch: epoch, configuration: configuration) },
+            diagnostics: ExerciseDiagnostics(configuration, definition: definition(configuration:))
         )
     }
 

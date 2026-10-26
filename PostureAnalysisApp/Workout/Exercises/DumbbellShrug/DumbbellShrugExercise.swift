@@ -18,7 +18,7 @@ extension CoachingCueID {
 ///   (nose-to-shoulder gap at rest − gap now) / shoulder width. The nose is the fixed point, so moving the
 ///   whole body up and down, as when rising onto the toes, reads no lift.
 /// - The rest gap and shoulder width are refreshed while the shoulders rest and locked during a rep.
-struct DumbbellShrugConfiguration {
+struct DumbbellShrugConfiguration: Codable {
     /// Rest: the shoulders are back down, at most this far above the locked rest.
     var restMaximumLift = 0.04
     /// Top: the shoulders are at least this far above the locked rest.
@@ -116,7 +116,8 @@ enum DumbbellShrugExercise {
             cameraView: .front,
             startsByHolding: true,
             equipment: .dumbbells,
-            makeAnalyzer: { epoch in DumbbellShrugAnalyzer(epoch: epoch, configuration: configuration) }
+            makeAnalyzer: { epoch in DumbbellShrugAnalyzer(epoch: epoch, configuration: configuration) },
+            diagnostics: ExerciseDiagnostics(configuration, definition: definition(configuration:))
         )
     }
 

@@ -15,7 +15,7 @@ extension CoachingCueID {
 
 /// Prototype thresholds for a two-arm lateral raise filmed from the front.
 /// Height and outward distance use each arm's own length as the ruler.
-struct LateralRaiseConfiguration {
+struct LateralRaiseConfiguration: Codable {
     /// Start is measured from the shoulder to the wrist; the hanging arm is about one arm length below it.
     var startMaximumHeight = -0.75
     /// The wrist must be at least this high and this far out to count as a lateral raise.
@@ -104,7 +104,8 @@ enum LateralRaiseExercise {
             cameraView: .front,
             startsByHolding: true,
             equipment: .dumbbells,
-            makeAnalyzer: { epoch in LateralRaiseAnalyzer(epoch: epoch, configuration: configuration) }
+            makeAnalyzer: { epoch in LateralRaiseAnalyzer(epoch: epoch, configuration: configuration) },
+            diagnostics: ExerciseDiagnostics(configuration, definition: definition(configuration:))
         )
     }
 

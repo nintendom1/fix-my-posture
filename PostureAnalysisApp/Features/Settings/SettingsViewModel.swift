@@ -15,6 +15,7 @@ enum SettingsDestination: Hashable {
     case developerDiagnostics
     case notificationPreview
     case personaDebug
+    case workoutRecordings
 }
 
 @MainActor
@@ -91,6 +92,8 @@ final class SettingsViewModel {
     let notificationPreview: NotificationPreviewViewModel?
     /// The developer persona diagnostics page, when its dependencies are available.
     let personaDebug: PersonaDebugViewModel?
+    /// The developer workout recordings page; nil where recordings aren't stored, such as previews.
+    let workoutRecordings: WorkoutRecordingsViewModel?
 
     private let preferences: any AppPreferencesStoring
     private let router: AppRouter
@@ -102,7 +105,8 @@ final class SettingsViewModel {
         reminderManager: (any WorkoutReminderManaging)? = nil,
         latestAssessmentID: UUID? = nil,
         notificationPreview: NotificationPreviewViewModel? = nil,
-        personaDebug: PersonaDebugViewModel? = nil
+        personaDebug: PersonaDebugViewModel? = nil,
+        workoutRecordings: WorkoutRecordingsViewModel? = nil
     ) {
         self.preferences = preferences
         self.router = router
@@ -110,6 +114,7 @@ final class SettingsViewModel {
         self.latestAssessmentID = latestAssessmentID
         self.notificationPreview = notificationPreview
         self.personaDebug = personaDebug
+        self.workoutRecordings = workoutRecordings
         spokenCoachingEnabled = !preferences.workoutCoachCoachMuted
         voiceCommandsEnabled = !preferences.workoutCoachMicMuted
         restPolicy = preferences.restPolicy

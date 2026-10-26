@@ -223,10 +223,18 @@ enum RealtimePoseProcessing {
         return result
     }
 
+    /// Live landmarks below this confidence are dropped before any measurement.
+    static let liveConfidenceFloor = 0.3
+
     static func reliablePose(_ pose: BodyPose) -> BodyPose {
-        var result = pose
-        result.landmarks = pose.landmarks.filter { $0.value.confidence >= 0.3 }
-        return result
+        split(pose).reliable
+    }
+
+    /// The pose with only reliable landmarks, and the landmarks the floor removed.
+    static func split(_ pose: BodyPose) -> (reliable: BodyPose, low: [LandmarkType: Landmark]) {
+        var reliable = pose
+        reliable.landmarks = pose.landmarks.filter { $0.value.confidence >= liveConfidenceFloor }
+        return (reliable, pose.landmarks.filter { $0.value.confidence < liveConfidenceFloor })
     }
 
     static func displayPose(_ pose: BodyPose, mirrored: Bool) -> BodyPose {

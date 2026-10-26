@@ -140,13 +140,18 @@ struct SettingsPostureDisplayPage: View {
 }
 
 struct SettingsPrivacyPage: View {
+    /// The developer workout recordings toggle is on.
+    var recordsWorkouts = false
+
     var body: some View {
         SettingsTextPage(
             title: "Privacy",
             paragraphs: [
                 "Posture photos and live camera frames are analyzed on this iPhone. Live camera frames are never recorded.",
                 "A photo assessment is saved on this device only when you choose to save it. The app has no network or cloud processing."
-            ]
+            ] + (recordsWorkouts ? [
+                "Workout recordings are on: each workout's joint positions and coach events are saved on this iPhone, never camera images. They leave the phone only when you share or copy them."
+            ] : [])
         )
     }
 }
@@ -199,6 +204,15 @@ struct SettingsDeveloperDiagnosticsPage: View {
                     .frame(maxWidth: .infinity, minHeight: 52)
                     .background(ColorTokens.palette().backgroundCard, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .accessibilityIdentifier("settingsPersonaDebugButton")
+            }
+
+            if viewModel.workoutRecordings != nil {
+                Button("Workout recordings") { viewModel.navigate(to: .workoutRecordings) }
+                    .font(.system(size: 16, weight: .heavy, design: .rounded))
+                    .foregroundStyle(ColorTokens.palette().tabActive)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .background(ColorTokens.palette().backgroundCard, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .accessibilityIdentifier("settingsWorkoutRecordingsButton")
             }
         }
     }

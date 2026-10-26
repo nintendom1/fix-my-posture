@@ -1,7 +1,7 @@
 import Foundation
 
 /// Where one sample sits in a rep. `middle` is the hysteresis band and never changes the confirmed end.
-enum MovementZone: Equatable {
+enum MovementZone: String, Equatable {
     case bottom
     case middle
     case top

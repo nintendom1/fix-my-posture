@@ -8,6 +8,8 @@ Rep counts, framing checks, and form tips are geometric heuristics from a 2D cam
 
 Everything runs on device. Apple Vision estimates the pose, `AVSpeechSynthesizer` speaks, and the Speech framework recognizes commands with `requiresOnDeviceRecognition`. Frames and microphone audio are processed in memory and never recorded, saved, or transmitted. The workout has no networking or analytics.
 
+Developer workout recordings (on by default in Debug builds; see [Workout Session Recordings](diagnostics.md)) save each workout's joint positions, analyzer output, and coach events on the phone, never camera images or audio. They leave the phone only when shared, copied, or pulled with `make diagnostics`.
+
 ## Architecture
 
 - `Workout/Exercises`: `ExerciseCatalog.all` is the visible exercise list. Each `ExerciseDefinition` supplies a stable `ExerciseID` (for example `shoulder_press`), sets, target reps, required joints, overlay focus segments, the setup line, an `ExerciseGuide`, and an analyzer factory. Exercise definitions, guidance, presentation metadata, and analyzers live here, with one subfolder per exercise.
@@ -533,6 +535,7 @@ Every new exercise ships with full guidance, even when the request only names it
 9. Docs: the rep rule section, the coaching cues, and physical-device checklist items.
 10. Presentation: add the short name, muscles, filter groups, gradient token, SF Symbol, equipment and camera-setup lines, plus watch items keyed to the exercise's own cue IDs in `Workout/Exercises/ExercisePresentation.swift` (`ExerciseCatalogTests` enforces this).
 11. Non-diagnostic wording: never comment on grip, wrist rotation, dumbbell orientation, or injury.
+12. Session recordings: make `<Name>Configuration` `Codable` and pass `diagnostics: ExerciseDiagnostics(configuration, definition: definition(configuration:))`, so recordings capture the tuning and replay can rebuild it (`ExerciseDiagnosticsTests` enforces this).
 
 ## Future options
 
@@ -702,6 +705,14 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - With music playing, saying "I lost five pounds" in conversation sets nothing.
     - Mid-set, say "weight 17.5 pounds" (often heard as "wait"): the set doesn't pause, the coach says "17.5 pounds.", and the HUD shows 17.5 lb.
     - Say "wait" on its own: the set pauses after about a second. "Pause" and "stop" still pause right away.
+
+### Developer recordings
+
+- [ ] **R1.** With a Debug build, the REC chip shows beside the microphone chip during a workout. Settings › Developer diagnostics › Workout recordings lists the workout afterwards with its length and size. Share sends a readable `FMP <exercise> <date>.json` file that previews as text, and Copy report pastes a text report with the timeline and tracking-loss windows.
+- [ ] **R2.** Tap REC mid-set: the chip shows "Marked m:ss" for about 3 s and the coach says "Marked." With the coach muted, the chip still confirms but nothing is spoken.
+- [ ] **R3.** Run a Saved Set, then `make diagnostics`: the recording lands in `diagnostics/sessions/`, its id matches the History entry, and its markers and frame count are listed.
+- [ ] **R4.** Background the app mid-set and return: the recording continues, with a gap in frames. Force-quit mid-workout: the recording is listed as incomplete with its markers and frame count, and still pulls.
+- [ ] **R5.** Turn Record workouts off: the next workout shows no REC chip and adds no recording.
 
 ### Posture camera and settings
 

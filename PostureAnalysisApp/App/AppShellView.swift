@@ -148,7 +148,8 @@ struct AppShellView: View {
             reminderManager: environment.workoutReminderCoordinator,
             latestAssessmentID: environment.postureHomeViewModel.state.assessments.first?.id,
             notificationPreview: environment.makeNotificationPreviewViewModel(),
-            personaDebug: environment.makePersonaDebugViewModel()
+            personaDebug: environment.makePersonaDebugViewModel(),
+            workoutRecordings: environment.makeWorkoutRecordingsViewModel()
         ))
     }
 

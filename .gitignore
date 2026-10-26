@@ -31,3 +31,9 @@ Thumbs.db
 
 # Python bytecode
 __pycache__/
+
+# Developer workout recordings: real pose data from a person, never committed (see docs/diagnostics.md)
+/diagnostics/
+FMP *.json
+*.jsonl
+*.fmpsession

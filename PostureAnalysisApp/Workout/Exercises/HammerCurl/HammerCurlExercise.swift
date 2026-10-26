@@ -20,7 +20,7 @@ extension CoachingCueID {
 ///   camera and looks shorter. Hanging straight reads about −0.75 to −1.0 for typical proportions; at the
 ///   top the wrist is well above the elbow (about 0.7 to 1.0).
 /// - The elbow height and ruler are locked while an arm hangs at the start, so the lines hold still.
-struct HammerCurlConfiguration {
+struct HammerCurlConfiguration: Codable {
     /// Start: arm hanging straight, wrist at least this far below the elbow.
     var bottomMaxRatio: Double = -0.6
     /// Top: wrist at least this far above the elbow.
@@ -101,7 +101,8 @@ enum HammerCurlExercise {
             ],
             // From the shoulders down past the hanging dumbbells, and out past them to the sides.
             motionEnvelope: MotionEnvelope(above: 0.15, below: 1.15, outward: 0.35),
-            makeAnalyzer: { epoch in HammerCurlAnalyzer(epoch: epoch, configuration: configuration) }
+            makeAnalyzer: { epoch in HammerCurlAnalyzer(epoch: epoch, configuration: configuration) },
+            diagnostics: ExerciseDiagnostics(configuration, definition: definition(configuration:))
         )
     }
 

@@ -34,6 +34,7 @@ PostureAnalysisApp/
 │   ├── Settings/                # Settings and acknowledgements
 │   ├── Train/                   # Train tab
 │   ├── VoiceCommands/           # Voice command help shared by Settings and workout
+│   ├── WorkoutRecordings/       # Developer page for workout session recordings
 │   ├── WorkoutCamera/           # Workout camera, HUD, guide, chooser, and overlays
 │   └── WorkoutComplete/         # Saved workout summary
 ├── PoseEstimation/              # PoseEstimator protocol and AppleVisionPoseEstimator
@@ -52,6 +53,7 @@ PostureAnalysisApp/
 │   ├── Session/                 # Pure reducer, plan, model, intents, and factory
 │   ├── Presentation/            # Foundation-only workout state and presenters
 │   ├── Coaching/                # Cue scheduling and tip layout
+│   ├── Diagnostics/             # Developer session recorder, line format, file writer, and store
 │   └── Camera/                  # Camera source/controller, permissions, and phone tilt
 ├── Voice/                       # Speech, audio session, command parsing, and microphone services
 ├── LandmarkEditing/             # Manual posture landmark adjustment
@@ -63,6 +65,8 @@ PostureAnalysisApp/
     ├── Fakes/                   # Test fakes
     └── Design/                  # Metrics, anchors, frame coverage, and pending frames
 scripts/design/                  # Reference extraction/rendering, anchors, masks, and pixel diff
+scripts/diagnostics/             # `make diagnostics`: pull workout recordings from the iPhone
+diagnostics/                     # Gitignored: pulled workout recordings (never commit)
 Design/Metrics/                  # Committed metrics generated from the local design bundle
 Design/AppIcon/                  # App icon SVG source, export script, and notices
 Design/NotificationCharacter/    # Chibi PSD, characters.json, notification-scenarios.json, persona-content.json, VOICE.md, renderer
@@ -80,6 +84,7 @@ Design/NotificationCharacter/    # Chibi PSD, characters.json, notification-scen
 2. **Decoupled Pose Estimator**: All Apple Vision code MUST remain inside `AppleVisionPoseEstimator`. Domain models use estimator-agnostic `BodyPose` and `Landmark`.
 3. **Stable Measurement Identity**: Every metric must maintain a stable `MeasurementID` string key (e.g. `front.shoulder_line_angle`) separate from user-facing display names.
 4. **Non-Diagnostic Framing**: Avoid medical claims (e.g., scoliosis). Measurements are geometric observations relative to baseline.
+5. **Recordings Stay Local**: Developer workout recordings (`diagnostics/`, shared copies named `FMP … .json`) are real pose data from a person and this repository is public. Never commit them or paste them into issues or PRs unless the developer explicitly asks; commit synthetic tests instead.
 
 ## Adding a Workout Exercise
 
@@ -122,6 +127,7 @@ Whenever an exercise thumbnail is added, replaced, removed, renamed, or material
 - Persistence & Baseline Comparison: `docs/persistence.md`
 - Photo Validation: `docs/validation.md`
 - Developer Diagnostics: `docs/debugging.md`
+- Workout session recordings (recorder, file format, `make diagnostics`, data rule): `docs/diagnostics.md`
 - Workout Coach (Beta): `docs/workout.md`
 - Design snapshot and layout gate: `docs/design.md`
 - Realtime posture: `docs/realtime.md`

@@ -429,6 +429,59 @@ final class WorkoutFramePipelineTests: XCTestCase {
         }
     }
 
+    func testDiagnosticsAreAttachedOnlyWhenARecordingAsksForThem() {
+        let exercise = ShoulderPressExercise.definition()
+        let motion = exercise.guide.motion
+        var plain = WorkoutFramePipeline(exercise: exercise, analyzerEpoch: 1, isCounting: true)
+        XCTAssertNil(plain.process(frame: frame(motion: motion, at: 0), at: 0).diagnostics)
+
+        var recorded = WorkoutFramePipeline(exercise: exercise, analyzerEpoch: 1, isCounting: true)
+        recorded.collectsDiagnostics = true
+        let output = recorded.process(frame: frame(motion: motion, at: 0), at: 0)
+        let diagnostics = output.diagnostics
+        XCTAssertNotNil(diagnostics?.framing)
+        XCTAssertEqual(diagnostics?.counting, true)
+        XCTAssertEqual(diagnostics?.analysis?.readings, output.readings)
+        XCTAssertEqual(diagnostics?.analyzedFrame.timestamp, 0)
+    }
+
+    func testControlsApplyExactlyLikeTheDirectCalls() {
+        let press = ShoulderPressExercise.definition()
+        let curl = HammerCurlExercise.definition()
+        var direct = WorkoutFramePipeline()
+        var controlled = WorkoutFramePipeline()
+
+        direct.setSessionPhase(.ready)
+        direct.exerciseChanged(to: press, analyzerEpoch: 1)
+        direct.setCounting(true)
+        direct.resetAnalyzer(epoch: 2)
+        direct.exerciseChanged(to: curl, analyzerEpoch: 2)
+        let directEvents = direct.resetTracking()
+
+        var controlledEvents: [WorkoutEvent] = []
+        for control: WorkoutFramePipeline.Control in [.sessionPhase(.ready), .exercise(press, analyzerEpoch: 1),
+                                                       .counting(true), .resetAnalyzer(epoch: 2),
+                                                       .exercise(curl, analyzerEpoch: 2), .resetTracking] {
+            controlledEvents = controlled.apply(control)
+        }
+
+        XCTAssertEqual(controlled.controlState, direct.controlState)
+        XCTAssertEqual(controlledEvents, directEvents)
+        XCTAssertEqual(controlled.controlState.exerciseID, curl.id)
+        XCTAssertEqual(controlled.controlState.analyzerEpoch, 2)
+    }
+
+    func testRepeatingAControlLeavesTheStateUnchanged() {
+        var pipeline = WorkoutFramePipeline(exercise: ShoulderPressExercise.definition(), analyzerEpoch: 3)
+        let before = pipeline.controlState
+
+        _ = pipeline.apply(.exercise(ShoulderPressExercise.definition(), analyzerEpoch: 3))
+        _ = pipeline.apply(.resetAnalyzer(epoch: 3))
+        _ = pipeline.apply(.counting(false))
+
+        XCTAssertEqual(pipeline.controlState, before)
+    }
+
     private func run(_ motion: ArmMotion, scale: CGFloat) -> (events: [WorkoutEvent], repCount: Int) {
         let exercise = ShoulderPressExercise.definition()
         var session = WorkoutSession(exercises: [exercise], initialExercise: exercise.id)

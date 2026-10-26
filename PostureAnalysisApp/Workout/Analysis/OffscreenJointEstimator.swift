@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 
 /// Prototype thresholds for estimating joints that leave the image through an edge; tune on device.
-struct OffscreenJointConfiguration {
+struct OffscreenJointConfiguration: Codable {
     /// A joint at or above this confidence counts as seen.
     var observedConfidence: Double = FramingConfiguration().minimumConfidence
     /// A joint last seen within this fraction of the image dimension from an edge may have left through it.
@@ -158,10 +158,10 @@ struct OffscreenJointEstimator {
         }
 
         guard !estimates.isEmpty else { return frame }
-        var pose = frame.pose
-        for (joint, landmark) in estimates { pose[joint] = landmark }
-        return PoseFrame(pose: pose, timestamp: frame.timestamp,
-                         estimatedJoints: frame.estimatedJoints.union(estimates.keys))
+        var completed = frame
+        for (joint, landmark) in estimates { completed.pose[joint] = landmark }
+        completed.estimatedJoints.formUnion(estimates.keys)
+        return completed
     }
 
     mutating func reset() {
