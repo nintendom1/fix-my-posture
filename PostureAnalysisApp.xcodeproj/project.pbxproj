@@ -426,6 +426,9 @@
 		A10000012B00000000000436 /* RepRejectionTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000436 /* RepRejectionTests.swift */; };
 		A10000012B00000000000437 /* WorkoutSessionReplay.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000437 /* WorkoutSessionReplay.swift */; };
 		A10000012B00000000000438 /* WorkoutSessionReplayTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000438 /* WorkoutSessionReplayTests.swift */; };
+		A10000012B00000000000439 /* AdaptiveTraining in Frameworks */ = {isa = PBXBuildFile; productRef = P10000012B00000000000001 /* AdaptiveTraining */; };
+		A10000012B00000000000440 /* ExerciseVariantBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000440 /* ExerciseVariantBridge.swift */; };
+		A10000012B00000000000441 /* ExerciseVariantBridgeTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000441 /* ExerciseVariantBridgeTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -860,6 +863,9 @@
 		B10000012B00000000000436 /* RepRejectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepRejectionTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000437 /* WorkoutSessionReplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionReplay.swift; sourceTree = "<group>"; };
 		B10000012B00000000000438 /* WorkoutSessionReplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionReplayTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000439 /* AdaptiveTraining */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Packages/AdaptiveTraining; sourceTree = "<group>"; };
+		B10000012B00000000000440 /* ExerciseVariantBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseVariantBridge.swift; sourceTree = "<group>"; };
+		B10000012B00000000000441 /* ExerciseVariantBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseVariantBridgeTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -867,6 +873,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000012B00000000000439 /* AdaptiveTraining in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -884,6 +891,7 @@
 			isa = PBXGroup;
 			children = (
 				H10000012B00000000000002 /* PostureAnalysisApp */,
+				B10000012B00000000000439 /* AdaptiveTraining */,
 				H10000012B00000000000012 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -909,6 +917,7 @@
 				H10000012B00000000000037 /* App */,
 				H10000012B00000000000038 /* Features */,
 				H10000012B00000000000055 /* Notifications */,
+				H10000012B00000000000068 /* AdaptiveTraining */,
 			);
 			path = PostureAnalysisApp;
 			sourceTree = "<group>";
@@ -1126,6 +1135,7 @@
 				B10000012B00000000000435 /* AudioWorkTimingTests.swift */,
 				B10000012B00000000000436 /* RepRejectionTests.swift */,
 				B10000012B00000000000438 /* WorkoutSessionReplayTests.swift */,
+				B10000012B00000000000441 /* ExerciseVariantBridgeTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1835,6 +1845,14 @@
 			path = WorkoutRecordings;
 			sourceTree = "<group>";
 		};
+		H10000012B00000000000068 /* AdaptiveTraining */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000440 /* ExerciseVariantBridge.swift */,
+			);
+			path = AdaptiveTraining;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -1851,6 +1869,9 @@
 			dependencies = (
 			);
 			name = PostureAnalysisApp;
+			packageProductDependencies = (
+				P10000012B00000000000001 /* AdaptiveTraining */,
+			);
 			productName = PostureAnalysisApp;
 			productReference = F10000012B00000000000001 /* PostureAnalysisApp.app */;
 			productType = "com.apple.product-type.application";
@@ -2210,6 +2231,7 @@
 				A10000012B00000000000430 /* WorkoutRecordingReport.swift in Sources */,
 				A10000012B00000000000432 /* PendingFrameQueue.swift in Sources */,
 				A10000012B00000000000434 /* AudioWorkTiming.swift in Sources */,
+				A10000012B00000000000440 /* ExerciseVariantBridge.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2351,6 +2373,7 @@
 				A10000012B00000000000436 /* RepRejectionTests.swift in TestSources */,
 				A10000012B00000000000437 /* WorkoutSessionReplay.swift in TestSources */,
 				A10000012B00000000000438 /* WorkoutSessionReplayTests.swift in TestSources */,
+				A10000012B00000000000441 /* ExerciseVariantBridgeTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2552,6 +2575,13 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		P10000012B00000000000001 /* AdaptiveTraining */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AdaptiveTraining;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = D10000012B00000000000001 /* Project object */;
 }
