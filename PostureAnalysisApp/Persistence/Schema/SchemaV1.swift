@@ -159,9 +159,3 @@ public enum SchemaV1: VersionedSchema {
         }
     }
 }
-
-public typealias AssessmentEntity = SchemaV1.AssessmentEntity
-public typealias LandmarkEntity = SchemaV1.LandmarkEntity
-public typealias MeasurementEntity = SchemaV1.MeasurementEntity
-typealias SavedExerciseSetEntity = SchemaV1.SavedExerciseSetEntity
-typealias WorkoutRecordEntity = SchemaV1.WorkoutRecordEntity

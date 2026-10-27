@@ -6,18 +6,20 @@ The app utilizes **SwiftData** for local metadata storage and the app sandboxed 
 
 ### Versioned schema and migration
 
-`Schema/SchemaV1.swift` is the immutable V1 snapshot used by `AppModelContainer`. Its five models are `AssessmentEntity`, `LandmarkEntity`, `MeasurementEntity`, `SavedExerciseSetEntity`, and `WorkoutRecordEntity`. `WorkoutRecordEntity.planID` is optional so records made outside a Saved Set have no routine identifier. Existing typealiases keep the app's current model names stable.
+`Schema/SchemaV1.swift` is the immutable first snapshot. Its five models are `AssessmentEntity`, `LandmarkEntity`, `MeasurementEntity`, `SavedExerciseSetEntity`, and `WorkoutRecordEntity`. `Schema/SchemaV2.swift` is the current complete snapshot. It copies those models unchanged and adds `AdaptiveFactEntity` and `AdaptiveProfileCacheEntity`; the app's model typealiases point to V2. `WorkoutRecordEntity.planID` stays optional so records made outside a Saved Set have no routine identifier.
 
-`AppMigrationPlan` currently lists only `SchemaV1` and has no migration stages. This phase does not migrate the earlier unversioned store. If SwiftData cannot open the configured on-device store, the app logs the failure, renames the store plus its SQLite `-shm` and `-wal` companions to `<store>.unreadable-<UTC yyyyMMdd-HHmmss>` (adding `-2`, `-3`, … rather than overwriting an earlier copy), and tries a fresh store. The kept copy lets a failed migration be recovered instead of losing history, routines, and assessments. If the retry also fails, the app shows a small local-data error screen. Assessment images are separate files; images left behind when a store is reset may remain orphaned.
+`AppMigrationPlan` includes both snapshots and a lightweight stage from V1 to V2. `SchemaMigrationTests` creates a V1 store directly, opens it through `AppModelContainer`, and checks that its workout, Saved Set, assessment, landmarks, and measurements survive without invoking the unreadable-store fallback. A fresh V2 store contains all seven models. Stores written before `SchemaV1` existed (the earlier unversioned container) are not migrated; that limitation predates V2.
 
-To add V2:
+If SwiftData cannot open a store, the app logs the failure, copies the store plus its SQLite `-shm` and `-wal` companions to `<store>.unreadable-<UTC yyyyMMdd-HHmmss>` (adding `-2`, `-3`, … rather than overwriting an earlier copy), removes the original files only after all copies succeed, and tries a fresh store. A valid V1 store must migrate instead of reaching this fallback. Assessment images are separate files; images left behind when a store is reset may remain orphaned.
 
-1. Add `SchemaV2` as another `VersionedSchema` snapshot. Copy the model declarations from V1 and make the intended changes in V2; never edit V1 after it has shipped.
-2. Set V2's identifier to the next version and include all five current models in `SchemaV2.models`.
-3. Add `SchemaV2.self` after V1 in `AppMigrationPlan.schemas`, and add an explicit `MigrationStage` from V1 to V2. Use a lightweight stage only when SwiftData can infer the change; use a custom stage for data transformations.
-4. Point `AppModelContainer` at `SchemaV2` and add tests for migration from a V1 store as well as fresh V2 containers.
+To add another schema version:
 
-Do not use the clean-store fallback as a substitute for a migration that a release promises to perform.
+1. Add `SchemaV<N>` as another complete `VersionedSchema` snapshot. Copy the model declarations from the current version and make the intended changes in the new one; never edit a version after it has shipped.
+2. Set its identifier to the next version and include every current model in its `models`.
+3. Append it to `AppMigrationPlan.schemas` and add an explicit `MigrationStage` from the previous version. Use a lightweight stage only when SwiftData can infer the change; use a custom stage for data transformations.
+4. Point `AppModelContainer` and the model typealiases at the new version, and add tests that open a store of the previous version and a fresh store.
+
+Do not use the unreadable-store fallback as a substitute for a migration that a release promises to perform.
 
 ### Repositories
 
@@ -26,6 +28,7 @@ Do not use the clean-store fallback as a substitute for a migration that a relea
 - Workout history lists newest first, saves records, updates their entries when weights change, and deletes records.
 - Routine storage lists, saves, duplicates using the existing `"Name Copy"` rule, and deletes user Saved Sets. `BuiltInRoutineRepository` decorates it with the read-only starter catalog, keeps starter ids out of base writes, and saves starter duplicates as user copies. Corrupt item JSON continues to decode as an empty list.
 - Assessment storage maps domain landmarks and measurements to their SwiftData child models, keeps at most one baseline per posture view, and deletes assessments. Corrupt workout entry JSON continues to decode as an empty list.
+- `SwiftDataAdaptiveTrainingRepository` stores prescriptions, evidence, calibrations, engagement, and settings as JSON payloads in `AdaptiveFactEntity`; it stores one cached interpretation in `AdaptiveProfileCacheEntity`. It skips and logs facts with an unknown kind or unreadable payload without deleting them, so a fact kind this version doesn't know is kept for a later version. Saving a calibration updates its own row in place and never overwrites another fact that shares its id.
 
 ## Preferences
 

@@ -5,7 +5,7 @@ import XCTest
 
 @MainActor
 final class AppModelContainerTests: XCTestCase {
-    func testInMemoryContainerOpensWithAllFiveModels() throws {
+    func testInMemoryContainerOpensWithAllSevenModels() throws {
         let container = try AppModelContainer.make(inMemory: true)
         let context = container.mainContext
 
@@ -14,7 +14,9 @@ final class AppModelContainerTests: XCTestCase {
         XCTAssertNoThrow(try context.fetch(FetchDescriptor<MeasurementEntity>()))
         XCTAssertNoThrow(try context.fetch(FetchDescriptor<SavedExerciseSetEntity>()))
         XCTAssertNoThrow(try context.fetch(FetchDescriptor<WorkoutRecordEntity>()))
-        XCTAssertEqual(Schema(versionedSchema: SchemaV1.self).entities.count, 5)
+        XCTAssertNoThrow(try context.fetch(FetchDescriptor<AdaptiveFactEntity>()))
+        XCTAssertNoThrow(try context.fetch(FetchDescriptor<AdaptiveProfileCacheEntity>()))
+        XCTAssertEqual(Schema(versionedSchema: SchemaV2.self).entities.count, 7)
     }
 
     func testOnDiskContainerSavesAndReopens() throws {
