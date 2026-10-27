@@ -8,7 +8,7 @@ The app utilizes **SwiftData** for local metadata storage and the app sandboxed 
 
 `Schema/SchemaV1.swift` is the immutable V1 snapshot used by `AppModelContainer`. Its five models are `AssessmentEntity`, `LandmarkEntity`, `MeasurementEntity`, `SavedExerciseSetEntity`, and `WorkoutRecordEntity`. `WorkoutRecordEntity.planID` is optional so records made outside a Saved Set have no routine identifier. Existing typealiases keep the app's current model names stable.
 
-`AppMigrationPlan` currently lists only `SchemaV1` and has no migration stages. This phase does not migrate the earlier unversioned store. If SwiftData cannot open the configured on-device store, the app logs the failure, removes the store plus its SQLite `-shm` and `-wal` companions, and tries a fresh store. If the retry also fails, the app shows a small local-data error screen. Assessment images are separate files; images left behind when a store is reset may remain orphaned.
+`AppMigrationPlan` currently lists only `SchemaV1` and has no migration stages. This phase does not migrate the earlier unversioned store. If SwiftData cannot open the configured on-device store, the app logs the failure, renames the store plus its SQLite `-shm` and `-wal` companions to `<store>.unreadable-<UTC yyyyMMdd-HHmmss>` (adding `-2`, `-3`, … rather than overwriting an earlier copy), and tries a fresh store. The kept copy lets a failed migration be recovered instead of losing history, routines, and assessments. If the retry also fails, the app shows a small local-data error screen. Assessment images are separate files; images left behind when a store is reset may remain orphaned.
 
 To add V2:
 
