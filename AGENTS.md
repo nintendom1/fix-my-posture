@@ -13,6 +13,7 @@ A native Swift and SwiftUI iOS application designed for iPhone 15 Pro that analy
 ```text
 PostureAnalysisApp/
 ├── App/                         # Composition root, routes, four-tab shell, tab style, sticky CTA
+├── AdaptiveTraining/            # App adapters for the AdaptiveTraining package (exercise bridge)
 ├── Models/                      # Estimator-independent posture and measurement models
 ├── Preferences/                 # AppPreferencesStoring, UserDefaults/in-memory stores, SwiftUI environment
 ├── DesignSystem/
@@ -64,6 +65,7 @@ PostureAnalysisApp/
     ├── Support/                 # Snapshot host, fixtures, fixed clock, and shared test support
     ├── Fakes/                   # Test fakes
     └── Design/                  # Metrics, anchors, frame coverage, and pending frames
+Packages/AdaptiveTraining/       # Foundation-only Swift package: progression ladders and the adaptive engine (`swift test`)
 scripts/design/                  # Reference extraction/rendering, anchors, masks, and pixel diff
 scripts/diagnostics/             # `make diagnostics`: pull workout recordings from the iPhone
 tools/session-replay/            # `make viewer` replay viewer + server; mcp.mjs is the `fmp-replay` MCP server in .mcp.json (Node, no deps)
@@ -86,6 +88,7 @@ Design/NotificationCharacter/    # Chibi PSD, characters.json, notification-scen
 3. **Stable Measurement Identity**: Every metric must maintain a stable `MeasurementID` string key (e.g. `front.shoulder_line_angle`) separate from user-facing display names.
 4. **Non-Diagnostic Framing**: Avoid medical claims (e.g., scoliosis). Measurements are geometric observations relative to baseline.
 5. **Recordings Stay Local**: Developer workout recordings (`diagnostics/`, shared copies named `FMP … .json`) are real pose data from a person and this repository is public. Never commit them or paste them into issues or PRs unless the developer explicitly asks; commit synthetic tests instead.
+6. **Adaptive Engine Boundary**: What counts as easier, harder, or the next prescription is decided only inside `Packages/AdaptiveTraining` (Foundation-only, stable string IDs). Screens and view models never encode progression rules; app code reaches the package through `PostureAnalysisApp/AdaptiveTraining/` adapters. Never rename a `MovementFamilyID` or `VariantID`.
 
 ## Adding a Workout Exercise
 
@@ -130,6 +133,7 @@ Whenever an exercise thumbnail is added, replaced, removed, renamed, or material
 - Developer Diagnostics: `docs/debugging.md`
 - Workout session recordings (recorder, file format, `make diagnostics`, data rule): `docs/diagnostics.md`
 - Workout Coach (Beta): `docs/workout.md`
+- Adaptive training (package boundary, progression ladders, evidence, policy): `docs/adaptive-training.md`
 - Design snapshot and layout gate: `docs/design.md`
 - Realtime posture: `docs/realtime.md`
 - Workout reminders: `docs/reminders.md`
