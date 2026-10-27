@@ -429,6 +429,10 @@
 		A10000012B00000000000439 /* AdaptiveTraining in Frameworks */ = {isa = PBXBuildFile; productRef = P10000012B00000000000001 /* AdaptiveTraining */; };
 		A10000012B00000000000440 /* ExerciseVariantBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000440 /* ExerciseVariantBridge.swift */; };
 		A10000012B00000000000441 /* ExerciseVariantBridgeTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000441 /* ExerciseVariantBridgeTests.swift */; };
+		A10000012B00000000000442 /* SchemaV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000442 /* SchemaV2.swift */; };
+		A10000012B00000000000443 /* AdaptiveTrainingRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000443 /* AdaptiveTrainingRepository.swift */; };
+		A10000012B00000000000444 /* AdaptiveTrainingRepositoryTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000444 /* AdaptiveTrainingRepositoryTests.swift */; };
+		A10000012B00000000000445 /* SchemaMigrationTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000445 /* SchemaMigrationTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -866,6 +870,10 @@
 		B10000012B00000000000439 /* AdaptiveTraining */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Packages/AdaptiveTraining; sourceTree = "<group>"; };
 		B10000012B00000000000440 /* ExerciseVariantBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseVariantBridge.swift; sourceTree = "<group>"; };
 		B10000012B00000000000441 /* ExerciseVariantBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseVariantBridgeTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000442 /* SchemaV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaV2.swift; sourceTree = "<group>"; };
+		B10000012B00000000000443 /* AdaptiveTrainingRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveTrainingRepository.swift; sourceTree = "<group>"; };
+		B10000012B00000000000444 /* AdaptiveTrainingRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveTrainingRepositoryTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000445 /* SchemaMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaMigrationTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1136,6 +1144,8 @@
 				B10000012B00000000000436 /* RepRejectionTests.swift */,
 				B10000012B00000000000438 /* WorkoutSessionReplayTests.swift */,
 				B10000012B00000000000441 /* ExerciseVariantBridgeTests.swift */,
+				B10000012B00000000000444 /* AdaptiveTrainingRepositoryTests.swift */,
+				B10000012B00000000000445 /* SchemaMigrationTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1417,6 +1427,7 @@
 			children = (
 				B10000012B00000000000177 /* SchemaV1.swift */,
 				B10000012B00000000000178 /* AppMigrationPlan.swift */,
+				B10000012B00000000000442 /* SchemaV2.swift */,
 			);
 			path = Schema;
 			sourceTree = "<group>";
@@ -1431,6 +1442,7 @@
 				B10000012B00000000000184 /* ImageStoring.swift */,
 				B10000012B00000000000185 /* AppRepositories.swift */,
 				B10000012B00000000000396 /* BuiltInRoutineRepository.swift */,
+				B10000012B00000000000443 /* AdaptiveTrainingRepository.swift */,
 			);
 			path = Repositories;
 			sourceTree = "<group>";
@@ -2232,6 +2244,8 @@
 				A10000012B00000000000432 /* PendingFrameQueue.swift in Sources */,
 				A10000012B00000000000434 /* AudioWorkTiming.swift in Sources */,
 				A10000012B00000000000440 /* ExerciseVariantBridge.swift in Sources */,
+				A10000012B00000000000442 /* SchemaV2.swift in Sources */,
+				A10000012B00000000000443 /* AdaptiveTrainingRepository.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2374,6 +2388,8 @@
 				A10000012B00000000000437 /* WorkoutSessionReplay.swift in TestSources */,
 				A10000012B00000000000438 /* WorkoutSessionReplayTests.swift in TestSources */,
 				A10000012B00000000000441 /* ExerciseVariantBridgeTests.swift in TestSources */,
+				A10000012B00000000000444 /* AdaptiveTrainingRepositoryTests.swift in TestSources */,
+				A10000012B00000000000445 /* SchemaMigrationTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

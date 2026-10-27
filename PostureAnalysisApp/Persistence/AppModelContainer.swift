@@ -7,7 +7,7 @@ enum AppModelContainer {
     private static let logger = Logger(subsystem: "FixMyPosture", category: "Persistence")
 
     static func make(inMemory: Bool = false, url: URL? = nil) throws -> ModelContainer {
-        let schema = Schema(versionedSchema: SchemaV1.self)
+        let schema = Schema(versionedSchema: SchemaV2.self)
         let configuration: ModelConfiguration
         if inMemory {
             configuration = ModelConfiguration("PostureAnalysis", schema: schema, isStoredInMemoryOnly: true,

@@ -60,6 +60,44 @@ V1 ladders (`ProgressionCatalog.v1`, version `ladders-1`; `*` marks the floor):
 5 seconds; rep doses by 1. Variant IDs and family IDs are persisted in evidence and exports: never rename one. A
 ladder change bumps the catalog `version`.
 
-## Evidence, state, and policy
+## Evidence and facts
 
-_Lands in the next PRs of the stack (facts and persistence, then the V1 recommendation policy)._
+The engine's source of truth is five kinds of facts, stored in SwiftData through the package's
+`AdaptiveTrainingStoring` protocol (`SwiftDataAdaptiveTrainingRepository` in the app,
+`InMemoryAdaptiveTrainingStore` for tests and previews):
+
+- **Prescription**: what the app asked for, saved when the user starts it, with its policy and ladder versions.
+- **Evidence** (`AdaptiveEvidence`): what happened on one rung. It keeps three amounts apart: what was asked
+  (`prescribed`, a `Dose`), what the user confirmed (`confirmed`, a `WorkAmount`, with its `ConfirmationSource`), and
+  what the tracker saw (`TrackerObservation`). It also records effort (Too Hard / Okay / Easy), a mid-set Too Hard,
+  an optional bonus, how the item ended, and its source (calibration, adaptive, manual, recalibration).
+- **Calibration** (`CalibrationSessionRecord`): one attempt's status, families, equipment answer, and the starting
+  points accepted at commit.
+- **Engagement**: a notification opened or dismissed, or an explicit skip.
+- **Settings**: an equipment change or a removed family.
+
+A `Dose` (a prescription) is always at least 1. A `WorkAmount` (work done or seen) may be zero, so "the user confirmed
+zero reps" and "nobody confirmed anything" (`confirmed == nil`, confirmation `none`) stay different facts, and so do
+"the tracker counted zero" and "the tracker didn't run". Evidence normalizes itself on creation and on decoding: no
+confirmation means no confirmed amount and no confirmed sets; a declined bonus carries no work or rating; a
+`notTracked` observation carries no count.
+
+Semantics the policy relies on: tracking failure is never capacity evidence (`tracked`, `lowConfidence`, `lost`, and
+`notTracked` are explicit, and a tracker count never stands in for the user's confirmation); declining a bonus or a
+harder probe is neutral; completing the prescribed reps and rating them Too Hard is both a completion and negative
+difficulty evidence; engagement facts may change confidence or copy, never capacity.
+
+Identity: fact ids are one namespace across all five kinds. Recording an id that is already stored as the same kind
+does nothing (facts are append-only); an id stored as another kind is refused. A calibration is the only fact updated
+in place, and only while it is in progress; a committed or abandoned attempt never changes, and a new attempt needs a
+new id. A failed write leaves nothing behind, so retrying it records the fact. Rows whose payload can't be read, whose
+kind is unknown, or whose payload names a different id are skipped and kept, never deleted.
+
+`AdaptiveFacts` always holds its facts in replay order (time, then id), including after decoding. Its `watermark`
+counts append-only facts by id and calibrations by their full contents, so any change to what was stored changes it.
+A cached profile is valid only for the policy version, the ladders and built exercises, and the watermark it was built
+from; otherwise the engine replays the facts.
+
+## Policy
+
+The V1 recommendation policy lands in the next PR.
