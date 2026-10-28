@@ -438,6 +438,8 @@
 		A10000012B00000000000448 /* AdaptiveDebugScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000448 /* AdaptiveDebugScreen.swift */; };
 		A10000012B00000000000449 /* AdaptiveDebugViewModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000449 /* AdaptiveDebugViewModelTests.swift */; };
 		A10000012B00000000000450 /* AdaptiveDebugScreenTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000450 /* AdaptiveDebugScreenTests.swift */; };
+		A10000012B00000000000451 /* ExerciseTracking.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000451 /* ExerciseTracking.swift */; };
+		A10000012B00000000000452 /* WorkoutSelfReportedTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000452 /* WorkoutSelfReportedTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -884,6 +886,8 @@
 		B10000012B00000000000448 /* AdaptiveDebugScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveDebugScreen.swift; sourceTree = "<group>"; };
 		B10000012B00000000000449 /* AdaptiveDebugViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveDebugViewModelTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000450 /* AdaptiveDebugScreenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveDebugScreenTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000451 /* ExerciseTracking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseTracking.swift; sourceTree = "<group>"; };
+		B10000012B00000000000452 /* WorkoutSelfReportedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSelfReportedTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1158,6 +1162,7 @@
 				B10000012B00000000000445 /* SchemaMigrationTests.swift */,
 				B10000012B00000000000449 /* AdaptiveDebugViewModelTests.swift */,
 				B10000012B00000000000450 /* AdaptiveDebugScreenTests.swift */,
+				B10000012B00000000000452 /* WorkoutSelfReportedTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1206,6 +1211,7 @@
 				H10000012B00000000000063 /* LateralRaise */,
 				H10000012B00000000000064 /* DumbbellShrug */,
 				H10000012B00000000000065 /* GluteBridge */,
+				B10000012B00000000000451 /* ExerciseTracking.swift */,
 			);
 			path = Exercises;
 			sourceTree = "<group>";
@@ -2272,6 +2278,7 @@
 				A10000012B00000000000446 /* AdaptiveDebugProviding.swift in Sources */,
 				A10000012B00000000000447 /* AdaptiveDebugViewModel.swift in Sources */,
 				A10000012B00000000000448 /* AdaptiveDebugScreen.swift in Sources */,
+				A10000012B00000000000451 /* ExerciseTracking.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2418,6 +2425,7 @@
 				A10000012B00000000000445 /* SchemaMigrationTests.swift in TestSources */,
 				A10000012B00000000000449 /* AdaptiveDebugViewModelTests.swift in TestSources */,
 				A10000012B00000000000450 /* AdaptiveDebugScreenTests.swift in TestSources */,
+				A10000012B00000000000452 /* WorkoutSelfReportedTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

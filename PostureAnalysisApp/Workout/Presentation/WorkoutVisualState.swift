@@ -24,10 +24,12 @@ struct WorkoutVisualInputs: Equatable {
     let hasPose: Bool
     let now: TimeInterval
     let lastRepAt: TimeInterval?
+    /// Self-reported exercises are never "lost" and draw no ghost or threshold lines: the camera can't follow them.
+    let tracking: ExerciseTracking
 
     init(phase: WorkoutPhase, isCounting: Bool, framing: FramingStatus,
          restRemaining: TimeInterval?, isPhoneTilted: Bool, activeTip: WorkoutVisualTip?,
-         hasPose: Bool, now: TimeInterval, lastRepAt: TimeInterval?) {
+         hasPose: Bool, now: TimeInterval, lastRepAt: TimeInterval?, tracking: ExerciseTracking = .camera) {
         self.phase = phase
         self.isCounting = isCounting
         self.framing = framing
@@ -37,6 +39,7 @@ struct WorkoutVisualInputs: Equatable {
         self.hasPose = hasPose
         self.now = now
         self.lastRepAt = lastRepAt
+        self.tracking = tracking
     }
 
     init(session: WorkoutSession, now: TimeInterval, isPhoneTilted: Bool,
@@ -49,7 +52,8 @@ struct WorkoutVisualInputs: Equatable {
                   activeTip: activeTip,
                   hasPose: hasPose,
                   now: now,
-                  lastRepAt: session.lastRepAt)
+                  lastRepAt: session.lastRepAt,
+                  tracking: session.exercise?.tracking ?? .camera)
     }
 }
 
@@ -97,6 +101,8 @@ struct WorkoutVisualState: Equatable {
     let restRemaining: TimeInterval?
     let isRepFlashing: Bool
     let overlay: Overlay
+    /// The live joints over the camera. Off for self-reported exercises, which the camera doesn't follow.
+    var showsLiveSkeleton = true
     let showsCompletionCard: Bool
     let showsExerciseChooser: Bool
 
@@ -144,9 +150,10 @@ struct WorkoutVisualState: Equatable {
         let isComplete = inputs.phase == .exerciseComplete || inputs.phase == .ended
         let isResting = inputs.phase == .resting
         let isExercising = inputs.phase == .exercising
-        let isLost = isExercising && (!inputs.isCounting || !inputs.hasPose)
+        let selfReported = inputs.tracking == .selfReported
+        let isLost = isExercising && !selfReported && (!inputs.isCounting || !inputs.hasPose)
         let isTip = isExercising && inputs.activeTip != nil
-        let isActive = isExercising && inputs.isCounting && inputs.hasPose
+        let isActive = isExercising && (selfReported || (inputs.isCounting && inputs.hasPose))
 
         let primary: Primary
         if isComplete {
@@ -181,6 +188,8 @@ struct WorkoutVisualState: Equatable {
 
         let overlay: Overlay
         switch inputs.phase {
+        case _ where selfReported:
+            overlay = .none
         case .framing, .ready, .resting:
             overlay = .ghostDemo
         case .exercising, .paused:
@@ -199,6 +208,7 @@ struct WorkoutVisualState: Equatable {
             restRemaining: isResting ? inputs.restRemaining : nil,
             isRepFlashing: isRepFlashing,
             overlay: overlay,
+            showsLiveSkeleton: !selfReported,
             showsCompletionCard: inputs.phase == .exerciseComplete,
             showsExerciseChooser: showsExerciseChooser
         )

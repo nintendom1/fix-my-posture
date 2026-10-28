@@ -49,7 +49,7 @@ extension ExerciseDefinition {
 
     /// "2 sets × 8–10 reps", with the limb for one-side-at-a-time exercises.
     var setsAndRepsLabel: String {
-        "\(sets) \(sets == 1 ? "set" : "sets") × \(targetLabel) reps"
+        "\(sets) \(sets == 1 ? "set" : "sets") × \(targetAmountLabel)"
             + (perSide ? " each \(sideLimb.rawValue)" : "")
     }
 }

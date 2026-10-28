@@ -141,7 +141,7 @@ struct WorkoutCoachView: View {
                         .frame(width: geo.size.width, height: geo.size.height)
                 }
 
-                if let overlay = model.overlay {
+                if let overlay = model.overlay, model.hud.visual.showsLiveSkeleton {
                 WorkoutJointOverlayView(overlay: overlay, visualState: model.hud.visual)
                         .frame(width: geo.size.width, height: geo.size.height)
                         .opacity(model.hud.visual.primary == .lost ? 0.2 : 1)

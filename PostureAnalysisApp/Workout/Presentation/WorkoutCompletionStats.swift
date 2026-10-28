@@ -15,16 +15,22 @@ struct WorkoutCompletionStats: Equatable {
         let name: String
         let setCount: Int
         let reps: Int
+        /// Seconds held across the entry's timed sets; nil when it has none.
+        var seconds: Int? = nil
         let weightLabel: String?
         let outcome: WorkoutRecordEntry.Outcome?
+
+        /// "8 reps", or "40 s" for timed holds.
+        var amountLabel: String {
+            seconds.map { "\($0) s" } ?? "\(reps) \(reps == 1 ? "rep" : "reps")"
+        }
 
         var summary: String {
             if outcome == .skipped, setCount == 0 {
                 return "\(name) — Skipped"
             }
 
-            var details = ["\(setCount) \(setCount == 1 ? "set" : "sets")",
-                           "\(reps) \(reps == 1 ? "rep" : "reps")"]
+            var details = ["\(setCount) \(setCount == 1 ? "set" : "sets")", amountLabel]
             if let weightLabel { details.append(weightLabel) }
             if outcome == .skipped { details.append("Skipped") }
             return "\(name) — " + details.joined(separator: " · ")
@@ -55,10 +61,12 @@ struct WorkoutCompletionStats: Equatable {
             let isOneArm = entry.sets.contains { $0.side != nil }
             let latestWeight = entry.sets.reversed().compactMap(\.weight).first?.label
             let weightLabel = latestWeight.map { isOneArm ? "\($0) / side" : $0 }
+            let heldSeconds = entry.sets.compactMap(\.seconds)
             return ExerciseRow(id: entry.id,
                                name: entry.name,
                                setCount: entry.sets.count,
                                reps: entry.sets.reduce(0) { $0 + $1.reps },
+                               seconds: heldSeconds.isEmpty ? nil : heldSeconds.reduce(0, +),
                                weightLabel: weightLabel,
                                outcome: entry.outcome)
         }

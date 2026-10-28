@@ -13,10 +13,12 @@ struct RoutineEditorItemState: Equatable, Identifiable {
     var minimumReps: Int
     var maximumReps: Int
     var isExpanded: Bool
+    /// A timed hold: the rep fields hold seconds.
+    var isTimed = false
 
     var setsAndRepsLabel: String {
         let reps = minimumReps == maximumReps ? "\(minimumReps)" : "\(minimumReps)–\(maximumReps)"
-        return "\(setCount) × \(reps)"
+        return "\(setCount) × \(reps)\(isTimed ? " s" : "")"
     }
 
     var targetLabel: String {

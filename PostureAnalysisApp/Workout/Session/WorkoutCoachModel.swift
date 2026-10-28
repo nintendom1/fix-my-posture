@@ -212,6 +212,12 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     }
 
     private func handleVoiceCommand(_ command: WorkoutCommand, source: WorkoutCommandSource = .touch) {
+        var command = command
+        // "Done" closes the help list when it's open; otherwise it finishes a self-reported set in progress.
+        if command == .closeHelp, !isHelpPresented, session.phase == .exercising,
+           session.exercise?.isSelfReported == true {
+            command = .nextSet
+        }
         let phrase = source == .voice ? lastHeardPhrase : nil
         lastHeardPhrase = nil
         recorder?.recordEvent(.command(command, source: source, phrase: phrase), at: clock.now)
