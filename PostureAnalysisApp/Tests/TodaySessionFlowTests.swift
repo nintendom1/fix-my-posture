@@ -956,7 +956,9 @@ final class TodaySessionFlowTests: XCTestCase {
         let prescription = Prescription(
             id: prescriptionID, issuedAt: Date(timeIntervalSince1970: 900), kind: .todaySession, policyVersion: .v1,
             catalogVersion: "test",
-            items: items.map { PrescriptionItem(id: $0.itemID, family: $0.family, target: $0.rungDose, role: $0.role) },
+            // These tests are about the card and its evidence; BonusRepsTests covers the offer an Easy rating earns.
+            items: items.map { PrescriptionItem(id: $0.itemID, family: $0.family, target: $0.rungDose, role: $0.role,
+                                                offersBonus: false) },
             rationale: "Test")
         return TodaySessionLaunch(prescription: prescription,
                                   plan: WorkoutPlan(id: AdaptiveTrainingCoordinator.todaySessionPlanID,

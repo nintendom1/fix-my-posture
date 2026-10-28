@@ -44,6 +44,9 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     /// The "How was that?" question about an item that just finished; nil when none is open. It never pauses the
     /// workout: rest keeps running, and starting the next set closes it unrated.
     private(set) var effortCard: EffortCardState?
+    /// The "That felt easy. Want one more?" offer after a prescribed item rated Easy; nil when none is open. Like the
+    /// card, it never pauses the workout, and starting the next set closes it as declined.
+    private(set) var bonusOffer: BonusOfferState?
     /// Shared with the saved history record, so a recording and its workout can be matched.
     let workoutID: UUID
 
@@ -107,6 +110,8 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     @ObservationIgnored private let makeEvidenceID: () -> UUID
     /// The finished item behind the open effort card.
     @ObservationIgnored private var pendingEffort: PendingEffort?
+    /// An item rated Easy whose evidence waits until its bonus is settled.
+    @ObservationIgnored private var pendingBonus: PendingBonus?
     /// Items already asked about or recorded, so work the workout ended on is never recorded twice.
     @ObservationIgnored private var reportedItems = Set<FinishedWorkoutItem.Key>()
 
@@ -192,6 +197,13 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
             self?.lastHeardPhrase = nil
             self?.rateEffort(effort)
         }
+        voice?.onBonus = { [weak self] answer in
+            self?.lastHeardPhrase = nil
+            switch answer {
+            case .accept: self?.acceptBonus()
+            case .decline: self?.declineBonus()
+            }
+        }
     }
 
     // MARK: - Lifecycle
@@ -216,7 +228,9 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     func onDisappear() {
         isViewActive = false
         // Leaving with the question open records the item unrated, and so does work that never finished its item.
+        // An open offer is declined and a bonus under way is kept with whatever was done.
         closeEffortCard(rating: nil)
+        flushBonus()
         if adaptive != nil { recordUnfinishedItems() }
         stopTicks()
         stopCapture()
@@ -665,17 +679,47 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         let item: FinishedWorkoutItem
     }
 
+    /// A prescribed item rated Easy whose evidence waits for its optional bonus: offered, taken and under way, then
+    /// rated. The evidence is recorded once, with the bonus, however that ends.
+    private struct PendingBonus {
+        enum Stage: Equatable {
+            case offered
+            /// Taken; the bonus set is the plan item with this id.
+            case running(itemID: UUID)
+        }
+
+        /// The id of the prescribed item's evidence, which the offer and the bonus card share.
+        let evidenceID: UUID
+        let identity: WorkoutOutcomeAdapter.Identity
+        let item: FinishedWorkoutItem
+        /// The prescribed item's own answer: rated Easy, with the amount the user confirmed.
+        let answer: WorkoutOutcomeAdapter.Answer
+        let offered: Dose
+        var stage: Stage
+        /// The bonus set once it finished, for the amount it records.
+        var finished: FinishedWorkoutItem?
+    }
+
     /// Looks at what one reducer input changed. A set that starts, or the workout ending, closes the open question
-    /// unrated; an item that finished opens a new one. Nothing here changes the reducer's transitions.
+    /// unrated and an open offer as declined; an item that finished opens a new question. Nothing here changes the
+    /// reducer's transitions.
     private func observeEffort(since before: WorkoutSession, at now: TimeInterval) {
         let phase = session.phase
-        if effortCard != nil, before.phase != phase, phase == .exercising || phase == .ended {
-            closeEffortCard(rating: nil)
+        if before.phase != phase, phase == .exercising || phase == .ended {
+            if effortCard != nil { closeEffortCard(rating: nil) }
+            if bonusOffer != nil { settleBonus(accepted: false) }
         }
         for finished in FinishedItemDetector.finishedItems(before: before, after: session, at: now) {
-            beginEffort(for: finished)
+            if finished.isBonus {
+                finishBonus(finished)
+            } else {
+                beginEffort(for: finished)
+            }
         }
-        if before.phase != .ended, phase == .ended { recordUnfinishedItems() }
+        if before.phase != .ended, phase == .ended {
+            recordUnfinishedItems()
+            flushBonus()
+        }
     }
 
     /// When the workout ends or its screen closes, work that never finished its item (the first set of two, then End
@@ -687,14 +731,16 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     }
 
     private func beginEffort(for finished: FinishedWorkoutItem) {
-        guard let identity = effortIdentity(for: finished) else { return }
+        // A bonus is asked about on its own card, never as an item of its own.
+        guard !finished.isBonus, let identity = effortIdentity(for: finished) else { return }
         // A routine exercise skipped before any work has nothing to rate.
         if case .manual = identity.origin, finished.result == .skipped, !finished.didAnyWork { return }
         // Work the workout ended on is recorded once, however many times that is noticed.
         if finished.result == .endedWorkout, reportedItems.contains(finished.key) { return }
         reportedItems.insert(finished.key)
-        // An earlier question that is still open closes unrated first.
+        // An earlier question that is still open closes unrated first, and an open offer is declined.
         closeEffortCard(rating: nil)
+        if pendingBonus?.stage == .offered { settleBonus(accepted: false) }
         let id = makeEvidenceID()
         guard finished.result != .endedWorkout else {
             // The workout is over, so there is no question: the item is recorded as it ended.
@@ -712,10 +758,13 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     private func effortIdentity(for finished: FinishedWorkoutItem) -> WorkoutOutcomeAdapter.Identity? {
         if let launch = todayLaunch, let planItemID = finished.planItemID,
            let item = launch.items.first(where: { $0.itemID == planItemID }) {
+            // Only a main item whose prescription offers one may earn a bonus.
+            let offersBonus = item.role == .main
+                && launch.prescription.items.first(where: { $0.id == item.itemID })?.offersBonus == true
             return WorkoutOutcomeAdapter.Identity(
                 origin: .adaptive(prescriptionID: launch.prescription.id, itemID: item.itemID,
                                   prescribed: item.rungDose.dose),
-                family: item.family, variant: item.rungDose.variant)
+                family: item.family, variant: item.rungDose.variant, offersBonus: offersBonus)
         }
         guard let rung = adaptive?.activeRung(for: finished.exerciseID, reducedRange: finished.reducedRange) else {
             return nil
@@ -725,18 +774,103 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
 
     /// Closes the open question and records the item with the user's rating, or unrated when `rating` is nil.
     private func closeEffortCard(rating: EffortFeedback?) {
-        guard let card = effortCard, let pending = pendingEffort else { return }
+        guard let card = effortCard else { return }
+        let answer = WorkoutOutcomeAdapter.Answer(effort: rating, amount: card.amount, isAdjusted: card.isAdjusted)
+        if card.isBonus {
+            effortCard = nil
+            voice?.acceptsEffortFeedback = false
+            settleBonus(accepted: true, answer: answer)
+            return
+        }
+        guard let pending = pendingEffort else { return }
         effortCard = nil
         pendingEffort = nil
         voice?.acceptsEffortFeedback = false
-        let answer = WorkoutOutcomeAdapter.Answer(effort: rating, amount: card.amount, isAdjusted: card.isAdjusted)
+        // Easy on a main item that offers one earns a bonus offer; the evidence then waits for the offer's outcome.
+        if let offered = WorkoutOutcomeAdapter.bonusOffer(identity: pending.identity, item: pending.item, answer: answer) {
+            pendingBonus = PendingBonus(evidenceID: card.id, identity: pending.identity, item: pending.item,
+                                        answer: answer, offered: offered, stage: .offered)
+            bonusOffer = BonusOfferState(id: card.id, offered: offered)
+            voice?.acceptsBonusAnswer = true
+            return
+        }
         recordEvidence(id: card.id, identity: pending.identity, item: pending.item, answer: answer)
     }
 
     private func recordEvidence(id: UUID, identity: WorkoutOutcomeAdapter.Identity, item: FinishedWorkoutItem,
-                                answer: WorkoutOutcomeAdapter.Answer?) {
+                                answer: WorkoutOutcomeAdapter.Answer?, bonus: BonusRecord? = nil) {
         adaptive?.record(WorkoutOutcomeAdapter.evidence(id: id, recordedAt: evidenceDate(), workoutID: workoutID,
-                                                        identity: identity, item: item, answer: answer))
+                                                        identity: identity, item: item, answer: answer, bonus: bonus))
+    }
+
+    // MARK: - Bonus
+
+    /// Takes the offer: one more set of the same exercise and variant is inserted right after the item, without a
+    /// rest. Nothing is recorded until the bonus is done and rated, or the workout ends.
+    func acceptBonus() {
+        guard let pending = pendingBonus, pending.stage == .offered, let after = pending.item.planItemID else { return }
+        let itemID = makeEvidenceID()
+        bonusOffer = nil
+        voice?.acceptsBonusAnswer = false
+        pendingBonus?.stage = .running(itemID: itemID)
+        dispatch(.startBonus(BonusRequest(itemID: itemID, after: after, amount: pending.offered.amount)))
+        // The reducer refuses a bonus it can't run; nothing was taken then, and nothing is lost.
+        if session.plan?.items.contains(where: { $0.id == itemID }) != true { settleBonus(accepted: false) }
+    }
+
+    /// Declines the offer. The item is a full success; its evidence is recorded now.
+    func declineBonus() {
+        guard pendingBonus?.stage == .offered else { return }
+        settleBonus(accepted: false)
+    }
+
+    /// The bonus set finished or was left: ask how it was when there is something to rate, else record it as it ended.
+    private func finishBonus(_ finished: FinishedWorkoutItem) {
+        guard var pending = pendingBonus, case .running(let itemID) = pending.stage,
+              itemID == finished.planItemID else { return }
+        pending.finished = finished
+        pendingBonus = pending
+        // A workout that ended, or a bonus skipped before any work, has no question to ask.
+        guard finished.result != .endedWorkout, finished.result == .completed || finished.didAnyWork else {
+            settleBonus(accepted: true)
+            return
+        }
+        effortCard = EffortCardState(id: pending.evidenceID, unit: finished.unit, setCount: finished.setAmounts.count,
+                                     amount: finished.counted, isBonus: true)
+        voice?.acceptsEffortFeedback = true
+    }
+
+    /// The workout ended or its screen closed: an open offer is declined, and a bonus under way is kept with whatever
+    /// was done.
+    private func flushBonus() {
+        guard var pending = pendingBonus else { return }
+        guard case .running(let itemID) = pending.stage else {
+            settleBonus(accepted: false)
+            return
+        }
+        // Closing the screen mid-set never ran the reducer's end transition, so the set under way is read from the
+        // session now. The usual rules apply: seconds held are kept, a camera count stays unconfirmed, and a
+        // self-reported set nobody marked done adds nothing.
+        if pending.finished == nil, let inProgress = FinishedItemDetector.itemInProgress(in: session, at: clock.now),
+           inProgress.planItemID == itemID {
+            pending.finished = inProgress
+            pendingBonus = pending
+        }
+        settleBonus(accepted: true)
+    }
+
+    /// Records the item's evidence once, with the bonus's outcome. Declining carries nothing else. A bonus taken
+    /// carries the amount the user confirmed on its card, and the rating if they gave one; a lost tracker is never
+    /// read as a failed bonus.
+    private func settleBonus(accepted: Bool, answer: WorkoutOutcomeAdapter.Answer? = nil) {
+        guard let pending = pendingBonus else { return }
+        pendingBonus = nil
+        bonusOffer = nil
+        voice?.acceptsBonusAnswer = false
+        let record = WorkoutOutcomeAdapter.bonusRecord(offered: pending.offered, accepted: accepted,
+                                                       item: pending.finished, answer: answer)
+        recordEvidence(id: pending.evidenceID, identity: pending.identity, item: pending.item, answer: pending.answer,
+                       bonus: record)
     }
 
     func rateEffort(_ effort: EffortFeedback) {

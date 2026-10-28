@@ -86,7 +86,12 @@ struct WorkoutRecord: Codable, Equatable, Identifiable {
                 guard let record = session.planRecords[item.id] else { continue }
                 let exercise = session.exercises.first { $0.id == item.exerciseID }
                 guard !record.setReps.isEmpty || record.outcome != nil else { continue }
-                let outcome: WorkoutRecordEntry.Outcome? = record.outcome.map { $0 == .completed ? .completed : .skipped }
+                // A bonus nobody did anything in was never a skipped or unreached item, so it leaves no entry.
+                guard !item.isBonus || !record.setReps.isEmpty else { continue }
+                // A bonus left partway keeps its work with no outcome: it was never prescribed, so it isn't "skipped".
+                let outcome: WorkoutRecordEntry.Outcome? = record.outcome.flatMap { outcome in
+                    outcome == .completed ? .completed : (item.isBonus ? nil : .skipped)
+                }
                 // Named from the occurrence it ran: a shallow variant, or an optional offer, keeps that in its name.
                 let name = exercise.map { item.label(for: $0) } ?? item.exerciseID.rawValue
                 entries.append(WorkoutRecordEntry(exerciseID: item.exerciseID, name: name,

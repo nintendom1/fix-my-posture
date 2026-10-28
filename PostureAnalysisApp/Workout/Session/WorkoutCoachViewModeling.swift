@@ -78,6 +78,8 @@ protocol WorkoutCoachViewModeling: AnyObject, Observable {
     var workoutID: UUID { get }
     /// The "How was that?" question about the item that just finished; nil when none is open.
     var effortCard: EffortCardState? { get }
+    /// The "Want one more?" offer after an item rated Easy; nil when none is open.
+    var bonusOffer: BonusOfferState? { get }
 
     func send(_ intent: WorkoutIntent)
     func onAppear(isApplicationActive: Bool)
@@ -88,9 +90,14 @@ protocol WorkoutCoachViewModeling: AnyObject, Observable {
     func skipEffort()
     /// Changes the card's amount by whole steps (1 rep or 5 seconds each).
     func adjustEffortAmount(by steps: Int)
+    /// Takes the offer: one more rep (or a few more seconds) of the same exercise.
+    func acceptBonus()
+    /// Declines the offer with no penalty.
+    func declineBonus()
 }
 
 extension WorkoutCoachViewModeling {
-    /// The completion card or summary waits until the last item's question is answered or skipped.
-    var showsCompletionCard: Bool { hud.visual.showsCompletionCard && effortCard == nil }
+    /// The completion card or summary waits until the last item's question is answered or skipped, and its bonus offer
+    /// is taken or declined.
+    var showsCompletionCard: Bool { hud.visual.showsCompletionCard && effortCard == nil && bonusOffer == nil }
 }
