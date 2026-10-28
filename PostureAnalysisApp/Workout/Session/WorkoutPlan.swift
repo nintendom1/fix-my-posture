@@ -7,6 +7,33 @@ struct WorkoutPlanItem: Equatable, Identifiable {
     let exerciseID: ExerciseID
     var sets: Int
     var targetReps: ClosedRange<Int>
+    /// Runs the exercise's smaller-range variant, so a shallow floor and its full-range sample can share one exercise
+    /// id in one plan.
+    var reducedRange = false
+    /// An offer the user may decline, such as Today's Session harder sample.
+    var isOptional = false
+
+    /// The exercise this occurrence runs, before its sets and reps apply.
+    func resolved(from base: ExerciseDefinition) -> ExerciseDefinition {
+        reducedRange ? (base.reducedRange?() ?? base) : base
+    }
+
+    /// Starts the label of an optional occurrence.
+    static let optionalPrefix = "Optional: "
+
+    /// The name a plan shows for this occurrence: the variant it runs, with "Optional: " for an optional one.
+    func label(for exercise: ExerciseDefinition?) -> String {
+        let name = exercise.map { resolved(from: $0).displayName } ?? "Unavailable exercise"
+        return isOptional ? Self.optionalPrefix + name : name
+    }
+}
+
+extension ExerciseDefinition {
+    /// True for a smaller-range variant made by another definition's `reducedRange` (a shallow wall push-up), which
+    /// shares its exercise id with the full-range one. Recordings mark it so replay runs the same variant.
+    var isReducedRangeVariant: Bool {
+        reducedRange == nil && ExerciseCatalog.definition(for: id)?.reducedRange != nil
+    }
 }
 
 /// Exercises run one after another, such as a Saved Set.

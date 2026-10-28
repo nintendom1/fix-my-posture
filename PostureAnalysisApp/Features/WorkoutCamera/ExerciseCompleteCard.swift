@@ -144,7 +144,7 @@ struct PlanItemSummaryRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text("\(index + 1). \(exercise?.displayName ?? "Unavailable exercise")")
+            Text("\(index + 1). \(item.label(for: exercise))")
                 .textStyle(.body)
                 .foregroundStyle(ColorTokens.palette().textPrimary)
             Text(detail)
@@ -165,7 +165,9 @@ struct PlanItemSummaryRow: View {
         }.joined(separator: " · ")
         switch record?.outcome {
         case .completed: return sets
-        case .skipped: return sets.isEmpty ? "Skipped" : "Skipped after \(sets)"
+        case .skipped:
+            if sets.isEmpty { return item.isOptional ? "Optional, skipped" : "Skipped" }
+            return "Skipped after \(sets)"
         case nil: return "Not reached"
         }
     }

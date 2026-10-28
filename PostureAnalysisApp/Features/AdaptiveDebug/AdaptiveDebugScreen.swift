@@ -23,6 +23,7 @@ struct AdaptiveDebugScreen: View {
                 messageCard("Adaptive training data is unavailable.")
             } else if let snapshot = viewModel.snapshot {
                 headerCard(snapshot)
+                startTodayCard
                 if let errorMessage = viewModel.errorMessage {
                     messageCard(errorMessage, color: palette.danger)
                 }
@@ -53,6 +54,33 @@ struct AdaptiveDebugScreen: View {
                 detailLine("Ladders", value: snapshot.catalog.version)
                 detailLine("Time zone", value: snapshot.timeZone)
                 detailLine("Today's Session", value: todayStatus(snapshot.today))
+            }
+        }
+    }
+
+    /// The developer entry point to Today's Session, enabled only while the engine says it is ready.
+    private var startTodayCard: some View {
+        debugCard {
+            VStack(alignment: .leading, spacing: 8) {
+                Button {
+                    viewModel.startTodaySession()
+                } label: {
+                    Text("Start Today's Session")
+                        .font(.system(size: 15, weight: .heavy, design: .rounded))
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(viewModel.canStartToday ? palette.tabActive : palette.textMuted)
+                .disabled(!viewModel.canStartToday)
+                .accessibilityIdentifier("adaptiveDebugStartTodayButton")
+
+                if let message = viewModel.startMessage {
+                    Text(message)
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(palette.danger)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }

@@ -72,7 +72,8 @@ final class SwiftDataWorkoutHistoryRepository: WorkoutHistoryRepository {
     }
 }
 
-/// Saves history and consumes the user's one-time routine choice only after a routine workout is stored.
+/// Saves history and consumes the user's one-time routine choice only after a routine workout is stored. Today's
+/// Session has a plan id but is not a routine, so it never consumes the choice.
 @MainActor
 enum WorkoutHistorySaver {
     static func save(
@@ -81,7 +82,7 @@ enum WorkoutHistorySaver {
         preferences: any AppPreferencesStoring
     ) throws {
         try repository.save(record)
-        if record.planID != nil {
+        if record.planID != nil, !AdaptiveTrainingCoordinator.isTodaySession(record) {
             preferences.upNextOverride = nil
         }
     }

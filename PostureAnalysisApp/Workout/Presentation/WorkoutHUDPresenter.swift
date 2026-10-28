@@ -179,7 +179,8 @@ struct WorkoutHUDInputs: Equatable {
         guard session.isFollowingPlan, let plan = session.plan else { return nil }
         for item in plan.items.dropFirst(session.planIndex + 1) {
             guard let definition = session.exercises.first(where: { $0.id == item.exerciseID }) else { continue }
-            return WorkoutHUDExercise(exercise: definition.withTarget(sets: item.sets, reps: item.targetReps))
+            return WorkoutHUDExercise(exercise: item.resolved(from: definition)
+                .withTarget(sets: item.sets, reps: item.targetReps))
         }
         return nil
     }

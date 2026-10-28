@@ -449,6 +449,14 @@
 		A10000012B00000000000459 /* SitToStandExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000459 /* SitToStandExercise.swift */; };
 		A10000012B00000000000460 /* SitToStandAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000460 /* SitToStandAnalyzer.swift */; };
 		A10000012B00000000000461 /* SitToStandAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000461 /* SitToStandAnalyzerTests.swift */; };
+		A10000012B00000000000462 /* AdaptiveTrainingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000462 /* AdaptiveTrainingCoordinator.swift */; };
+		A10000012B00000000000463 /* WorkoutOutcomeAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000463 /* WorkoutOutcomeAdapter.swift */; };
+		A10000012B00000000000464 /* EffortPhraseParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000464 /* EffortPhraseParser.swift */; };
+		A10000012B00000000000465 /* EffortCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000465 /* EffortCardView.swift */; };
+		A10000012B00000000000466 /* AdaptiveTrainingCoordinatorTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000466 /* AdaptiveTrainingCoordinatorTests.swift */; };
+		A10000012B00000000000467 /* WorkoutOutcomeAdapterTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000467 /* WorkoutOutcomeAdapterTests.swift */; };
+		A10000012B00000000000468 /* EffortPhraseParserTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000468 /* EffortPhraseParserTests.swift */; };
+		A10000012B00000000000469 /* TodaySessionFlowTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000469 /* TodaySessionFlowTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -906,6 +914,14 @@
 		B10000012B00000000000459 /* SitToStandExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SitToStandExercise.swift; sourceTree = "<group>"; };
 		B10000012B00000000000460 /* SitToStandAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SitToStandAnalyzer.swift; sourceTree = "<group>"; };
 		B10000012B00000000000461 /* SitToStandAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SitToStandAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000462 /* AdaptiveTrainingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveTrainingCoordinator.swift; sourceTree = "<group>"; };
+		B10000012B00000000000463 /* WorkoutOutcomeAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutOutcomeAdapter.swift; sourceTree = "<group>"; };
+		B10000012B00000000000464 /* EffortPhraseParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EffortPhraseParser.swift; sourceTree = "<group>"; };
+		B10000012B00000000000465 /* EffortCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EffortCardView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000466 /* AdaptiveTrainingCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveTrainingCoordinatorTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000467 /* WorkoutOutcomeAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutOutcomeAdapterTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000468 /* EffortPhraseParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EffortPhraseParserTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000469 /* TodaySessionFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodaySessionFlowTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1184,6 +1200,10 @@
 				B10000012B00000000000455 /* WallPushUpAnalyzerTests.swift */,
 				B10000012B00000000000458 /* InclinePushUpAnalyzerTests.swift */,
 				B10000012B00000000000461 /* SitToStandAnalyzerTests.swift */,
+				B10000012B00000000000466 /* AdaptiveTrainingCoordinatorTests.swift */,
+				B10000012B00000000000467 /* WorkoutOutcomeAdapterTests.swift */,
+				B10000012B00000000000468 /* EffortPhraseParserTests.swift */,
+				B10000012B00000000000469 /* TodaySessionFlowTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1309,6 +1329,7 @@
 				B10000012B00000000000162 /* AudioSessionControlling.swift */,
 				B10000012B00000000000163 /* VoiceControlling.swift */,
 				B10000012B00000000000434 /* AudioWorkTiming.swift */,
+				B10000012B00000000000464 /* EffortPhraseParser.swift */,
 			);
 			path = Voice;
 			sourceTree = "<group>";
@@ -1633,6 +1654,7 @@
 				B10000012B00000000000104 /* ExerciseChooserOverlay.swift */,
 				B10000012B00000000000097 /* WorkoutTipView.swift */,
 				B10000012B00000000000386 /* WorkoutGhostGeometry.swift */,
+				B10000012B00000000000465 /* EffortCardView.swift */,
 			);
 			path = WorkoutCamera;
 			sourceTree = "<group>";
@@ -1905,6 +1927,8 @@
 			children = (
 				B10000012B00000000000440 /* ExerciseVariantBridge.swift */,
 				B10000012B00000000000446 /* AdaptiveDebugProviding.swift */,
+				B10000012B00000000000462 /* AdaptiveTrainingCoordinator.swift */,
+				B10000012B00000000000463 /* WorkoutOutcomeAdapter.swift */,
 			);
 			path = AdaptiveTraining;
 			sourceTree = "<group>";
@@ -2336,6 +2360,10 @@
 				A10000012B00000000000457 /* InclinePushUpAnalyzer.swift in Sources */,
 				A10000012B00000000000459 /* SitToStandExercise.swift in Sources */,
 				A10000012B00000000000460 /* SitToStandAnalyzer.swift in Sources */,
+				A10000012B00000000000462 /* AdaptiveTrainingCoordinator.swift in Sources */,
+				A10000012B00000000000463 /* WorkoutOutcomeAdapter.swift in Sources */,
+				A10000012B00000000000464 /* EffortPhraseParser.swift in Sources */,
+				A10000012B00000000000465 /* EffortCardView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2486,6 +2514,10 @@
 				A10000012B00000000000455 /* WallPushUpAnalyzerTests.swift in TestSources */,
 				A10000012B00000000000458 /* InclinePushUpAnalyzerTests.swift in TestSources */,
 				A10000012B00000000000461 /* SitToStandAnalyzerTests.swift in TestSources */,
+				A10000012B00000000000466 /* AdaptiveTrainingCoordinatorTests.swift in TestSources */,
+				A10000012B00000000000467 /* WorkoutOutcomeAdapterTests.swift in TestSources */,
+				A10000012B00000000000468 /* EffortPhraseParserTests.swift in TestSources */,
+				A10000012B00000000000469 /* TodaySessionFlowTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

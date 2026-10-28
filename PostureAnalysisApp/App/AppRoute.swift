@@ -9,6 +9,9 @@ enum AppRoute: Codable, Hashable, Identifiable {
     case library
     case exercise(id: ExerciseID)
     case workout(exerciseID: ExerciseID?, routineID: UUID?)
+    /// Today's Session: the engine's one-family prescription, run in the coach. The prepared session lives in
+    /// `AdaptiveTrainingCoordinator`, not in the route.
+    case todaySession
     case workoutComplete
     case progress
     case history
@@ -25,7 +28,7 @@ enum AppRoute: Codable, Hashable, Identifiable {
 
     var owningTab: AppTab {
         switch self {
-        case .train, .library, .exercise, .workout, .workoutComplete, .settings:
+        case .train, .library, .exercise, .workout, .todaySession, .workoutComplete, .settings:
             return .train
         case .routines, .routine, .routineEditor:
             return .routines
@@ -39,7 +42,7 @@ enum AppRoute: Codable, Hashable, Identifiable {
 
     var isPresentedFullScreen: Bool {
         switch self {
-        case .settings, .workout, .livePostureCheck:
+        case .settings, .workout, .todaySession, .livePostureCheck:
             return true
         default:
             return false
