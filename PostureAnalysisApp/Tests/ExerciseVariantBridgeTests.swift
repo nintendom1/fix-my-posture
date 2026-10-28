@@ -52,6 +52,16 @@ final class ExerciseVariantBridgeTests: XCTestCase {
         XCTAssertEqual(bridge.exercise(for: baseRung)?.displayName, "Wall Push-Up")
     }
 
+    func testInclinePushUpRungResolvesAndIsNoLongerListedAsMissing() throws {
+        XCTAssertFalse(ExerciseVariantBridge.notYetBuilt.contains("incline_push_up"))
+        let rung = try XCTUnwrap(bridge.ladders.rung(VariantID(rawValue: "push.incline_push_up")))
+        XCTAssertEqual(rung.exerciseID, "incline_push_up")
+        let exercise = try XCTUnwrap(bridge.exercise(for: rung))
+        XCTAssertEqual(exercise.id, .inclinePushUp)
+        XCTAssertEqual(exercise.displayName, "Incline Push-Up")
+        XCTAssertNil(exercise.reducedRange, "The incline push-up has no reduced-range variant.")
+    }
+
     func testAvailabilityOffersBuiltExercisesWithinTheUsersEquipment() throws {
         let withoutDumbbells = bridge.availability(equipment: [])
         let pushUp = try XCTUnwrap(bridge.ladders.rung(VariantID(rawValue: "push.push_up")))

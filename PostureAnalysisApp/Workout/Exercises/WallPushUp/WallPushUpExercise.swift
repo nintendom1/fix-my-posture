@@ -11,11 +11,29 @@ extension CoachingCueID {
     static let wallPushUpLockout = CoachingCueID(rawValue: "wallpush.lockout")
 }
 
-/// Prototype thresholds for a wall push-up. A shallow configuration is the push family's reduced-range floor.
-struct WallPushUpConfiguration: Codable {
+/// Prototype thresholds for a push-up with the hands planted on a wall or a bench. A shallow wall configuration is
+/// the push family's reduced-range floor.
+struct PlantedPushUpConfiguration: Codable {
+    /// The surface, which sets how the distance ratio is measured and which coaching cues apply.
+    enum Kind: String, Codable {
+        /// Horizontal shoulder-to-wrist distance, `h`, for a body that is close to upright.
+        case wall
+        /// Straight-line shoulder-to-wrist distance, `r`, which holds at any body angle.
+        case incline
+
+        var signalName: String { self == .wall ? "h" : "r" }
+
+        var deeperCue: CoachingCueID { self == .wall ? .wallPushUpDeeper : .inclinePushUpDeeper }
+        var bodyLineCue: CoachingCueID { self == .wall ? .wallPushUpBodyLine : .inclinePushUpBodyLine }
+        var lockoutCue: CoachingCueID { self == .wall ? .wallPushUpLockout : .inclinePushUpLockout }
+    }
+
+    var kind: Kind = .wall
     var upMinElbowAngle: Double = 150
+    /// Up needs the distance ratio (`h` or `r`, by `kind`) at least this large.
     var upMinHorizontalRatio: Double = 0.75
     var downMaxElbowAngle: Double = 115
+    /// Down needs the distance ratio (`h` or `r`, by `kind`) at most this large.
     var downMaxHorizontalRatio: Double = 0.6
     var confirmationSamples = 2
     var minimumRepDuration: TimeInterval = 0.8
@@ -29,10 +47,14 @@ struct WallPushUpConfiguration: Codable {
     var bodyLineMaximumBend: Double = 20
     var shallow: Bool = false
 
-    static let standard = WallPushUpConfiguration()
+    static let wall = PlantedPushUpConfiguration()
 
-    static var reducedRange: WallPushUpConfiguration {
-        var configuration = standard
+    /// Straight-line `r`: Up at `r ≥ 0.85` and `e ≥ 150°`; Down at `r ≤ 0.7` and `e ≤ 105°`.
+    static let incline = PlantedPushUpConfiguration(kind: .incline, upMinElbowAngle: 150, upMinHorizontalRatio: 0.85,
+                                                    downMaxElbowAngle: 105, downMaxHorizontalRatio: 0.7)
+
+    static var reducedRange: PlantedPushUpConfiguration {
+        var configuration = wall
         configuration.downMaxElbowAngle = 135
         configuration.downMaxHorizontalRatio = 0.72
         configuration.shallow = true
@@ -41,7 +63,7 @@ struct WallPushUpConfiguration: Codable {
 }
 
 enum WallPushUpExercise {
-    static func definition(configuration: WallPushUpConfiguration = .standard) -> ExerciseDefinition {
+    static func definition(configuration: PlantedPushUpConfiguration = .wall) -> ExerciseDefinition {
         let shortName = configuration.shallow ? "Shallow Wall Push-Up" : "Wall Push-Up"
         return ExerciseDefinition(
             id: .wallPushUp,

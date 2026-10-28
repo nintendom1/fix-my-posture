@@ -1,12 +1,15 @@
 import CoreGraphics
 import Foundation
 
-/// Counts a wall push-up from the arm nearest the phone: straight arms are Up, bent elbows near the wall are
-/// Down, and returning to Up completes one rep. The chosen arm stays fixed through brief occlusions; after a tracking
-/// gap (the user turned around, or that arm left the frame) the analyzer resets and picks the visible arm again.
-final class WallPushUpAnalyzer: ExerciseAnalyzing {
+/// Counts a push-up with the hands planted on a fixed surface, from the arm nearest the phone: straight arms are Up,
+/// bent elbows near the surface are Down, and returning to Up completes one rep. The wall measures how far the
+/// shoulder is from the wrist across the image; the incline measures the straight-line distance, which works at any
+/// body angle (`PlantedPushUpConfiguration.Kind`). The chosen arm stays fixed through brief occlusions; after a
+/// tracking gap (the user turned around, or that arm left the frame) the analyzer resets and picks the visible arm
+/// again. `WallPushUpAnalyzer` and `InclinePushUpAnalyzer` only choose the default configuration.
+class PlantedPushUpAnalyzer: ExerciseAnalyzing {
     let epoch: Int
-    private let configuration: WallPushUpConfiguration
+    private let configuration: PlantedPushUpConfiguration
     private var tracker: HysteresisPhaseTracker
     private var trackedSide: BodySide?
     private var lastSample: TimeInterval?
@@ -15,17 +18,18 @@ final class WallPushUpAnalyzer: ExerciseAnalyzing {
     private var awayFromStartSince: TimeInterval?
     private var cycle: Cycle = .awaitingStart
     private var lastThresholds: [BodySide: ArmThresholds] = [:]
-    private var formMonitor = WallPushUpFormMonitor()
+    private var formMonitor: PlantedPushUpFormMonitor
 
     private enum Cycle {
         case awaitingStart
         case active(movementStart: TimeInterval, reachedDown: Bool)
     }
 
-    init(epoch: Int, configuration: WallPushUpConfiguration = .standard) {
+    init(epoch: Int, configuration: PlantedPushUpConfiguration = .wall) {
         self.epoch = epoch
         self.configuration = configuration
         tracker = HysteresisPhaseTracker(requiredSamples: configuration.confirmationSamples)
+        formMonitor = PlantedPushUpFormMonitor(signalName: configuration.kind.signalName)
     }
 
     func process(_ frame: PoseFrame, counting: Bool) -> ExerciseAnalysis {
@@ -53,17 +57,17 @@ final class WallPushUpAnalyzer: ExerciseAnalyzing {
 
         let ruler = liveRuler(for: arm, at: time)
         let referenceRuler = max(lockedRuler ?? ruler, 1)
-        let horizontalRatio = Double(abs(arm.wrist.x - arm.shoulder.x) / referenceRuler)
-        let zone = classify(horizontalRatio: horizontalRatio, elbowAngle: arm.elbowAngle)
+        let ratio = distanceRatio(for: arm, ruler: referenceRuler)
+        let zone = classify(ratio: ratio, elbowAngle: arm.elbowAngle)
         let newlyConfirmed = tracker.update(zone)
-        let expired = updateLock(zone: zone, horizontalRatio: horizontalRatio, elbowAngle: arm.elbowAngle,
+        let expired = updateLock(zone: zone, ratio: ratio, elbowAngle: arm.elbowAngle,
                                  liveRuler: ruler, at: time)
         if let pendingRejection {
             analysis.rejections.append(pendingRejection)
             self.pendingRejection = nil
         }
 
-        analysis.readings[side] = ArmReading(signal: horizontalRatio, elbowAngle: arm.elbowAngle, zone: zone)
+        analysis.readings[side] = ArmReading(signal: ratio, elbowAngle: arm.elbowAngle, zone: zone)
         lastThresholds = [side: makeThresholds(arm: arm, ruler: referenceRuler)]
         analysis.thresholds = lastThresholds
         analysis.endPositionSides = tracker.confirmed == .top ? [side] : []
@@ -83,7 +87,7 @@ final class WallPushUpAnalyzer: ExerciseAnalyzing {
             let bodyLineBend = bodyLineBend(for: side, in: frame)
             analysis.repForms = formMonitor.update(
                 at: time,
-                horizontalRatio: horizontalRatio,
+                ratio: ratio,
                 bodyLineBend: bodyLineBend,
                 zone: zone,
                 newlyConfirmed: newlyConfirmed,
@@ -150,10 +154,18 @@ final class WallPushUpAnalyzer: ExerciseAnalyzing {
         return (candidate.0, candidate.1)
     }
 
-    private func classify(horizontalRatio: Double, elbowAngle: Double) -> MovementZone {
-        if horizontalRatio >= configuration.upMinHorizontalRatio,
+    /// The shoulder-to-wrist distance in arm lengths: horizontal for the wall, straight-line for the incline.
+    private func distanceRatio(for arm: ArmPoints, ruler: CGFloat) -> Double {
+        switch configuration.kind {
+        case .wall: return Double(abs(arm.wrist.x - arm.shoulder.x) / ruler)
+        case .incline: return Double(ArmGeometry.distance(arm.shoulder, arm.wrist) / ruler)
+        }
+    }
+
+    private func classify(ratio: Double, elbowAngle: Double) -> MovementZone {
+        if ratio >= configuration.upMinHorizontalRatio,
            elbowAngle >= configuration.upMinElbowAngle { return .bottom }
-        if horizontalRatio <= configuration.downMaxHorizontalRatio,
+        if ratio <= configuration.downMaxHorizontalRatio,
            elbowAngle <= configuration.downMaxElbowAngle { return .top }
         return .middle
     }
@@ -166,11 +178,11 @@ final class WallPushUpAnalyzer: ExerciseAnalyzing {
 
     /// Lock the first confirmed Up. Later refreshes require a more complete return than the Up threshold, so a
     /// return that just clears the line cannot ratchet the ruler toward the wall.
-    private func updateLock(zone: MovementZone, horizontalRatio: Double, elbowAngle: Double,
+    private func updateLock(zone: MovementZone, ratio: Double, elbowAngle: Double,
                             liveRuler: CGFloat, at time: TimeInterval) -> Bool {
         if tracker.confirmed == .bottom, zone == .bottom {
             // The first confirmed Up may sit on the line. Later refreshes require a true, straight-arm rest.
-            let trueRest = horizontalRatio >= configuration.referenceRefreshMinHorizontalRatio
+            let trueRest = ratio >= configuration.referenceRefreshMinHorizontalRatio
                 && elbowAngle >= configuration.referenceRefreshMinElbowAngle
             if lockedRuler == nil || trueRest {
                 lockedRuler = liveRuler
@@ -198,10 +210,28 @@ final class WallPushUpAnalyzer: ExerciseAnalyzing {
     private func makeThresholds(arm: ArmPoints, ruler: CGFloat) -> ArmThresholds {
         let facing: CGFloat = arm.wrist.x >= arm.shoulder.x ? 1 : -1
         func line(ratio: Double, label: String) -> ThresholdLine {
-            let shoulderX = arm.wrist.x - facing * CGFloat(ratio) * ruler
             let halfHeight = max(8, ruler * 0.14)
-            return ThresholdLine(from: CGPoint(x: shoulderX, y: arm.shoulder.y - halfHeight),
-                                 to: CGPoint(x: shoulderX, y: arm.shoulder.y + halfHeight), label: label)
+            switch configuration.kind {
+            case .wall:
+                let shoulderX = arm.wrist.x - facing * CGFloat(ratio) * ruler
+                return ThresholdLine(from: CGPoint(x: shoulderX, y: arm.shoulder.y - halfHeight),
+                                     to: CGPoint(x: shoulderX, y: arm.shoulder.y + halfHeight), label: label)
+            case .incline:
+                // Where the shoulder sits at this ratio, along the line from the wrist through the shoulder. The
+                // segment crosses that line square-on, so it reads as a distance from the planted hand.
+                let reach = ArmGeometry.distance(arm.shoulder, arm.wrist)
+                let direction = reach > 1
+                    ? CGVector(dx: (arm.shoulder.x - arm.wrist.x) / reach, dy: (arm.shoulder.y - arm.wrist.y) / reach)
+                    : CGVector(dx: -facing, dy: 0)
+                let center = CGPoint(x: arm.wrist.x + direction.dx * CGFloat(ratio) * ruler,
+                                     y: arm.wrist.y + direction.dy * CGFloat(ratio) * ruler)
+                var across = CGVector(dx: -direction.dy, dy: direction.dx)
+                if across.dy < 0 { across = CGVector(dx: -across.dx, dy: -across.dy) }
+                return ThresholdLine(from: CGPoint(x: center.x - across.dx * halfHeight,
+                                                   y: center.y - across.dy * halfHeight),
+                                     to: CGPoint(x: center.x + across.dx * halfHeight,
+                                                 y: center.y + across.dy * halfHeight), label: label)
+            }
         }
         let confirmed: RepCheckpoint?
         switch tracker.confirmed {
@@ -235,13 +265,27 @@ final class WallPushUpAnalyzer: ExerciseAnalyzing {
     }
 }
 
-/// Evaluates wall-push-up form independently from the rep tracker. An attempt starts at a confirmed Up and only
-/// counts once the arm has left Up for two samples in a row. It ends on the first sample back at Up: one frame
-/// before the tracker confirms Up and counts the rep, so its form reaches the set even when that rep completes it.
-/// Down is the tracker's confirmed Down, so one noisy sample neither satisfies depth nor starts a lockout check. The
-/// body-line value is captured only at the deepest sample, and estimates invalidate this state without interrupting
-/// counting.
-struct WallPushUpFormMonitor {
+/// The wall push-up: `PlantedPushUpAnalyzer` with the wall configuration by default.
+final class WallPushUpAnalyzer: PlantedPushUpAnalyzer {
+    override init(epoch: Int, configuration: PlantedPushUpConfiguration = .wall) {
+        super.init(epoch: epoch, configuration: configuration)
+    }
+}
+
+/// Evaluates planted-hands push-up form independently from the rep tracker. An attempt starts at a confirmed Up
+/// and only counts once the arm has left Up for two samples in a row. It ends on the first sample back at Up: one
+/// frame before the tracker confirms Up and counts the rep, so its form reaches the set even when that rep
+/// completes it. Down is the tracker's confirmed Down, so one noisy sample neither satisfies depth nor starts a
+/// lockout check. The body-line value is captured only at the deepest sample, and estimates invalidate this state
+/// without interrupting counting.
+struct PlantedPushUpFormMonitor {
+    /// The distance signal's name in the readings: `h` for the wall, `r` for the incline.
+    let signalName: String
+
+    init(signalName: String = "h") {
+        self.signalName = signalName
+    }
+
     private struct Attempt {
         /// Left Up for `confirmationSamples` samples in a row, so one noisy sample at rest isn't an attempt.
         var started = false
@@ -258,9 +302,9 @@ struct WallPushUpFormMonitor {
     private var lastDepth: Double?
     private var lastBodyLine: Double?
 
-    mutating func update(at time: TimeInterval, horizontalRatio: Double, bodyLineBend: Double?, zone: MovementZone,
+    mutating func update(at time: TimeInterval, ratio: Double, bodyLineBend: Double?, zone: MovementZone,
                          newlyConfirmed: MovementZone?, confirmed: MovementZone?, counting: Bool,
-                         configuration: WallPushUpConfiguration) -> [RepForm] {
+                         configuration: PlantedPushUpConfiguration) -> [RepForm] {
         guard counting else {
             attempt = nil
             return []
@@ -272,8 +316,8 @@ struct WallPushUpFormMonitor {
         let halfway = (configuration.upMinHorizontalRatio + configuration.downMaxHorizontalRatio) / 2
         current.awayFromUpSamples = zone == .bottom ? 0 : current.awayFromUpSamples + 1
         if current.awayFromUpSamples >= configuration.confirmationSamples { current.started = true }
-        if current.started, horizontalRatio < current.deepestRatio {
-            current.deepestRatio = horizontalRatio
+        if current.started, ratio < current.deepestRatio {
+            current.deepestRatio = ratio
             current.bodyLineBendAtDeepest = bodyLineBend
         }
 
@@ -284,9 +328,9 @@ struct WallPushUpFormMonitor {
             }
             var flags = Set<CoachingCueID>()
             if !current.reachedDown {
-                flags.insert(.wallPushUpDeeper)
+                flags.insert(configuration.kind.deeperCue)
             } else if let bend = current.bodyLineBendAtDeepest, bend > configuration.bodyLineMaximumBend {
-                flags.insert(.wallPushUpBodyLine)
+                flags.insert(configuration.kind.bodyLineCue)
             }
             lastDepth = current.deepestRatio
             lastBodyLine = current.bodyLineBendAtDeepest
@@ -297,17 +341,17 @@ struct WallPushUpFormMonitor {
         if newlyConfirmed == .top { current.reachedDown = true }
         var forms: [RepForm] = []
         if current.reachedDown {
-            if horizontalRatio >= halfway {
+            if ratio >= halfway {
                 current.roseFromDown = true
                 current.downAgainSamples = 0
             } else if current.roseFromDown, zone == .top {
                 current.downAgainSamples += 1
                 if current.downAgainSamples >= configuration.confirmationSamples {
                     // Back down without pressing to Up: flag it, and treat this descent as a new attempt at Down.
-                    forms.append(RepForm(timestamp: time, flags: [.wallPushUpLockout]))
+                    forms.append(RepForm(timestamp: time, flags: [configuration.kind.lockoutCue]))
                     lastDepth = current.deepestRatio
                     lastBodyLine = current.bodyLineBendAtDeepest
-                    current = Attempt(started: true, reachedDown: true, deepestRatio: horizontalRatio,
+                    current = Attempt(started: true, reachedDown: true, deepestRatio: ratio,
                                       bodyLineBendAtDeepest: bodyLineBend)
                 }
             } else {
@@ -324,7 +368,7 @@ struct WallPushUpFormMonitor {
 
     var readings: [FormReading] {
         [
-            FormReading(label: "deepest h", value: lastDepth.map { String(format: "%.2f", $0) } ?? "–"),
+            FormReading(label: "deepest \(signalName)", value: lastDepth.map { String(format: "%.2f", $0) } ?? "–"),
             FormReading(label: "body bend", value: lastBodyLine.map { String(format: "%.0f°", $0) } ?? "–")
         ]
     }
