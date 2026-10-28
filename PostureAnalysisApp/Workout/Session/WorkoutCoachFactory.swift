@@ -34,7 +34,15 @@ final class WorkoutCoachFactory {
         makeModel(exerciseID: launch.plan.items.first?.exerciseID, plan: launch.plan, launch: launch)
     }
 
-    private func makeModel(exerciseID: ExerciseID?, plan: WorkoutPlan?, launch: TodaySessionLaunch?) -> WorkoutCoachModel {
+    /// One calibration sample: a one-item plan whose evidence goes to the sample's own recorder, so it is recorded as a
+    /// probe of the calibration and reported back to the screen that started it.
+    func makeCalibrationProbe(_ probe: CalibrationProbeLaunch) -> WorkoutCoachModel {
+        makeModel(exerciseID: probe.launch.plan.items.first?.exerciseID, plan: probe.launch.plan, launch: probe.launch,
+                  adaptive: probe.recorder)
+    }
+
+    private func makeModel(exerciseID: ExerciseID?, plan: WorkoutPlan?, launch: TodaySessionLaunch?,
+                           adaptive: (any AdaptiveEvidenceRecording)? = nil) -> WorkoutCoachModel {
         let audioTiming = AudioWorkTiming()
         let audio = WorkoutAudioSession(timing: audioTiming)
         // Sets and reps the user adjusted on the list apply here; Saved Sets bring their own.
@@ -58,6 +66,6 @@ final class WorkoutCoachFactory {
                                  clock: SystemClock(), scheduler: MainScheduler(), preferences: preferences,
                                  exercises: exercises, initialExercise: exerciseID ?? exercises.first?.id,
                                  plan: plan, settings: settings, recorder: recorder, audioTiming: audioTiming,
-                                 adaptive: adaptive, todayLaunch: launch)
+                                 adaptive: adaptive ?? self.adaptive, todayLaunch: launch)
     }
 }

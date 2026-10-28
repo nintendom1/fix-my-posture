@@ -461,6 +461,10 @@
 		A10000012B00000000000471 /* BonusRepsTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000471 /* BonusRepsTests.swift */; };
 		A10000012B00000000000472 /* TooHardOfferView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000472 /* TooHardOfferView.swift */; };
 		A10000012B00000000000473 /* TooHardOfferTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000473 /* TooHardOfferTests.swift */; };
+		A10000012B00000000000474 /* CalibrationScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000474 /* CalibrationScreen.swift */; };
+		A10000012B00000000000475 /* CalibrationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000475 /* CalibrationViewModel.swift */; };
+		A10000012B00000000000476 /* CalibrationViewModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000476 /* CalibrationViewModelTests.swift */; };
+		A10000012B00000000000477 /* CalibrationScreenTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000477 /* CalibrationScreenTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -930,6 +934,10 @@
 		B10000012B00000000000471 /* BonusRepsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonusRepsTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000472 /* TooHardOfferView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TooHardOfferView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000473 /* TooHardOfferTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TooHardOfferTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000474 /* CalibrationScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibrationScreen.swift; sourceTree = "<group>"; };
+		B10000012B00000000000475 /* CalibrationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibrationViewModel.swift; sourceTree = "<group>"; };
+		B10000012B00000000000476 /* CalibrationViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibrationViewModelTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000477 /* CalibrationScreenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibrationScreenTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1214,6 +1222,8 @@
 				B10000012B00000000000469 /* TodaySessionFlowTests.swift */,
 				B10000012B00000000000471 /* BonusRepsTests.swift */,
 				B10000012B00000000000473 /* TooHardOfferTests.swift */,
+				B10000012B00000000000476 /* CalibrationViewModelTests.swift */,
+				B10000012B00000000000477 /* CalibrationScreenTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1590,6 +1600,7 @@
 				H10000012B00000000000059 /* PersonaDebug */,
 				H10000012B00000000000067 /* WorkoutRecordings */,
 				H10000012B00000000000069 /* AdaptiveDebug */,
+				H10000012B00000000000073 /* Calibration */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -1979,6 +1990,15 @@
 				B10000012B00000000000460 /* SitToStandAnalyzer.swift */,
 			);
 			path = SitToStand;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000073 /* Calibration */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000474 /* CalibrationScreen.swift */,
+				B10000012B00000000000475 /* CalibrationViewModel.swift */,
+			);
+			path = Calibration;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -2378,6 +2398,8 @@
 				A10000012B00000000000465 /* EffortCardView.swift in Sources */,
 				A10000012B00000000000470 /* BonusOfferView.swift in Sources */,
 				A10000012B00000000000472 /* TooHardOfferView.swift in Sources */,
+				A10000012B00000000000474 /* CalibrationScreen.swift in Sources */,
+				A10000012B00000000000475 /* CalibrationViewModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2534,6 +2556,8 @@
 				A10000012B00000000000469 /* TodaySessionFlowTests.swift in TestSources */,
 				A10000012B00000000000471 /* BonusRepsTests.swift in TestSources */,
 				A10000012B00000000000473 /* TooHardOfferTests.swift in TestSources */,
+				A10000012B00000000000476 /* CalibrationViewModelTests.swift in TestSources */,
+				A10000012B00000000000477 /* CalibrationScreenTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
