@@ -13,16 +13,21 @@ struct EffortCardState: Equatable, Identifiable {
     var amount: Int
     /// The card asks about the optional bonus set the user took, not about a prescribed item.
     let isBonus: Bool
+    /// The answer the card opens on, such as Too Hard after "Stop here" or an easier version. The user can still
+    /// choose another. Closing the card without choosing, by starting the next set, records it; Skip does not.
+    let preselected: EffortFeedback?
 
     static let maximumAmount = 999
 
-    init(id: UUID, unit: DoseKind, setCount: Int, amount: Int, isBonus: Bool = false) {
+    init(id: UUID, unit: DoseKind, setCount: Int, amount: Int, isBonus: Bool = false,
+         preselected: EffortFeedback? = nil) {
         self.id = id
         self.unit = unit
         self.setCount = max(1, setCount)
         defaultAmount = max(0, amount)
         self.amount = max(0, amount)
         self.isBonus = isBonus
+        self.preselected = preselected
     }
 
     var title: String { isBonus ? "How was the bonus?" : "How was that?" }
@@ -154,20 +159,24 @@ struct EffortCardView: View {
 
     private func ratingButton(_ title: String, effort: EffortFeedback, tint: Color, hint: String,
                               identifier: String) -> some View {
-        Button { onRate(effort) } label: {
+        let isPreselected = state.preselected == effort
+        return Button { onRate(effort) } label: {
             Text(title)
                 .font(.system(size: 17, weight: .black, design: .rounded))
                 .foregroundStyle(palette.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
                 .frame(maxWidth: .infinity, minHeight: 68)
-                .background(tint.opacity(0.22), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(tint, lineWidth: 2))
+                .background(tint.opacity(isPreselected ? 0.55 : 0.22),
+                            in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(tint, lineWidth: isPreselected ? 4 : 2))
                 .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)
         .accessibilityHint(hint)
+        .accessibilityAddTraits(isPreselected ? .isSelected : [])
         .accessibilityIdentifier(identifier)
     }
 }

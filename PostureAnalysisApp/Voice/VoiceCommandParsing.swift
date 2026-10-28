@@ -44,6 +44,7 @@ extension VoiceCommandAlias {
                        "reset set", "reset the set"], .restartSet, destructive: true)
             + aliases(["next set", "finish set", "finish this set", "finish the set", "end set",
                        "end this set", "end the set"], .nextSet, destructive: true)
+            + aliases(TooHardPhrases.aliases, .tooHard)
             + aliases(["change exercise", "change exercises", "switch exercise", "switch exercises",
                        "different exercise"], .changeExercise, destructive: true)
             + aliases(["another round", "one more round", "next round", "go again"], .anotherRound)

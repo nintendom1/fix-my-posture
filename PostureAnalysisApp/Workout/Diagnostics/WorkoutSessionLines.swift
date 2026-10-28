@@ -95,7 +95,8 @@ enum WorkoutSessionLines {
                         ("reps", [.int(item.targetReps.lowerBound), .int(item.targetReps.upperBound)]),
                         ("reducedRange", item.reducedRange ? .bool(true) : nil),
                         ("optional", item.isOptional ? .bool(true) : nil),
-                        ("bonus", item.isBonus ? .bool(true) : nil))
+                        ("bonus", item.isBonus ? .bool(true) : nil),
+                        ("easierSwap", item.isEasierSwap ? .bool(true) : nil))
             }))
         )
     }
@@ -439,6 +440,14 @@ enum WorkoutSessionLines {
         case .startBonus(let bonus):
             return [("type", "bonus"), ("id", .string(bonus.itemID.uuidString)),
                     ("after", .string(bonus.after.uuidString)), ("amount", .int(bonus.amount))]
+        case .startEasierSwap(let swap):
+            var fields: [(key: String, value: DiagnosticJSON)] = [
+                ("type", "easierSwap"), ("id", .string(swap.itemID.uuidString)),
+                ("after", .string(swap.after.uuidString)), ("exercise", .string(swap.exerciseID.rawValue))]
+            // Written only when true, like the plan items' modifiers.
+            if swap.reducedRange { fields.append(("reducedRange", .bool(true))) }
+            fields.append(("amount", .int(swap.amount)))
+            return fields
         case .tick, .command, .formObserved, .coachSpeakingChanged, .poseObserved:
             return [("type", .string(String(describing: event)))]
         }
