@@ -199,6 +199,25 @@ final class AdaptiveDebugViewModelTests: XCTestCase {
         XCTAssertEqual(opened, 0)
     }
 
+    @MainActor
+    func testFindMyStartingPointOpensCalibrationOnlyWhenTheAppCanRunIt() async {
+        var opened = 0
+        let available = AdaptiveDebugViewModel(provider: FakeAdaptiveDebugProvider(snapshot: Self.emptySnapshot()),
+                                               now: { FixedClock.date }, timeZone: FixedClock.timeZone,
+                                               openCalibration: { opened += 1 })
+        await available.refresh()
+        XCTAssertTrue(available.canStartCalibration, "A device with no starting points can still calibrate.")
+
+        available.startCalibration()
+        XCTAssertEqual(opened, 1)
+
+        let unavailable = AdaptiveDebugViewModel(provider: FakeAdaptiveDebugProvider(snapshot: Self.emptySnapshot()),
+                                                 now: { FixedClock.date }, timeZone: FixedClock.timeZone)
+        XCTAssertFalse(unavailable.canStartCalibration)
+        unavailable.startCalibration()
+        XCTAssertEqual(opened, 1)
+    }
+
     func testEffortLabelsAreReadable() {
         XCTAssertEqual(AdaptiveDebugScreen.effortLabel(.tooHard), "Too Hard")
         XCTAssertEqual(AdaptiveDebugScreen.effortLabel(.okay), "Okay")

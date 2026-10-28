@@ -12,7 +12,7 @@ final class AppRouteTests: XCTestCase {
             .train, .routines, .routine(id: routineID), .routineEditor(id: nil),
             .routineEditor(id: routineID), .library, .exercise(id: shoulderPress),
             .workout(exerciseID: nil, routineID: nil),
-            .workout(exerciseID: shoulderPress, routineID: routineID), .todaySession,
+            .workout(exerciseID: shoulderPress, routineID: routineID), .todaySession, .calibration,
             .workoutComplete, .progress, .history, .posture,
             .assessment(id: assessmentID), .livePostureCheck,
             .photoAssessment(view: .front), .capturePosturePhoto(view: .uncertain),
@@ -31,7 +31,7 @@ final class AppRouteTests: XCTestCase {
             (.routineEditor(id: nil), .routines), (.library, .train),
             (.exercise(id: shoulderPress), .train),
             (.workout(exerciseID: shoulderPress, routineID: routineID), .train), (.todaySession, .train),
-            (.workoutComplete, .train), (.progress, .progress), (.history, .progress),
+            (.calibration, .train), (.workoutComplete, .train), (.progress, .progress), (.history, .progress),
             (.posture, .posture), (.assessment(id: assessmentID), .posture),
             (.postureHistory, .posture), (.livePostureCheck, .posture),
             (.photoAssessment(view: .leftSide), .posture),
@@ -90,6 +90,19 @@ final class AppRouteTests: XCTestCase {
         XCTAssertEqual(router.presentedFullScreenRoute, .todaySession)
         XCTAssertEqual(router.selectedTab, .train)
         XCTAssertTrue(router.path(for: .train).isEmpty)
+    }
+
+    func testOpeningCalibrationPresentsItFullScreenOnTheTrainTab() {
+        let router = AppRouter(selectedTab: .posture)
+
+        router.open(.calibration)
+
+        XCTAssertEqual(router.presentedFullScreenRoute, .calibration)
+        XCTAssertEqual(router.selectedTab, .train)
+        XCTAssertTrue(router.path(for: .train).isEmpty)
+
+        router.dismissFullScreen()
+        XCTAssertNil(router.presentedFullScreenRoute)
     }
 
     func testOpeningLivePostureCheckPresentsFullScreen() {

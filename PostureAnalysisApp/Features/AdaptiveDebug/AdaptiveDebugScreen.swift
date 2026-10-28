@@ -23,6 +23,7 @@ struct AdaptiveDebugScreen: View {
                 messageCard("Adaptive training data is unavailable.")
             } else if let snapshot = viewModel.snapshot {
                 headerCard(snapshot)
+                startCalibrationCard
                 startTodayCard
                 if let errorMessage = viewModel.errorMessage {
                     messageCard(errorMessage, color: palette.danger)
@@ -55,6 +56,24 @@ struct AdaptiveDebugScreen: View {
                 detailLine("Time zone", value: snapshot.timeZone)
                 detailLine("Today's Session", value: todayStatus(snapshot.today))
             }
+        }
+    }
+
+    /// The developer entry point to the first calibration. The Train hero takes over in a later PR.
+    private var startCalibrationCard: some View {
+        debugCard {
+            Button {
+                viewModel.startCalibration()
+            } label: {
+                Text("Find my starting point")
+                    .font(.system(size: 15, weight: .heavy, design: .rounded))
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(viewModel.canStartCalibration ? palette.tabActive : palette.textMuted)
+            .disabled(!viewModel.canStartCalibration)
+            .accessibilityIdentifier("adaptiveDebugStartCalibrationButton")
         }
     }
 

@@ -30,11 +30,16 @@ final class AdaptiveDebugViewModel {
     private let copy: (String) -> Void
     private let todayStarter: (any TodaySessionStarting)?
     private let openTodaySession: @MainActor () -> Void
+    private let openCalibration: (@MainActor () -> Void)?
+
+    /// Calibration can be opened from here: the app has an adaptive engine to run it.
+    var canStartCalibration: Bool { openCalibration != nil }
 
     init(provider: (any AdaptiveDebugProviding)?, now: @escaping () -> Date = Date.init,
          timeZone: TimeZone = .current, exportDirectory: URL = FileManager.default.temporaryDirectory,
          copy: @escaping (String) -> Void = { UIPasteboard.general.string = $0 },
-         todayStarter: (any TodaySessionStarting)? = nil, openTodaySession: @escaping @MainActor () -> Void = {}) {
+         todayStarter: (any TodaySessionStarting)? = nil, openTodaySession: @escaping @MainActor () -> Void = {},
+         openCalibration: (@MainActor () -> Void)? = nil) {
         self.provider = provider
         self.now = now
         self.timeZone = timeZone
@@ -42,6 +47,12 @@ final class AdaptiveDebugViewModel {
         self.copy = copy
         self.todayStarter = todayStarter
         self.openTodaySession = openTodaySession
+        self.openCalibration = openCalibration
+    }
+
+    /// Opens the calibration screen. The screen starts the attempt itself when it appears.
+    func startCalibration() {
+        openCalibration?()
     }
 
     /// Prepares Today's Session (saving its prescription) and opens it. Does nothing unless it is ready.

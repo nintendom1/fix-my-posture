@@ -4,6 +4,8 @@ import Foundation
 public enum AdaptiveTrainingEngineError: Error, Equatable, Sendable {
     /// An easier swap must stay in the item's own movement family.
     case easierSwapOutsideFamily(MovementFamilyID)
+    /// A calibration can be committed only from its summary, with at least one starting point.
+    case calibrationNotAtSummary(UUID)
 }
 
 /// The only way app code reaches adaptive training: record facts, read the interpretation, and ask for Today's
@@ -111,6 +113,40 @@ public final class AdaptiveTrainingEngine {
     public func save(_ calibration: CalibrationSessionRecord) throws -> [AdaptiveEvent] {
         try store.save(calibration)
         return try events(for: calibration.id)
+    }
+
+    // MARK: - Calibration
+
+    /// Begins a calibration and saves it as in progress, which changes no recommendation. `id` and `now` come from the
+    /// caller. A recalibration or an added family starts from the current profile; the first calibration doesn't have one.
+    public func startCalibration(kind: CalibrationKind, id: UUID, at now: Date) throws -> CalibrationFlow {
+        let profile = kind == .initial ? nil : try profile()
+        let availability = Availability(builtExerciseIDs: builtExerciseIDs, equipment: Set(profile?.equipment ?? []))
+        let flow = CalibrationFlow(id: id, kind: kind, startedAt: now, catalog: catalog, availability: availability,
+                                   currentProfile: profile)
+        try store.save(flow.inProgressRecord)
+        return flow
+    }
+
+    /// Saves the quiz answers so far. Only an attempt that is still in progress can change.
+    public func saveProgress(_ flow: CalibrationFlow) throws {
+        try store.save(flow.inProgressRecord)
+    }
+
+    /// Accepts the summary: the starting points now count. Throws `calibrationNotAtSummary` unless the flow is at a
+    /// summary with at least one starting point, and saves nothing then.
+    @discardableResult
+    public func commit(_ flow: CalibrationFlow, at now: Date) throws -> [AdaptiveEvent] {
+        guard let record = flow.committedRecord(at: now) else {
+            throw AdaptiveTrainingEngineError.calibrationNotAtSummary(flow.id)
+        }
+        return try save(record)
+    }
+
+    /// Leaves without accepting anything. The previous recommendations stay as they were.
+    @discardableResult
+    public func abandon(_ flow: CalibrationFlow, at now: Date) throws -> [AdaptiveEvent] {
+        try save(flow.abandonedRecord(at: now))
     }
 
     public func record(_ engagement: EngagementFact) throws {
