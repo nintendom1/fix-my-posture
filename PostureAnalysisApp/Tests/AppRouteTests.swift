@@ -12,7 +12,7 @@ final class AppRouteTests: XCTestCase {
             .train, .routines, .routine(id: routineID), .routineEditor(id: nil),
             .routineEditor(id: routineID), .library, .exercise(id: shoulderPress),
             .workout(exerciseID: nil, routineID: nil),
-            .workout(exerciseID: shoulderPress, routineID: routineID),
+            .workout(exerciseID: shoulderPress, routineID: routineID), .todaySession,
             .workoutComplete, .progress, .history, .posture,
             .assessment(id: assessmentID), .livePostureCheck,
             .photoAssessment(view: .front), .capturePosturePhoto(view: .uncertain),
@@ -30,7 +30,7 @@ final class AppRouteTests: XCTestCase {
             (.train, .train), (.routines, .routines), (.routine(id: routineID), .routines),
             (.routineEditor(id: nil), .routines), (.library, .train),
             (.exercise(id: shoulderPress), .train),
-            (.workout(exerciseID: shoulderPress, routineID: routineID), .train),
+            (.workout(exerciseID: shoulderPress, routineID: routineID), .train), (.todaySession, .train),
             (.workoutComplete, .train), (.progress, .progress), (.history, .progress),
             (.posture, .posture), (.assessment(id: assessmentID), .posture),
             (.postureHistory, .posture), (.livePostureCheck, .posture),
@@ -80,6 +80,16 @@ final class AppRouteTests: XCTestCase {
 
         XCTAssertEqual(router.presentedFullScreenRoute, route)
         XCTAssertEqual(router.selectedTab, .train)
+    }
+
+    func testOpeningTodaySessionPresentsTheCoachFullScreenOnTheTrainTab() {
+        let router = AppRouter(selectedTab: .progress)
+
+        router.open(.todaySession)
+
+        XCTAssertEqual(router.presentedFullScreenRoute, .todaySession)
+        XCTAssertEqual(router.selectedTab, .train)
+        XCTAssertTrue(router.path(for: .train).isEmpty)
     }
 
     func testOpeningLivePostureCheckPresentsFullScreen() {

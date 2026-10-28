@@ -1,3 +1,4 @@
+import AdaptiveTraining
 import Foundation
 
 /// Hands-free control: listens while the coach is quiet and turns phrases into workout commands.
@@ -20,6 +21,11 @@ final class WorkoutVoiceController: VoiceControlling {
     var onCommand: ((WorkoutCommand) -> Void)?
     /// The phrase that triggered a command, for the "Heard" chip.
     var onHeard: ((String) -> Void)?
+    /// While true, an effort phrase answers the effort card before the command parser sees the transcript.
+    var acceptsEffortFeedback = false {
+        didSet { if !acceptsEffortFeedback { pendingEffort = nil } }
+    }
+    var onEffort: ((EffortFeedback) -> Void)?
 
     private(set) var status: Status = .off {
         didSet { if status != oldValue { onStatusChanged?(status) } }
@@ -37,6 +43,9 @@ final class WorkoutVoiceController: VoiceControlling {
     private var transcript = ""
     private var transcriptChangedAt: TimeInterval = 0
     private var pending: VoiceCommandMatch?
+    /// An effort answer heard in a transcript that may still grow ("okay" could become "okay start"); it answers once
+    /// the transcript is final or has settled.
+    private var pendingEffort: EffortPhraseMatch?
     private var checkTimer: Cancellable?
 
     init(recognizer: SpeechRecognizing, parser: VoiceCommandParsing, permissions: VoicePermissionProviding,
@@ -198,6 +207,18 @@ final class WorkoutVoiceController: VoiceControlling {
             transcript = text
             transcriptChangedAt = clock()
         }
+        // The raw transcript first: "okay" is a filler word to the command parser. An effort phrase is never a command.
+        if acceptsEffortFeedback, let effort = EffortPhraseParser.parse(text) {
+            // Speech still streaming can grow into a command, so only a final or settled transcript answers.
+            if isFinal {
+                executeEffort(effort)
+            } else {
+                pendingEffort = effort
+                pending = nil
+            }
+            return
+        }
+        pendingEffort = nil
         guard let match = parser.parse(text) else {
             pending = nil
             if isFinal { resetTranscript() }
@@ -213,9 +234,11 @@ final class WorkoutVoiceController: VoiceControlling {
     private func checkTranscript() {
         guard isRecognizing, !transcript.isEmpty else { return }
         let settled = clock() - transcriptChangedAt
-        if let pending, settled >= pending.settleTime ?? Self.ambiguousSettleTime {
+        if let pendingEffort, settled >= Self.ambiguousSettleTime {
+            executeEffort(pendingEffort)
+        } else if let pending, settled >= pending.settleTime ?? Self.ambiguousSettleTime {
             execute(pending)
-        } else if pending == nil, settled >= Self.utteranceEndTime {
+        } else if pending == nil, pendingEffort == nil, settled >= Self.utteranceEndTime {
             // End of utterance without a command: start fresh so old words can't combine with new ones.
             resetTranscript()
             recognizer.restartTask()
@@ -229,8 +252,16 @@ final class WorkoutVoiceController: VoiceControlling {
         onCommand?(match.command)
     }
 
+    private func executeEffort(_ match: EffortPhraseMatch) {
+        resetTranscript()
+        recognizer.restartTask()
+        onHeard?(match.phrase)
+        onEffort?(match.effort)
+    }
+
     private func resetTranscript() {
         transcript = ""
         pending = nil
+        pendingEffort = nil
     }
 }

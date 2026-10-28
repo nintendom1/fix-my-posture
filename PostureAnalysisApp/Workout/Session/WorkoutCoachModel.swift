@@ -1,3 +1,4 @@
+import AdaptiveTraining
 import AVFoundation
 import Foundation
 import Observation
@@ -40,6 +41,9 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     private(set) var isGuidePresented = false
     /// The REC chip's state while a developer session recording runs; nil when not recording.
     private(set) var recordingHUD: WorkoutRecordingHUD?
+    /// The "How was that?" question about an item that just finished; nil when none is open. It never pauses the
+    /// workout: rest keeps running, and starting the next set closes it unrated.
+    private(set) var effortCard: EffortCardState?
     /// Shared with the saved history record, so a recording and its workout can be matched.
     let workoutID: UUID
 
@@ -95,6 +99,16 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     @ObservationIgnored private let clock: Clock
     @ObservationIgnored private let scheduler: Scheduling
     @ObservationIgnored private let recorder: (any WorkoutSessionRecording)?
+    /// Nil in workouts with no adaptive engine, which then never ask for effort.
+    @ObservationIgnored private let adaptive: (any AdaptiveEvidenceRecording)?
+    /// Set when this workout is Today's Session; its plan items carry the prescription they came from.
+    @ObservationIgnored private let todayLaunch: TodaySessionLaunch?
+    @ObservationIgnored private let evidenceDate: () -> Date
+    @ObservationIgnored private let makeEvidenceID: () -> UUID
+    /// The finished item behind the open effort card.
+    @ObservationIgnored private var pendingEffort: PendingEffort?
+    /// Items already asked about or recorded, so work the workout ended on is never recorded twice.
+    @ObservationIgnored private var reportedItems = Set<FinishedWorkoutItem.Key>()
 
     @ObservationIgnored private var framePipeline = WorkoutFramePipeline()
     @ObservationIgnored private var generation = UUID()
@@ -132,7 +146,9 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
          voice: VoiceControlling?, clock: Clock, scheduler: Scheduling, preferences: any AppPreferencesStoring,
          exercises: [ExerciseDefinition], initialExercise: ExerciseID?, plan: WorkoutPlan?,
          settings: WorkoutSettings = WorkoutSettings(), recorder: (any WorkoutSessionRecording)? = nil,
-         audioTiming: AudioWorkTiming? = nil) {
+         audioTiming: AudioWorkTiming? = nil, adaptive: (any AdaptiveEvidenceRecording)? = nil,
+         todayLaunch: TodaySessionLaunch? = nil, evidenceDate: @escaping () -> Date = Date.init,
+         makeEvidenceID: @escaping () -> UUID = UUID.init) {
         self.camera = camera
         self.previewProvider = previewProvider
         self.permission = permission
@@ -144,6 +160,10 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         self.clock = clock
         self.scheduler = scheduler
         self.recorder = recorder
+        self.adaptive = adaptive
+        self.todayLaunch = todayLaunch
+        self.evidenceDate = evidenceDate
+        self.makeEvidenceID = makeEvidenceID
         workoutID = recorder?.id ?? UUID()
         isCoachMuted = preferences.workoutCoachCoachMuted
         isMicMuted = preferences.workoutCoachMicMuted
@@ -167,6 +187,11 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
             self?.showHeard(phrase)
         }
         voice?.onStatusChanged = { [weak self] status in self?.voiceStatusChanged(status) }
+        voice?.onEffort = { [weak self] effort in
+            // The spoken answer isn't a command, so its phrase must not attach to the next one.
+            self?.lastHeardPhrase = nil
+            self?.rateEffort(effort)
+        }
     }
 
     // MARK: - Lifecycle
@@ -190,6 +215,9 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
 
     func onDisappear() {
         isViewActive = false
+        // Leaving with the question open records the item unrated, and so does work that never finished its item.
+        closeEffortCard(rating: nil)
+        if adaptive != nil { recordUnfinishedItems() }
         stopTicks()
         stopCapture()
         speech.stopAll()
@@ -563,8 +591,19 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         let outer = dispatchTime
         dispatchTime = now
         defer { dispatchTime = outer }
+        let before = adaptive != nil && mayChangeFinishedItems(event) ? session : nil
         apply(session.handle(event, at: now))
         recordState()
+        if let before { observeEffort(since: before, at: now) }
+    }
+
+    /// Only commands, counted reps, and ticks (a hold's timer, an automatic start) can finish an item or start a set,
+    /// so per-frame inputs skip the comparison.
+    private func mayChangeFinishedItems(_ event: WorkoutEvent) -> Bool {
+        switch event {
+        case .command, .repCompleted, .tick: return true
+        default: return false
+        }
     }
 
     /// The reducer's time for the next input: the frame being processed, else the clock.
@@ -616,6 +655,101 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
                 if session.phase == .ended { endRecording(.workoutEnded) }
             }
         }
+    }
+
+    // MARK: - Effort
+
+    /// A finished item and who its evidence is about, kept while its question is open.
+    private struct PendingEffort {
+        let identity: WorkoutOutcomeAdapter.Identity
+        let item: FinishedWorkoutItem
+    }
+
+    /// Looks at what one reducer input changed. A set that starts, or the workout ending, closes the open question
+    /// unrated; an item that finished opens a new one. Nothing here changes the reducer's transitions.
+    private func observeEffort(since before: WorkoutSession, at now: TimeInterval) {
+        let phase = session.phase
+        if effortCard != nil, before.phase != phase, phase == .exercising || phase == .ended {
+            closeEffortCard(rating: nil)
+        }
+        for finished in FinishedItemDetector.finishedItems(before: before, after: session, at: now) {
+            beginEffort(for: finished)
+        }
+        if before.phase != .ended, phase == .ended { recordUnfinishedItems() }
+    }
+
+    /// When the workout ends or its screen closes, work that never finished its item (the first set of two, then End
+    /// during rest) is recorded once, unrated, with the sets it has.
+    private func recordUnfinishedItems() {
+        for unfinished in FinishedItemDetector.unfinishedItems(in: session) {
+            beginEffort(for: unfinished)
+        }
+    }
+
+    private func beginEffort(for finished: FinishedWorkoutItem) {
+        guard let identity = effortIdentity(for: finished) else { return }
+        // A routine exercise skipped before any work has nothing to rate.
+        if case .manual = identity.origin, finished.result == .skipped, !finished.didAnyWork { return }
+        // Work the workout ended on is recorded once, however many times that is noticed.
+        if finished.result == .endedWorkout, reportedItems.contains(finished.key) { return }
+        reportedItems.insert(finished.key)
+        // An earlier question that is still open closes unrated first.
+        closeEffortCard(rating: nil)
+        let id = makeEvidenceID()
+        guard finished.result != .endedWorkout else {
+            // The workout is over, so there is no question: the item is recorded as it ended.
+            recordEvidence(id: id, identity: identity, item: finished, answer: nil)
+            return
+        }
+        effortCard = EffortCardState(id: id, unit: finished.unit, setCount: finished.setAmounts.count,
+                                     amount: finished.counted)
+        pendingEffort = PendingEffort(identity: identity, item: finished)
+        voice?.acceptsEffortFeedback = true
+    }
+
+    /// Today's Session items carry their prescription; any other exercise is manual work, and counts only when it is
+    /// the current rung of an active family.
+    private func effortIdentity(for finished: FinishedWorkoutItem) -> WorkoutOutcomeAdapter.Identity? {
+        if let launch = todayLaunch, let planItemID = finished.planItemID,
+           let item = launch.items.first(where: { $0.itemID == planItemID }) {
+            return WorkoutOutcomeAdapter.Identity(
+                origin: .adaptive(prescriptionID: launch.prescription.id, itemID: item.itemID,
+                                  prescribed: item.rungDose.dose),
+                family: item.family, variant: item.rungDose.variant)
+        }
+        guard let rung = adaptive?.activeRung(for: finished.exerciseID, reducedRange: finished.reducedRange) else {
+            return nil
+        }
+        return WorkoutOutcomeAdapter.Identity(origin: .manual, family: rung.family, variant: rung.rungDose.variant)
+    }
+
+    /// Closes the open question and records the item with the user's rating, or unrated when `rating` is nil.
+    private func closeEffortCard(rating: EffortFeedback?) {
+        guard let card = effortCard, let pending = pendingEffort else { return }
+        effortCard = nil
+        pendingEffort = nil
+        voice?.acceptsEffortFeedback = false
+        let answer = WorkoutOutcomeAdapter.Answer(effort: rating, amount: card.amount, isAdjusted: card.isAdjusted)
+        recordEvidence(id: card.id, identity: pending.identity, item: pending.item, answer: answer)
+    }
+
+    private func recordEvidence(id: UUID, identity: WorkoutOutcomeAdapter.Identity, item: FinishedWorkoutItem,
+                                answer: WorkoutOutcomeAdapter.Answer?) {
+        adaptive?.record(WorkoutOutcomeAdapter.evidence(id: id, recordedAt: evidenceDate(), workoutID: workoutID,
+                                                        identity: identity, item: item, answer: answer))
+    }
+
+    func rateEffort(_ effort: EffortFeedback) {
+        closeEffortCard(rating: effort)
+    }
+
+    func skipEffort() {
+        closeEffortCard(rating: nil)
+    }
+
+    /// Changes the amount on the open card by whole steps (1 rep or 5 seconds each).
+    func adjustEffortAmount(by steps: Int) {
+        effortCard?.adjust(by: steps)
     }
 
     // MARK: - Recording

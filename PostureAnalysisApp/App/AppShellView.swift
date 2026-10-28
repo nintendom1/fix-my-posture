@@ -93,6 +93,8 @@ struct AppShellView: View {
             ExerciseDetailRouteView(viewModel: environment.makeExerciseDetailViewModel(id: id))
         case .workout:
             Text("Workout camera is presented full screen.")
+        case .todaySession:
+            Text("Today's Session is presented full screen.")
         case .workoutComplete:
             Text("Workout complete")
         case .progress:
@@ -134,6 +136,11 @@ struct AppShellView: View {
                 exerciseID: exerciseID,
                 routineID: routineID
             ))
+        case .todaySession:
+            // The session was prepared (and its prescription saved) before this route opened.
+            if let launch = environment.adaptiveCoordinator?.preparedLaunch {
+                WorkoutCoachView(model: environment.workoutCoachFactory.makeTodaySession(launch: launch))
+            }
         case .livePostureCheck:
             RealtimeCorrectionView()
         default:

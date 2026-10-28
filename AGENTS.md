@@ -13,7 +13,7 @@ A native Swift and SwiftUI iOS application designed for iPhone 15 Pro that analy
 ```text
 PostureAnalysisApp/
 ├── App/                         # Composition root, routes, four-tab shell, tab style, sticky CTA
-├── AdaptiveTraining/            # App adapters for the AdaptiveTraining package (exercise bridge)
+├── AdaptiveTraining/            # App adapters for the AdaptiveTraining package: exercise bridge, Today's Session coordinator, outcome adapter
 ├── Models/                      # Estimator-independent posture and measurement models
 ├── Preferences/                 # AppPreferencesStoring, UserDefaults/in-memory stores, SwiftUI environment
 ├── DesignSystem/

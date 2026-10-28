@@ -1,3 +1,4 @@
+import AdaptiveTraining
 import AVFoundation
 import Foundation
 import Observation
@@ -75,10 +76,21 @@ protocol WorkoutCoachViewModeling: AnyObject, Observable {
     var isGuidePresented: Bool { get }
     /// Shared with the saved history record and any session recording.
     var workoutID: UUID { get }
+    /// The "How was that?" question about the item that just finished; nil when none is open.
+    var effortCard: EffortCardState? { get }
 
     func send(_ intent: WorkoutIntent)
     func onAppear(isApplicationActive: Bool)
     func onDisappear()
     func setApplicationActive(_ active: Bool)
     func startHoldProgress() -> Double?
+    func rateEffort(_ effort: EffortFeedback)
+    func skipEffort()
+    /// Changes the card's amount by whole steps (1 rep or 5 seconds each).
+    func adjustEffortAmount(by steps: Int)
+}
+
+extension WorkoutCoachViewModeling {
+    /// The completion card or summary waits until the last item's question is answered or skipped.
+    var showsCompletionCard: Bool { hud.visual.showsCompletionCard && effortCard == nil }
 }

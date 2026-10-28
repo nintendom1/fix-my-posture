@@ -142,6 +142,63 @@ final class AdaptiveDebugViewModelTests: XCTestCase {
         XCTAssertNotNil(viewModel.errorMessage)
     }
 
+    @MainActor
+    func testStartTodayNeedsAReadySessionAndAStarter() async {
+        let starter = FakeTodayStarter()
+        var opened = 0
+        let notReady = AdaptiveDebugViewModel(provider: FakeAdaptiveDebugProvider(snapshot: Self.emptySnapshot()),
+                                              now: { FixedClock.date }, timeZone: FixedClock.timeZone,
+                                              todayStarter: starter, openTodaySession: { opened += 1 })
+        await notReady.refresh()
+        XCTAssertFalse(notReady.canStartToday, "Nothing is calibrated, so there is nothing to start.")
+        notReady.startTodaySession()
+
+        let withoutStarter = AdaptiveDebugViewModel(provider: FakeAdaptiveDebugProvider(snapshot: readySnapshot()),
+                                                    now: { FixedClock.date }, timeZone: FixedClock.timeZone,
+                                                    openTodaySession: { opened += 1 })
+        await withoutStarter.refresh()
+        XCTAssertFalse(withoutStarter.canStartToday)
+        withoutStarter.startTodaySession()
+
+        XCTAssertEqual(starter.starts, 0)
+        XCTAssertEqual(opened, 0)
+    }
+
+    @MainActor
+    func testStartTodayPreparesTheSessionThenOpensIt() async {
+        let starter = FakeTodayStarter()
+        starter.launch = Self.launch()
+        var opened = 0
+        let viewModel = AdaptiveDebugViewModel(provider: FakeAdaptiveDebugProvider(snapshot: readySnapshot()),
+                                               now: { FixedClock.date }, timeZone: FixedClock.timeZone,
+                                               todayStarter: starter, openTodaySession: { opened += 1 })
+        await viewModel.refresh()
+        XCTAssertTrue(viewModel.canStartToday)
+
+        viewModel.startTodaySession()
+
+        XCTAssertEqual(starter.starts, 1)
+        XCTAssertEqual(starter.startedAt, FixedClock.date)
+        XCTAssertEqual(opened, 1)
+        XCTAssertNil(viewModel.startMessage)
+    }
+
+    @MainActor
+    func testAStartThatProducesNothingShowsWhyAndOpensNothing() async {
+        let starter = FakeTodayStarter()
+        starter.lastStartProblem = "No exercise matches it."
+        var opened = 0
+        let viewModel = AdaptiveDebugViewModel(provider: FakeAdaptiveDebugProvider(snapshot: readySnapshot()),
+                                               now: { FixedClock.date }, timeZone: FixedClock.timeZone,
+                                               todayStarter: starter, openTodaySession: { opened += 1 })
+        await viewModel.refresh()
+
+        viewModel.startTodaySession()
+
+        XCTAssertEqual(viewModel.startMessage, "No exercise matches it.")
+        XCTAssertEqual(opened, 0)
+    }
+
     func testEffortLabelsAreReadable() {
         XCTAssertEqual(AdaptiveDebugScreen.effortLabel(.tooHard), "Too Hard")
         XCTAssertEqual(AdaptiveDebugScreen.effortLabel(.okay), "Okay")
@@ -168,6 +225,45 @@ final class AdaptiveDebugViewModelTests: XCTestCase {
         let builtIDs = Set(ProgressionCatalog.v1.families.flatMap { $0.rungs.map(\.exerciseID) })
         return AdaptiveReplay.snapshot(facts: facts, builtExerciseIDs: builtIDs, parameters: .standard,
                                        calendar: calendar, asOf: FixedClock.date, appVersion: "test")
+    }
+
+    /// A snapshot whose Today's Session is ready: one committed calibration and no other facts.
+    @MainActor
+    private func readySnapshot() -> AdaptiveSnapshot {
+        let start = RungDose(variant: VariantID(rawValue: "push.wall_push_up.shallow"), dose: .reps(3))
+        let calibration = CalibrationSessionRecord(id: UUID(), kind: .initial,
+                                                   startedAt: FixedClock.date.addingTimeInterval(-86_400),
+                                                   endedAt: FixedClock.date.addingTimeInterval(-86_400),
+                                                   status: .committed, families: [.push],
+                                                   startingPoints: [CalibrationStart(family: .push, start: start)])
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = FixedClock.timeZone
+        let builtIDs = Set(ProgressionCatalog.v1.families.flatMap { $0.rungs.map(\.exerciseID) })
+        return AdaptiveReplay.snapshot(facts: AdaptiveFacts(calibrations: [calibration]), builtExerciseIDs: builtIDs,
+                                       parameters: .standard, calendar: calendar, asOf: FixedClock.date,
+                                       appVersion: "test")
+    }
+
+    private static func launch() -> TodaySessionLaunch {
+        TodaySessionLaunch(
+            prescription: Prescription(id: UUID(), issuedAt: FixedClock.date, kind: .todaySession, policyVersion: .v1,
+                                       catalogVersion: "test", items: [], rationale: "Test"),
+            plan: WorkoutPlan(id: AdaptiveTrainingCoordinator.todaySessionPlanID, name: "Today's Session", items: []),
+            items: [])
+    }
+
+    @MainActor
+    private final class FakeTodayStarter: TodaySessionStarting {
+        var lastStartProblem: String?
+        var launch: TodaySessionLaunch?
+        private(set) var starts = 0
+        private(set) var startedAt: Date?
+
+        func start(asOf now: Date) -> TodaySessionLaunch? {
+            starts += 1
+            startedAt = now
+            return launch
+        }
     }
 
     @MainActor

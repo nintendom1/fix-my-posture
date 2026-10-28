@@ -22,6 +22,11 @@ App code reaches the package through adapters in `PostureAnalysisApp/AdaptiveTra
   the app can offer (`Availability`: the exercises that exist, limited by the user's equipment). Its
   `notYetBuilt` list names ladder exercises that the app hasn't added yet; each exercise PR removes its ID, and
   `ExerciseVariantBridgeTests` fails if the list and the catalog disagree.
+- `AdaptiveTrainingCoordinator` is the one app object that calls the engine, besides the debug provider. It reports
+  Today's Session, prepares it as a workout plan, answers which rung an exercise is, and records evidence.
+- `WorkoutOutcomeAdapter` is a pure mapping from a finished workout item and the effort card's answer to
+  `AdaptiveEvidence`. `FinishedItemDetector` finds finished items by comparing the workout session before and after
+  an input.
 
 Dependencies point one way: the app imports the package, never the reverse, so package code can't name app types.
 `PackageBoundaryTests` fails if any package source imports anything but Foundation. The policy, projection, and
@@ -207,6 +212,107 @@ The engine checks its in-memory profile, then the stored cache, then replays all
 only when the policy version, interpretation key, and fact watermark match. The interpretation key covers catalog
 version, built exercise IDs, policy parameters, and calendar time zone. The watermark changes when an append-only fact
 is added or a calibration's contents change. Cache timestamps come from the newest fact, not the current clock.
+
+## Today's Session flow
+
+The app never decides what is easier or harder. It runs what the engine returns and records the facts of what happened.
+
+- **Starting.** `AdaptiveTrainingCoordinator.start(asOf:)` works only while the engine's status is `.ready`. It saves the
+  prescription with `issue(...)`, with a new id for the prescription, the main item, and the sample item, and prepares a
+  `TodaySessionLaunch`: the prescription, a `WorkoutPlan`, and one `AdaptivePlanItem` per plan item (item id, role,
+  family, `RungDose`, exercise, and reduced range). `AppRoute.todaySession` (Train tab, full screen) reads the prepared
+  launch from the coordinator, so the route carries no plan.
+- **Developer entry point.** Settings › Developer diagnostics › Adaptive training has **Start Today's Session**
+  (`adaptiveDebugStartTodayButton`). It is enabled only for `.ready`. The Train hero arrives in PR 14.
+- **Plan shape.** The plan is named "Today's Session" and has the fixed id `AdaptiveTrainingCoordinator.todaySessionPlanID`
+  (`70DA0000-0000-4000-8000-000000000001`). The main item is one set whose `targetReps` is the dose, in seconds for a
+  timed dose. An optional harder sample is one set at its dose, labeled "Optional: <name>" wherever the plan shows item
+  names. A plan item's id is its prescription item's id.
+- **Reduced range.** `WorkoutPlanItem.reducedRange` runs the exercise's smaller-range variant, so a shallow floor and its
+  full-range sample can share one exercise id in one plan. When the next occurrence is the same exercise from the same
+  camera view, the session keeps its framing instead of resetting it, because the camera reports framing only when it
+  changes and counting would otherwise stay off for the whole next set.
+- **Saved names.** A saved entry is named from the plan occurrence it ran: "Shallow Wall Push-Up" for a reduced-range
+  main item, and "Optional: <name>" for the harder sample. The completion stats add "Optional: " only to an older entry
+  that lacks it.
+- **When a session can't start.** If the main rung has no exercise, or its exercise counts a different unit than the dose,
+  `start` returns nil and saves nothing. The debug page shows why. A sample the coach can't run is left out of the
+  prescription as well, so nothing is recorded that was never offered.
+- **Not a routine.** Today's Session saves a normal `WorkoutRecord` with `planID = todaySessionPlanID` and
+  `planName = "Today's Session"`. The plan id matches no routine, so `RoutineRotation` never counts it, and
+  `WorkoutHistorySaver` does not clear the Up Next override for it. A one-rep session saves and shows in History and
+  Progress like any workout.
+- **Completion screen.** For Today's Session the title is "Today's session complete" and the subtitle never says "every
+  set done". A session under a minute shows its actual length ("40 s"), or "Done" under one second, instead of "<1m". A
+  skipped optional sample reads "Optional, skipped". Other workouts keep their copy. There is no survey after the effort
+  cards.
+
+## Effort card
+
+After a prescribed item the coach asks "How was that?" with Too Hard, Okay, and Easy. The question is about the amount,
+not about whether the user was able to do it.
+
+- **When it appears.** Whenever an eligible item finishes. The coach detects that from `WorkoutSession` changes (plan
+  records, progress, and phase) in `WorkoutCoachModel.dispatch`; the reducer is unaware of the card.
+  - A Today's Session plan item that completed, stopped early, or was skipped.
+  - In any other workout, an exercise that is the current rung of an **active** family.
+    `AdaptiveTrainingCoordinator.activeRung(for:reducedRange:)` answers from the profile and compares the exercise and
+    its reduced range with the rung's modifiers. The app never compares difficulty. A routine exercise skipped before
+    any work asks nothing.
+  - An exercise outside a plan finishes with its last set. A routine or Today's Session item finishes with its record.
+  - **Skipping after work keeps the work.** The session record keeps only finished sets, so the detector reads the set
+    being skipped from the session before the skip: counted reps for a camera exercise, seconds held for a timed hold.
+    A self-reported rep set that nobody marked done adds nothing. Skipping before any work is still `.notAttempted`.
+- **What it shows.** A large card over the camera, clear of the bottom controls: the title, the amount ("3 reps" or
+  "20 s") with − and + (reps by 1, seconds by 5, never below 0), three buttons (`effortTooHardButton`,
+  `effortOkayButton`, `effortEasyButton`) with VoiceOver labels and hints, and a small **Skip** (`effortSkipButton`).
+  With several sets the amount reads "each set".
+- **Default amount.** Counted reps for camera items, the recorded amount for self-reported items, the seconds recorded
+  for timed holds, and 0 for a skipped item.
+- **Never blocks.** Rest keeps running under the card. Starting the next set, or ending the workout, closes it unrated
+  and records that. A second finished item closes the first card unrated. Closing the screen records an open card
+  unrated. When the last item finishes, the completion screen waits until the card is answered or skipped. If the
+  workout ends during an item, nothing is asked: the item is recorded as ended.
+- **Work that never finished.** When the workout ends, or its screen closes, an eligible exercise that has finished
+  sets but not all of them (the first of two, then End during rest) is recorded once as `.endedWorkout`, unrated, with
+  the sets it has. The coach remembers which items it has reported, so ending and then closing records once.
+- **Voice.** While the card is open, `WorkoutVoiceController` asks `EffortPhraseParser` before the command parser. It
+  maps "too hard", "too difficult", "that was too hard", "okay", "ok", "fine", "good", "that was okay", "easy",
+  "too easy", and "that was easy". The longest phrase wins. The only other words allowed are polite fillers ("please",
+  "um", "so", "yeah", "coach", "it was", "really", and "okay" itself), so a phrase that carries a command ("okay
+  start", "okay end workout") or a negation ("not easy") is not an answer and reaches the command parser instead. The
+  effort parser sees the raw transcript first because "okay" is a filler word to the command parser. An effort phrase
+  never runs as a command, and "skip" is not an effort phrase.
+- **Streaming speech.** A partial transcript that parses as an answer waits: it answers once the transcript is final or
+  has stayed unchanged for 0.6 s. If more words arrive first ("okay" becomes "okay start"), nothing is answered and the
+  normal parser handles the whole phrase.
+- **Recording.** `WorkoutOutcomeAdapter.evidence(...)` builds the evidence, and `AdaptiveTrainingCoordinator.record(_:)`
+  saves it. The model reaches the coordinator through `AdaptiveEvidenceRecording`, which the factory injects. It is nil
+  for workouts with no engine, which never ask. A failed save is logged and never reaches the workout.
+
+### Evidence mapping
+
+`WorkoutOutcomeAdapter` is pure and decides nothing about difficulty. Rejection reasons stay empty because the session
+doesn't keep the analyzer's rep rejections. `midSetTooHard` is false and `bonus` is nil until later PRs.
+
+| Field | Value |
+|---|---|
+| `source` | `.adaptive` for Today's Session items, `.manual` for anything else. |
+| `prescriptionID`, `prescriptionItemID`, `prescribed` | Today's Session items only. |
+| `workoutID` | The coach's `workoutID`, which is also the saved workout's id. |
+| `family`, `variant` | The prescription item's, or the active rung's for manual work. |
+| `confirmation` `.user` | The user changed the amount, or the item is self-reported or a timed hold. |
+| `confirmation` `.trackerAccepted` | A camera count that was rated and not changed, with tracking not lost. |
+| `confirmation` `.none` | A camera count that was unrated and unchanged, or tracking was lost and the amount was not changed, or the item was not attempted. `confirmed` is nil. |
+| `confirmed`, `setAmounts` | The card's amount. An item with several sets confirms its smallest set; a changed amount applies to each set. |
+| `tracker` `.tracked` | Camera items, with `observed` set to the counted reps. |
+| `tracker` `.lost` | A camera item that finished while tracking was lost; the count is kept as `observed`. |
+| `tracker` `.notTracked` | Self-reported or timed items, and camera items skipped before any work. |
+| `effort` | The card's answer; nil when skipped or closed unrated. |
+| `completion` `.completed` | Every set done at or above the target (the card's amount counts if the user changed it). |
+| `completion` `.stoppedEarly` | Done with less than the target, or skipped after some work (the counted reps or seconds held, read from before the skip). |
+| `completion` `.endedWorkout` | The workout ended during the item. |
+| `completion` `.notAttempted` | Skipped before any work, such as a declined harder sample. |
 
 ## Debug view and export
 

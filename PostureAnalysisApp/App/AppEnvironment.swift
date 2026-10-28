@@ -15,6 +15,8 @@ final class AppEnvironment {
     let workoutCoachFactory: WorkoutCoachFactory
     let workoutReminderCoordinator: WorkoutReminderCoordinator
     let adaptiveTraining: AdaptiveTrainingEngine?
+    /// Prepares Today's Session and records effort evidence; nil when persistence is unavailable.
+    let adaptiveCoordinator: AdaptiveTrainingCoordinator?
     let trainHomeViewModel: TrainHomeViewModel
     let routinesViewModel: RoutinesViewModel
     let libraryViewModel: LibraryViewModel
@@ -76,17 +78,21 @@ final class AppEnvironment {
             )
             modelContainer = container
             self.repositories = repositories
-            adaptiveTraining = AdaptiveTrainingEngine(
+            let adaptiveEngine = AdaptiveTrainingEngine(
                 store: repositories.adaptiveTraining,
                 builtExerciseIDs: ExerciseVariantBridge().availability(equipment: []).builtExerciseIDs,
                 calendar: .current
             )
+            let coordinator = AdaptiveTrainingCoordinator(engine: adaptiveEngine)
+            adaptiveTraining = adaptiveEngine
+            adaptiveCoordinator = coordinator
             workoutReminderCoordinator = reminderCoordinator
             workoutCoachFactory = WorkoutCoachFactory(
                 preferences: preferences,
                 exerciseCatalog: exerciseCatalog,
                 routines: repositories.routines,
-                recordings: workoutRecordings
+                recordings: workoutRecordings,
+                adaptive: coordinator
             )
             trainHomeViewModel = TrainHomeViewModel(
                 routines: repositories.routines,
@@ -126,6 +132,7 @@ final class AppEnvironment {
             modelContainer = nil
             repositories = nil
             adaptiveTraining = nil
+            adaptiveCoordinator = nil
             let reminderCoordinator = WorkoutReminderCoordinator(
                 preferences: preferences,
                 routines: nil,
@@ -201,7 +208,9 @@ final class AppEnvironment {
     }
 
     func makeAdaptiveDebugViewModel() -> AdaptiveDebugViewModel {
-        AdaptiveDebugViewModel(provider: adaptiveTraining)
+        let router = router
+        return AdaptiveDebugViewModel(provider: adaptiveTraining, todayStarter: adaptiveCoordinator,
+                                      openTodaySession: { router.open(.todaySession) })
     }
 
     func makeWorkoutRecordingsViewModel() -> WorkoutRecordingsViewModel? {
