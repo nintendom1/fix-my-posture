@@ -25,4 +25,12 @@ public enum AdaptiveReplay {
         TodaySessionPlanner(catalog: catalog, builtExerciseIDs: builtExerciseIDs, parameters: parameters,
                             calendar: calendar).status(profile: profile, facts: facts, asOf: now, context: context)
     }
+
+    /// The debug view's and the export's single source, as of `now`.
+    public static func snapshot(facts: AdaptiveFacts, catalog: ProgressionCatalog = .v1,
+                                builtExerciseIDs: Set<String>, parameters: PolicyParameters = .standard,
+                                calendar: Calendar, asOf now: Date, appVersion: String) -> AdaptiveSnapshot {
+        AdaptiveSnapshotBuilder(catalog: catalog, builtExerciseIDs: builtExerciseIDs, parameters: parameters,
+                                calendar: calendar).snapshot(facts: facts, asOf: now, appVersion: appVersion)
+    }
 }

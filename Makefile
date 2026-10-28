@@ -1,4 +1,4 @@
-.PHONY: ios ios-devices diagnostics viewer replay-sessions design-reference design-snapshots design-diff design-check notification-character notification-character-check
+.PHONY: ios ios-devices diagnostics viewer replay-sessions design-reference design-snapshots design-diff design-check notification-character notification-character-check adaptive-replay
 
 DESIGN_BUNDLE := fix-my-posture-mobile-app-design/project/Fix My Posture Redesign.dc.html
 DESIGN_DESTINATION ?= platform=iOS Simulator,name=iPhone 15 Pro
@@ -105,3 +105,9 @@ endif
 notification-character-check: $(CHARACTER_VENV)/.installed
 	$(CHARACTER_VENV)/bin/python $(CHARACTER_DIR)/render_character.py --check
 	$(CHARACTER_VENV)/bin/python -m unittest discover -s scripts/tests -q
+
+adaptive-replay:
+	@if [ -z "$(FILE)" ]; then \
+		echo 'Usage: make adaptive-replay FILE="export.json" [PARAMS="parameters.json"]'; exit 2; \
+	fi
+	swift run --package-path Packages/AdaptiveTraining adaptive-replay "$(FILE)" $(if $(PARAMS),--parameters "$(PARAMS)")
