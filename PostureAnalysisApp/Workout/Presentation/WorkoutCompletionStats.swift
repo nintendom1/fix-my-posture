@@ -21,6 +21,8 @@ struct WorkoutCompletionStats: Equatable {
         let outcome: WorkoutRecordEntry.Outcome?
         /// Today's Session harder sample, which the user may decline.
         var isOptional = false
+        /// The extra set the user took after rating an item Easy. It is never prescribed, so it is never skipped.
+        var isBonus = false
 
         /// "8 reps", or "40 s" for timed holds.
         var amountLabel: String {
@@ -55,7 +57,8 @@ struct WorkoutCompletionStats: Equatable {
     }
 
     init(record: WorkoutRecord) {
-        exerciseCount = record.entries.count
+        // A bonus repeats an exercise already counted, though its sets and reps still add up.
+        exerciseCount = record.entries.filter { !Self.isBonus($0) }.count
         totalSets = record.entries.reduce(0) { $0 + $1.sets.count }
         totalReps = record.totalReps
         let isTodaySession = AdaptiveTrainingCoordinator.isTodaySession(record)
@@ -67,9 +70,10 @@ struct WorkoutCompletionStats: Equatable {
             let latestWeight = entry.sets.reversed().compactMap(\.weight).first?.label
             let weightLabel = latestWeight.map { isOneArm ? "\($0) / side" : $0 }
             let heldSeconds = entry.sets.compactMap(\.seconds)
-            // Today's Session lists its main item first; anything after it is the optional harder sample. Entries
-            // saved from the plan already carry "Optional: "; an older one gets it once.
-            let isOptional = isTodaySession && index > 0
+            // Today's Session lists its main item first; anything after it but a bonus is the optional harder sample.
+            // Entries saved from the plan already carry "Optional: "; an older one gets it once.
+            let isBonus = Self.isBonus(entry)
+            let isOptional = isTodaySession && index > 0 && !isBonus
             let hasPrefix = entry.name.hasPrefix(WorkoutPlanItem.optionalPrefix)
             return ExerciseRow(id: entry.id,
                                name: isOptional && !hasPrefix ? WorkoutPlanItem.optionalPrefix + entry.name : entry.name,
@@ -78,8 +82,14 @@ struct WorkoutCompletionStats: Equatable {
                                seconds: heldSeconds.isEmpty ? nil : heldSeconds.reduce(0, +),
                                weightLabel: weightLabel,
                                outcome: entry.outcome,
-                               isOptional: isOptional)
+                               isOptional: isOptional,
+                               isBonus: isBonus)
         }
+    }
+
+    /// A bonus entry is named "Bonus: <name>" when the workout is saved.
+    private static func isBonus(_ entry: WorkoutRecordEntry) -> Bool {
+        entry.name.hasPrefix(WorkoutPlanItem.bonusPrefix)
     }
 
     private static func durationLabel(from start: Date, to end: Date) -> String {

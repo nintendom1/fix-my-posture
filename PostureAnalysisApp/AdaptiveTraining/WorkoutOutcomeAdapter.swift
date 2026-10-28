@@ -38,6 +38,8 @@ struct FinishedWorkoutItem: Equatable {
     let trackingLost: Bool
     /// Which round of a standalone exercise this is (Another Round starts a new one).
     var round = 1
+    /// The extra set taken after an Easy rating, not an item the app prescribed.
+    var isBonus = false
 
     /// Names one occurrence, so the workout reports it once however many times it notices it.
     enum Key: Hashable {
@@ -66,6 +68,8 @@ enum WorkoutOutcomeAdapter {
         let origin: Origin
         let family: MovementFamilyID
         let variant: VariantID
+        /// The prescription item may offer a bonus after an Easy rating (a main item whose prescription says so).
+        var offersBonus = false
     }
 
     /// What the user said on the card.
@@ -78,9 +82,10 @@ enum WorkoutOutcomeAdapter {
         let isAdjusted: Bool
     }
 
-    /// `answer` is nil when no card was shown, for example when the workout ended during the item.
+    /// `answer` is nil when no card was shown, for example when the workout ended during the item. `bonus` is the
+    /// optional extra offered after an Easy rating, kept apart from the prescribed work.
     static func evidence(id: UUID, recordedAt: Date, workoutID: UUID?, identity: Identity, item: FinishedWorkoutItem,
-                         answer: Answer?) -> AdaptiveEvidence {
+                         answer: Answer?, bonus: BonusRecord? = nil) -> AdaptiveEvidence {
         let adjusted = answer.flatMap { $0.isAdjusted ? $0.amount : nil }
         let completion = completion(of: item, adjusted: adjusted)
         let confirmation = confirmation(of: item, completion: completion, adjusted: adjusted, rated: answer?.effort != nil)
@@ -105,9 +110,46 @@ enum WorkoutOutcomeAdapter {
             setAmounts: confirmation.setAmounts.map { WorkAmount(kind: item.unit, amount: $0) },
             tracker: tracker(of: item, completion: completion),
             effort: answer?.effort,
-            // Mid-set Too Hard and the bonus are recorded by later PRs.
-            midSetTooHard: false, bonus: nil,
+            // Mid-set Too Hard is recorded by a later PR.
+            midSetTooHard: false, bonus: bonus,
             completion: completion)
+    }
+
+    // MARK: - Bonus
+
+    /// A bonus is one more rep, or five more seconds of a hold.
+    static let bonusReps = 1
+    static let bonusSeconds = 5
+
+    static func bonusDose(for unit: DoseKind) -> Dose {
+        unit == .seconds ? .seconds(bonusSeconds) : .reps(bonusReps)
+    }
+
+    /// The bonus to offer once a prescribed item is rated, or nil. Only a main Today's Session item whose
+    /// prescription offers one, rated Easy and done in full (counting a corrected amount), earns it. Manual work, a
+    /// harder sample, Okay or Too Hard, a skipped item, an item stopped early, and a bonus itself never do.
+    static func bonusOffer(identity: Identity, item: FinishedWorkoutItem, answer: Answer) -> Dose? {
+        guard identity.offersBonus, case .adaptive = identity.origin, !item.isBonus, answer.effort == .easy,
+              item.result == .completed,
+              completion(of: item, adjusted: answer.isAdjusted ? answer.amount : nil) == .completed else { return nil }
+        return bonusDose(for: item.unit)
+    }
+
+    /// What happened to an offered bonus. A declined one carries nothing else. An accepted one carries the amount only
+    /// when somebody vouched for it, the same way the prescribed item does: the user's correction, a self-reported or
+    /// timed amount, or a camera count the user rated without changing, and never after tracking was lost. A bonus
+    /// that was accepted but ended before it was done (`item` nil) carries no amount. A lost tracker is never a
+    /// failed bonus.
+    static func bonusRecord(offered: Dose, accepted: Bool, item: FinishedWorkoutItem?,
+                            answer: Answer?) -> BonusRecord {
+        guard accepted, let item else { return BonusRecord(offered: offered, accepted: accepted) }
+        let adjusted = answer.flatMap { $0.isAdjusted ? $0.amount : nil }
+        let completion = completion(of: item, adjusted: adjusted)
+        let confirmation = confirmation(of: item, completion: completion, adjusted: adjusted,
+                                        rated: answer?.effort != nil)
+        let completed = confirmation.source == .none
+            ? nil : WorkAmount(kind: item.unit, amount: adjusted ?? item.counted)
+        return BonusRecord(offered: offered, accepted: true, completed: completed, effort: answer?.effort)
     }
 
     /// How the item ended. A card amount the user changed counts, so correcting a miscount fixes the completion too.
@@ -175,9 +217,10 @@ enum FinishedItemDetector {
                     result = .completed
                 case .skipped?:
                     result = .skipped
-                    // The record keeps only finished sets, so work in the set being skipped is read from before it.
-                    if before.currentPlanItem?.id == planItem.id {
-                        let partial = observedPartialAmount(in: before, at: now)
+                    // The record keeps only finished sets, so work in the set being skipped is read from before it. A
+                    // bonus's record already carries that work, so it isn't added twice.
+                    if before.currentPlanItem?.id == planItem.id, !planItem.isBonus {
+                        let partial = before.observedSetAmount(at: now)
                         if partial > 0 { amounts.append(partial) }
                     }
                 case nil:
@@ -235,24 +278,19 @@ enum FinishedItemDetector {
         return items
     }
 
-    /// What the set in progress had observed when it was discarded: counted reps for a camera exercise, seconds held
-    /// for a timed hold, and nothing for a self-reported rep set, whose reps nobody has said were done.
-    private static func observedPartialAmount(in session: WorkoutSession, at now: TimeInterval) -> Int {
-        guard isSetInProgress(session.phase), let exercise = session.exercise else { return 0 }
-        if exercise.doseUnit == .seconds {
-            let remaining = session.holdRemaining(at: now) ?? TimeInterval(exercise.autoCompleteReps)
-            return max(0, exercise.autoCompleteReps - Int(remaining.rounded(.up)))
-        }
-        return exercise.isSelfReported ? 0 : session.repCount
-    }
-
-    /// A set is under way while exercising or paused, including when the exercise chooser was opened over it.
-    private static func isSetInProgress(_ phase: WorkoutPhase) -> Bool {
-        switch phase {
-        case .exercising, .paused: return true
-        case .changingExercise(let previous): return isSetInProgress(previous)
-        default: return false
-        }
+    /// The plan occurrence whose set is under way, as it stands when its screen closes: the sets it finished plus what
+    /// the set under way has observed (counted reps, or seconds held; never invented reps for a self-reported set). It
+    /// has the same shape as an item the workout ended on. Nil when nothing was done yet, so nothing is invented.
+    static func itemInProgress(in session: WorkoutSession, at now: TimeInterval) -> FinishedWorkoutItem? {
+        guard session.isFollowingPlan, let planItem = session.currentPlanItem, session.planRecords[planItem.id] == nil,
+              let base = session.exercises.first(where: { $0.id == planItem.exerciseID }) else { return nil }
+        var amounts = session.progress[planItem.exerciseID]?.roundSetReps ?? []
+        let observed = session.observedSetAmount(at: now)
+        if observed > 0 { amounts.append(observed) }
+        guard !amounts.isEmpty else { return nil }
+        let definition = planItem.resolved(from: base).withTarget(sets: planItem.sets, reps: planItem.targetReps)
+        return item(planItem: planItem, definition: definition, amounts: amounts, result: .endedWorkout,
+                    trackingLost: !session.framing.isReliable, round: 1)
     }
 
     private static func item(planItem: WorkoutPlanItem?, definition: ExerciseDefinition, amounts: [Int],
@@ -263,6 +301,6 @@ enum FinishedItemDetector {
             planItemID: planItem?.id, exerciseID: definition.id, reducedRange: planItem?.reducedRange ?? false,
             unit: isTimed ? .seconds : .reps, tracking: tracking, setAmounts: amounts,
             target: definition.targetReps.lowerBound, result: result,
-            trackingLost: tracking == .camera && trackingLost, round: round)
+            trackingLost: tracking == .camera && trackingLost, round: round, isBonus: planItem?.isBonus ?? false)
     }
 }

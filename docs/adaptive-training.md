@@ -293,7 +293,8 @@ not about whether the user was able to do it.
 ### Evidence mapping
 
 `WorkoutOutcomeAdapter` is pure and decides nothing about difficulty. Rejection reasons stay empty because the session
-doesn't keep the analyzer's rep rejections. `midSetTooHard` is false and `bonus` is nil until later PRs.
+doesn't keep the analyzer's rep rejections. `midSetTooHard` is false until a later PR. `bonus` is nil unless the item
+earned an offer; see [Bonus reps](#bonus-reps).
 
 | Field | Value |
 |---|---|
@@ -313,6 +314,55 @@ doesn't keep the analyzer's rep rejections. `midSetTooHard` is false and `bonus`
 | `completion` `.stoppedEarly` | Done with less than the target, or skipped after some work (the counted reps or seconds held, read from before the skip). |
 | `completion` `.endedWorkout` | The workout ended during the item. |
 | `completion` `.notAttempted` | Skipped before any work, such as a declined harder sample. |
+| `bonus` | Only when the item was offered a bonus: see [Bonus reps](#bonus-reps). |
+
+## Bonus reps
+
+After a Today's Session main item is rated Easy, the coach offers one small optional extra. Declining is a full success
+with no penalty. The app only records the bonus (invariant 6): policy V1 notes `bonusRecordedOnly` and never moves the
+prescription because of it.
+
+- **When it is offered.** Only for a main item whose `PrescriptionItem.offersBonus` is true, rated Easy on the effort
+  card, with the card's amount at or above the prescribed amount (a corrected amount counts).
+  `WorkoutOutcomeAdapter.bonusOffer` decides, and returns nil for manual work, a harder sample, Okay or Too Hard, no
+  rating, a skipped item, an item stopped early, an item the workout ended on, and a bonus itself. A bonus is never
+  offered from a bonus.
+- **The offer.** When Easy closes an eligible card, `BonusOfferView` takes its place: "That felt easy. Want one more?"
+  with **One more** (`bonusAcceptButton`) and **I'm done** (`bonusDeclineButton`), both large and labeled for VoiceOver.
+  The offer is one rep, or five seconds of a hold (`WorkoutOutcomeAdapter.bonusDose`). The coach can speak the answer:
+  "one more", "one more rep", "sure", and "yes" accept; "I'm done", "I am done", "no thanks", "no", and "done" decline.
+  `BonusPhraseParser` runs on the raw transcript before the command parser, like the effort phrases, and accepts the
+  phrase plus polite filler words only. "Okay, start", "yes, end workout", and "yes no" are not answers and reach the
+  command parser. A partial transcript that parses as an answer waits until it is final or has settled for 0.6 s.
+- **Never blocks.** Rest keeps running under the offer. Starting the next set or item, skipping ahead, ending the
+  workout, or closing the screen settles it as declined. The completion screen waits for the offer.
+- **Recording waits.** The item's evidence is recorded once, when the bonus is settled, with `effort: .easy` and its
+  `bonus`. Declined: `BonusRecord(offered:, accepted: false)`, which carries nothing else. Accepted:
+  `accepted: true`, `completed` (the amount, or nil), and `effort` (the bonus's own rating, optional). The workout ending
+  or the screen closing during the offer settles it as declined; during the bonus, as accepted with whatever was done.
+  Closing the screen mid-set never ran the end transition, so the coach reads the set under way at that moment
+  (`FinishedItemDetector.itemInProgress`): the seconds held of a timed bonus are kept, a camera count stays unconfirmed,
+  and a self-reported rep nobody marked done adds nothing. A bonus with nothing done yet reports no amount, not zero.
+- **The bonus set.** Accepting sends the reducer `WorkoutEvent.startBonus`, which inserts a one-set plan item
+  (`isBonus`) right after the item, with the same exercise and reduced-range variant, and sets it up like any plan
+  item, with no rest. If a harder sample is next, the bonus runs first and the sample still follows. The reducer
+  accepts a bonus only after a completed item that nothing after it has started, and only once per item. Another Round
+  of the plan drops the bonus.
+- **After the bonus.** A light card asks "How was the bonus?" with the amount, − and +, Too Hard / Okay / Easy, and
+  **Skip**. The rating is optional. The card follows the effort card's rules: it never blocks, and starting the next
+  set closes it unrated. A bonus skipped before any work, or a workout that ends on it, has no card.
+- **Where the amount comes from.** The same rules as the prescribed item, so a tracker count is never the user's word
+  by itself: a corrected amount is the user's; a self-reported amount or a timed hold's seconds is the user's; a camera
+  count counts when it was rated without changing it and tracking was not lost. Otherwise `completed` is nil, meaning
+  not reported. A confirmed zero is zero reps. Losing the camera during the bonus is never a failed bonus. Skipping to
+  the next exercise, or choosing another exercise, partway through a bonus keeps what its set had observed (seconds held
+  or counted reps) in the bonus's own record, so the card, the evidence, and the saved workout agree. Any other skipped
+  occurrence keeps finished sets only.
+- **Saved and shown separately.** The saved entry is named "Bonus: <name>". The completion stats and History mark it as
+  a bonus, not as the optional sample, and do not count it as another exercise. A bonus nobody did anything in leaves no
+  entry, so it is never listed as skipped or not reached. A bonus left partway is saved with its work and no outcome, so
+  it never reads "Skipped" either. A recording writes `bonus` on its plan item and a `bonus` input
+  line when the set is inserted.
 
 ## Debug view and export
 

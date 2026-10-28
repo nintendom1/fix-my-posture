@@ -12,6 +12,9 @@ struct WorkoutPlanItem: Equatable, Identifiable {
     var reducedRange = false
     /// An offer the user may decline, such as Today's Session harder sample.
     var isOptional = false
+    /// The extra set the user took after rating an item Easy. It is inserted into the plan while the workout runs,
+    /// runs the same exercise and variant, and is never part of what was prescribed.
+    var isBonus = false
 
     /// The exercise this occurrence runs, before its sets and reps apply.
     func resolved(from base: ExerciseDefinition) -> ExerciseDefinition {
@@ -20,12 +23,26 @@ struct WorkoutPlanItem: Equatable, Identifiable {
 
     /// Starts the label of an optional occurrence.
     static let optionalPrefix = "Optional: "
+    /// Starts the label of a bonus occurrence.
+    static let bonusPrefix = "Bonus: "
 
-    /// The name a plan shows for this occurrence: the variant it runs, with "Optional: " for an optional one.
+    /// The name a plan shows for this occurrence: the variant it runs, with "Optional: " for an optional one and
+    /// "Bonus: " for a bonus.
     func label(for exercise: ExerciseDefinition?) -> String {
         let name = exercise.map { resolved(from: $0).displayName } ?? "Unavailable exercise"
+        if isBonus { return Self.bonusPrefix + name }
         return isOptional ? Self.optionalPrefix + name : name
     }
+}
+
+/// A request to run one more set of a finished plan item, for the reducer to insert right after it.
+struct BonusRequest: Equatable {
+    /// The id of the new bonus occurrence.
+    let itemID: UUID
+    /// The finished occurrence the bonus follows.
+    let after: UUID
+    /// Reps, or seconds for a timed hold.
+    let amount: Int
 }
 
 extension ExerciseDefinition {
