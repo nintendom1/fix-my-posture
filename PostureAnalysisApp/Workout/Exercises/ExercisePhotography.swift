@@ -12,7 +12,9 @@ struct ExercisePhotography: Identifiable {
     let license: String
 
     /// SF Symbols for catalog exercises waiting on approved photography. Keep empty until a source is vetted.
-    static let placeholders: [ExerciseID: String] = [:]
+    static let placeholders: [ExerciseID: String] = [
+        .wallPushUp: "figure.strengthtraining.functional"
+    ]
 
     static let all: [ExercisePhotography] = [
         ExercisePhotography(

@@ -22,6 +22,7 @@ struct ExerciseGradient: Equatable {
         case deadlift
         case rearLunge
         case pushup
+        case wallPushup
         case bridge
     }
 

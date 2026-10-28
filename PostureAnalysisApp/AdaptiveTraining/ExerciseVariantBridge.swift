@@ -16,7 +16,7 @@ struct ExerciseVariantBridge {
     /// Exercise IDs the V1 ladders use that the app hasn't built yet. Each exercise PR removes its ID; a test
     /// fails if an ID is listed here after the exercise lands, or if a ladder names an ID that is in neither place.
     static let notYetBuilt: Set<String> = [
-        "wall_push_up", "incline_push_up", "sit_to_stand", "scapular_squeeze", "wall_slide", "hip_hinge",
+        "incline_push_up", "sit_to_stand", "scapular_squeeze", "wall_slide", "hip_hinge",
         "glute_squeeze", "weight_shift", "chin_tuck", "abdominal_brace"
     ]
 
@@ -27,7 +27,9 @@ struct ExerciseVariantBridge {
 
     /// The coach's exercise for a rung, or nil when the app hasn't built it.
     func exercise(for rung: ProgressionRung) -> ExerciseDefinition? {
-        exercises.exercise(ExerciseID(rawValue: rung.exerciseID))
+        guard let exercise = exercises.exercise(ExerciseID(rawValue: rung.exerciseID)) else { return nil }
+        guard rung.modifiers.contains(.reducedRange) else { return exercise }
+        return exercise.reducedRange?()
     }
 
     /// The ladder equipment that an exercise's catalog equipment corresponds to.

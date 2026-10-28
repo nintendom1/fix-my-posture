@@ -106,6 +106,8 @@ struct ExerciseDefinition: Identifiable {
     var tracking: ExerciseTracking = .camera
     /// Reps, or seconds for a timed hold (then `targetReps` and `autoCompleteReps` are seconds).
     var doseUnit: ExerciseDoseUnit = .reps
+    /// A same-exercise variant with a smaller range, when the adaptive ladder prescribes one.
+    let reducedRange: (() -> ExerciseDefinition)?
 
     private let cameraAnalyzer: (_ epoch: Int) -> ExerciseAnalyzing
 
@@ -152,7 +154,8 @@ struct ExerciseDefinition: Identifiable {
         tracking: ExerciseTracking = .camera,
         doseUnit: ExerciseDoseUnit = .reps,
         makeAnalyzer: @escaping (_ epoch: Int) -> ExerciseAnalyzing,
-        diagnostics: ExerciseDiagnostics? = nil
+        diagnostics: ExerciseDiagnostics? = nil,
+        reducedRange: (() -> ExerciseDefinition)? = nil
     ) {
         self.id = id
         self.displayName = displayName
@@ -185,6 +188,7 @@ struct ExerciseDefinition: Identifiable {
         self.plantedJoints = plantedJoints
         self.tracking = tracking
         self.doseUnit = doseUnit
+        self.reducedRange = reducedRange
         cameraAnalyzer = makeAnalyzer
         self.diagnostics = diagnostics
     }

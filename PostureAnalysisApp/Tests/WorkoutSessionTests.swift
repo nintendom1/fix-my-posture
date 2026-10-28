@@ -285,6 +285,32 @@ final class WorkoutSessionTests: XCTestCase {
         XCTAssertEqual(session.progress[bridge.id]?.setReps, [bridge.autoCompleteReps])
     }
 
+    func testWallPushUpCreditsBothSidesAndCompletesItsSessionTarget() {
+        let wallPushUp = WallPushUpExercise.definition()
+        var session = readySession(exercise: wallPushUp)
+        _ = session.handle(.command(.start), at: 2)
+
+        let analyzer = WallPushUpAnalyzer(epoch: session.analyzerEpoch)
+        let motion = wallPushUp.guide.motion
+        let sampleCount = Int(motion.duration * Double(wallPushUp.autoCompleteReps) * 10)
+        var creditedSides = Set<BodySide>()
+        for index in 0..<sampleCount {
+            let time = Double(index) / 10
+            let frame = ReadyPoseFixtures.demoFrame(wallPushUp, motionTime: time, at: time)
+            let analysis = analyzer.process(frame, counting: true)
+            for event in analysis.repEvents {
+                creditedSides.formUnion(event.sides)
+                XCTAssertEqual(event.sides, Set(BodySide.allCases))
+                _ = session.handle(.repCompleted(event), at: time + 2)
+            }
+            if session.phase == .resting { break }
+        }
+
+        XCTAssertEqual(creditedSides, Set(BodySide.allCases))
+        XCTAssertEqual(session.phase, .resting)
+        XCTAssertEqual(session.progress[wallPushUp.id]?.setReps, [wallPushUp.autoCompleteReps])
+    }
+
     func testGluteBridgeFinalTargetPeakFaultReachesTheSessionBeforeCompletion() {
         var bridge = GluteBridgeExercise.definition()
         bridge.autoCompleteReps = 2
