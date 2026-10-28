@@ -7,10 +7,10 @@ final class ExerciseFilterTests: XCTestCase {
 
     func testEachChipMatchesItsCatalogFilterGroups() {
         let expected: [(ExerciseFilterChip, [ExerciseID])] = [
-            (.all, [.shoulderPress, .lateralRaise, .hammerCurl, .tricepsExtension, .airSquat, .stiffLegDeadlift, .rearLunge, .gluteBridge, .dumbbellRow, .dumbbellShrug, .pushUp, .wallPushUp, .inclinePushUp]),
+            (.all, [.shoulderPress, .lateralRaise, .hammerCurl, .tricepsExtension, .airSquat, .sitToStand, .stiffLegDeadlift, .rearLunge, .gluteBridge, .dumbbellRow, .dumbbellShrug, .pushUp, .wallPushUp, .inclinePushUp]),
             (.upper, [.shoulderPress, .lateralRaise, .hammerCurl, .tricepsExtension, .dumbbellRow, .dumbbellShrug, .pushUp, .wallPushUp, .inclinePushUp]),
-            (.lower, [.airSquat, .stiffLegDeadlift, .rearLunge, .gluteBridge]),
-            (.bodyweight, [.airSquat, .gluteBridge, .pushUp, .wallPushUp, .inclinePushUp]),
+            (.lower, [.airSquat, .sitToStand, .stiffLegDeadlift, .rearLunge, .gluteBridge]),
+            (.bodyweight, [.airSquat, .sitToStand, .gluteBridge, .pushUp, .wallPushUp, .inclinePushUp]),
             (.dumbbells, [.shoulderPress, .lateralRaise, .hammerCurl, .stiffLegDeadlift, .rearLunge, .dumbbellRow, .dumbbellShrug])
         ]
 

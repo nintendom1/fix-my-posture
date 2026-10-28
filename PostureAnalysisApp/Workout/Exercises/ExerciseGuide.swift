@@ -44,6 +44,12 @@ struct FigureShape: Equatable {
     }
 }
 
+/// A chair's seat as a horizontal segment in guide-canvas points.
+struct ChairSeat: Equatable {
+    var from: CGPoint
+    var to: CGPoint
+}
+
 /// One pose in a looping demonstration.
 struct ArmKeyframe {
     var angles: ArmAngles
@@ -94,10 +100,18 @@ struct ArmMotion {
     var wallPushUp = false
     /// Draw a side-view incline push-up with fixed wrists on a bench and a straight body line.
     var inclinePushUp = false
+    /// Draw a seat line behind a front-view figure that starts seated. The ghost then sizes itself from the
+    /// shins, which stay upright when seated, because a seated thigh points at the camera and looks short.
+    var chair = false
 
     /// The planted-hand layout this motion draws, if it is a push-up against a fixed surface.
     var plantedLayout: PlantedBodyLayout? {
         PlantedBodyLayout.layout(wallPushUp: wallPushUp, inclinePushUp: inclinePushUp)
+    }
+
+    /// The chair's seat in guide-canvas points, just under the hips of the start pose; nil without a chair.
+    var chairSeat: ChairSeat? {
+        chair ? ExerciseDemoFigureView.chairSeat(for: startLegs) : nil
     }
 
     var duration: TimeInterval {

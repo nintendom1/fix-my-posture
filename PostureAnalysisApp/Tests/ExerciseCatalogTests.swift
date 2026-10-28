@@ -96,6 +96,18 @@ final class ExerciseCatalogTests: XCTestCase {
         XCTAssertEqual(bridge.presentation.filterGroups, [.lower, .bodyweight])
     }
 
+    func testSitToStandIsRegisteredAfterAirSquatWithAPlaceholder() throws {
+        let airSquatIndex = try XCTUnwrap(ExerciseCatalog.all.firstIndex { $0.id == .airSquat })
+        let sitToStandIndex = try XCTUnwrap(ExerciseCatalog.all.firstIndex { $0.id == .sitToStand })
+        XCTAssertEqual(sitToStandIndex, airSquatIndex + 1)
+        let sitToStand = try XCTUnwrap(ExerciseCatalog.definition(for: .sitToStand))
+        XCTAssertEqual(sitToStand.presentation.filterGroups, [.lower, .bodyweight])
+        XCTAssertEqual(sitToStand.presentation.gradient.token, .sitToStand)
+        XCTAssertEqual(sitToStand.presentation.symbolName, "figure.seated.side")
+        XCTAssertEqual(ExercisePhotography.placeholders[.sitToStand], "figure.seated.side")
+        XCTAssertNil(ExercisePhotography.photograph(for: .sitToStand))
+    }
+
     func testWallPushUpIsRegisteredAfterPushUpWithAPlaceholder() throws {
         let pushUpIndex = try XCTUnwrap(ExerciseCatalog.all.firstIndex { $0.id == .pushUp })
         let wallPushUpIndex = try XCTUnwrap(ExerciseCatalog.all.firstIndex { $0.id == .wallPushUp })
