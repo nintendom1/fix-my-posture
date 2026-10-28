@@ -183,8 +183,7 @@ struct WorkoutCompleteScreen: View {
 private extension WorkoutCompletionStats.ExerciseRow {
     var detail: String {
         if outcome == .skipped, setCount == 0 { return "Skipped" }
-        var parts = ["\(setCount) \(setCount == 1 ? "set" : "sets")",
-                     "\(reps) \(reps == 1 ? "rep" : "reps")"]
+        var parts = ["\(setCount) \(setCount == 1 ? "set" : "sets")", amountLabel]
         if let weightLabel { parts.append(weightLabel) }
         if outcome == .skipped { parts.append("Skipped") }
         return parts.joined(separator: " · ")

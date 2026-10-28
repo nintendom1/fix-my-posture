@@ -1,3 +1,4 @@
+import SwiftUI
 import UIKit
 import XCTest
 @testable import PostureAnalysisApp
@@ -5,20 +6,70 @@ import XCTest
 final class ExerciseCatalogTests: XCTestCase {
     func testEveryExerciseHasOneBundledSquarePhotograph() throws {
         let photographs = ExercisePhotography.all
-        XCTAssertEqual(Set(photographs.map(\.id)), Set(ExerciseCatalog.all.map(\.id)))
+        let catalogIDs = Set(ExerciseCatalog.all.map(\.id))
+        let photographIDs = Set(photographs.map(\.id))
+        let placeholderIDs = Set(ExercisePhotography.placeholders.keys)
+        XCTAssertTrue(photographIDs.isSubset(of: catalogIDs), "Photographs must belong to catalog exercises")
+        XCTAssertTrue(placeholderIDs.isSubset(of: catalogIDs), "Placeholders must belong to catalog exercises")
+        XCTAssertTrue(photographIDs.isDisjoint(with: placeholderIDs), "An exercise cannot use both a photo and a placeholder")
         XCTAssertEqual(Set(photographs.map(\.id)).count, photographs.count)
         XCTAssertEqual(Set(photographs.map(\.assetName)).count, photographs.count)
 
         for exercise in ExerciseCatalog.all {
-            let photograph = try XCTUnwrap(ExercisePhotography.photograph(for: exercise.id))
-            let image = try XCTUnwrap(UIImage(named: photograph.assetName), "Missing asset for \(exercise.id.rawValue)")
-            let pixels = try XCTUnwrap(image.cgImage)
-            XCTAssertEqual(pixels.width, 512)
-            XCTAssertEqual(pixels.height, 512)
-            XCTAssertEqual(photograph.sourceURL.scheme, "https")
+            let photograph = ExercisePhotography.photograph(for: exercise.id)
+            let placeholder = ExercisePhotography.placeholders[exercise.id]
+            XCTAssertTrue(photograph != nil || placeholder != nil,
+                          "\(exercise.id.rawValue) needs a photograph or a placeholder")
+            XCTAssertFalse(photograph != nil && placeholder != nil,
+                           "\(exercise.id.rawValue) cannot use both a photograph and a placeholder")
+
+            if let photograph {
+                let image = try XCTUnwrap(UIImage(named: photograph.assetName), "Missing asset for \(exercise.id.rawValue)")
+                let pixels = try XCTUnwrap(image.cgImage)
+                XCTAssertEqual(pixels.width, 512)
+                XCTAssertEqual(pixels.height, 512)
+                XCTAssertEqual(photograph.sourceURL.scheme, "https")
+            }
+            if let placeholder {
+                XCTAssertFalse(placeholder.isEmpty, "Missing placeholder symbol for \(exercise.id.rawValue)")
+                XCTAssertNotNil(UIImage(systemName: placeholder), "Unknown SF Symbol \(placeholder)")
+            }
         }
 
         XCTAssertNil(ExercisePhotography.photograph(for: ExerciseID(rawValue: "unavailable")))
+    }
+
+    @MainActor
+    func testPlaceholderExerciseThumbnailRendersWithoutItsPhoto() throws {
+        let view = ExerciseThumbnailView(exerciseID: .airSquat, placeholderSymbolName: "figure.stand")
+        XCTAssertEqual(view.resolvedPlaceholderSymbolName, "figure.stand")
+        XCTAssertNil(view.resolvedPhotograph, "A placeholder takes precedence over a bundled photo.")
+
+        // An id with no photo, so without the placeholder branch only the plain one-color fallback would draw.
+        let unknown = ExerciseID(rawValue: "placeholder-render-test")
+        let placeholder = try XCTUnwrap(renderedColors(ExerciseThumbnailView(exerciseID: unknown, cornerRadius: 0,
+                                                                             placeholderSymbolName: "figure.stand")))
+        let fallback = try XCTUnwrap(renderedColors(ExerciseThumbnailView(exerciseID: unknown, cornerRadius: 0)))
+        XCTAssertGreaterThan(placeholder.count, 20, "The placeholder draws a gradient and a symbol.")
+        XCTAssertLessThanOrEqual(fallback.count, 2)
+    }
+
+    /// The distinct RGBA values a thumbnail renders at 112 × 88 points, scale 1.
+    @MainActor
+    private func renderedColors(_ view: ExerciseThumbnailView) -> Set<UInt32>? {
+        let renderer = ImageRenderer(content: view.frame(width: 112, height: 88))
+        renderer.scale = 1
+        guard let image = renderer.cgImage else { return nil }
+        var pixels = [UInt32](repeating: 0, count: image.width * image.height)
+        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(data: buffer.baseAddress, width: image.width, height: image.height,
+                                          bitsPerComponent: 8, bytesPerRow: image.width * 4,
+                                          space: CGColorSpaceCreateDeviceRGB(),
+                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+            return true
+        }
+        return drawn ? Set(pixels) : nil
     }
 
     func testEveryCatalogExerciseHasCorePresentationData() {

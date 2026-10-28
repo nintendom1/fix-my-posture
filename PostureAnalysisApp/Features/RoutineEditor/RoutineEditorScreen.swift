@@ -311,6 +311,7 @@ private struct RoutineEditorItemRow: View {
     let send: (RoutineEditorIntent) -> Void
 
     private var rowGradient: LinearGradient { GradientTokens.linearGradient(from: item.gradient) }
+    private var editFieldsLabel: String { item.isTimed ? "sets and hold duration" : "sets and reps" }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -346,7 +347,7 @@ private struct RoutineEditorItemRow: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(item.name), \(item.targetLabel)")
-                .accessibilityHint("Edit sets and reps")
+                .accessibilityHint("Edit \(editFieldsLabel)")
 
                 Button { send(.toggleExpanded(item.id)) } label: {
                     Image(material: item.isExpanded ? "expand_less" : "tune")
@@ -357,7 +358,7 @@ private struct RoutineEditorItemRow: View {
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(item.isExpanded ? "Collapse \(item.name)" : "Edit sets and reps for \(item.name)")
+                .accessibilityLabel(item.isExpanded ? "Collapse \(item.name)" : "Edit \(editFieldsLabel) for \(item.name)")
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 10)
@@ -367,7 +368,7 @@ private struct RoutineEditorItemRow: View {
                     .padding(.horizontal, 14)
                     .padding(.bottom, 25.5)
                     .accessibilityElement(children: .contain)
-                    .accessibilityLabel("Edit sets and reps")
+                    .accessibilityLabel("Edit \(editFieldsLabel)")
             }
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -396,10 +397,10 @@ private struct RoutineEditorItemRow: View {
             stepperRow("Sets", value: item.setCount, lowerBound: 1, upperBound: 10) { delta in
                 send(.setCountChanged(itemID: item.id, value: item.setCount + delta))
             }
-            stepperRow("Fewest reps", value: item.minimumReps, lowerBound: 1, upperBound: 50) { delta in
+            stepperRow(item.isTimed ? "Shortest hold (s)" : "Fewest reps", value: item.minimumReps, lowerBound: 1, upperBound: 50) { delta in
                 send(.minimumRepsChanged(itemID: item.id, value: item.minimumReps + delta))
             }
-            stepperRow("Most reps", value: item.maximumReps, lowerBound: 1, upperBound: 50) { delta in
+            stepperRow(item.isTimed ? "Longest hold (s)" : "Most reps", value: item.maximumReps, lowerBound: 1, upperBound: 50) { delta in
                 send(.maximumRepsChanged(itemID: item.id, value: item.maximumReps + delta))
             }
 

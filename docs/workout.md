@@ -35,6 +35,12 @@ The Settings screen stores rest policy, preferred weight unit, and start-by-hold
 - **Start by holding position.** Automatic start is enabled only when the global setting and the exercise both allow it. With it off, the start position never starts a set; the user can tap play or say "start". The ready status names those choices, and exercises such as air squats that already opt out keep their existing behavior.
 - **Camera & framing.** Camera tilt compensation, the horizon line, alignment targets, and feedback refresh rate use the same preferences in Settings and the live-check gear menu.
 
+## Self-reported and timed exercises
+
+- **Self-reported sets.** These exercises do not use a camera analyzer, wait for framing, show the ghost or the live skeleton, or count reps. Start by tapping Start or saying “start”. When the set is done, tap **Done**, say “done”, or say “next set”. While the voice-command list is open, “done” only closes it. The coach records the configured target, including a target adjusted in the exercise target editor or a Saved Set. Adjusting the count for a single set comes with the confirmation card in the Today's Session flow.
+- **Timed holds.** Set targets use seconds in the same `targetReps` and `autoCompleteReps` fields used for rep targets. Tap Start or say “start” to begin the timer. The coach announces five seconds remaining when the hold is long enough for a countdown, then announces completion. Pause and resume preserve the remaining time; restart resets the timer. Done or **Next set** ends the hold early and records the seconds held. Only the timer or Done ends a hold, even for a camera-tracked one: rep events never complete it.
+- **History.** A timed set stores `reps: 0` and the held duration in `seconds`. Completion summaries, the completion card, and the workout summary show seconds separately, so timed holds do not increase rep totals. Records written before timed holds have no `seconds` key and continue to decode as rep-based sets.
+
 ## Guidance
 
 The guide and the live overlay share one description of the movement. `ExerciseGuide` holds the steps, the read-aloud walkthrough, the start-position instruction, the counting-threshold lines, and an `ArmMotion`: looping keyframes of upper-arm and forearm elevation. `FigureShape` adds per-keyframe torso pitch, hip shift, hip drop, and stride for side views, hip lift for the lying side view, and a shoulder lift for the front view. `ArmMotion.place` turns arm angles into elbow and wrist points, measuring "outward" as away from the other shoulder. The same samples pose the guide figure and the live ghost.
@@ -524,7 +530,9 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
 
 ## Adding an exercise
 
-Every new exercise ships with full guidance, even when the request only names it:
+Every new camera-tracked exercise ships with full guidance, even when the request only names it:
+
+For a self-reported exercise, use this lighter checklist: add the guide and Read Aloud steps, a demo figure where possible, presentation metadata, documentation, and a placeholder thumbnail until an approved photo is ready. Do not add a ghost, analyzer, or threshold lines.
 
 1. One folder under `Workout/Exercises` (definition, configuration, analyzer) and one line in `ExerciseCatalog`.
 2. Guide: steps, the Read Aloud walkthrough, the start-position instruction, and `ArmMotion` keyframes whose first keyframe is the start position. Add `FigureShape` values for side-view torso pitch, hip shift, hip drop, and stride, front-view shoulder lift, or lying-side hip lift when the body changes shape. These resolved samples drive the guide sheet, the first-time display, the ghost, and the hold ring. Check `ExerciseDemoFigureView.bounds(for:cameraView:)` so the whole motion fits.
