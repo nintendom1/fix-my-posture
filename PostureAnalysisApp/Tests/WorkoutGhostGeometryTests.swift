@@ -130,6 +130,16 @@ final class WorkoutGhostGeometryTests: XCTestCase {
                 XCTAssertGreaterThan(bounds.maxX, canvas.maxX)
                 XCTAssertEqual(bounds.minY, canvas.minY)
                 XCTAssertEqual(bounds.maxY, canvas.maxY)
+            } else if exercise.guide.motion.plantedLayout?.surface == .bench {
+                // A bench figure is wider than the canvas and low on it, so its bounds hug the figure and bench.
+                XCTAssertGreaterThan(bounds.maxX, canvas.maxX)
+                XCTAssertLessThan(bounds.height, canvas.height)
+                for sample in [exercise.guide.motion.startSample, exercise.guide.motion.topSample] {
+                    let joints = ExerciseDemoFigureView.pose(for: sample, cameraView: exercise.cameraView).jointLocations
+                    for (joint, point) in joints {
+                        XCTAssertTrue(bounds.contains(point), "\(exercise.id) \(joint) falls outside \(bounds)")
+                    }
+                }
             } else {
                 XCTAssertEqual(bounds, canvas,
                                "\(exercise.id) bounds expanded by \(bounds.width - canvas.width)×\(bounds.height - canvas.height)")
@@ -241,12 +251,14 @@ final class WorkoutGhostGeometryTests: XCTestCase {
 
     func testRightSideReadyPosesBlendWithoutExtraIdealLimbs() throws {
         let exercises = [StiffLegDeadliftExercise.definition(), RearLungeExercise.definition(),
-                         GluteBridgeExercise.definition(), WallPushUpExercise.definition()]
+                         GluteBridgeExercise.definition(), WallPushUpExercise.definition(),
+                         InclinePushUpExercise.definition()]
         for exercise in exercises {
             let variant = try XCTUnwrap(ReadyPoseFixtures.variants(for: exercise).first { $0.name == "minimal right" })
             let readyFrame = ReadyPoseFixtures.frame(variant, at: 0)
             let overlay = overlay(from: readyFrame)
             let samples = exercise.id == .rearLunge || exercise.id == .gluteBridge || exercise.id == .wallPushUp
+                || exercise.id == .inclinePushUp
                 ? [exercise.guide.motion.startSample, exercise.guide.motion.topSample]
                 : [exercise.guide.motion.startSample]
 
@@ -590,7 +602,7 @@ final class WorkoutGhostGeometryTests: XCTestCase {
                     case .side where exercise.guide.motion.movesSideBody:
                         missingOverlay.joints[.leftHip] = nil
                         missingOverlay.joints[.rightHip] = nil
-                    case .side where exercise.guide.motion.wallPushUp:
+                    case .side where exercise.guide.motion.plantedLayout != nil:
                         for side in BodySide.allCases {
                             missingOverlay.joints[side.shoulder] = nil
                             missingOverlay.joints[side.elbow] = nil

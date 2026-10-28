@@ -16,7 +16,7 @@ struct ExerciseVariantBridge {
     /// Exercise IDs the V1 ladders use that the app hasn't built yet. Each exercise PR removes its ID; a test
     /// fails if an ID is listed here after the exercise lands, or if a ladder names an ID that is in neither place.
     static let notYetBuilt: Set<String> = [
-        "incline_push_up", "sit_to_stand", "scapular_squeeze", "wall_slide", "hip_hinge",
+        "sit_to_stand", "scapular_squeeze", "wall_slide", "hip_hinge",
         "glute_squeeze", "weight_shift", "chin_tuck", "abdominal_brace"
     ]
 

@@ -80,6 +80,59 @@ enum DumbbellDrawing {
     }
 }
 
+/// Where a side-view push-up plants its hands and feet in the figure canvas, and what the hands rest on.
+/// The hands stay put; the shoulder moves with the arm angles and the body stays one line from ankle to shoulder.
+struct PlantedBodyLayout: Equatable {
+    enum Surface: Equatable {
+        case wall
+        case bench
+    }
+
+    var surface: Surface
+    var wrist: CGPoint
+    var ankle: CGPoint
+    /// Hip and knee positions along the ankle-to-shoulder line, as fractions of the way from the ankle.
+    var hipFraction: CGFloat = 0.55
+    var kneeFraction: CGFloat = 0.27
+
+    static let wall = PlantedBodyLayout(
+        surface: .wall,
+        wrist: CGPoint(x: ExerciseDemoFigureView.wallPushUpWallX, y: ExerciseDemoFigureView.wallPushUpWristY),
+        ankle: ExerciseDemoFigureView.wallPushUpAnkle)
+
+    /// Hands on a bench at the hips' height, with the body about 36° from the floor at Up and 25° at Down.
+    static let incline = PlantedBodyLayout(surface: .bench, wrist: CGPoint(x: 370, y: 366),
+                                           ankle: CGPoint(x: 30, y: 460))
+
+    static func layout(wallPushUp: Bool, inclinePushUp: Bool) -> PlantedBodyLayout? {
+        if wallPushUp { return .wall }
+        return inclinePushUp ? .incline : nil
+    }
+
+    /// The surface as line segments around the planted wrist, in the caller's coordinates: the guide canvas with
+    /// `scale` 1, or container points with `scale` set to the figure's body scale. `facing` is +1 when the figure
+    /// faces larger x. A wall runs the whole `verticalRange`; a bench has a top, one leg, and the floor.
+    func surfaceSegments(wrist: CGPoint, ankle: CGPoint, facing: CGFloat, scale: CGFloat,
+                         verticalRange: ClosedRange<CGFloat>) -> [(from: CGPoint, to: CGPoint)] {
+        switch surface {
+        case .wall:
+            let x = wrist.x + facing * 3
+            return [(CGPoint(x: x, y: verticalRange.lowerBound), CGPoint(x: x, y: verticalRange.upperBound))]
+        case .bench:
+            let top = wrist.y + 8 * scale
+            let floor = ankle.y + 4 * scale
+            let near = wrist.x - facing * 14 * scale
+            let far = wrist.x + facing * 62 * scale
+            let leg = wrist.x + facing * 50 * scale
+            return [
+                (CGPoint(x: near, y: top), CGPoint(x: far, y: top)),
+                (CGPoint(x: leg, y: top), CGPoint(x: leg, y: floor)),
+                (CGPoint(x: ankle.x - facing * 24 * scale, y: floor), CGPoint(x: far, y: floor))
+            ]
+        }
+    }
+}
+
 /// A canonical front-view figure holding two dumbbells, posed by `ArmAngles`.
 /// The body reuses the posture reference silhouette renderer.
 struct ExerciseDemoFigureView: View {
@@ -91,6 +144,7 @@ struct ExerciseDemoFigureView: View {
     var torsoPitch: Double = 0
     var shape: FigureShape = .neutral
     var wallPushUp = false
+    var inclinePushUp = false
     /// Bounds from `bounds(for:cameraView:)`; the default keeps the original canvas framing.
     var figureBounds: CGRect = CGRect(x: 0, y: 0, width: 300, height: 470)
     var tint: Color = Color(red: 0.62, green: 0.42, blue: 0.95)
@@ -166,8 +220,8 @@ struct ExerciseDemoFigureView: View {
         if cameraView == .floor { return floorPose(for: angles) }
         if cameraView == .lyingSide { return lyingSidePose(for: sample) }
         if cameraView == .side {
-            if sample.wallPushUp {
-                return wallPushUpPose(for: angles)
+            if let layout = sample.plantedLayout {
+                return plantedPushUpPose(for: angles, layout: layout)
             }
             var joints = sidePose(shape: sample.shape)
             if let shoulder = joints[.leftShoulder] {
@@ -196,20 +250,35 @@ struct ExerciseDemoFigureView: View {
     static func wallPushUpPose(for angles: ArmAngles,
                                upperArm: CGFloat = ExerciseDemoFigureView.upperArm,
                                forearm: CGFloat = ExerciseDemoFigureView.forearm) -> ReferencePose {
-        let wrist = CGPoint(x: wallPushUpWallX, y: wallPushUpWristY)
+        plantedPushUpPose(for: angles, layout: .wall, upperArm: upperArm, forearm: forearm)
+    }
+
+    /// Profile figure pressing up from a bench: the same planted-hand figure as the wall push-up, leaning
+    /// about 36° from the floor with the hands at the hips' height.
+    static func inclinePushUpPose(for angles: ArmAngles,
+                                  upperArm: CGFloat = ExerciseDemoFigureView.upperArm,
+                                  forearm: CGFloat = ExerciseDemoFigureView.forearm) -> ReferencePose {
+        plantedPushUpPose(for: angles, layout: .incline, upperArm: upperArm, forearm: forearm)
+    }
+
+    /// Profile figure with the wrists fixed at `layout`. The shoulder, hip, knee, and ankle stay on one line.
+    static func plantedPushUpPose(for angles: ArmAngles, layout: PlantedBodyLayout,
+                                  upperArm: CGFloat = ExerciseDemoFigureView.upperArm,
+                                  forearm: CGFloat = ExerciseDemoFigureView.forearm) -> ReferencePose {
+        let wrist = layout.wrist
         let arm = ArmMotion.place(shoulder: .zero, outward: 1, upperArm: upperArm, forearm: forearm,
                                   angles: angles)
         let shoulder = CGPoint(x: wrist.x - arm.wrist.x, y: wrist.y - arm.wrist.y)
         let elbow = CGPoint(x: shoulder.x + arm.elbow.x, y: shoulder.y + arm.elbow.y)
-        let ankle = wallPushUpAnkle
+        let ankle = layout.ankle
         let axis = CGVector(dx: shoulder.x - ankle.x, dy: shoulder.y - ankle.y)
         let length = max(hypot(axis.dx, axis.dy), 1)
         let unit = CGVector(dx: axis.dx / length, dy: axis.dy / length)
         func bodyPoint(_ fraction: CGFloat) -> CGPoint {
             CGPoint(x: ankle.x + axis.dx * fraction, y: ankle.y + axis.dy * fraction)
         }
-        let hip = bodyPoint(0.55)
-        let knee = bodyPoint(0.27)
+        let hip = bodyPoint(layout.hipFraction)
+        let knee = bodyPoint(layout.kneeFraction)
         let neck = CGPoint(x: shoulder.x + unit.dx * 24, y: shoulder.y + unit.dy * 24)
         let nose = CGPoint(x: neck.x + 16, y: neck.y - 6)
         return ReferencePose(jointLocations: [
@@ -258,8 +327,10 @@ struct ExerciseDemoFigureView: View {
     /// The smallest canvas-space rectangle that contains the original canvas and all poses in a motion.
     /// Nine samples per move capture wide or long intermediate shapes between keyframes.
     static func bounds(for motion: ArmMotion, cameraView: ExerciseCameraView) -> CGRect {
-        var result = CGRect(origin: .zero, size: canvasSize)
-        guard !motion.keyframes.isEmpty else { return result }
+        // A bench figure is wide and low, so its bounds hug the figure and bench instead of the tall default canvas.
+        let layout = motion.plantedLayout
+        var result = layout?.surface == .bench ? CGRect.null : CGRect(origin: .zero, size: canvasSize)
+        guard !motion.keyframes.isEmpty else { return CGRect(origin: .zero, size: canvasSize) }
         var samples = [motion.startSample]
         var elapsed: TimeInterval = 0
         for keyframe in motion.keyframes {
@@ -292,6 +363,16 @@ struct ExerciseDemoFigureView: View {
                                                                  forearmLength: forearm))
                 }
             }
+        }
+        if let layout, layout.surface == .bench {
+            let segments = layout.surfaceSegments(wrist: layout.wrist, ankle: layout.ankle, facing: 1, scale: 1,
+                                                  verticalRange: 0...canvasSize.height)
+            for segment in segments {
+                for point in [segment.from, segment.to] {
+                    result = result.union(CGRect(x: point.x, y: point.y, width: 0.001, height: 0.001))
+                }
+            }
+            result = result.insetBy(dx: -8, dy: -8)
         }
         return result
     }
@@ -382,7 +463,7 @@ struct ExerciseDemoFigureView: View {
     /// The same resolved sample and pose used by the guide and detail figure renderers.
     var displayedPose: ReferencePose {
         let sample = ArmMotionSample(angles: angles, stepIndex: 0, legs: legs, shape: resolvedShape,
-                                     wallPushUp: wallPushUp)
+                                     wallPushUp: wallPushUp, inclinePushUp: inclinePushUp)
         return Self.pose(for: sample, forearmPlane: forearmPlane, cameraView: cameraView)
     }
 
@@ -398,12 +479,16 @@ struct ExerciseDemoFigureView: View {
             let fit = CoordinateConverter.aspectFitRect(for: bounds.size, in: size)
             let scale = fit.width / bounds.width
             ZStack {
-                if wallPushUp, let wrist = pose.jointLocations[.leftWrist] {
+                if let layout = PlantedBodyLayout.layout(wallPushUp: wallPushUp, inclinePushUp: inclinePushUp),
+                   let wrist = pose.jointLocations[.leftWrist], let ankle = pose.jointLocations[.leftAnkle] {
                     Canvas { context, _ in
-                        var wall = Path()
-                        wall.move(to: Self.map(CGPoint(x: wrist.x + 3, y: bounds.minY), fit: fit, bounds: bounds))
-                        wall.addLine(to: Self.map(CGPoint(x: wrist.x + 3, y: bounds.maxY), fit: fit, bounds: bounds))
-                        context.stroke(wall, with: .color(tint.opacity(0.65)), lineWidth: 2)
+                        var surface = Path()
+                        for segment in layout.surfaceSegments(wrist: wrist, ankle: ankle, facing: 1, scale: 1,
+                                                              verticalRange: bounds.minY...bounds.maxY) {
+                            surface.move(to: Self.map(segment.from, fit: fit, bounds: bounds))
+                            surface.addLine(to: Self.map(segment.to, fit: fit, bounds: bounds))
+                        }
+                        context.stroke(surface, with: .color(tint.opacity(0.65)), lineWidth: 2)
                     }
                 }
                 AlignmentReferenceOverlayView(referencePose: localPose,

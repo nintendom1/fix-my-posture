@@ -107,6 +107,18 @@ final class ExerciseCatalogTests: XCTestCase {
         XCTAssertNil(ExercisePhotography.photograph(for: .wallPushUp))
     }
 
+    func testInclinePushUpIsRegisteredAfterWallPushUpWithAPlaceholder() throws {
+        let wallPushUpIndex = try XCTUnwrap(ExerciseCatalog.all.firstIndex { $0.id == .wallPushUp })
+        let inclinePushUpIndex = try XCTUnwrap(ExerciseCatalog.all.firstIndex { $0.id == .inclinePushUp })
+        XCTAssertEqual(inclinePushUpIndex, wallPushUpIndex + 1)
+        let inclinePushUp = try XCTUnwrap(ExerciseCatalog.definition(for: .inclinePushUp))
+        XCTAssertEqual(inclinePushUp.presentation.filterGroups, [.upper, .bodyweight])
+        XCTAssertEqual(inclinePushUp.presentation.gradient.token, .inclinePushup)
+        XCTAssertEqual(inclinePushUp.presentation.symbolName, "figure.strengthtraining.functional")
+        XCTAssertEqual(ExercisePhotography.placeholders[.inclinePushUp], "figure.strengthtraining.functional")
+        XCTAssertNil(ExercisePhotography.photograph(for: .inclinePushUp))
+    }
+
     func testEveryPresentationSymbolResolves() {
         for exercise in ExerciseCatalog.all {
             XCTAssertNotNil(UIImage(systemName: exercise.presentation.symbolName),
