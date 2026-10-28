@@ -13,7 +13,11 @@ enum GhostCalibration {
             overlay.joints[joint].map { !$0.isStale } ?? false
         }
 
-        if cameraView == .lyingSide {
+        if cameraView == .side && motion.wallPushUp {
+            return BodySide.allCases.contains { side in
+                [side.shoulder, side.elbow, side.wrist, side.hip].allSatisfy(counts)
+            }
+        } else if cameraView == .lyingSide {
             guard overlay.imageSize.width > 0, overlay.imageSize.height > 0 else { return false }
             return BodySide.allCases.contains { side in
                 [side.shoulder, side.hip, side.knee, side.ankle].allSatisfy(counts)

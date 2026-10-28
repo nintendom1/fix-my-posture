@@ -62,6 +62,8 @@ struct ArmMotionSample: Equatable {
     var legs: LegPose = .standing
     /// Resolved samples always have a non-nil torso pitch.
     var shape: FigureShape = FigureShape(torsoPitch: 0)
+    /// Uses the planted-hand wall layout instead of the generic standing side figure.
+    var wallPushUp = false
 }
 
 /// The plane a forearm moves in, as seen by a front-facing camera.
@@ -81,6 +83,8 @@ struct ArmMotion {
     var holdsDumbbells = true
     /// Forward lean of the side-view figure's torso, in degrees from upright (for example, a bent-over row).
     var torsoPitch: Double = 0
+    /// Draw a side-view wall push-up with fixed wrists and a straight body line.
+    var wallPushUp = false
 
     var duration: TimeInterval {
         keyframes.reduce(0) { $0 + $1.moveDuration + $1.holdDuration }
@@ -93,7 +97,7 @@ struct ArmMotion {
     var startSample: ArmMotionSample {
         guard let first = keyframes.first else {
             return ArmMotionSample(angles: startAngles, stepIndex: 0, legs: startLegs,
-                                   shape: FigureShape(torsoPitch: torsoPitch))
+                                   shape: FigureShape(torsoPitch: torsoPitch), wallPushUp: wallPushUp)
         }
         return sample(of: first)
     }
@@ -145,7 +149,8 @@ struct ArmMotion {
     /// Returns a keyframe with the motion-level pitch filled in when the frame does not override it.
     func sample(of keyframe: ArmKeyframe) -> ArmMotionSample {
         ArmMotionSample(angles: keyframe.angles, stepIndex: keyframe.stepIndex, legs: keyframe.legs,
-                       shape: Self.resolvedShape(keyframe.shape, torsoPitch: torsoPitch))
+                       shape: Self.resolvedShape(keyframe.shape, torsoPitch: torsoPitch),
+                       wallPushUp: wallPushUp)
     }
 
     func sample(at time: TimeInterval) -> ArmMotionSample {
@@ -163,7 +168,8 @@ struct ArmMotion {
                 return ArmMotionSample(angles: Self.interpolate(previous.angles, keyframe.angles, progress),
                                        stepIndex: keyframe.stepIndex,
                                        legs: Self.interpolate(previous.legs, keyframe.legs, progress),
-                                       shape: Self.interpolate(previousSample.shape, targetSample.shape, progress))
+                                       shape: Self.interpolate(previousSample.shape, targetSample.shape, progress),
+                                       wallPushUp: wallPushUp)
             }
             elapsed -= keyframe.moveDuration
             if elapsed < keyframe.holdDuration {
