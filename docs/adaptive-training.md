@@ -98,6 +98,112 @@ counts append-only facts by id and calibrations by their full contents, so any c
 A cached profile is valid only for the policy version, the ladders and built exercises, and the watermark it was built
 from; otherwise the engine replays the facts.
 
-## Policy
+## Policy V1
 
-The V1 recommendation policy lands in the next PR.
+`AdaptiveReplay.profile` rebuilds the profile from facts. It does not depend on input array order. Evidence, settings,
+engagement, and calibration commits replay by their effective time, then fact UUID. A calibration uses its end time, or
+its start time when it has no end time. Prescriptions provide item roles and targets but do not produce transitions.
+Each capacity or engagement fact gets a transition that records the decision and its rationale.
+
+Equipment in force starts empty. A committed calibration or `equipmentChanged` setting replaces it. Availability is the
+built exercise set plus the equipment in force at that point in the replay. A family's floor must be available before
+it can be offered.
+
+### Evidence decisions
+
+V1 checks evidence in this order. `TrackerObservation` is never read for capacity. An accepted tracker count matters
+only because the app records a separate confirmation source and confirmed amount.
+
+| Condition | Decision | Capacity effect |
+|---|---|---|
+| Evidence belongs to a calibration | `calibrationProbe` or `calibrationNotCommitted` | A committed probe updates comfortable dose and performance time only. An uncommitted probe has no effect. |
+| Variant is outside its family, family is not started, or family was removed | `familyInactive` | None. |
+| Item was not attempted | `notAttempted`; a declined harder sample also gets `harderSampleDeclined` | None. The sample remains due. |
+| No effort rating | `unrated`; also `trackingOnly` when confirmation is `none` | None. Performance time still updates for an active family. |
+| Okay/Easy without confirmed work | `unconfirmedRating` or `nothingCompleted` for confirmed zero | None. |
+| Okay/Easy on an easier swap | `easierSwapRecorded` | Comfortable dose only. |
+| Okay on the main item | `okayHold` | Hold current dose, clear the Easy streak, and raise confidence. |
+| Easy below the full prescribed amount, stopped early, or ended during the item | `stoppedEarlyHold` | Hold current dose and clear the Easy streak. |
+| Easy on the main item | `easyOnceHold` or `easyStreakIncrease` | Two Easy ratings on different days within the recency window add one dose step. Same-day Easy does not increment the streak. |
+| Easy at the top of the dose range | `topOfRangeSampleOffered` | Offer the next available rung as an optional sample. |
+| Okay/Easy on a harder sample | `harderSampleAccepted` | Move to that rung at its minimum dose. |
+| Too Hard on a harder sample | `harderSampleTooHard` | Keep current dose, clear the due flag and the Easy streak, and block samples for the cooldown. |
+
+An Easy streak requires different calendar days in the supplied calendar. A stale prior Easy starts a new streak and
+adds `staleHistoryIgnored`. An Okay, stopped attempt, Too Hard decision, calibration start, or capacity change clears
+the streak. A bonus adds `bonusRecordedOnly`; its acceptance and completion never change capacity.
+
+Too Hard is authoritative, including when the item was completed. The policy checks the branches in order:
+
+| Branch | Result |
+|---|---|
+| A recent comfortable dose on the performed rung is lower than the Too Hard dose | Use it (`tooHardBackToComfortable`). |
+| The dose is above the rung minimum | Reduce by at least one step, rounding the configured reduction up to a full step (`tooHardReducedDose`). |
+| The dose is at the minimum and an easier rung is available | Use its recent comfortable dose or its minimum (`tooHardEasierRung`). |
+| No easier rung is available | Keep the performed rung at its minimum (`tooHardAtFloor`). |
+
+Too Hard clears the Easy streak and pending harder sample, lowers confidence, and removes comfortable doses on the
+performed rung that are at or above the Too Hard dose. At the floor minimum confidence is low. Too Hard on something
+harder than `current` (a harder rung, or a higher dose on the same rung, such as an older prescription) is recorded
+without moving capacity, whatever its source. A manual Too Hard with no positive work uses the performed rung's minimum
+as its dose.
+
+Manual Okay/Easy work on a harder rung advances by one available rung only, and never past the rung performed. On the
+current rung, manual work at or above the current dose follows the main-item rules (Okay holds, Easy counts toward the
+streak); less than the current dose is recorded without changing the streak. Manual work on an easier rung records a
+comfortable dose only.
+
+The first Okay or Easy after `absenceDays` or more without performing the family holds, clears the Easy streak, sets
+confidence to medium, and adds `returnedAfterAbsence`. This applies to main, manual, and harder-sample evidence. Too
+Hard still applies after an absence.
+
+V1 defaults (`PolicyParameters.standard`): two Easy ratings on different days to add a step, a 25% Too Hard reduction
+rounded up to a full step, a 28-day recency window, a 14-day absence threshold, and a 7-day harder-sample cooldown.
+
+### Replay invariants
+
+- The same facts, catalog, built exercises, parameters, and calendar produce the same encoded profile.
+- Tracking loss, tracker counts, and tracking signals do not imply physical failure or completion.
+- Time passing alone does not make a transition or change a prescription. Query-time confidence can become low after
+  the absence threshold.
+- Declining a bonus or harder sample is neutral. A declined sample remains due.
+- Session context changes only the returned session. A tiny context does not write facts or change the profile.
+- Calibration probes are applied at the calibration commit time before starting points. They change comfort and
+  performance time only, ordered by each probe's own time: an older probe never replaces a newer comfortable dose or
+  moves `lastPerformedAt` back, and a Too Hard probe removes comfortable doses rated before it. A committed
+  recalibration replaces `current` and keeps prior comfortable doses.
+- One manual fact can advance at most one rung.
+- Every rationale names the family, stable variant ID, dose, and a short reason. A streak increase includes every
+  distinct-day Easy fact that supports it.
+
+### Today's Session
+
+No states means `.needsCalibration`. States with no active family means `.nothingOffered`. Otherwise the planner
+chooses the active family with the oldest `lastPerformedAt`; a never-performed family comes first, and ties follow
+catalog order. Skipped days do not change the rotation. A completed main item from a Today Session prescription on
+the current calendar day returns `.completedToday` with the family that would rotate next.
+
+The main item uses `current`, clamped to the rung's dose range. If that rung is unavailable, the planner uses the
+nearest easier available rung at its minimum. A tiny context uses the main rung minimum and omits a harder sample.
+Otherwise a due sample is offered at the next available rung's minimum when its cooldown has expired. Main items offer
+a bonus. `isTiny` is true when the main dose is the rung minimum. Confidence is read as of the requested time.
+
+Estimated time is 45 seconds plus four seconds per rep, or the hold duration in seconds, plus 25 seconds when a sample
+is offered. The rationale is the family's latest non-record-only transition, or its calibration starting point.
+
+### Semantic events
+
+`AdaptiveEventDeriver` derives events from facts and transitions, oldest first. Ties use the fact UUID and then
+`AdaptiveEventKind.allCases` order. Starts from an initial or add-family calibration produce one
+`calibrationCompleted`; recalibration produces one `recalibrationCompleted`. Increases and harder samples produce
+`progressed`; decreases and easier variants produce `regressed`. Rated evidence produces an effort event unless it is
+a calibration probe. Completed adaptive main items produce `sessionCompleted`. Bonus facts produce `bonusOffered` and
+either `bonusAccepted` or `bonusDeclined`. A transition after absence produces `returnedAfterAbsence`.
+`tinySessionPrescribed` is raised by the app from `TodaySession.isTiny`, not from replay.
+
+### Cache
+
+The engine checks its in-memory profile, then the stored cache, then replays all facts. A stored payload is reusable
+only when the policy version, interpretation key, and fact watermark match. The interpretation key covers catalog
+version, built exercise IDs, policy parameters, and calendar time zone. The watermark changes when an append-only fact
+is added or a calibration's contents change. Cache timestamps come from the newest fact, not the current clock.
