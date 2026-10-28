@@ -298,6 +298,10 @@ struct SettingsScreen: View {
             if let personaDebug = viewModel.personaDebug {
                 PersonaDebugScreen(viewModel: personaDebug)
             }
+        case .adaptiveDebug:
+            if let adaptiveDebug = viewModel.adaptiveDebug {
+                AdaptiveDebugScreen(viewModel: adaptiveDebug)
+            }
         case .workoutRecordings:
             if let workoutRecordings = viewModel.workoutRecordings {
                 WorkoutRecordingsScreen(viewModel: workoutRecordings)

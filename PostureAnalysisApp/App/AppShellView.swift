@@ -149,6 +149,7 @@ struct AppShellView: View {
             latestAssessmentID: environment.postureHomeViewModel.state.assessments.first?.id,
             notificationPreview: environment.makeNotificationPreviewViewModel(),
             personaDebug: environment.makePersonaDebugViewModel(),
+            adaptiveDebug: environment.makeAdaptiveDebugViewModel(),
             workoutRecordings: environment.makeWorkoutRecordingsViewModel()
         ))
     }

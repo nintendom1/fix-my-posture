@@ -207,3 +207,20 @@ The engine checks its in-memory profile, then the stored cache, then replays all
 only when the policy version, interpretation key, and fact watermark match. The interpretation key covers catalog
 version, built exercise IDs, policy parameters, and calendar time zone. The watermark changes when an append-only fact
 is added or a calibration's contents change. Cache timestamps come from the newest fact, not the current clock.
+
+## Debug view and export
+
+Settings › Developer diagnostics › Adaptive training shows the same read-only `AdaptiveSnapshot` that the developer
+export encodes. It includes each state's current prescription and rationale, bounded recent evidence, counts, today's
+session status, the replayed profile and semantic events, and the facts needed to interpret the result. It contains no
+photos, frames, device identifiers, or account identifiers. Dates use ISO-8601 UTC with nine fractional digits, so
+they survive a round trip exactly: decoding an export and encoding it again gives the same bytes, and replaying it
+gives the engine's decisions even for facts less than a millisecond apart. Decoding also accepts fewer fractional
+digits or none. JSON keys are sorted for repeatable exports. The page encodes and writes the export off the main
+thread, so a long history doesn't stall it.
+
+Use `make adaptive-replay FILE="export.json"` to replay an export under its recorded parameters. Add
+`PARAMS="parameters.json"` to compare a candidate `PolicyParameters` value. The report lists changed prescriptions
+and transitions, matched by fact id, family, and occurrence: a transition only the replay makes shows as
+`none → <decision>`, and one it no longer makes shows as `<decision> → none`. It does not write facts or modify the
+export.

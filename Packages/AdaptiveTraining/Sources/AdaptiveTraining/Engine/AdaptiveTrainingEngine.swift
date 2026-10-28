@@ -91,6 +91,12 @@ public final class AdaptiveTrainingEngine {
         return try events(for: setting.id)
     }
 
+    /// Everything the developer page and export show, as of `now`. Read-only.
+    public func snapshot(asOf now: Date, appVersion: String) throws -> AdaptiveSnapshot {
+        AdaptiveReplay.snapshot(facts: try store.loadFacts(), catalog: catalog, builtExerciseIDs: builtExerciseIDs,
+                                parameters: parameters, calendar: calendar, asOf: now, appVersion: appVersion)
+    }
+
     private func events(for factID: UUID) throws -> [AdaptiveEvent] {
         let facts = try store.loadFacts()
         return AdaptiveReplay.events(facts: facts, profile: try profile(for: facts)).filter { $0.factID == factID }

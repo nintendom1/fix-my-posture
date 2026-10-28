@@ -15,6 +15,7 @@ enum SettingsDestination: Hashable {
     case developerDiagnostics
     case notificationPreview
     case personaDebug
+    case adaptiveDebug
     case workoutRecordings
 }
 
@@ -92,6 +93,8 @@ final class SettingsViewModel {
     let notificationPreview: NotificationPreviewViewModel?
     /// The developer persona diagnostics page, when its dependencies are available.
     let personaDebug: PersonaDebugViewModel?
+    /// The read-only adaptive training snapshot page.
+    let adaptiveDebug: AdaptiveDebugViewModel?
     /// The developer workout recordings page; nil where recordings aren't stored, such as previews.
     let workoutRecordings: WorkoutRecordingsViewModel?
 
@@ -106,6 +109,7 @@ final class SettingsViewModel {
         latestAssessmentID: UUID? = nil,
         notificationPreview: NotificationPreviewViewModel? = nil,
         personaDebug: PersonaDebugViewModel? = nil,
+        adaptiveDebug: AdaptiveDebugViewModel? = nil,
         workoutRecordings: WorkoutRecordingsViewModel? = nil
     ) {
         self.preferences = preferences
@@ -114,6 +118,7 @@ final class SettingsViewModel {
         self.latestAssessmentID = latestAssessmentID
         self.notificationPreview = notificationPreview
         self.personaDebug = personaDebug
+        self.adaptiveDebug = adaptiveDebug
         self.workoutRecordings = workoutRecordings
         spokenCoachingEnabled = !preferences.workoutCoachCoachMuted
         voiceCommandsEnabled = !preferences.workoutCoachMicMuted
