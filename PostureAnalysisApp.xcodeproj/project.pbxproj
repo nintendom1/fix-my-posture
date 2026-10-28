@@ -459,6 +459,8 @@
 		A10000012B00000000000469 /* TodaySessionFlowTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000469 /* TodaySessionFlowTests.swift */; };
 		A10000012B00000000000470 /* BonusOfferView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000470 /* BonusOfferView.swift */; };
 		A10000012B00000000000471 /* BonusRepsTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000471 /* BonusRepsTests.swift */; };
+		A10000012B00000000000472 /* TooHardOfferView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000472 /* TooHardOfferView.swift */; };
+		A10000012B00000000000473 /* TooHardOfferTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000473 /* TooHardOfferTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -926,6 +928,8 @@
 		B10000012B00000000000469 /* TodaySessionFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodaySessionFlowTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000470 /* BonusOfferView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonusOfferView.swift; sourceTree = "<group>"; };
 		B10000012B00000000000471 /* BonusRepsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonusRepsTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000472 /* TooHardOfferView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TooHardOfferView.swift; sourceTree = "<group>"; };
+		B10000012B00000000000473 /* TooHardOfferTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TooHardOfferTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1209,6 +1213,7 @@
 				B10000012B00000000000468 /* EffortPhraseParserTests.swift */,
 				B10000012B00000000000469 /* TodaySessionFlowTests.swift */,
 				B10000012B00000000000471 /* BonusRepsTests.swift */,
+				B10000012B00000000000473 /* TooHardOfferTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1661,6 +1666,7 @@
 				B10000012B00000000000386 /* WorkoutGhostGeometry.swift */,
 				B10000012B00000000000465 /* EffortCardView.swift */,
 				B10000012B00000000000470 /* BonusOfferView.swift */,
+				B10000012B00000000000472 /* TooHardOfferView.swift */,
 			);
 			path = WorkoutCamera;
 			sourceTree = "<group>";
@@ -2371,6 +2377,7 @@
 				A10000012B00000000000464 /* EffortPhraseParser.swift in Sources */,
 				A10000012B00000000000465 /* EffortCardView.swift in Sources */,
 				A10000012B00000000000470 /* BonusOfferView.swift in Sources */,
+				A10000012B00000000000472 /* TooHardOfferView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2526,6 +2533,7 @@
 				A10000012B00000000000468 /* EffortPhraseParserTests.swift in TestSources */,
 				A10000012B00000000000469 /* TodaySessionFlowTests.swift in TestSources */,
 				A10000012B00000000000471 /* BonusRepsTests.swift in TestSources */,
+				A10000012B00000000000473 /* TooHardOfferTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

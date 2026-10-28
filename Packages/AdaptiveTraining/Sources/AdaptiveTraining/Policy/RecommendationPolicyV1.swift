@@ -252,6 +252,7 @@ struct RecommendationPolicyV1 {
                                  extraCodes: [ReasonCode], streakFactIDs: [UUID]) -> PolicyOutcome {
         var state = originalState
         let completedLess = evidence.completion == .stoppedEarly || evidence.completion == .endedWorkout ||
+            evidence.completion == .switchedToEasier ||
             (evidence.confirmed.map { amount in
                 guard let prescribed = evidence.prescribed, amount.kind == prescribed.kind else { return false }
                 return amount.amount < prescribed.amount
@@ -329,11 +330,30 @@ struct RecommendationPolicyV1 {
                        why: "This rung is at its top dose; keep it for now.", factIDs: [evidence.id])
     }
 
+    /// Where the easier version of a main item goes: rule 5's Too Hard result from the item's own rung and dose, which
+    /// is the same computation a Too Hard rating on that item would make. Nil unless it is easier than the item
+    /// (the item is at the floor minimum, or nothing easier is available), and nil for any role but the day's main item.
+    func easierSwapTarget(for item: PrescriptionItem, state: MovementState, availability: Availability,
+                          at now: Date) -> RungDose? {
+        guard item.role == .main, let family = catalog.family(item.family),
+              family.index(of: item.target.variant) != nil, let rung = catalog.rung(item.target.variant) else { return nil }
+        let result = tooHardResult(dose: item.target.dose, recordedAt: now, state: state, rung: rung,
+                                   availability: availability)
+        return prescriptionOrder(result.target, isEasierThan: item.target) ? result.target : nil
+    }
+
     private func tooHardResult(_ evidence: AdaptiveEvidence, state: MovementState, rung: ProgressionRung,
                                availability: Availability) -> TooHardResult {
-        let dose = tooHardDose(evidence, state: state, rung: rung)
+        tooHardResult(dose: tooHardDose(evidence, state: state, rung: rung), recordedAt: evidence.recordedAt,
+                      state: state, rung: rung, availability: availability)
+    }
+
+    /// Rule 5's branches for Too Hard on `dose` of `rung`, as of `recordedAt`: a recent comfortable dose, then a
+    /// reduced dose, then an easier rung, then the floor.
+    private func tooHardResult(dose: Dose, recordedAt: Date, state: MovementState, rung: ProgressionRung,
+                               availability: Availability) -> TooHardResult {
         if let comfortable = state.comfortableDose(on: rung.id),
-           isRecent(comfortable.ratedAt, relativeTo: evidence.recordedAt),
+           isRecent(comfortable.ratedAt, relativeTo: recordedAt),
            comfortable.dose.kind == dose.kind, comfortable.dose.amount < dose.amount {
             let target = RungDose(variant: rung.id, dose: rung.doseRange.clamped(comfortable.dose))
             return TooHardResult(target: target, kind: .decreaseDose, codes: [.tooHardBackToComfortable])
@@ -346,7 +366,7 @@ struct RecommendationPolicyV1 {
         }
         if let easier = catalog.easier(than: rung.id, availability: availability) {
             let comfortable = state.comfortableDose(on: easier.id).flatMap { value in
-                isRecent(value.ratedAt, relativeTo: evidence.recordedAt) ? value : nil
+                isRecent(value.ratedAt, relativeTo: recordedAt) ? value : nil
             }
             let target = comfortable.map { RungDose(variant: easier.id, dose: easier.doseRange.clamped($0.dose)) }
                 ?? RungDose(variant: easier.id, dose: easier.minimumDose)

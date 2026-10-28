@@ -31,6 +31,11 @@ struct WorkoutHUDViewState: Equatable {
     let showsMeasurements: Bool
     /// Shown only while a developer session recording runs.
     var recording: WorkoutRecordingHUD? = nil
+    /// The "Too hard?" offer is open, so its card stands where the button would.
+    var tooHardOfferIsOpen = false
+
+    /// The "Too hard?" button shows only while a set is under way, for every kind of exercise.
+    var showsTooHardButton: Bool { presentation.isSetInProgress && !tooHardOfferIsOpen }
 }
 
 /// The REC chip: tapping it drops a marker, and it briefly confirms each one.
@@ -80,6 +85,8 @@ protocol WorkoutCoachViewModeling: AnyObject, Observable {
     var effortCard: EffortCardState? { get }
     /// The "Want one more?" offer after an item rated Easy; nil when none is open.
     var bonusOffer: BonusOfferState? { get }
+    /// The "Too hard?" offer during a set; nil when none is open. It never stops the set by itself.
+    var tooHardOffer: TooHardOfferState? { get }
 
     func send(_ intent: WorkoutIntent)
     func onAppear(isApplicationActive: Bool)
@@ -94,6 +101,12 @@ protocol WorkoutCoachViewModeling: AnyObject, Observable {
     func acceptBonus()
     /// Declines the offer with no penalty.
     func declineBonus()
+    /// "Stop here, it counts": ends the item now with what was done, then asks how it was with Too Hard preselected.
+    func stopHere()
+    /// Ends the item with what was done and runs the easier version the engine chose in its place.
+    func takeEasierVersion()
+    /// Closes the offer. The set keeps going and the item stays flagged.
+    func dismissTooHardOffer()
 }
 
 extension WorkoutCoachViewModeling {

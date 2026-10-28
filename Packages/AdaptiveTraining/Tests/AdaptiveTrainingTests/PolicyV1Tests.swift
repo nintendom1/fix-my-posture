@@ -266,4 +266,161 @@ final class PolicyV1Tests: XCTestCase {
         XCTAssertEqual(unratedProfile.state(.push)?.current.dose, .reps(3))
         XCTAssertTrue(Fixtures.lastTransition(unratedProfile, factID: unrated.id)?.rationale.codes.contains(.unrated) == true)
     }
+
+    // MARK: - Easier swap
+
+    private func mainItem(_ variant: VariantID, _ dose: Dose, family: MovementFamilyID = .push,
+                          role: PrescriptionItemRole = .main) -> PrescriptionItem {
+        PrescriptionItem(id: Fixtures.id(290), family: family, target: RungDose(variant: variant, dose: dose),
+                         role: role)
+    }
+
+    private func swapTarget(_ item: PrescriptionItem, facts: AdaptiveFacts,
+                            builtExerciseIDs: Set<String> = Fixtures.allBuiltExerciseIDs) -> RungDose? {
+        AdaptiveReplay.easierSwap(for: item, profile: Fixtures.profile(facts, builtExerciseIDs: builtExerciseIDs),
+                                  builtExerciseIDs: builtExerciseIDs, calendar: Fixtures.calendar,
+                                  asOf: Fixtures.date(day: 2))
+    }
+
+    /// Where a Too Hard rating on `item` would take the family, with the same facts and moment.
+    private func currentAfterTooHardRating(on item: PrescriptionItem, facts: AdaptiveFacts) -> RungDose? {
+        let rating = Fixtures.evidence(id: 291, day: 2, family: item.family, variant: item.target.variant,
+                                       prescribed: item.target.dose, confirmed: WorkAmount(item.target.dose),
+                                       effort: .tooHard)
+        let rated = AdaptiveFacts(evidence: facts.evidence + [rating], calibrations: facts.calibrations)
+        return Fixtures.profile(rated).state(item.family)?.current
+    }
+
+    func testEasierSwapFollowsEachTooHardBranch() throws {
+        let comfortable = Fixtures.evidence(id: 280, day: 1, prescribed: .reps(5), confirmed: .reps(5), effort: .okay)
+        let comfortableEasier = Fixtures.evidence(id: 281, day: 1, variant: Fixtures.shallowWall,
+                                                  prescribed: .reps(5), confirmed: .reps(5), effort: .okay)
+        let cases: [(name: String, item: PrescriptionItem, facts: AdaptiveFacts, expected: RungDose, code: ReasonCode)] = [
+            ("reduced reps", mainItem(Fixtures.wall, .reps(8)),
+             Fixtures.seededFacts(dose: .reps(8)), RungDose(variant: Fixtures.wall, dose: .reps(6)), .tooHardReducedDose),
+            ("reduced reps, small dose", mainItem(Fixtures.wall, .reps(4)),
+             Fixtures.seededFacts(dose: .reps(4)), RungDose(variant: Fixtures.wall, dose: .reps(3)), .tooHardReducedDose),
+            ("reduced seconds", mainItem(Fixtures.gluteHold, .seconds(20), family: .glute),
+             Fixtures.seededFacts(family: .glute, variant: Fixtures.gluteHold, dose: .seconds(20)),
+             RungDose(variant: Fixtures.gluteHold, dose: .seconds(15)), .tooHardReducedDose),
+            ("recent comfortable dose", mainItem(Fixtures.wall, .reps(8)),
+             AdaptiveFacts(evidence: [comfortable], calibrations: [Fixtures.calibration(dose: .reps(8))]),
+             RungDose(variant: Fixtures.wall, dose: .reps(5)), .tooHardBackToComfortable),
+            ("easier rung at the minimum", mainItem(Fixtures.wall, .reps(1)),
+             Fixtures.seededFacts(dose: .reps(1)), RungDose(variant: Fixtures.shallowWall, dose: .reps(1)),
+             .tooHardEasierRung),
+            ("easier rung with a comfortable dose", mainItem(Fixtures.wall, .reps(1)),
+             AdaptiveFacts(evidence: [comfortableEasier], calibrations: [Fixtures.calibration(dose: .reps(1))]),
+             RungDose(variant: Fixtures.shallowWall, dose: .reps(5)), .tooHardEasierRung),
+            ("floor above its minimum", mainItem(Fixtures.shallowWall, .reps(4)),
+             Fixtures.seededFacts(variant: Fixtures.shallowWall, dose: .reps(4)),
+             RungDose(variant: Fixtures.shallowWall, dose: .reps(3)), .tooHardReducedDose),
+            ("easier rung of another unit", mainItem(VariantID(rawValue: "glute.glute_bridge"), .reps(1), family: .glute),
+             Fixtures.seededFacts(family: .glute, variant: VariantID(rawValue: "glute.glute_bridge"), dose: .reps(1)),
+             RungDose(variant: Fixtures.gluteHold, dose: .seconds(5)), .tooHardEasierRung)
+        ]
+        for value in cases {
+            let target = try XCTUnwrap(swapTarget(value.item, facts: value.facts), value.name)
+            XCTAssertEqual(target, value.expected, value.name)
+            // The same rule a Too Hard rating on this item makes, not a copy of it.
+            XCTAssertEqual(currentAfterTooHardRating(on: value.item, facts: value.facts), target, value.name)
+            let rated = Fixtures.evidence(id: 291, day: 2, family: value.item.family, variant: value.item.target.variant,
+                                          prescribed: value.item.target.dose,
+                                          confirmed: WorkAmount(value.item.target.dose), effort: .tooHard)
+            let ratedProfile = Fixtures.profile(AdaptiveFacts(evidence: value.facts.evidence + [rated],
+                                                              calibrations: value.facts.calibrations))
+            XCTAssertTrue(Fixtures.lastTransition(ratedProfile, factID: rated.id)?.rationale.codes
+                .contains(value.code) == true, value.name)
+        }
+    }
+
+    func testEasierSwapIsNilAtTheFloorMinimumAndWhenNothingEasierIsAvailable() {
+        let floor = mainItem(Fixtures.shallowWall, .reps(1))
+        let floorFacts = Fixtures.seededFacts(variant: Fixtures.shallowWall, dose: .reps(1))
+        XCTAssertNil(swapTarget(floor, facts: floorFacts), "Nothing is easier than the floor's minimum.")
+        XCTAssertEqual(currentAfterTooHardRating(on: floor, facts: floorFacts), floor.target,
+                       "A Too Hard rating there holds too.")
+
+        let hold = mainItem(Fixtures.gluteHold, .seconds(5), family: .glute)
+        XCTAssertNil(swapTarget(hold, facts: Fixtures.seededFacts(family: .glute, variant: Fixtures.gluteHold,
+                                                                  dose: .seconds(5))), "The shortest hold is the floor.")
+        XCTAssertNotNil(swapTarget(mainItem(Fixtures.gluteHold, .seconds(10), family: .glute),
+                                   facts: Fixtures.seededFacts(family: .glute, variant: Fixtures.gluteHold,
+                                                               dose: .seconds(10))),
+                        "The same item one step up has somewhere to go, so the nil above is for the right reason.")
+
+        // The dose is at the rung's minimum and the only easier rung is not built, so the family has no floor to offer.
+        var withoutFloor = Fixtures.allBuiltExerciseIDs
+        withoutFloor.remove("wall_push_up")
+        XCTAssertNil(swapTarget(mainItem(Fixtures.incline, .reps(1)),
+                                facts: Fixtures.seededFacts(variant: Fixtures.incline, dose: .reps(1)),
+                                builtExerciseIDs: withoutFloor))
+    }
+
+    func testEasierSwapIsNilForOtherRolesInactiveFamiliesAndRungsOutsideTheFamily() {
+        let facts = Fixtures.seededFacts(dose: .reps(8))
+        XCTAssertNotNil(swapTarget(mainItem(Fixtures.wall, .reps(8)), facts: facts))
+        XCTAssertNil(swapTarget(mainItem(Fixtures.wall, .reps(8), role: .harderSample), facts: facts))
+        XCTAssertNil(swapTarget(mainItem(Fixtures.wall, .reps(8), role: .easierSwap), facts: facts),
+                     "An easier version isn't swapped again.")
+        XCTAssertNil(swapTarget(mainItem(VariantID(rawValue: "squat.sit_to_stand"), .reps(8)), facts: facts),
+                     "A rung from another family.")
+        XCTAssertNil(swapTarget(mainItem(Fixtures.wall, .reps(8), family: .squat), facts: facts),
+                     "A family that was never started.")
+
+        let removed = SettingsFact(id: Fixtures.id(292), recordedAt: Fixtures.date(day: 1), kind: .familyRemoved,
+                                   family: .push)
+        let removedFacts = AdaptiveFacts(calibrations: [Fixtures.calibration(dose: .reps(8))], settings: [removed])
+        XCTAssertNil(swapTarget(mainItem(Fixtures.wall, .reps(8)), facts: removedFacts))
+    }
+
+    func testRecordedEasierSwapEvidenceReplaysAsTheEasierSwapRecordedRule() throws {
+        let swap = Fixtures.prescription(id: 293, day: 2, itemID: 294, variant: Fixtures.shallowWall, dose: .reps(3),
+                                         role: .easierSwap, offersBonus: false)
+        let calibration = Fixtures.calibration(dose: .reps(6))
+        let cases: [(EffortFeedback?, CompletionReason)] = [(.okay, .completed), (.easy, .completed), (nil, .completed)]
+        for (index, value) in cases.enumerated() {
+            let evidence = Fixtures.evidence(id: 295 + index, day: 2, variant: Fixtures.shallowWall,
+                                             prescribed: .reps(3), confirmed: .reps(3),
+                                             effort: value.0, completion: value.1, itemID: 294, prescriptionID: 293)
+            let profile = Fixtures.profile(AdaptiveFacts(prescriptions: [swap], evidence: [evidence],
+                                                         calibrations: [calibration]))
+            let state = try XCTUnwrap(profile.state(.push))
+            XCTAssertEqual(state.current, RungDose(variant: Fixtures.wall, dose: .reps(6)),
+                           "An easier swap rated Okay or Easy never moves the prescription.")
+            XCTAssertEqual(state.easyStreak, 0)
+            let transition = try XCTUnwrap(Fixtures.lastTransition(profile, factID: evidence.id))
+            XCTAssertEqual(transition.kind, .recordOnly)
+            if value.0 != nil {
+                XCTAssertTrue(transition.rationale.codes.contains(.easierSwapRecorded))
+                XCTAssertEqual(state.comfortableDose(on: Fixtures.shallowWall)?.dose, .reps(3),
+                               "It only records a comfortable dose on the easier rung.")
+            }
+        }
+    }
+
+    func testTheMainItemSwitchedToEasierRatedTooHardMovesToTheSwapAndNeverCountsTowardAnEasyStreak() throws {
+        let main = Fixtures.prescription(id: 300, day: 2, itemID: 301, variant: Fixtures.wall, dose: .reps(8))
+        let calibration = Fixtures.calibration(dose: .reps(8))
+        let item = try XCTUnwrap(main.items.first)
+        let target = try XCTUnwrap(swapTarget(item, facts: AdaptiveFacts(calibrations: [calibration])))
+
+        let tooHard = Fixtures.evidence(id: 302, day: 2, prescribed: .reps(8), confirmed: .reps(3), effort: .tooHard,
+                                        completion: .switchedToEasier, itemID: 301, prescriptionID: 300,
+                                        midSetTooHard: true)
+        let tooHardProfile = Fixtures.profile(AdaptiveFacts(prescriptions: [main], evidence: [tooHard],
+                                                            calibrations: [calibration]))
+        XCTAssertEqual(tooHardProfile.state(.push)?.current, target, "Too Hard moves exactly where the swap went.")
+
+        // Even a full amount with an Easy rating is not a completed Easy: the user took the easier version.
+        let easy = Fixtures.evidence(id: 303, day: 2, prescribed: .reps(8), confirmed: .reps(8), effort: .easy,
+                                     completion: .switchedToEasier, itemID: 301, prescriptionID: 300,
+                                     midSetTooHard: true)
+        let easyProfile = Fixtures.profile(AdaptiveFacts(prescriptions: [main], evidence: [easy],
+                                                         calibrations: [calibration]))
+        XCTAssertEqual(easyProfile.state(.push)?.easyStreak, 0)
+        XCTAssertEqual(easyProfile.state(.push)?.current, RungDose(variant: Fixtures.wall, dose: .reps(8)))
+        XCTAssertTrue(Fixtures.lastTransition(easyProfile, factID: easy.id)?.rationale.codes
+            .contains(.stoppedEarlyHold) == true)
+    }
 }

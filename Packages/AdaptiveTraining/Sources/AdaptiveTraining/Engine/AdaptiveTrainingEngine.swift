@@ -1,5 +1,11 @@
 import Foundation
 
+/// Why the engine refused to save a prescription.
+public enum AdaptiveTrainingEngineError: Error, Equatable, Sendable {
+    /// An easier swap must stay in the item's own movement family.
+    case easierSwapOutsideFamily(MovementFamilyID)
+}
+
 /// The only way app code reaches adaptive training: record facts, read the interpretation, and ask for Today's
 /// Session. Every rule about what is easier or harder stays inside the package. Ids and times always come from the
 /// caller, so the engine stays deterministic.
@@ -63,6 +69,32 @@ public final class AdaptiveTrainingEngine {
         let prescription = Prescription(id: prescriptionID, issuedAt: now, kind: .todaySession,
                                         policyVersion: policyVersion, catalogVersion: catalog.version,
                                         items: items, rationale: session.rationale)
+        try store.record(prescription)
+        return prescription
+    }
+
+    /// The easier version of a main item that is under way: where policy V1's Too Hard rule would go from the item's
+    /// rung and dose. Nil when the item is already at the floor minimum or nothing easier is available. Read-only.
+    public func easierSwap(for item: PrescriptionItem, asOf now: Date) throws -> RungDose? {
+        let facts = try store.loadFacts()
+        return AdaptiveReplay.easierSwap(for: item, profile: try profile(for: facts), catalog: catalog,
+                                         builtExerciseIDs: builtExerciseIDs, parameters: parameters,
+                                         calendar: calendar, asOf: now)
+    }
+
+    /// Saves the easier version the user took mid-item, so its evidence can point at it: a Today's Session
+    /// prescription with one `easierSwap` item for the same family. `target` is what `easierSwap(for:asOf:)` returned.
+    @discardableResult
+    public func issueEasierSwap(replacing item: PrescriptionItem, target: RungDose, prescriptionID: UUID,
+                                itemID: UUID, at now: Date) throws -> Prescription {
+        guard catalog.family(containing: target.variant)?.id == item.family else {
+            throw AdaptiveTrainingEngineError.easierSwapOutsideFamily(item.family)
+        }
+        let swap = PrescriptionItem(id: itemID, family: item.family, target: target, role: .easierSwap,
+                                    offersBonus: false)
+        let prescription = Prescription(id: prescriptionID, issuedAt: now, kind: .todaySession,
+                                        policyVersion: policyVersion, catalogVersion: catalog.version, items: [swap],
+                                        rationale: "Too hard mid-item: \(item.target) became \(target).")
         try store.record(prescription)
         return prescription
     }
