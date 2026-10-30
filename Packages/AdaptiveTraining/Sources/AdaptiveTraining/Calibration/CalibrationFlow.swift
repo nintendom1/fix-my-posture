@@ -44,12 +44,14 @@ public struct CalibrationFlow: Codable, Hashable, Sendable {
     public private(set) var probeCount = 0
 
     private let asksEquipment: Bool
+    private let currentDoses: [MovementFamilyID: RungDose]
     private var hasChosenFamilies = false
     private var entries: [Entry] = []
 
     /// One chosen family's progress through the quiz and its samples.
     private struct Entry: Codable, Hashable, Sendable {
         let family: MovementFamilyID
+        let current: RungDose?
         /// The floor at its minimum: where a family settles when nothing comfortable was found.
         let floor: RungDose
         var asked = false
@@ -89,6 +91,10 @@ public struct CalibrationFlow: Codable, Hashable, Sendable {
         self.catalog = catalog
         self.availability = availability
         asksEquipment = currentProfile == nil
+        currentDoses = Dictionary(uniqueKeysWithValues: (currentProfile?.activeFamilies ?? []).compactMap { family in
+            guard let state = currentProfile?.state(family) else { return nil }
+            return (family, state.current)
+        })
         suggestedFamilies = Self.suggestions(kind: kind, catalog: catalog, availability: availability,
                                              profile: currentProfile)
     }
@@ -97,7 +103,10 @@ public struct CalibrationFlow: Codable, Hashable, Sendable {
 
     /// Families that can be offered with the equipment answered so far, in catalog order.
     public var offeredFamilies: [MovementFamilyID] {
-        catalog.offerableFamilies(availability: availability)
+        let offered = catalog.offerableFamilies(availability: availability)
+        guard kind == .addFamily else { return offered }
+        let active = Set(currentDoses.keys)
+        return offered.filter { !active.contains($0) }
     }
 
     /// The family's rungs this device and equipment can run, easiest first.
@@ -211,13 +220,19 @@ public struct CalibrationFlow: Codable, Hashable, Sendable {
                     entry.candidate = Candidate(rungDose: dose, isHarderOffer: isHarderOffer)
                 }
             } else {
-                entry.lastComfortable = dose
+                let comfortableDose: RungDose
+                if kind == .recalibration, let current = entry.current, current.variant == dose.variant {
+                    comfortableDose = RungDose(variant: dose.variant, dose: max(dose.dose, current.dose))
+                } else {
+                    comfortableDose = dose
+                }
+                entry.lastComfortable = comfortableDose
                 if effort == .easy, !entry.sawTooHard, !atLimit,
                    let harder = catalog.harder(than: dose.variant, availability: availability) {
                     entry.candidate = Candidate(rungDose: RungDose(variant: harder.id, dose: harder.minimumDose),
                                                 isHarderOffer: true)
                 } else {
-                    entry.settle(at: dose)
+                    entry.settle(at: comfortableDose)
                 }
             }
         }
@@ -269,7 +284,15 @@ public struct CalibrationFlow: Codable, Hashable, Sendable {
 
     private func makeEntry(_ family: MovementFamilyID) -> Entry? {
         guard let floor = catalog.floorPrescription(of: family, availability: availability) else { return nil }
-        var entry = Entry(family: family, floor: floor)
+        let current = currentDoses[family]
+        var entry = Entry(family: family, current: current, floor: floor)
+        if kind == .recalibration, let current,
+           let rung = catalog.rung(current.variant), availability.isAvailable(rung) {
+            entry.asked = true
+            entry.candidate = Candidate(rungDose: RungDose(variant: rung.id, dose: Self.firstSampleDose(for: rung)),
+                                        isHarderOffer: false)
+            return entry
+        }
         // With one rung there is nothing to be closest to, so the quiz skips the question.
         let rungs = availableRungs(of: family)
         if let only = rungs.first, rungs.count == 1 {
@@ -292,11 +315,12 @@ public struct CalibrationFlow: Codable, Hashable, Sendable {
     private static func suggestions(kind: CalibrationKind, catalog: ProgressionCatalog, availability: Availability,
                                     profile: AdaptiveProfile?) -> [MovementFamilyID] {
         let offered = catalog.offerableFamilies(availability: availability)
+        guard kind != .addFamily else { return [] }
         guard let profile else { return offered.filter(defaultFamilies.contains) }
         switch kind {
         case .initial: return offered.filter(defaultFamilies.contains)
         case .recalibration: return offered.filter(profile.activeFamilies.contains)
-        case .addFamily: return offered.filter { !profile.activeFamilies.contains($0) }
+        case .addFamily: return []
         }
     }
 }

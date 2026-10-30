@@ -465,6 +465,11 @@
 		A10000012B00000000000475 /* CalibrationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000475 /* CalibrationViewModel.swift */; };
 		A10000012B00000000000476 /* CalibrationViewModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000476 /* CalibrationViewModelTests.swift */; };
 		A10000012B00000000000477 /* CalibrationScreenTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000477 /* CalibrationScreenTests.swift */; };
+		A10000012B00000000000478 /* AdaptiveTrainingSettingsProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000478 /* AdaptiveTrainingSettingsProviding.swift */; };
+		A10000012B00000000000479 /* AdaptiveTrainingSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000479 /* AdaptiveTrainingSettingsViewModel.swift */; };
+		A10000012B00000000000480 /* AdaptiveTrainingSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000480 /* AdaptiveTrainingSettingsPage.swift */; };
+		A10000012B00000000000481 /* AdaptiveTrainingSettingsViewModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000481 /* AdaptiveTrainingSettingsViewModelTests.swift */; };
+		A10000012B00000000000482 /* AdaptiveTrainingSettingsPageTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000482 /* AdaptiveTrainingSettingsPageTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -938,6 +943,11 @@
 		B10000012B00000000000475 /* CalibrationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibrationViewModel.swift; sourceTree = "<group>"; };
 		B10000012B00000000000476 /* CalibrationViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibrationViewModelTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000477 /* CalibrationScreenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibrationScreenTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000478 /* AdaptiveTrainingSettingsProviding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveTrainingSettingsProviding.swift; sourceTree = "<group>"; };
+		B10000012B00000000000479 /* AdaptiveTrainingSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveTrainingSettingsViewModel.swift; sourceTree = "<group>"; };
+		B10000012B00000000000480 /* AdaptiveTrainingSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveTrainingSettingsPage.swift; sourceTree = "<group>"; };
+		B10000012B00000000000481 /* AdaptiveTrainingSettingsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveTrainingSettingsViewModelTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000482 /* AdaptiveTrainingSettingsPageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveTrainingSettingsPageTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1224,6 +1234,8 @@
 				B10000012B00000000000473 /* TooHardOfferTests.swift */,
 				B10000012B00000000000476 /* CalibrationViewModelTests.swift */,
 				B10000012B00000000000477 /* CalibrationScreenTests.swift */,
+				B10000012B00000000000481 /* AdaptiveTrainingSettingsViewModelTests.swift */,
+				B10000012B00000000000482 /* AdaptiveTrainingSettingsPageTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1753,6 +1765,8 @@
 				B10000012B00000000000296 /* SettingsScreen.swift */,
 				B10000012B00000000000297 /* SettingsSubpages.swift */,
 				B10000012B00000000000137 /* AcknowledgementsView.swift */,
+				B10000012B00000000000479 /* AdaptiveTrainingSettingsViewModel.swift */,
+				B10000012B00000000000480 /* AdaptiveTrainingSettingsPage.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -1952,6 +1966,7 @@
 				B10000012B00000000000446 /* AdaptiveDebugProviding.swift */,
 				B10000012B00000000000462 /* AdaptiveTrainingCoordinator.swift */,
 				B10000012B00000000000463 /* WorkoutOutcomeAdapter.swift */,
+				B10000012B00000000000478 /* AdaptiveTrainingSettingsProviding.swift */,
 			);
 			path = AdaptiveTraining;
 			sourceTree = "<group>";
@@ -2400,6 +2415,9 @@
 				A10000012B00000000000472 /* TooHardOfferView.swift in Sources */,
 				A10000012B00000000000474 /* CalibrationScreen.swift in Sources */,
 				A10000012B00000000000475 /* CalibrationViewModel.swift in Sources */,
+				A10000012B00000000000478 /* AdaptiveTrainingSettingsProviding.swift in Sources */,
+				A10000012B00000000000479 /* AdaptiveTrainingSettingsViewModel.swift in Sources */,
+				A10000012B00000000000480 /* AdaptiveTrainingSettingsPage.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2558,6 +2576,8 @@
 				A10000012B00000000000473 /* TooHardOfferTests.swift in TestSources */,
 				A10000012B00000000000476 /* CalibrationViewModelTests.swift in TestSources */,
 				A10000012B00000000000477 /* CalibrationScreenTests.swift in TestSources */,
+				A10000012B00000000000481 /* AdaptiveTrainingSettingsViewModelTests.swift in TestSources */,
+				A10000012B00000000000482 /* AdaptiveTrainingSettingsPageTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

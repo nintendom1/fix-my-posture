@@ -1,3 +1,4 @@
+import AdaptiveTraining
 import Foundation
 import Observation
 import UIKit
@@ -17,6 +18,12 @@ enum SettingsDestination: Hashable {
     case personaDebug
     case adaptiveDebug
     case workoutRecordings
+    case adaptiveTraining
+    case calibration
+}
+
+enum SettingsHomeSection: Hashable {
+    case adaptiveTraining
 }
 
 @MainActor
@@ -97,10 +104,17 @@ final class SettingsViewModel {
     let adaptiveDebug: AdaptiveDebugViewModel?
     /// The developer workout recordings page; nil where recordings aren't stored, such as previews.
     let workoutRecordings: WorkoutRecordingsViewModel?
+    var adaptiveTraining: AdaptiveTrainingSettingsViewModel?
+    private(set) var calibration: CalibrationViewModel?
+
+    var homeSections: [SettingsHomeSection] {
+        adaptiveTraining == nil ? [] : [.adaptiveTraining]
+    }
 
     private let preferences: any AppPreferencesStoring
     private let router: AppRouter
     private let reminderManager: (any WorkoutReminderManaging)?
+    private let makeCalibration: ((CalibrationKind, @escaping @MainActor () -> Void) -> CalibrationViewModel?)?
 
     init(
         preferences: any AppPreferencesStoring,
@@ -110,7 +124,9 @@ final class SettingsViewModel {
         notificationPreview: NotificationPreviewViewModel? = nil,
         personaDebug: PersonaDebugViewModel? = nil,
         adaptiveDebug: AdaptiveDebugViewModel? = nil,
-        workoutRecordings: WorkoutRecordingsViewModel? = nil
+        workoutRecordings: WorkoutRecordingsViewModel? = nil,
+        adaptiveTraining: AdaptiveTrainingSettingsViewModel? = nil,
+        makeCalibration: ((CalibrationKind, @escaping @MainActor () -> Void) -> CalibrationViewModel?)? = nil
     ) {
         self.preferences = preferences
         self.router = router
@@ -120,6 +136,8 @@ final class SettingsViewModel {
         self.personaDebug = personaDebug
         self.adaptiveDebug = adaptiveDebug
         self.workoutRecordings = workoutRecordings
+        self.adaptiveTraining = adaptiveTraining
+        self.makeCalibration = makeCalibration
         spokenCoachingEnabled = !preferences.workoutCoachCoachMuted
         voiceCommandsEnabled = !preferences.workoutCoachMicMuted
         restPolicy = preferences.restPolicy
@@ -158,6 +176,29 @@ final class SettingsViewModel {
 
     func navigate(to destination: SettingsDestination) {
         path.append(destination)
+    }
+
+    func openCalibration(kind: CalibrationKind) {
+        guard calibration == nil else { return }
+        guard let makeCalibration else {
+            adaptiveTraining?.showCalibrationUnavailableNotice()
+            return
+        }
+        guard let model = makeCalibration(kind, { [weak self] in self?.finishCalibration() }) else {
+            adaptiveTraining?.showCalibrationUnavailableNotice()
+            return
+        }
+        calibration = model
+        router.isCalibratingInSettings = true
+        while path.last == .calibration { path.removeLast() }
+        path.append(.calibration)
+    }
+
+    private func finishCalibration() {
+        while path.last == .calibration { path.removeLast() }
+        calibration = nil
+        router.isCalibratingInSettings = false
+        adaptiveTraining?.refresh()
     }
 
     func popToPreviousPage() {

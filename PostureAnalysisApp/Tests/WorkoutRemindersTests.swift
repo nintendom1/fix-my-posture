@@ -326,6 +326,29 @@ final class WorkoutRemindersTests: XCTestCase {
         XCTAssertEqual(router.presentedFullScreenRoute, .todaySession)
     }
 
+    func testNotificationTapDuringSettingsCalibrationLeavesSettingsOpen() {
+        let router = AppRouter()
+        router.present(.settings)
+        router.isCalibratingInSettings = true
+        let coordinator = makeCoordinator(router: router)
+
+        coordinator.handleTap(.exercise(.airSquat))
+
+        XCTAssertEqual(router.presentedFullScreenRoute, .settings)
+        XCTAssertEqual(router.selectedTab, .train)
+        XCTAssertEqual(router.path(for: .train), [])
+    }
+
+    func testNotificationTapInSettingsWithoutCalibrationStillStartsTheTarget() {
+        let router = AppRouter()
+        router.present(.settings)
+        let coordinator = makeCoordinator(router: router)
+
+        coordinator.handleTap(.exercise(.airSquat))
+
+        XCTAssertEqual(router.presentedFullScreenRoute, .workout(exerciseID: .airSquat, routineID: nil))
+    }
+
     func testEnablingRequestsAuthorizationOnlyWhenStatusIsNotDetermined() async {
         let preferences = InMemoryPreferences()
         preferences.workoutReminderSettings = settings(enabled: true)

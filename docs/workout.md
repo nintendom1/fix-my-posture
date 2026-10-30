@@ -861,4 +861,12 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - The summary reads one plain line per area, such as "Push: Wall Push-Up × 2". **Use these** saves them; the page's Today's Session line stops reading "Needs calibration". Recent evidence shows each sample with the source "calibration".
     - Leave with **×** at the quiz (no question), and mid-sample or at the summary (it asks first). **Leave without saving** at the summary also leaves. Each leaves the Adaptive training page's current prescriptions exactly as they were.
 
+- [ ] **55.** Settings › Adaptive Training:
+    - With no starting point, open **Adaptive Training**, choose **Find your starting point**, finish it, and confirm calibration returns to the Adaptive Training page with the saved areas.
+    - Choose **Recalibrate**. Current areas do not get a closeness question. Rate the current rung **Okay** and confirm its amount stays the same. Leave before **Use these** and confirm the saved prescriptions do not change.
+    - Choose **Add an area** and confirm only inactive areas are offered and none starts selected. Add one and confirm the existing areas stay as they were.
+    - Remove an area. Confirm the prompt names the area and says its history stays. Cancel once, then confirm removal. The last area has no Remove action.
+    - Change the equipment toggles. Remove dumbbells and confirm a dumbbell exercise is no longer offered.
+    - While calibration is pushed inside Settings, swipe back does nothing; the close button and leave confirmation control how the page exits.
+
 These checks remain manual; a passing simulator run does not imply they were performed.

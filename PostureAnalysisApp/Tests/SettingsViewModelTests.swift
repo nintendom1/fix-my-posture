@@ -1,8 +1,120 @@
+import AdaptiveTraining
 import XCTest
 @testable import PostureAnalysisApp
 
 @MainActor
 final class SettingsViewModelTests: XCTestCase {
+    func testOpeningAndFinishingCalibrationReturnsToTheAdaptiveTrainingPage() {
+        let provider = SettingsProviderSpy()
+        let bridge = ExerciseVariantBridge()
+        let engine = AdaptiveTrainingEngine(store: InMemoryAdaptiveTrainingStore(),
+                                            builtExerciseIDs: bridge.availability(equipment: []).builtExerciseIDs,
+                                            calendar: Calendar(identifier: .gregorian))
+        let coordinator = AdaptiveTrainingCoordinator(engine: engine, bridge: bridge)
+        var receivedKind: CalibrationKind?
+        let router = AppRouter()
+        let settings = SettingsViewModel(
+            preferences: InMemoryPreferences(), router: router,
+            makeCalibration: { kind, onFinish in
+                receivedKind = kind
+                return CalibrationViewModel(coordinator: coordinator, kind: kind, onFinish: onFinish)
+            }
+        )
+        let adaptive = AdaptiveTrainingSettingsViewModel(provider: provider,
+                                                         openCalibration: { [weak settings] kind in
+            settings?.openCalibration(kind: kind)
+        })
+        settings.adaptiveTraining = adaptive
+        settings.path = [.adaptiveTraining]
+
+        adaptive.recalibrate()
+        XCTAssertEqual(receivedKind, .recalibration)
+        XCTAssertEqual(settings.path, [.adaptiveTraining, .calibration])
+        XCTAssertEqual(settings.calibration?.kind, .recalibration)
+        XCTAssertTrue(router.isCalibratingInSettings)
+
+        settings.calibration?.finish()
+        XCTAssertEqual(settings.path, [.adaptiveTraining])
+        XCTAssertNil(settings.calibration)
+        XCTAssertFalse(router.isCalibratingInSettings)
+        XCTAssertEqual(provider.overviewCalls, 1)
+    }
+
+    func testOpeningCalibrationAgainDuringAnAttemptKeepsTheExistingModelAndRoute() throws {
+        let router = AppRouter()
+        let store = InMemoryAdaptiveTrainingStore()
+        let bridge = ExerciseVariantBridge()
+        let engine = AdaptiveTrainingEngine(store: store,
+                                            builtExerciseIDs: bridge.availability(equipment: []).builtExerciseIDs,
+                                            calendar: Calendar(identifier: .gregorian))
+        let coordinator = AdaptiveTrainingCoordinator(engine: engine, bridge: bridge)
+        var factoryCalls = 0
+        let settings = SettingsViewModel(
+            preferences: InMemoryPreferences(), router: router,
+            makeCalibration: { kind, onFinish in
+                factoryCalls += 1
+                return CalibrationViewModel(coordinator: coordinator, kind: kind, onFinish: onFinish)
+            }
+        )
+        settings.path = [.adaptiveTraining]
+
+        settings.openCalibration(kind: .initial)
+        let first = try XCTUnwrap(settings.calibration)
+        first.begin()
+        XCTAssertNotNil(first.flow)
+        XCTAssertEqual(try store.loadFacts().calibrations.first?.status, .inProgress)
+
+        settings.openCalibration(kind: .addFamily)
+
+        XCTAssertTrue(settings.calibration === first)
+        XCTAssertEqual(settings.path, [.adaptiveTraining, .calibration])
+        XCTAssertEqual(factoryCalls, 1)
+        XCTAssertEqual(try store.loadFacts().calibrations.count, 1)
+    }
+
+    func testDismissingSettingsResetsTheCalibrationFlag() {
+        let router = AppRouter()
+        router.present(.settings)
+        router.isCalibratingInSettings = true
+
+        router.dismissFullScreen()
+
+        XCTAssertFalse(router.isCalibratingInSettings)
+    }
+
+    func testReplacingSettingsWithAnotherFullScreenRouteResetsTheCalibrationFlag() {
+        let router = AppRouter()
+        router.present(.settings)
+        router.isCalibratingInSettings = true
+        router.present(.settings)
+        XCTAssertTrue(router.isCalibratingInSettings, "Presenting Settings again keeps its calibration.")
+
+        router.open(.livePostureCheck)
+        XCTAssertFalse(router.isCalibratingInSettings)
+
+        router.present(.settings)
+        router.isCalibratingInSettings = true
+        router.present(.workout(exerciseID: nil, routineID: nil))
+        XCTAssertFalse(router.isCalibratingInSettings)
+    }
+
+    func testMissingCalibrationFactoryShowsNoticeWithoutPushing() {
+        let settings = SettingsViewModel(preferences: InMemoryPreferences(), router: AppRouter(),
+                                         makeCalibration: { _, _ in nil })
+        let adaptive = AdaptiveTrainingSettingsViewModel(provider: SettingsProviderSpy(),
+                                                         openCalibration: { [weak settings] kind in
+            settings?.openCalibration(kind: kind)
+        })
+        settings.adaptiveTraining = adaptive
+        settings.path = [.adaptiveTraining]
+
+        adaptive.findStartingPoint()
+
+        XCTAssertEqual(settings.path, [.adaptiveTraining])
+        XCTAssertNil(settings.calibration)
+        XCTAssertEqual(adaptive.notice, AdaptiveTrainingSettingsCopy.calibrationUnavailable)
+    }
+
     func testSettingTogglesReadAndWriteTheirExistingPreferenceKeys() {
         let suiteName = "SettingsViewModelTests.Toggles.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -254,6 +366,18 @@ final class SettingsViewModelTests: XCTestCase {
         preferences: any AppPreferencesStoring = InMemoryPreferences()
     ) -> SettingsViewModel {
         SettingsViewModel(preferences: preferences, router: AppRouter())
+    }
+
+    @MainActor
+    private final class SettingsProviderSpy: AdaptiveTrainingSettingsProviding {
+        private(set) var overviewCalls = 0
+        func overview() -> AdaptiveTrainingOverview? {
+            overviewCalls += 1
+            return AdaptiveTrainingOverview(needsCalibration: true, areas: [], addableFamilies: [], equipment: [])
+        }
+        func removeArea(_ family: MovementFamilyID, asOf now: Date) -> Bool { true }
+        func setEquipment(_ equipment: Set<TrainingEquipment>, asOf now: Date) -> Bool { true }
+        func displayName(of variant: VariantID) -> String { variant.rawValue }
     }
 
     @MainActor

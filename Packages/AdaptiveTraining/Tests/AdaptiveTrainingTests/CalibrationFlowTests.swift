@@ -516,16 +516,94 @@ final class CalibrationFlowTests: XCTestCase {
 
         let adding = makeFlow(kind: .addFamily, profile: profile)
         XCTAssertEqual(adding.step, .families)
-        XCTAssertFalse(adding.suggestedFamilies.contains(.push))
-        XCTAssertTrue(adding.suggestedFamilies.contains(.squat))
+        XCTAssertEqual(adding.suggestedFamilies, [])
+        XCTAssertFalse(adding.offeredFamilies.contains(.push))
+        XCTAssertTrue(adding.offeredFamilies.contains(.squat))
 
         var run = recalibration
         run.setFamilies([.push])
-        run.answerCloseness(family: .push, variant: wall)
         assertProbe(run, .push, wall, .reps(2))
         rate(&run, .okay)
         XCTAssertNil(run.inProgressRecord.equipment, "The quiz didn't ask, so it records no equipment answer.")
         XCTAssertEqual(run.committedRecord(at: Fixtures.date())?.kind, .recalibration)
+    }
+
+    func testAddFamilySuggestionsStayEmptyWithoutAProfileBeforeAndAfterEquipment() {
+        var flow = makeFlow(kind: .addFamily)
+
+        XCTAssertEqual(flow.step, .equipment)
+        XCTAssertEqual(flow.suggestedFamilies, [])
+
+        flow.setEquipment([.dumbbells])
+
+        XCTAssertEqual(flow.step, .families)
+        XCTAssertEqual(flow.suggestedFamilies, [])
+    }
+
+    func testRecalibrationStartsOnTheCurrentRungAtTheFirstSampleDose() {
+        let profile = Fixtures.profile(Fixtures.seededFacts(dose: .reps(6)))
+        var flow = makeFlow(kind: .recalibration, profile: profile)
+        flow.setFamilies([.push])
+
+        assertProbe(flow, .push, wall, .reps(2))
+    }
+
+    func testOkayKeepsTheCurrentDoseWhenItIsAboveOrBelowTheFirstSampleDose() {
+        for (currentDose, expectedDose) in [(Dose.reps(6), Dose.reps(6)), (.reps(1), .reps(2))] {
+            let profile = Fixtures.profile(Fixtures.seededFacts(dose: currentDose))
+            var flow = makeFlow(kind: .recalibration, profile: profile)
+            flow.setFamilies([.push])
+            rate(&flow, .okay)
+
+            XCTAssertEqual(start(summary(flow), .push), RungDose(variant: wall, dose: expectedDose))
+        }
+    }
+
+    func testDecliningAHarderRecalibrationOfferKeepsTheCurrentDose() {
+        let profile = Fixtures.profile(Fixtures.seededFacts(dose: .reps(6)))
+        var flow = makeFlow(kind: .recalibration, profile: profile)
+        flow.setFamilies([.push])
+        rate(&flow, .easy)
+        assertProbe(flow, .push, incline, .reps(1), harder: true)
+
+        flow.declineHarderProbe(family: .push)
+
+        XCTAssertEqual(start(summary(flow), .push), RungDose(variant: wall, dose: .reps(6)))
+    }
+
+    func testTooHardOnTheCurrentRecalibrationRungStepsDownAtItsMinimum() {
+        let profile = Fixtures.profile(Fixtures.seededFacts(dose: .reps(6)))
+        var flow = makeFlow(kind: .recalibration, profile: profile)
+        flow.setFamilies([.push])
+        rate(&flow, .tooHard)
+
+        assertProbe(flow, .push, shallow, .reps(1))
+    }
+
+    func testARecalibrationFamilyAddedDuringTheFlowGetsAClosenessQuestion() {
+        let profile = Fixtures.profile(Fixtures.seededFacts(dose: .reps(4)))
+        var flow = makeFlow(kind: .recalibration, profile: profile)
+        flow.setFamilies([.push, .squat])
+        XCTAssertEqual(flow.step, .closeness(.squat, options: [partialSit, sit, air]))
+        flow.answerCloseness(family: .squat, variant: nil)
+        assertProbe(flow, .push, wall, .reps(2))
+        rate(&flow, .okay)
+        assertProbe(flow, .squat, partialSit, .reps(2))
+    }
+
+    func testRecalibrationFlowRoundTripsMidSampleWithItsCurrentDose() throws {
+        let profile = Fixtures.profile(Fixtures.seededFacts(dose: .reps(6)))
+        var flow = makeFlow(kind: .recalibration, profile: profile)
+        flow.setFamilies([.push])
+
+        let decoded = try JSONDecoder().decode(CalibrationFlow.self, from: JSONEncoder().encode(flow))
+
+        XCTAssertEqual(decoded, flow)
+        rate(&flow, .okay)
+        var resumed = decoded
+        rate(&resumed, .okay)
+        XCTAssertEqual(summary(resumed), summary(flow))
+        XCTAssertEqual(start(summary(resumed), .push), RungDose(variant: wall, dose: .reps(6)))
     }
 
     func testNoFamilyEverStartsAboveItsMiddleRung() {
