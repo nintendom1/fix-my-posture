@@ -121,6 +121,30 @@ struct WorkoutGhostGeometry: Equatable {
                           dumbbells: result.dumbbells, forearmLength: result.forearmLength,
                           isCalibrated: true)
         }
+        if motion.chair {
+            guard let result = chairBody(overlay: fitOverlay, motion: motion,
+                                         containerSize: containerSize, sample: sample) else { return nil }
+            return Figure(joints: result.joints, bodyScale: result.bodyScale,
+                          dumbbells: result.dumbbells, forearmLength: result.forearmLength,
+                          isCalibrated: true,
+                          seat: motion.chairSeat.map { seat in
+                              let joints = result.joints
+                              let guide = ExerciseDemoFigureView.pose(for: motion.startSample,
+                                                                      forearmPlane: motion.forearmPlane,
+                                                                      cameraView: cameraView).jointLocations
+                              guard let guideLeftHip = guide[.leftHip], let guideRightHip = guide[.rightHip],
+                                    let leftHip = joints[.leftHip], let rightHip = joints[.rightHip] else { return seat }
+                              let sourceCenter = ArmGeometry.midpoint(guideLeftHip, guideRightHip)
+                              let targetCenter = ArmGeometry.midpoint(leftHip, rightHip)
+                              let scale = result.bodyScale
+                              let shift = CGPoint(x: targetCenter.x - sourceCenter.x * scale,
+                                                  y: targetCenter.y - sourceCenter.y * scale)
+                              return ChairSeat(from: CGPoint(x: seat.from.x * scale + shift.x,
+                                                              y: seat.from.y * scale + shift.y),
+                                               to: CGPoint(x: seat.to.x * scale + shift.x,
+                                                            y: seat.to.y * scale + shift.y))
+                          })
+        }
 
         let limbs = make(overlay: fitOverlay, metrics: metrics, motion: motion, cameraView: cameraView,
                          containerSize: containerSize, sample: sample).limbs
@@ -138,8 +162,7 @@ struct WorkoutGhostGeometry: Equatable {
         let scale: CGFloat
         if motion.animatesLegs {
             // Measured on the user's own leg, not the ghost's lowered one, so the body keeps its size
-            // through the squat. Sitting on a chair, the thigh points at the camera and looks short, so the
-            // shin alone sizes the body.
+            // through the squat.
             let legScales = limbs.compactMap { limb -> CGFloat? in
                 guard limb.joints.count == 3,
                       let ankle = point(limb.joints[0], in: fitOverlay, containerSize: containerSize),
@@ -259,6 +282,98 @@ struct WorkoutGhostGeometry: Equatable {
         return chair ? shin : shin + ArmGeometry.distance(knee, hip)
     }
 
+    /// Sizes the seated figure from its torso and estimates knees along the guide's hip-to-ankle proportions.
+    /// Knees are optional because the movement and Ready framing work from hips, ankles, and shoulders.
+    private static func chairBody(overlay: WorkoutOverlayState, motion: ArmMotion,
+                                  containerSize: CGSize, sample: ArmMotionSample) -> SideBodyResult? {
+        guard overlay.imageSize.width > 0, overlay.imageSize.height > 0,
+              containerSize.width > 0, containerSize.height > 0 else { return nil }
+
+        func point(_ joint: LandmarkType) -> CGPoint? {
+            guard let value = overlay.joints[joint], !value.isStale else { return nil }
+            return CoordinateConverter.normalizedToContainer(normalized: value.location,
+                                                             imageSize: overlay.imageSize,
+                                                             containerSize: containerSize)
+        }
+
+        var userPoints: [LandmarkType: CGPoint] = [:]
+        for side in BodySide.allCases {
+            for joint in [side.shoulder, side.hip, side.ankle] {
+                guard let value = point(joint) else { return nil }
+                userPoints[joint] = value
+            }
+        }
+
+        let startPose = ExerciseDemoFigureView.pose(for: motion.startSample,
+                                                    forearmPlane: motion.forearmPlane,
+                                                    cameraView: .front).jointLocations
+        let samplePose = ExerciseDemoFigureView.pose(for: sample, forearmPlane: motion.forearmPlane,
+                                                     cameraView: .front).jointLocations
+        guard let startLeftShoulder = startPose[.leftShoulder],
+              let startRightShoulder = startPose[.rightShoulder],
+              let startLeftHip = startPose[.leftHip], let startRightHip = startPose[.rightHip],
+              let startLeftAnkle = startPose[.leftAnkle], let startRightAnkle = startPose[.rightAnkle],
+              let leftShoulder = userPoints[.leftShoulder], let rightShoulder = userPoints[.rightShoulder],
+              let leftHip = userPoints[.leftHip], let rightHip = userPoints[.rightHip],
+              let leftAnkle = userPoints[.leftAnkle], let rightAnkle = userPoints[.rightAnkle] else { return nil }
+
+        let guideTorso = ArmGeometry.distance(ArmGeometry.midpoint(startLeftShoulder, startRightShoulder),
+                                              ArmGeometry.midpoint(startLeftHip, startRightHip))
+        let userTorso = ArmGeometry.distance(ArmGeometry.midpoint(leftShoulder, rightShoulder),
+                                             ArmGeometry.midpoint(leftHip, rightHip))
+        let fit = CoordinateConverter.aspectFitRect(for: overlay.imageSize, in: containerSize)
+        let fallbackScale = fit.width / ExerciseDemoFigureView.canvasSize.width
+        let rawScale = guideTorso > 1 ? userTorso / guideTorso : fallbackScale
+        let scale = rawScale.isFinite && rawScale > 0.01 ? rawScale : fallbackScale
+        let mirrored = (leftShoulder.x < rightShoulder.x) != (startLeftShoulder.x < startRightShoulder.x)
+        let xDirection: CGFloat = mirrored ? -1 : 1
+
+        func adjusted(_ joint: LandmarkType) -> CGPoint? {
+            guard let start = startPose[joint], let current = samplePose[joint] else { return nil }
+            if let anchor = userPoints[joint] {
+                return CGPoint(x: anchor.x + (current.x - start.x) * scale * xDirection,
+                               y: anchor.y + (current.y - start.y) * scale)
+            }
+            let startCenter = ArmGeometry.midpoint(startLeftShoulder, startRightShoulder)
+            let targetCenter = ArmGeometry.midpoint(leftShoulder, rightShoulder)
+            let x = mirrored ? ExerciseDemoFigureView.canvasSize.width - current.x : current.x
+            let sourceX = mirrored ? ExerciseDemoFigureView.canvasSize.width - startCenter.x : startCenter.x
+            return CGPoint(x: targetCenter.x + (x - sourceX) * scale,
+                           y: targetCenter.y + (current.y - startCenter.y) * scale)
+        }
+
+        var joints: [LandmarkType: CGPoint] = [:]
+        for joint in samplePose.keys {
+            if let value = adjusted(joint) { joints[joint] = value }
+        }
+
+        var geometry = WorkoutGhostGeometry()
+        var hips: [CGPoint] = []
+        for side in BodySide.allCases {
+            guard let ankle = adjusted(side.ankle), let hip = adjusted(side.hip),
+                  let guideAnkle = samplePose[side.ankle], let guideKnee = samplePose[side.knee],
+                  let guideHip = samplePose[side.hip] else { continue }
+            let axis = CGVector(dx: guideHip.x - guideAnkle.x, dy: guideHip.y - guideAnkle.y)
+            let lengthSquared = axis.dx * axis.dx + axis.dy * axis.dy
+            let fraction: CGFloat
+            if lengthSquared > 1 {
+                let kneeAxis = CGVector(dx: guideKnee.x - guideAnkle.x, dy: guideKnee.y - guideAnkle.y)
+                fraction = max(0, min(1, (kneeAxis.dx * axis.dx + kneeAxis.dy * axis.dy) / lengthSquared))
+            } else {
+                fraction = 0.47
+            }
+            let knee = CGPoint(x: ankle.x + (hip.x - ankle.x) * fraction,
+                               y: ankle.y + (hip.y - ankle.y) * fraction)
+            joints[side.knee] = knee
+            geometry.limbs.append(Stroke(points: [ankle, knee, hip], lineWidth: 10,
+                                         joints: [side.ankle, side.knee, side.hip]))
+            hips.append(hip)
+        }
+        if hips.count == 2 { geometry.connector = Stroke(points: hips, lineWidth: 10) }
+        return SideBodyResult(geometry: geometry, joints: joints, bodyScale: scale,
+                              dumbbells: [], forearmLength: ExerciseDemoFigureView.forearm * scale)
+    }
+
     /// Linear blend of figure geometry, keeping labels that only appear in either endpoint.
     static func blended(from: Figure, to: Figure, progress: Double) -> Figure {
         let amount = CGFloat(max(0, min(1, progress)))
@@ -324,6 +439,10 @@ struct WorkoutGhostGeometry: Equatable {
         if cameraView == .lyingSide {
             return lyingSideBody(overlay: overlay, motion: motion, containerSize: containerSize,
                                  sample: sample)?.geometry ?? WorkoutGhostGeometry()
+        }
+        if motion.chair {
+            return chairBody(overlay: overlay, motion: motion, containerSize: containerSize,
+                             sample: sample)?.geometry ?? WorkoutGhostGeometry()
         }
 
         if cameraView == .floor {
@@ -537,9 +656,9 @@ struct WorkoutGhostGeometry: Equatable {
                               dumbbells: dumbbells, forearmLength: armLengths.1)
     }
 
-    /// Fits the wall or bench figure from Ready's guaranteed arm and hip joints. An ankle, when visible, anchors the
-    /// lower body; otherwise the guide's leg proportions provide the fallback. The tracked wrist stays on the
-    /// surface while the ideal shoulder and body line move through the rep.
+    /// Fits the wall or bench figure from Ready's guaranteed arm joints. Hip and ankle landmarks refine the body
+    /// scale when visible; the guide's proportions provide a fallback when they are missing. The tracked wrist
+    /// stays on the surface while the ideal shoulder and body line move through the rep.
     private static func plantedPushUpBody(overlay: WorkoutOverlayState, motion: ArmMotion, layout: PlantedBodyLayout,
                                           containerSize: CGSize, sample: ArmMotionSample) -> SideBodyResult? {
         guard overlay.imageSize.width > 0, overlay.imageSize.height > 0,
@@ -547,8 +666,7 @@ struct WorkoutGhostGeometry: Equatable {
               let side = plantedPushUpSide(in: overlay),
               let observedShoulder = point(side.shoulder, in: overlay, containerSize: containerSize),
               let observedElbow = point(side.elbow, in: overlay, containerSize: containerSize),
-              let observedWrist = point(side.wrist, in: overlay, containerSize: containerSize),
-              let observedHip = point(side.hip, in: overlay, containerSize: containerSize) else { return nil }
+              let observedWrist = point(side.wrist, in: overlay, containerSize: containerSize) else { return nil }
 
         let upperArm = ArmGeometry.distance(observedShoulder, observedElbow)
         let forearm = ArmGeometry.distance(observedElbow, observedWrist)
@@ -576,30 +694,44 @@ struct WorkoutGhostGeometry: Equatable {
 
         let guideTorso = ArmGeometry.distance(guideStartShoulder, guideStartHip)
         let armScale = (upperArm + forearm) / (ExerciseDemoFigureView.upperArm + ExerciseDemoFigureView.forearm)
+        let observedHip = point(side.hip, in: overlay, containerSize: containerSize)
         let observedKnee = point(side.knee, in: overlay, containerSize: containerSize)
         let observedAnkle = point(side.ankle, in: overlay, containerSize: containerSize)
         let bodyScale: CGFloat
-        if let observedKnee, let observedAnkle {
+        if let observedHip, let observedKnee, let observedAnkle {
             let guideLeg = ArmGeometry.distance(guideStartHip, guideStartAnkle)
             let observedLeg = ArmGeometry.distance(observedHip, observedKnee)
                 + ArmGeometry.distance(observedKnee, observedAnkle)
             bodyScale = guideLeg > 1 ? observedLeg / guideLeg : armScale
-        } else if guideTorso > 1 {
+        } else if let observedHip, guideTorso > 1 {
             bodyScale = ArmGeometry.distance(observedShoulder, observedHip) / guideTorso
         } else {
             bodyScale = armScale
         }
         let safeBodyScale = bodyScale.isFinite && bodyScale > 0.01 ? bodyScale : armScale
+        let hipAnchor: CGPoint
+        if let observedHip {
+            hipAnchor = observedHip
+        } else if let observedAnkle {
+            hipAnchor = CGPoint(x: observedAnkle.x + facing * (guideStartHip.x - guideStartAnkle.x) * safeBodyScale,
+                                y: observedAnkle.y + (guideStartHip.y - guideStartAnkle.y) * safeBodyScale)
+        } else {
+            hipAnchor = CGPoint(x: observedShoulder.x + facing * (guideStartHip.x - guideStartShoulder.x) * safeBodyScale,
+                                y: observedShoulder.y + (guideStartHip.y - guideStartShoulder.y) * safeBodyScale)
+        }
         let ankle: CGPoint
         if let observedAnkle {
             ankle = observedAnkle
         } else {
-            ankle = CGPoint(x: observedHip.x + facing * (guideStartAnkle.x - guideStartHip.x) * safeBodyScale,
-                            y: observedHip.y + (guideStartAnkle.y - guideStartHip.y) * safeBodyScale)
+            ankle = CGPoint(x: hipAnchor.x + facing * (guideStartAnkle.x - guideStartHip.x) * safeBodyScale,
+                            y: hipAnchor.y + (guideStartAnkle.y - guideStartHip.y) * safeBodyScale)
         }
 
+        let armAngles = layout.surface == .wall
+            ? wallCalibrationAngles(sample.angles, upperArm: upperArm, forearm: forearm)
+            : sample.angles
         let relativeArm = ArmMotion.place(shoulder: .zero, outward: facing, upperArm: upperArm,
-                                          forearm: forearm, angles: sample.angles,
+                                          forearm: forearm, angles: armAngles,
                                           forearmPlane: motion.forearmPlane)
         let shoulder = CGPoint(x: observedWrist.x - relativeArm.wrist.x,
                                y: observedWrist.y - relativeArm.wrist.y)
@@ -640,6 +772,35 @@ struct WorkoutGhostGeometry: Equatable {
                                      joints: [.leftShoulder, .leftElbow, .leftWrist]))
         return SideBodyResult(geometry: geometry, joints: joints, bodyScale: safeBodyScale,
                               dumbbells: [], forearmLength: forearm)
+    }
+
+    /// Rotates both segments together only as much as needed to keep the wall ghost's shoulder rise within
+    /// the measured forearm limit. The relative bend and planted wrist stay fixed.
+    private static func wallCalibrationAngles(_ angles: ArmAngles, upperArm: CGFloat,
+                                              forearm: CGFloat) -> ArmAngles {
+        let maximumRise = forearm * 0.4
+        func shoulderRise(rotation: Double) -> CGFloat {
+            let upper = (angles.upperArmElevation + rotation) * .pi / 180
+            let lower = (angles.forearmElevation + rotation) * .pi / 180
+            return -upperArm * CGFloat(sin(upper)) - forearm * CGFloat(sin(lower))
+        }
+
+        guard shoulderRise(rotation: 0) > maximumRise else { return angles }
+        let maximumRotation = max(0, -angles.upperArmElevation - 0.001)
+        guard maximumRotation > 0, shoulderRise(rotation: maximumRotation) <= maximumRise else { return angles }
+
+        var low = 0.0
+        var high = maximumRotation
+        for _ in 0..<24 {
+            let middle = (low + high) / 2
+            if shoulderRise(rotation: middle) <= maximumRise {
+                high = middle
+            } else {
+                low = middle
+            }
+        }
+        return ArmAngles(upperArmElevation: angles.upperArmElevation + high,
+                         forearmElevation: angles.forearmElevation + high)
     }
 
     /// Calibrates the supine guide from the Ready-guaranteed shoulder and ankle. The top hip follows the
@@ -779,11 +940,11 @@ struct WorkoutGhostGeometry: Equatable {
     private static func plantedPushUpSide(in overlay: WorkoutOverlayState) -> BodySide? {
         func tracked(_ joint: LandmarkType) -> Bool { overlay.joints[joint].map { !$0.isStale } ?? false }
         let candidates = BodySide.allCases.filter { side in
-            [side.shoulder, side.elbow, side.wrist, side.hip].allSatisfy(tracked)
+            [side.shoulder, side.elbow, side.wrist].allSatisfy(tracked)
         }
         return candidates.max { lhs, rhs in
             func confidence(_ side: BodySide) -> Double {
-                [side.shoulder, side.elbow, side.wrist, side.hip]
+                [side.shoulder, side.elbow, side.wrist]
                     .compactMap { overlay.pose[$0]?.confidence }
                     .reduce(0, +)
             }

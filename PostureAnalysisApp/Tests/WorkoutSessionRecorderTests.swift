@@ -102,6 +102,37 @@ final class WorkoutSessionRecorderTests: XCTestCase {
         XCTAssertEqual(states.last?["t"] as? Double, 3)
     }
 
+    func testAudioDiagnosticsRecordRouteReasonsSessionOperationsAndInterruptions() throws {
+        let store = MemoryWorkoutRecordingStore()
+        let recorder = makeRecorder(store)
+        recorder.begin(context(), at: 0)
+        recorder.recordEvent(.audioRouteDiagnostic(reason: 6, outputs: ["BluetoothA2DP"], inputs: ["BuiltInMic"]),
+                             at: 1)
+        recorder.recordEvent(.audioSessionOperation(operation: "setActive", active: false,
+                                                      category: "playAndRecord", mode: "default",
+                                                      categoryOptions: ["mixWithOthers"],
+                                                      activeOptions: ["notifyOthersOnDeactivation"],
+                                                      isOtherAudioPlaying: true,
+                                                      secondaryAudioShouldBeSilenced: false), at: 2)
+        recorder.recordEvent(.audioInterruptionDiagnostic(type: "ended", reason: 2,
+                                                           wasSuspended: false, shouldResume: true), at: 3)
+
+        let route = try XCTUnwrap(writer(store).objects.last { $0["type"] as? String == "audio.route" })
+        XCTAssertEqual(route["reason"] as? Int, 6, "The route reason distinguishes device changes from category changes.")
+        XCTAssertEqual(route["outputs"] as? [String], ["BluetoothA2DP"])
+        XCTAssertEqual(route["inputs"] as? [String], ["BuiltInMic"])
+
+        let operation = try XCTUnwrap(writer(store).objects.last { $0["type"] as? String == "audio.session" })
+        XCTAssertEqual(operation["active"] as? Bool, false)
+        XCTAssertEqual(operation["activeOptions"] as? [String], ["notifyOthersOnDeactivation"])
+        XCTAssertEqual(operation["isOtherAudioPlaying"] as? Bool, true)
+
+        let interruption = try XCTUnwrap(writer(store).objects.last { $0["type"] as? String == "audio.interruption" })
+        XCTAssertEqual(interruption["reason"] as? Int, 2)
+        XCTAssertEqual(interruption["wasSuspended"] as? Bool, false)
+        XCTAssertEqual(interruption["shouldResume"] as? Bool, true)
+    }
+
     func testMarkerCarriesContextFlushesAndCountsInTheSummary() throws {
         let store = MemoryWorkoutRecordingStore()
         let recorder = makeRecorder(store)

@@ -120,6 +120,82 @@ final class WorkoutGhostGeometryTests: XCTestCase {
         }
     }
 
+    func testPlantedPushUpGuideAndCalibratedTopPosesKeepTheElbowDownAndClearOfTheSurface() throws {
+        let wall = WallPushUpExercise.definition()
+        let exercises = [wall, try XCTUnwrap(wall.reducedRange?()), InclinePushUpExercise.definition()]
+        for exercise in exercises {
+            let motion = exercise.guide.motion
+            let layout = try XCTUnwrap(motion.plantedLayout)
+            let sampleCount = Int((motion.duration / 0.05).rounded())
+            for index in 0...sampleCount {
+                let sample = motion.sample(at: Double(index) * 0.05)
+                let joints = ExerciseDemoFigureView.pose(for: sample, forearmPlane: motion.forearmPlane,
+                                                         cameraView: exercise.cameraView).jointLocations
+                try assertPlantedElbow(joints, layout: layout, wall: layout.surface == .wall,
+                                       scale: 1, label: exercise.displayName + " guide " + String(index))
+            }
+
+            let variant = try XCTUnwrap(ReadyPoseFixtures.variants(for: exercise).first { $0.name == "minimal left" })
+            let frame = ReadyPoseFixtures.frame(variant, at: 0)
+            let overlay = WorkoutOverlayState(
+                imageSize: frame.imageSize,
+                joints: frame.pose.landmarks.mapValues { OverlayJoint(location: $0.normalizedLocation, isStale: false) },
+                segments: [], endPositionSides: [], pose: frame.pose)
+            let calibrated = try XCTUnwrap(WorkoutGhostGeometry.calibrated(
+                fitOverlay: overlay, metrics: nil, motion: motion, cameraView: exercise.cameraView,
+                containerSize: containerSize, sample: motion.topSample))
+            try assertPlantedElbow(calibrated.joints, layout: layout, wall: layout.surface == .wall,
+                                   scale: calibrated.bodyScale, label: exercise.displayName + " calibrated top")
+        }
+    }
+
+    func testCalibratedWallGhostKeepsFormLimitsAcrossScalesProportionsAndFacings() throws {
+        let wall = WallPushUpExercise.definition()
+        let exercises = [wall, try XCTUnwrap(wall.reducedRange?())]
+        let proportions: [(CGFloat, CGFloat)] = [
+            (1, 1), (0.85, 1), (1.15, 1), (1, 0.85), (1, 1.15), (0.85, 1.15), (1.15, 0.85)
+        ]
+        for exercise in exercises {
+            let motion = exercise.guide.motion
+            let layout = try XCTUnwrap(motion.plantedLayout)
+            let bend = 180 - abs(motion.topAngles.forearmElevation - motion.topAngles.upperArmElevation)
+            for (side, variantName) in [(BodySide.left, "minimal left"), (.right, "minimal right")] {
+                let variant = try XCTUnwrap(ReadyPoseFixtures.variants(for: exercise).first { $0.name == variantName })
+                let frame = ReadyPoseFixtures.frame(variant, at: 0)
+                for scale: CGFloat in [0.75, 1, 1.35] {
+                    for (upperScale, forearmScale) in proportions {
+                        let overlay = try calibratedOverlay(from: frame, side: side, scale: scale,
+                                                           upperArmScale: upperScale, forearmScale: forearmScale)
+                        let calibrated = try XCTUnwrap(WorkoutGhostGeometry.calibrated(
+                            fitOverlay: overlay, metrics: nil, motion: motion, cameraView: exercise.cameraView,
+                            containerSize: containerSize, sample: motion.topSample))
+                        let shoulder = try XCTUnwrap(calibrated.joints[.leftShoulder])
+                        let elbow = try XCTUnwrap(calibrated.joints[.leftElbow])
+                        let wrist = try XCTUnwrap(calibrated.joints[.leftWrist])
+                        let suppliedWrist = try XCTUnwrap(overlay.joints[side.wrist])
+                        let expectedWrist = CoordinateConverter.normalizedToContainer(
+                            normalized: suppliedWrist.location, imageSize: overlay.imageSize,
+                            containerSize: containerSize)
+                        let suppliedElbow = try XCTUnwrap(overlay.joints[side.elbow])
+                        let suppliedElbowPoint = CoordinateConverter.normalizedToContainer(
+                            normalized: suppliedElbow.location, imageSize: overlay.imageSize,
+                            containerSize: containerSize)
+                        let expectedForearm = ArmGeometry.distance(suppliedElbowPoint, expectedWrist)
+                        let actualForearm = ArmGeometry.distance(elbow, wrist)
+                        let label = "\(exercise.displayName), \(variantName), scale \(scale), arms \(upperScale)/\(forearmScale)"
+
+                        XCTAssertLessThan(ArmGeometry.distance(wrist, expectedWrist), 0.001, "Wrist moved: \(label)")
+                        XCTAssertEqual(actualForearm, expectedForearm, accuracy: 0.001, "Measured forearm changed: \(label)")
+                        XCTAssertEqual(ArmGeometry.angle(at: elbow, shoulder, wrist), bend, accuracy: 0.01,
+                                       "The intended elbow bend changed: \(label)")
+                        try assertPlantedElbow(calibrated.joints, layout: layout, wall: true,
+                                               scale: calibrated.bodyScale, label: label)
+                    }
+                }
+            }
+        }
+    }
+
     func testCatalogFigureBoundsFitTheCanvasOrIncludeTheFullLateralRaiseSpan() {
         let canvas = CGRect(origin: .zero, size: ExerciseDemoFigureView.canvasSize)
         for exercise in ExerciseCatalog.all {
@@ -1046,6 +1122,40 @@ final class WorkoutGhostGeometryTests: XCTestCase {
         }
     }
 
+    private func assertPlantedElbow(_ joints: [LandmarkType: CGPoint], layout: PlantedBodyLayout,
+                                    wall: Bool, scale: CGFloat, label: String,
+                                    file: StaticString = #filePath, line: UInt = #line) throws {
+        let shoulder = try XCTUnwrap(joints[.leftShoulder], label, file: file, line: line)
+        let elbow = try XCTUnwrap(joints[.leftElbow], label, file: file, line: line)
+        let wrist = try XCTUnwrap(joints[.leftWrist], label, file: file, line: line)
+        let ankle = try XCTUnwrap(joints[.leftAnkle], label, file: file, line: line)
+        let horizontal = wrist.x - shoulder.x
+        let cross = horizontal * (elbow.y - shoulder.y) - (wrist.y - shoulder.y) * (elbow.x - shoulder.x)
+        let signedCross = (horizontal >= 0 ? CGFloat(1) : CGFloat(-1)) * cross
+        let elbowAngle = ArmGeometry.angle(at: elbow, shoulder, wrist)
+
+        XCTAssertGreaterThanOrEqual(elbow.y, shoulder.y - 0.01, label, file: file, line: line)
+        // A straight Up pose is collinear by definition; the strict below-the-line check applies at every bent pose.
+        if elbowAngle < 179.99 {
+            XCTAssertGreaterThan(signedCross, 0.001, label, file: file, line: line)
+            XCTAssertGreaterThan(elbow.y, shoulder.y, label, file: file, line: line)
+        }
+
+        let facing: CGFloat = wrist.x >= shoulder.x ? 1 : -1
+        let surface = layout.surfaceSegments(wrist: wrist, ankle: ankle, facing: facing,
+                                             scale: scale, verticalRange: 0...containerSize.height)
+        if wall {
+            let wallX = try XCTUnwrap(surface.first?.from.x, label, file: file, line: line)
+            XCTAssertLessThan(facing * (elbow.x - wallX), 0, label, file: file, line: line)
+            let forearmLength = ArmGeometry.distance(elbow, wrist)
+            XCTAssertLessThanOrEqual(wrist.y - shoulder.y, forearmLength * 0.4,
+                                     label, file: file, line: line)
+        } else {
+            let benchNearEdge = wrist.x - facing * 14 * scale
+            XCTAssertLessThan(facing * (elbow.x - benchNearEdge), 0, label, file: file, line: line)
+        }
+    }
+
     private func projectedX(of point: CGPoint, from start: CGPoint, to end: CGPoint) -> CGFloat {
         let dx = end.x - start.x
         let dy = end.y - start.y
@@ -1113,5 +1223,48 @@ final class WorkoutGhostGeometryTests: XCTestCase {
             endPositionSides: [],
             pose: frame.pose
         )
+    }
+
+    private func calibratedOverlay(from frame: PoseFrame, side: BodySide, scale: CGFloat,
+                                   upperArmScale: CGFloat, forearmScale: CGFloat) throws -> WorkoutOverlayState {
+        let center = CGPoint(x: frame.imageSize.width / 2, y: frame.imageSize.height / 2)
+        var landmarks = frame.pose.landmarks
+        for (joint, var landmark) in landmarks {
+            let point = CGPoint(x: center.x + (landmark.imageLocation.x - center.x) * scale,
+                                y: center.y + (landmark.imageLocation.y - center.y) * scale)
+            landmark.imageLocation = point
+            landmark.normalizedLocation = CoordinateConverter.imagePixelToNormalized(
+                pixel: point, imageWidth: frame.imageSize.width, imageHeight: frame.imageSize.height)
+            landmarks[joint] = landmark
+        }
+
+        let shoulderLandmark = try XCTUnwrap(landmarks[side.shoulder])
+        let elbowLandmark = try XCTUnwrap(landmarks[side.elbow])
+        let wristLandmark = try XCTUnwrap(landmarks[side.wrist])
+        let shoulder = shoulderLandmark.imageLocation
+        let elbow = elbowLandmark.imageLocation
+        let wrist = wristLandmark.imageLocation
+        let upperLength = ArmGeometry.distance(shoulder, elbow)
+        let forearmLength = ArmGeometry.distance(elbow, wrist)
+        guard upperLength > 0, forearmLength > 0 else {
+            XCTFail("The ready fixture must have nonzero arm segments.")
+            return overlay(from: frame)
+        }
+        let newElbow = CGPoint(x: shoulder.x + (elbow.x - shoulder.x) * upperArmScale,
+                               y: shoulder.y + (elbow.y - shoulder.y) * upperArmScale)
+        let newWrist = CGPoint(x: newElbow.x + (wrist.x - elbow.x) * forearmScale,
+                               y: newElbow.y + (wrist.y - elbow.y) * forearmScale)
+        for (joint, point) in [(side.elbow, newElbow), (side.wrist, newWrist)] {
+            guard var landmark = landmarks[joint] else {
+                XCTFail("The ready fixture is missing \(joint).")
+                return overlay(from: frame)
+            }
+            landmark.imageLocation = point
+            landmark.normalizedLocation = CoordinateConverter.imagePixelToNormalized(
+                pixel: point, imageWidth: frame.imageSize.width, imageHeight: frame.imageSize.height)
+            landmarks[joint] = landmark
+        }
+        let pose = BodyPose(landmarks: landmarks, imageWidth: frame.imageSize.width, imageHeight: frame.imageSize.height)
+        return overlay(from: PoseFrame(pose: pose, timestamp: frame.timestamp))
     }
 }

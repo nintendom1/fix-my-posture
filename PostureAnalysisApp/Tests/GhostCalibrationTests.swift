@@ -60,6 +60,39 @@ final class GhostCalibrationTests: XCTestCase {
                                                motion: motion, cameraView: .side, sample: motion.startSample))
     }
 
+    func testPlantedPushUpGhostUsesGuideProportionsWithOnlyTheArmVisible() throws {
+        let exercise = WallPushUpExercise.definition()
+        let motion = exercise.guide.motion
+        let reference = ExerciseDemoFigureView.pose(for: motion.startSample,
+                                                    forearmPlane: motion.forearmPlane,
+                                                    cameraView: .side).jointLocations
+        let required: Set<LandmarkType> = [.leftShoulder, .leftElbow, .leftWrist]
+        let landmarks = Dictionary(uniqueKeysWithValues: required.compactMap { joint in
+            reference[joint].map { point in
+                (joint, Landmark(type: joint,
+                                 normalizedLocation: CoordinateConverter.imagePixelToNormalized(
+                                    pixel: point, imageWidth: 300, imageHeight: 470),
+                                 imageLocation: point, confidence: 0.9))
+            }
+        })
+        let imageSize = ExerciseDemoFigureView.canvasSize
+        let overlay = WorkoutOverlayState(
+            imageSize: imageSize,
+            joints: landmarks.mapValues { OverlayJoint(location: $0.normalizedLocation, isStale: false) },
+            segments: [], endPositionSides: [],
+            pose: BodyPose(landmarks: landmarks, imageWidth: imageSize.width, imageHeight: imageSize.height)
+        )
+
+        XCTAssertTrue(GhostCalibration.canFit(overlay: overlay, metrics: nil, motion: motion,
+                                              cameraView: .side, sample: motion.startSample))
+        let figure = try XCTUnwrap(WorkoutGhostGeometry.calibrated(
+            fitOverlay: overlay, metrics: nil, motion: motion, cameraView: .side,
+            containerSize: CGSize(width: 393, height: 852), sample: motion.topSample))
+        XCTAssertNotNil(figure.joints[.leftHip])
+        XCTAssertNotNil(figure.joints[.leftKnee])
+        XCTAssertNotNil(figure.joints[.leftAnkle])
+    }
+
     func testNilOverlayCannotFit() {
         XCTAssertFalse(GhostCalibration.canFit(overlay: nil, metrics: nil,
                                               motion: ShoulderPressExercise.definition().guide.motion,

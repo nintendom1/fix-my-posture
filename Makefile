@@ -28,6 +28,7 @@ replay-sessions:
 	@mkdir -p build && rm -f build/replay-report.txt
 	@dir="$$(cd "$(SESSION_DIR)" && pwd)" || exit 1; status=0; \
 		TEST_RUNNER_FMP_SESSION_DIR="$$dir" TEST_RUNNER_FMP_REPLAY_REPORT="$$PWD/build/replay-report.txt" \
+		TEST_RUNNER_FMP_REPLAY_CURRENT="$(CURRENT)" \
 		xcodebuild test -project PostureAnalysisApp.xcodeproj -scheme PostureAnalysisApp \
 		-destination 'platform=iOS Simulator,name=iPhone 15 Pro' \
 		-only-testing:PostureAnalysisAppTests/WorkoutSessionReplayTests/testLocalRecordingsReplayToWhatThePhoneCounted \
