@@ -144,7 +144,10 @@ struct AppShellView: View {
                 WorkoutCoachView(model: environment.workoutCoachFactory.makeTodaySession(launch: launch))
             }
         case .calibration:
-            CalibrationRouteView(viewModel: environment.makeCalibrationViewModel())
+            CalibrationRouteView(viewModel: environment.makeCalibrationViewModel(
+                kind: .initial,
+                onFinish: { router.dismissFullScreen() }
+            ))
         case .livePostureCheck:
             RealtimeCorrectionView()
         default:
@@ -153,7 +156,8 @@ struct AppShellView: View {
     }
 
     private var settingsScreen: some View {
-        SettingsScreen(viewModel: SettingsViewModel(
+        let environment = self.environment
+        let viewModel = SettingsViewModel(
             preferences: environment.preferences,
             router: router,
             reminderManager: environment.workoutReminderCoordinator,
@@ -161,8 +165,18 @@ struct AppShellView: View {
             notificationPreview: environment.makeNotificationPreviewViewModel(),
             personaDebug: environment.makePersonaDebugViewModel(),
             adaptiveDebug: environment.makeAdaptiveDebugViewModel(),
-            workoutRecordings: environment.makeWorkoutRecordingsViewModel()
-        ))
+            workoutRecordings: environment.makeWorkoutRecordingsViewModel(),
+            makeCalibration: { [weak environment] kind, onFinish in
+                environment?.makeCalibrationViewModel(kind: kind, onFinish: onFinish)
+            }
+        )
+        if let coordinator = environment.adaptiveCoordinator {
+            viewModel.adaptiveTraining = AdaptiveTrainingSettingsViewModel(
+                provider: coordinator,
+                openCalibration: { [weak viewModel] kind in viewModel?.openCalibration(kind: kind) }
+            )
+        }
+        return SettingsScreen(viewModel: viewModel)
     }
 
     private var selectionBinding: Binding<AppTab> {

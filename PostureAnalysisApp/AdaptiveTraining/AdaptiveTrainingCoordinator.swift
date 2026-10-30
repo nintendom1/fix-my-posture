@@ -138,8 +138,8 @@ struct CalibrationProbeLaunch: Identifiable {
 /// saves, and runs what the flow returns.
 @MainActor
 protocol CalibrationCoordinating: AnyObject {
-    /// Starts the first calibration and saves it as in progress, or nil when it couldn't be saved.
-    func startCalibration(asOf now: Date) -> CalibrationFlow?
+    /// Starts the requested calibration and saves it as in progress, or nil when it couldn't be saved.
+    func startCalibration(kind: CalibrationKind, asOf now: Date) -> CalibrationFlow?
     /// Saves the quiz answers so far. A failure is logged and never stops the flow.
     func saveCalibrationProgress(_ flow: CalibrationFlow)
     /// Accepts the summary. False when it couldn't be saved.
@@ -159,7 +159,8 @@ protocol CalibrationCoordinating: AnyObject {
 /// its answers to the coach and the coach's facts back.
 @MainActor
 @Observable
-final class AdaptiveTrainingCoordinator: AdaptiveEvidenceRecording, TodaySessionStarting, CalibrationCoordinating {
+final class AdaptiveTrainingCoordinator: AdaptiveEvidenceRecording, TodaySessionStarting, CalibrationCoordinating,
+    AdaptiveTrainingSettingsProviding {
     /// The plan id of every Today's Session workout. It matches no routine, so routine rotation and the Up Next
     /// override never see it.
     nonisolated static let todaySessionPlanID = UUID(uuid: (0x70, 0xDA, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00,
@@ -300,12 +301,41 @@ final class AdaptiveTrainingCoordinator: AdaptiveEvidenceRecording, TodaySession
 
     // MARK: - Calibration
 
-    func startCalibration(asOf now: Date) -> CalibrationFlow? {
+    func startCalibration(kind: CalibrationKind, asOf now: Date) -> CalibrationFlow? {
         do {
-            return try engine.startCalibration(kind: .initial, id: makeID(), at: now)
+            return try engine.startCalibration(kind: kind, id: makeID(), at: now)
         } catch {
             PersistenceRepositoryLogging.failed("Start calibration", error: error)
             return nil
+        }
+    }
+
+    func overview() -> AdaptiveTrainingOverview? {
+        do {
+            return try engine.overview()
+        } catch {
+            PersistenceRepositoryLogging.failed("Read Adaptive Training settings", error: error)
+            return nil
+        }
+    }
+
+    func removeArea(_ family: MovementFamilyID, asOf now: Date) -> Bool {
+        do {
+            try engine.removeFamily(family, id: makeID(), at: now)
+            return true
+        } catch {
+            PersistenceRepositoryLogging.failed("Remove Adaptive Training area", error: error)
+            return false
+        }
+    }
+
+    func setEquipment(_ equipment: Set<TrainingEquipment>, asOf now: Date) -> Bool {
+        do {
+            try engine.changeEquipment(equipment, id: makeID(), at: now)
+            return true
+        } catch {
+            PersistenceRepositoryLogging.failed("Save Adaptive Training equipment", error: error)
+            return false
         }
     }
 

@@ -36,6 +36,8 @@ struct CalibrationScreen: View {
         } message: {
             Text(CalibrationCopy.leaveDetail)
         }
+        .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
     }
 
     // MARK: - Bindings
@@ -67,7 +69,7 @@ struct CalibrationScreen: View {
             .accessibilityLabel(CalibrationCopy.close)
             .accessibilityIdentifier("calibrationCloseButton")
 
-            Text(CalibrationCopy.title)
+            Text(viewModel.title)
                 .font(.system(size: 17, weight: .heavy, design: .rounded))
                 .foregroundStyle(palette.textPrimary)
                 .accessibilityAddTraits(.isHeader)
@@ -128,8 +130,8 @@ struct CalibrationScreen: View {
     private var areasStep: some View {
         VStack(alignment: .leading, spacing: 16) {
             intro
-            heading(CalibrationCopy.areasTitle)
-            detail(CalibrationCopy.areasDetail)
+            heading(viewModel.areasTitle)
+            detail(viewModel.areasDetail)
             card {
                 ForEach(Array(viewModel.offeredFamilies.enumerated()), id: \.element) { index, family in
                     choiceRow(title: CalibrationCopy.areaName(family), detail: CalibrationCopy.areaDetail(family),
@@ -256,7 +258,7 @@ struct CalibrationScreen: View {
             if viewModel.summaryLines.isEmpty {
                 detail(CalibrationCopy.summaryEmpty)
             } else {
-                detail(CalibrationCopy.summaryDetail)
+                detail(viewModel.summaryDetail)
                 card {
                     ForEach(Array(viewModel.summaryLines.enumerated()), id: \.element.id) { index, line in
                         VStack(spacing: 0) {
@@ -307,7 +309,7 @@ struct CalibrationScreen: View {
     // MARK: - Pieces
 
     private var intro: some View {
-        Text(CalibrationCopy.intro)
+        Text(viewModel.intro)
             .font(.system(size: 16, weight: .bold, design: .rounded))
             .foregroundStyle(palette.textSecondary)
             .fixedSize(horizontal: false, vertical: true)

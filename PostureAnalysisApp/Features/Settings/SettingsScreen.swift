@@ -51,6 +51,10 @@ struct SettingsScreen: View {
                         .designAnchor("settings.title")
                         .padding(.top, 8)
 
+                    if viewModel.homeSections.contains(.adaptiveTraining),
+                       let adaptiveTraining = viewModel.adaptiveTraining {
+                        adaptiveTrainingGroup(adaptiveTraining)
+                    }
                     coachGroup
                     workoutGroup
                     cameraPostureGroup
@@ -64,6 +68,7 @@ struct SettingsScreen: View {
         }
         .background(ColorTokens.palette().backgroundPrimary)
         .toolbar(.hidden, for: .navigationBar)
+        .onAppear { viewModel.adaptiveTraining?.refresh() }
     }
 
     private var coachGroup: some View {
@@ -109,6 +114,20 @@ struct SettingsScreen: View {
                 action: { viewModel.navigate(to: .restPolicy) }
             )
             .designAnchor("settings.restBetweenSets")
+        }
+    }
+
+    private func adaptiveTrainingGroup(_ model: AdaptiveTrainingSettingsViewModel) -> some View {
+        settingsGroup(title: "Adaptive Training", titleAnchor: nil) {
+            SettingsRow(
+                icon: "fitness_center",
+                title: "Adaptive Training",
+                iconColor: coachPurple,
+                value: model.rowValue,
+                showsChevron: true,
+                action: { viewModel.navigate(to: .adaptiveTraining) }
+            )
+            .accessibilityIdentifier("settingsAdaptiveTrainingRow")
         }
     }
 
@@ -305,6 +324,14 @@ struct SettingsScreen: View {
         case .workoutRecordings:
             if let workoutRecordings = viewModel.workoutRecordings {
                 WorkoutRecordingsScreen(viewModel: workoutRecordings)
+            }
+        case .adaptiveTraining:
+            if let adaptiveTraining = viewModel.adaptiveTraining {
+                AdaptiveTrainingSettingsPage(viewModel: adaptiveTraining)
+            }
+        case .calibration:
+            if let calibration = viewModel.calibration {
+                CalibrationScreen(viewModel: calibration)
             }
         }
     }

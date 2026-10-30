@@ -32,7 +32,7 @@ PostureAnalysisApp/
 │   ├── RealtimePosture/         # Live camera check, capture model, and posture overlays
 │   ├── Routines/                # Routine list and detail
 │   ├── RoutineEditor/           # Routine creation, editing, and exercise picker
-│   ├── Settings/                # Settings and acknowledgements
+│   ├── Settings/                # Settings, Adaptive Training settings, and acknowledgements
 │   ├── Train/                   # Train tab
 │   ├── VoiceCommands/           # Voice command help shared by Settings and workout
 │   ├── WorkoutRecordings/       # Developer page for workout session recordings

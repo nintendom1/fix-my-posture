@@ -20,6 +20,39 @@ final class AdaptiveTrainingCoordinatorTests: XCTestCase {
 
     // MARK: - Status
 
+    func testSettingsProviderReadsOverviewRemovesAreasAndChangesEquipment() throws {
+        let empty = makeRig()
+        let emptyOverview = try XCTUnwrap(empty.coordinator.overview())
+        XCTAssertTrue(emptyOverview.needsCalibration)
+        XCTAssertTrue(emptyOverview.areas.isEmpty)
+        XCTAssertTrue(emptyOverview.addableFamilies.contains(.push))
+
+        let twoAreas = AdaptiveFacts(calibrations: [
+            calibration(.push, at: shallowWall, dose: .reps(3), day: 10),
+            calibration(.squat, at: VariantID(rawValue: "squat.air_squat"), dose: .reps(3), day: 11)
+        ])
+        let rig = makeRig(facts: twoAreas)
+        let overview = try XCTUnwrap(rig.coordinator.overview())
+        XCTAssertFalse(overview.needsCalibration)
+        XCTAssertEqual(overview.areas.map(\.family), [.push, .squat])
+        XCTAssertTrue(overview.canRemoveAreas)
+        XCTAssertTrue(rig.coordinator.removeArea(.push, asOf: date(day: 20)))
+        XCTAssertEqual(rig.coordinator.overview()?.areas.map(\.family), [.squat])
+        XCTAssertFalse(rig.coordinator.removeArea(.squat, asOf: date(day: 21)), "The last area stays active.")
+
+        let allLadderExercises = Set(ProgressionCatalog.v1.families.flatMap { $0.rungs.map(\.exerciseID) })
+        let equipmentRig = makeRig(facts: AdaptiveFacts(calibrations: [
+            calibration(.overhead, at: VariantID(rawValue: "overhead.shoulder_press"), dose: .reps(4),
+                        day: 12, equipment: [.dumbbells])
+        ]), builtExerciseIDs: allLadderExercises)
+        XCTAssertEqual(equipmentRig.coordinator.overview()?.areas.first?.current.variant,
+                       VariantID(rawValue: "overhead.shoulder_press"))
+        XCTAssertTrue(equipmentRig.coordinator.setEquipment([], asOf: date(day: 20)))
+        let changed = try XCTUnwrap(equipmentRig.coordinator.overview())
+        XCTAssertEqual(changed.equipment, [])
+        XCTAssertEqual(changed.areas.first?.current.variant, VariantID(rawValue: "overhead.wall_slide"))
+    }
+
     func testStatusPassesThroughTheEngine() throws {
         let empty = makeRig()
         XCTAssertEqual(empty.coordinator.status(asOf: date(day: 20)), .needsCalibration)
@@ -256,7 +289,7 @@ final class AdaptiveTrainingCoordinatorTests: XCTestCase {
 
     /// A flow that has finished the quiz for push alone, answering "Not sure", so its first sample is the floor.
     private func pushFlow(_ rig: Rig) throws -> CalibrationFlow {
-        var flow = try XCTUnwrap(rig.coordinator.startCalibration(asOf: date(day: 20)))
+        var flow = try XCTUnwrap(rig.coordinator.startCalibration(kind: .initial, asOf: date(day: 20)))
         flow.setEquipment([])
         flow.setFamilies([.push])
         flow.answerCloseness(family: .push, variant: nil)
@@ -266,7 +299,7 @@ final class AdaptiveTrainingCoordinatorTests: XCTestCase {
     func testStartingACalibrationSavesAnInProgressAttemptWithAFreshID() throws {
         let rig = makeRig()
 
-        let flow = try XCTUnwrap(rig.coordinator.startCalibration(asOf: date(day: 20)))
+        let flow = try XCTUnwrap(rig.coordinator.startCalibration(kind: .initial, asOf: date(day: 20)))
 
         XCTAssertEqual(flow.id, rig.ids.uuid(1))
         XCTAssertEqual(flow.kind, .initial)
@@ -304,7 +337,7 @@ final class AdaptiveTrainingCoordinatorTests: XCTestCase {
 
     func testThereIsNoSampleToPrepareOutsideASampleStep() throws {
         let rig = makeRig()
-        let flow = try XCTUnwrap(rig.coordinator.startCalibration(asOf: date(day: 20)))
+        let flow = try XCTUnwrap(rig.coordinator.startCalibration(kind: .initial, asOf: date(day: 20)))
 
         XCTAssertEqual(flow.step, .equipment)
         XCTAssertNil(rig.coordinator.prepareProbe(for: flow, asOf: date(day: 20), onResult: { _ in }))
@@ -446,10 +479,11 @@ final class AdaptiveTrainingCoordinatorTests: XCTestCase {
     // MARK: - Facts
 
     private func calibration(_ family: MovementFamilyID, at variant: VariantID, dose: Dose, day: Int = 10,
-                             kind: CalibrationKind = .initial) -> CalibrationSessionRecord {
+                             kind: CalibrationKind = .initial,
+                             equipment: [TrainingEquipment]? = nil) -> CalibrationSessionRecord {
         CalibrationSessionRecord(id: UUID(uuid: (0xCA, 0, 0, 0, 0, 0, 0x40, 0, 0x80, 0, 0, 0, 0, 0, 0, UInt8(day))),
                                  kind: kind, startedAt: date(day: day, hour: 9), endedAt: date(day: day, hour: 9),
-                                 status: .committed, families: [family],
+                                 status: .committed, families: [family], equipment: equipment,
                                  startingPoints: [CalibrationStart(family: family, start: RungDose(variant: variant, dose: dose))])
     }
 
