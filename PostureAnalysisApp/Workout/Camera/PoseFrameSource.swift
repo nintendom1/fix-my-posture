@@ -3,7 +3,7 @@ import Foundation
 enum PoseFrameSourceEvent {
     case running
     case frame(PoseFrame)
-    case interrupted
+    case interrupted(reason: Int?)
     case failed(String)
 }
 

@@ -37,16 +37,17 @@ final class WorkoutCameraController: NSObject, PoseFrameSource, CameraPreviewPro
     init(estimator: FramePoseEstimator = AppleVisionPoseEstimator()) {
         self.estimator = estimator
         super.init()
-        observe(.AVCaptureSessionWasInterrupted) { controller in
+        observe(.AVCaptureSessionWasInterrupted) { controller, notification in
             controller.interrupted = true
-            controller.publish(.interrupted)
+            let reason = (notification.userInfo?[AVCaptureSessionInterruptionReasonKey] as? NSNumber)?.intValue
+            controller.publish(.interrupted(reason: reason))
         }
-        observe(.AVCaptureSessionInterruptionEnded) { controller in
+        observe(.AVCaptureSessionInterruptionEnded) { controller, _ in
             controller.interrupted = false
             if !controller.session.isRunning { controller.session.startRunning() }
             controller.publish(.running)
         }
-        observe(.AVCaptureSessionRuntimeError) { controller in
+        observe(.AVCaptureSessionRuntimeError) { controller, _ in
             controller.interrupted = true
             controller.session.stopRunning()
             controller.publish(.failed("The camera stopped unexpectedly. Close this screen and try again."))
@@ -161,12 +162,13 @@ final class WorkoutCameraController: NSObject, PoseFrameSource, CameraPreviewPro
 
     // MARK: - Generations
 
-    private func observe(_ name: Notification.Name, action: @escaping (WorkoutCameraController) -> Void) {
+    private func observe(_ name: Notification.Name,
+                         action: @escaping (WorkoutCameraController, Notification) -> Void) {
         observers.append(NotificationCenter.default.addObserver(forName: name, object: session, queue: nil) {
-            [weak self] _ in
+            [weak self] notification in
             self?.queue.async { [weak self] in
                 guard let self, let generation = self.generation, self.isCurrent(generation) else { return }
-                action(self)
+                action(self, notification)
             }
         })
     }

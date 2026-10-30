@@ -14,37 +14,38 @@ extension CoachingCueID {
 /// Prototype thresholds for sit-to-stands filmed from the front, whole body in view, a chair behind the user.
 /// Heuristics to tune on device.
 ///
-/// - Signal `d` is how far the hips sit above the knees, in thigh lengths, averaged over both legs, exactly as
-///   for the air squat. Standing, `d` is about 1. Seated, the thighs point at the camera and `d` falls toward 0.
-/// - The thigh ruler is the longest hip-to-knee length, locked while standing, because a seated thigh looks
-///   short. Before the first stand there is no such ruler, so the first Seated and Standing checkpoints use the
-///   hips' height above the knees in shin lengths instead (the bootstrap gates below).
+/// - Signal `u` is the vertical distance from the ankle midpoint to the shoulder midpoint, divided by standing `u`.
+/// - The standing ruler only grows while standing. A seated start bootstraps from its lowest held `u` and confirms
+///   the first stand only after `u` rises by the configured ratio with the ankles planted.
 /// - Seated is the start; standing is the counted end of the rep.
 struct SitToStandConfiguration: Codable {
-    /// Standing: hips at least this many thigh lengths above the knees.
-    var standMinRatio: Double = 0.85
-    /// Seated: hips at most this far above the knees. The partial variant uses a higher line.
-    var seatedMaxRatio: Double = 0.35
-    /// Before the first stand: provisionally Seated at this many shin lengths of hip height above the knees or
-    /// less. The guide's seated pose reads 0.20–0.29 across thigh and shin ±15%, and the partial's 0.46–0.65.
-    var bootstrapSeatedMaxRatio: Double = 0.4
-    /// Before the first stand: genuinely Standing at this many shin lengths or more. The guide reads 0.96–1.33.
-    var bootstrapStandMinRatio: Double = 0.9
+    /// Seated: shoulders at most this far above the ankles relative to the standing ruler.
+    var seatedMaxRatio: Double = 0.80
+    /// Standing: shoulders at least this far above the ankles relative to the standing ruler.
+    var standMinRatio: Double = 0.90
+    /// With no ruler, a seated start must rise by this ratio to confirm its first stand.
+    var bootstrapStandRiseRatio: Double = 1.30
+    /// A higher seat uses a lower initial rise ratio derived from its seated line.
+    var partialBootstrapStandRiseRatio: Double = 1.17
+    /// The initial low `u` or high `u` must hold this long before bootstrap can use it.
+    var minimumReferenceHold: TimeInterval = 0.35
+    /// The ankle midpoint may move this share of `u` vertically during bootstrap or a counted rep.
+    var ankleStabilityRatio: Double = 0.06
     var confirmationSamples = 2
     var minimumRepDuration: TimeInterval = 1.2
     var maximumSampleGap: TimeInterval = 0.28
     var minimumJointConfidence: Double = 0.4
-    /// Thigh lengths remembered for the ruler, at the 10 Hz sample rate.
+    /// Knees are optional for counting and only enter the knee cue at this confidence.
+    var minimumKneeConfidence: Double = 0.4
+    /// Recent upper-body heights retained at the 10 Hz sample rate.
     var rulerWindow = 10
-    var kneeSmoothing: CGFloat = 0.4
 
     // Form coaching. The guide's own demonstration raises none of these.
 
-    /// "Stand all the way up": the hips rose this far above where they rested, but the user sat back down without
-    /// standing.
-    var attemptMinimumRise: Double = 0.25
-    /// "Sit down slowly": the hips went from the standing line to the seated line in less than this.
-    var minimumSitDuration: TimeInterval = 0.5
+    /// "Stand all the way up": shoulder-to-ankle `u` rose this share of the standing ruler, but did not reach Stand.
+    var attemptMinimumRise: Double = 0.12
+    /// "Sit down slowly": `u` went from the standing line to the seated line in less than this.
+    var minimumSitDuration: TimeInterval = 0.35
     /// "Keep your knees apart": while rising, the knee gap fell below this share of the ankle gap.
     var kneeGapMinimum: Double = 0.7
     /// The reduced-range variant for the squat family's floor rung.
@@ -52,11 +53,16 @@ struct SitToStandConfiguration: Codable {
 
     static let standard = SitToStandConfiguration()
 
-    /// Seated at `d ≤ 0.55`: a higher seat, or touching it and standing again.
+    /// Hip-to-ankle corroboration for the lower checkpoint. Partial seats use a higher line.
+    var hipSeatedMaxRatio: Double { partial ? 0.92 : 0.88 }
+    /// Minimum shoulder-to-ankle rise from the held seat to confirmed stand.
+    var minimumRepExcursionRatio: Double { partial ? 0.08 : 0.12 }
+
+    /// Partial seated at `u/R ≤ 0.86`: a higher seat, or touching it and standing again. The guide reads about 0.82.
     static var partialRange: SitToStandConfiguration {
         var configuration = standard
-        configuration.seatedMaxRatio = 0.55
-        configuration.bootstrapSeatedMaxRatio = 0.7
+        configuration.seatedMaxRatio = 0.86
+        configuration.minimumSitDuration = 0.25
         configuration.partial = true
         return configuration
     }
@@ -88,7 +94,7 @@ enum SitToStandExercise {
             autoCompleteReps: 10,
             targetRangeAnnouncementReps: 5,
             restSeconds: 60,
-            requiredJoints: [.leftHip, .rightHip, .leftKnee, .rightKnee, .leftAnkle, .rightAnkle],
+            requiredJoints: [.leftShoulder, .rightShoulder, .leftHip, .rightHip, .leftAnkle, .rightAnkle],
             focusSegments: [
                 FocusSegment(from: .leftHip, to: .leftKnee, style: .limb),
                 FocusSegment(from: .leftKnee, to: .leftAnkle, style: .limb),
@@ -129,8 +135,9 @@ enum SitToStandExercise {
         ]
     }
 
-    /// The seated pose drops the hips to the seat. The partial variant sits on a higher seat, so its hips stop
-    /// higher: the guide reads `d` 0.19 seated, or 0.45 for the partial.
+    /// The guide lowers the shoulders by 0.9 standing-thigh lengths for the full seat and 0.61 for the higher seat.
+    /// With its 292-point standing shoulder-to-ankle span, those poses read about 0.74 and 0.82. The full Seat line
+    /// at 0.80 leaves a 0.06 margin; the partial line at 0.86 leaves a 0.04 margin for the higher seat.
     private static func guide(partial: Bool) -> ExerciseGuide {
         let arms = ArmAngles(upperArmElevation: -85, forearmElevation: -85)
         let seated = LegPose(hipDrop: partial ? 0.61 : 0.9, kneeSpread: 0.1)

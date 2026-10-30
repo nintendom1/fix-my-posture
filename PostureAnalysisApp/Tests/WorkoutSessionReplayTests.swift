@@ -72,6 +72,31 @@ final class WorkoutSessionReplayTests: XCTestCase {
         XCTAssertThrowsError(try replay(drifted, press, frame), "Required joints that changed since the recording")
     }
 
+    func testCurrentBuildReplayIgnoresRecordedConfigurationAndRequiredJoints() throws {
+        let header = #"{"k":"header","id":"x","jointOrder":["nose"],"exercises":{"sit_to_stand":{"required":["nose"],"anyOfRequired":[["nose"]],"configuration":{"seatedMaxRatio":0.35,"standMinRatio":0.4,"bootstrapSeatedMaxRatio":0.4,"bootstrapStandMinRatio":0.9}}}}"#
+        let exercise = #"{"k":"pipe","t":0,"control":"exercise","exercise":"sit_to_stand","cameraView":"front","epoch":1}"#
+        let frame = #"{"k":"f","t":0.1,"ts":5,"p":true,"wh":[1080,1920],"j":[[540,300,0.9]]}"#
+        let file = try WorkoutSessionFile(text: "[\n\(header),\n\(exercise),\n\(frame)\n]")
+        XCTAssertThrowsError(try WorkoutSessionReplayer.replay(file), "Strict mode still rejects required-joint drift.")
+
+        let frames = try WorkoutSessionReplayer.replay(file, currentBuild: true)
+        XCTAssertEqual(frames.count, 1)
+        XCTAssertEqual(frames.first?.exerciseID, "sit_to_stand")
+
+        let catalogExercise = try XCTUnwrap(ExerciseCatalog.all.first { $0.id == .sitToStand })
+        let definitions = try WorkoutSessionReplayer.definitions(file.header, catalog: ExerciseCatalog.all,
+                                                                 currentBuild: true)
+        let replayExercise = try XCTUnwrap(definitions["sit_to_stand"])
+        XCTAssertEqual(replayExercise.requiredJoints, catalogExercise.requiredJoints)
+        XCTAssertEqual(replayExercise.anyOfRequiredJoints, catalogExercise.anyOfRequiredJoints)
+        XCTAssertEqual(replayExercise.diagnostics?.configurationJSON, catalogExercise.diagnostics?.configurationJSON,
+                       "Current-build replay keeps the catalog's current thresholds.")
+
+        let partial = try XCTUnwrap(catalogExercise.reducedRange?())
+        let replayPartial = try XCTUnwrap(definitions["sit_to_stand.\(WorkoutSessionLines.reducedRangeVariant)"])
+        XCTAssertEqual(replayPartial.diagnostics?.configurationJSON, partial.diagnostics?.configurationJSON)
+    }
+
     func testPhaseLabelsParseBack() {
         let phases: [WorkoutPhase] = [.choosingExercise, .framing, .ready, .exercising, .paused(.user), .paused(.background),
                                       .paused(.interruption), .resting, .changingExercise(previous: .exercising),
@@ -93,7 +118,10 @@ final class WorkoutSessionReplayTests: XCTestCase {
         let files = try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension == "json" && !$0.lastPathComponent.contains(".summary.") && !$0.lastPathComponent.contains(".notes.") }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
-        var report = ""
+        let currentBuild = ["FMP_REPLAY_CURRENT", "TEST_RUNNER_FMP_REPLAY_CURRENT"]
+            .compactMap { environment[$0] }
+            .contains { ["1", "true", "yes"].contains($0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()) }
+        var report = currentBuild ? "Current-build replay; recorded exercise configurations and framing requirements are ignored.\n" : ""
         defer {
             // Written whatever happens, so a failed run never leaves an older report looking current.
             let attachment = XCTAttachment(string: report)
@@ -116,20 +144,31 @@ final class WorkoutSessionReplayTests: XCTestCase {
             let name = url.lastPathComponent
             let frames: [WorkoutSessionReplayer.Frame]
             do {
-                frames = try WorkoutSessionReplayer.replay(WorkoutSessionFile(url: url))
+                let file = try WorkoutSessionFile(url: url)
+                frames = try WorkoutSessionReplayer.replay(file, currentBuild: currentBuild)
             } catch {
                 report += "\(name): CAN'T REPLAY: \(error)\n"
                 XCTFail("\(name): \(error)")
                 continue
             }
             let differing = frames.filter { $0.recorded != $0.replayed }
-            report += "\(name): \(frames.count) analyzed frames, \(frames.flatMap(\.recorded.reps).count) reps on the phone, "
-                + "\(frames.flatMap(\.replayed.reps).count) replayed, \(differing.isEmpty ? "identical" : "\(differing.count) frames DIFFER")\n"
+            if currentBuild {
+                report += "\(name): \(frames.count) analyzed frames\n"
+                let exerciseIDs = Set(frames.map(\.exerciseID)).sorted()
+                for id in exerciseIDs {
+                    let exerciseFrames = frames.filter { $0.exerciseID == id }
+                    report += "  \(id): phone count \(exerciseFrames.flatMap(\.recorded.reps).count), "
+                        + "replayed count \(exerciseFrames.flatMap(\.replayed.reps).count)\n"
+                }
+            } else {
+                report += "\(name): \(frames.count) analyzed frames, \(frames.flatMap(\.recorded.reps).count) reps on the phone, "
+                    + "\(frames.flatMap(\.replayed.reps).count) replayed, \(differing.isEmpty ? "identical" : "\(differing.count) frames DIFFER")\n"
+            }
             for frame in differing.prefix(5) {
                 report += String(format: "  DIFFERS t %.1f (line %d)\n", frame.t, frame.line)
                     + "    phone:  \(frame.recorded)\n    replay: \(frame.replayed)\n"
             }
-            if !differing.isEmpty { XCTFail("\(name): \(differing.count) frames differ; see the report.") }
+            if !currentBuild, !differing.isEmpty { XCTFail("\(name): \(differing.count) frames differ; see the report.") }
             for frame in frames {
                 for rejection in frame.rejections {
                     report += String(format: "  t %.1f  ", frame.t)

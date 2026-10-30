@@ -52,6 +52,7 @@ enum InclinePushUpExercise {
                 FocusSegment(from: .rightKnee, to: .rightAnkle, style: .reference)
             ],
             headroomArmLengths: nil,
+            centersInFrame: false,
             countsArmsIndependently: false,
             setupLine: "Incline push-ups, two sets of 6 to 10. Put your hands on a sturdy bench, table, or counter, walk your feet back until your body is one straight line, and stand side-on to the phone.",
             voiceAliases: ["incline push-up", "incline push-ups", "incline pushup", "incline pushups",
@@ -72,8 +73,8 @@ enum InclinePushUpExercise {
             motionEnvelope: MotionEnvelope(above: 0.3, below: 0.9, outward: 1.0),
             cameraView: .side,
             anyOfRequiredJoints: [
-                [.leftShoulder, .leftElbow, .leftWrist, .leftHip],
-                [.rightShoulder, .rightElbow, .rightWrist, .rightHip]
+                [.leftShoulder, .leftElbow, .leftWrist],
+                [.rightShoulder, .rightElbow, .rightWrist]
             ],
             startsByHolding: true,
             equipment: .bodyweight,

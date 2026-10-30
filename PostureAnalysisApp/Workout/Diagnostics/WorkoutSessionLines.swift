@@ -137,6 +137,7 @@ enum WorkoutSessionLines {
             ("headroomArmLengths", .number(exercise.headroomArmLengths)),
             ("sideroomArmLengths", .number(exercise.sideroomArmLengths)),
             ("maximumShoulderSpan", .number(exercise.maximumShoulderSpan)),
+            ("centersInFrame", .bool(exercise.centersInFrame)),
             ("perSide", .bool(exercise.perSide)),
             ("countsArmsIndependently", .bool(exercise.countsArmsIndependently)),
             ("startsByHolding", .bool(exercise.startsByHolding)),
@@ -332,14 +333,31 @@ enum WorkoutSessionLines {
             fields = [("type", "clearFeedback")]
         case .cameraRunning:
             fields = [("type", "camera.running")]
-        case .cameraInterrupted:
-            fields = [("type", "camera.interrupted")]
+        case .cameraInterrupted(let reason):
+            fields = [("type", "camera.interrupted"), ("reason", reason.map(DiagnosticJSON.int) ?? .null)]
         case .cameraFailed(let message):
             fields = [("type", "camera.failed"), ("message", .string(message))]
         case .audioInterruptionBegan:
             fields = [("type", "audio.interruptionBegan")]
         case .audioInterruptionEnded(let shouldResume):
             fields = [("type", "audio.interruptionEnded"), ("shouldResume", .bool(shouldResume))]
+        case .audioInterruptionDiagnostic(let type, let reason, let wasSuspended, let shouldResume):
+            fields = [("type", "audio.interruption"), ("interruption", .string(type)),
+                      ("reason", reason.map(DiagnosticJSON.int) ?? .null),
+                      ("wasSuspended", .bool(wasSuspended)),
+                      ("shouldResume", shouldResume.map(DiagnosticJSON.bool) ?? .null)]
+        case .audioRouteDiagnostic(let reason, let outputs, let inputs):
+            fields = [("type", "audio.route"), ("reason", .int(reason)),
+                      ("outputs", .strings(outputs)), ("inputs", .strings(inputs))]
+        case .audioSessionOperation(let operation, let active, let category, let mode, let categoryOptions,
+                                    let activeOptions, let isOtherAudioPlaying, let shouldBeSilenced):
+            fields = [("type", "audio.session"), ("operation", .string(operation)),
+                      ("active", active.map(DiagnosticJSON.bool) ?? .null),
+                      ("category", .string(category)), ("mode", .string(mode)),
+                      ("categoryOptions", .strings(categoryOptions)),
+                      ("activeOptions", .strings(activeOptions)),
+                      ("isOtherAudioPlaying", .bool(isOtherAudioPlaying)),
+                      ("secondaryAudioShouldBeSilenced", .bool(shouldBeSilenced))]
         case .audioWork(let step, let seconds):
             fields = [("type", "audio.work"), ("step", .string(step.rawValue)), ("ms", .rounded(seconds * 1000, places: 1))]
         case .guidePresented(let shown):

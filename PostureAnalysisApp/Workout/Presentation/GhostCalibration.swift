@@ -15,7 +15,7 @@ enum GhostCalibration {
 
         if cameraView == .side && motion.plantedLayout != nil {
             return BodySide.allCases.contains { side in
-                [side.shoulder, side.elbow, side.wrist, side.hip].allSatisfy(counts)
+                [side.shoulder, side.elbow, side.wrist].allSatisfy(counts)
             }
         } else if cameraView == .lyingSide {
             guard overlay.imageSize.width > 0, overlay.imageSize.height > 0 else { return false }
@@ -29,6 +29,10 @@ enum GhostCalibration {
             guard overlay.imageSize.width > 0, overlay.imageSize.height > 0 else { return false }
             return BodySide.allCases.contains { side in
                 [side.shoulder, side.hip, side.knee, side.ankle].allSatisfy(counts)
+            }
+        } else if motion.chair {
+            return BodySide.allCases.allSatisfy { side in
+                [side.shoulder, side.hip, side.ankle].allSatisfy(counts)
             }
         } else if motion.animatesLegs {
             return BodySide.allCases.contains { side in
