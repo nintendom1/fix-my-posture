@@ -21,12 +21,15 @@ enum ExerciseCatalog {
         HammerCurlExercise.definition(),
         TricepsExtensionExercise.definition(),
         AirSquatExercise.definition(),
+        SitToStandExercise.definition(),
         StiffLegDeadliftExercise.definition(),
         RearLungeExercise.definition(),
         GluteBridgeExercise.definition(),
         DumbbellRowExercise.definition(),
         DumbbellShrugExercise.definition(),
-        PushUpExercise.definition()
+        PushUpExercise.definition(),
+        WallPushUpExercise.definition(),
+        InclinePushUpExercise.definition()
     ]
 
     static func definition(for id: ExerciseID) -> ExerciseDefinition? {

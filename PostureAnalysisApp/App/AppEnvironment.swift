@@ -1,3 +1,4 @@
+import AdaptiveTraining
 import Observation
 import SwiftData
 import SwiftUI
@@ -13,6 +14,9 @@ final class AppEnvironment {
     let exerciseCatalog: any ExerciseCatalogProviding
     let workoutCoachFactory: WorkoutCoachFactory
     let workoutReminderCoordinator: WorkoutReminderCoordinator
+    let adaptiveTraining: AdaptiveTrainingEngine?
+    /// Prepares Today's Session and records effort evidence; nil when persistence is unavailable.
+    let adaptiveCoordinator: AdaptiveTrainingCoordinator?
     let trainHomeViewModel: TrainHomeViewModel
     let routinesViewModel: RoutinesViewModel
     let libraryViewModel: LibraryViewModel
@@ -74,12 +78,21 @@ final class AppEnvironment {
             )
             modelContainer = container
             self.repositories = repositories
+            let adaptiveEngine = AdaptiveTrainingEngine(
+                store: repositories.adaptiveTraining,
+                builtExerciseIDs: ExerciseVariantBridge().availability(equipment: []).builtExerciseIDs,
+                calendar: .current
+            )
+            let coordinator = AdaptiveTrainingCoordinator(engine: adaptiveEngine)
+            adaptiveTraining = adaptiveEngine
+            adaptiveCoordinator = coordinator
             workoutReminderCoordinator = reminderCoordinator
             workoutCoachFactory = WorkoutCoachFactory(
                 preferences: preferences,
                 exerciseCatalog: exerciseCatalog,
                 routines: repositories.routines,
-                recordings: workoutRecordings
+                recordings: workoutRecordings,
+                adaptive: coordinator
             )
             trainHomeViewModel = TrainHomeViewModel(
                 routines: repositories.routines,
@@ -118,6 +131,8 @@ final class AppEnvironment {
         } catch {
             modelContainer = nil
             repositories = nil
+            adaptiveTraining = nil
+            adaptiveCoordinator = nil
             let reminderCoordinator = WorkoutReminderCoordinator(
                 preferences: preferences,
                 routines: nil,
@@ -190,6 +205,23 @@ final class AppEnvironment {
             scheduler: UserNotificationPreviewScheduler(),
             preferences: preferences
         )
+    }
+
+    func makeAdaptiveDebugViewModel() -> AdaptiveDebugViewModel {
+        let router = router
+        var openCalibration: (@MainActor () -> Void)?
+        if adaptiveCoordinator != nil { openCalibration = { router.open(.calibration) } }
+        return AdaptiveDebugViewModel(provider: adaptiveTraining, todayStarter: adaptiveCoordinator,
+                                      openTodaySession: { router.open(.todaySession) },
+                                      openCalibration: openCalibration)
+    }
+
+    /// The requested calibration's screen state, or nil when persistence is unavailable. It saves nothing until the
+    /// screen appears; leaving the screen runs `onFinish`.
+    func makeCalibrationViewModel(kind: CalibrationKind,
+                                  onFinish: @escaping @MainActor () -> Void) -> CalibrationViewModel? {
+        guard let adaptiveCoordinator else { return nil }
+        return CalibrationViewModel(coordinator: adaptiveCoordinator, kind: kind, onFinish: onFinish)
     }
 
     func makeWorkoutRecordingsViewModel() -> WorkoutRecordingsViewModel? {

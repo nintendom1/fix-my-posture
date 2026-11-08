@@ -32,7 +32,7 @@ struct HistoryWorkoutDetailScreen: View {
                                 .font(.system(size: 15, weight: .heavy, design: .rounded))
                                 .foregroundStyle(palette.textPrimary)
                             Spacer(minLength: 8)
-                            Text(set.reps == 1 ? "1 rep" : "\(set.reps) reps")
+                            Text(set.amountLabel)
                                 .font(.system(size: 13, weight: .bold, design: .rounded))
                                 .monospacedDigit()
                                 .foregroundStyle(palette.textMuted)

@@ -7,21 +7,42 @@ final class WorkoutCoachFactory {
     private let exerciseCatalog: any ExerciseCatalogProviding
     private let routines: (any RoutineRepository)?
     private let recordings: (any WorkoutRecordingStoring)?
+    /// Records effort evidence and knows the active rungs; nil when there is no adaptive engine.
+    private let adaptive: (any AdaptiveEvidenceRecording)?
 
     init(preferences: any AppPreferencesStoring,
          exerciseCatalog: any ExerciseCatalogProviding,
          routines: (any RoutineRepository)?,
-         recordings: (any WorkoutRecordingStoring)? = nil) {
+         recordings: (any WorkoutRecordingStoring)? = nil,
+         adaptive: (any AdaptiveEvidenceRecording)? = nil) {
         self.preferences = preferences
         self.exerciseCatalog = exerciseCatalog
         self.routines = routines
         self.recordings = recordings
+        self.adaptive = adaptive
     }
 
     func makeWorkout(exerciseID: ExerciseID?, routineID: UUID?) -> WorkoutCoachModel {
         let plan = routineID.flatMap { id in
             try? routines?.list().first(where: { $0.id == id })?.plan(in: exerciseCatalog.all)
         }
+        return makeModel(exerciseID: exerciseID, plan: plan, launch: nil)
+    }
+
+    /// Today's Session: the prepared one-family prescription, run as a tiny plan.
+    func makeTodaySession(launch: TodaySessionLaunch) -> WorkoutCoachModel {
+        makeModel(exerciseID: launch.plan.items.first?.exerciseID, plan: launch.plan, launch: launch)
+    }
+
+    /// One calibration sample: a one-item plan whose evidence goes to the sample's own recorder, so it is recorded as a
+    /// probe of the calibration and reported back to the screen that started it.
+    func makeCalibrationProbe(_ probe: CalibrationProbeLaunch) -> WorkoutCoachModel {
+        makeModel(exerciseID: probe.launch.plan.items.first?.exerciseID, plan: probe.launch.plan, launch: probe.launch,
+                  adaptive: probe.recorder)
+    }
+
+    private func makeModel(exerciseID: ExerciseID?, plan: WorkoutPlan?, launch: TodaySessionLaunch?,
+                           adaptive: (any AdaptiveEvidenceRecording)? = nil) -> WorkoutCoachModel {
         let audioTiming = AudioWorkTiming()
         let audio = WorkoutAudioSession(timing: audioTiming)
         // Sets and reps the user adjusted on the list apply here; Saved Sets bring their own.
@@ -44,6 +65,7 @@ final class WorkoutCoachFactory {
                                  audio: audio, tiltMonitor: CoreMotionTiltMonitor(), voice: voice,
                                  clock: SystemClock(), scheduler: MainScheduler(), preferences: preferences,
                                  exercises: exercises, initialExercise: exerciseID ?? exercises.first?.id,
-                                 plan: plan, settings: settings, recorder: recorder, audioTiming: audioTiming)
+                                 plan: plan, settings: settings, recorder: recorder, audioTiming: audioTiming,
+                                 adaptive: adaptive ?? self.adaptive, todayLaunch: launch)
     }
 }

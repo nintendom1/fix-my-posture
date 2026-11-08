@@ -159,7 +159,7 @@ final class WorkoutCoachModelTests: XCTestCase {
             LateFrame(frame: ReadyPoseFixtures.frame(held, at: capture + Double($0) / 10),
                       capturedAt: stalledAt + Double($0) / 10)
         }, to: harness)
-        harness.camera.emit(.interrupted)
+        harness.camera.emit(.interrupted(reason: nil))
 
         // A set started by the late frames would now be paused; setup instead returns to framing.
         XCTAssertEqual(harness.model.session.phase, .framing,

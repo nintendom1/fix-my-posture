@@ -1,3 +1,4 @@
+import AdaptiveTraining
 import AVFoundation
 import Foundation
 import Observation
@@ -40,6 +41,15 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     private(set) var isGuidePresented = false
     /// The REC chip's state while a developer session recording runs; nil when not recording.
     private(set) var recordingHUD: WorkoutRecordingHUD?
+    /// The "How was that?" question about an item that just finished; nil when none is open. It never pauses the
+    /// workout: rest keeps running, and starting the next set closes it unrated.
+    private(set) var effortCard: EffortCardState?
+    /// The "That felt easy. Want one more?" offer after a prescribed item rated Easy; nil when none is open. Like the
+    /// card, it never pauses the workout, and starting the next set closes it as declined.
+    private(set) var bonusOffer: BonusOfferState?
+    /// The "Too hard?" offer during a set; nil when none is open. It never pauses or stops the set: it closes when the
+    /// set ends, or when it is dismissed.
+    private(set) var tooHardOffer: TooHardOfferState?
     /// Shared with the saved history record, so a recording and its workout can be matched.
     let workoutID: UUID
 
@@ -80,7 +90,8 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
             heardPhrase: heardPhrase,
             isCoachMuted: isCoachMuted,
             showsMeasurements: showsMeasurements,
-            recording: recordingHUD
+            recording: recordingHUD,
+            tooHardOfferIsOpen: tooHardOffer != nil
         )
     }
 
@@ -95,6 +106,24 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     @ObservationIgnored private let clock: Clock
     @ObservationIgnored private let scheduler: Scheduling
     @ObservationIgnored private let recorder: (any WorkoutSessionRecording)?
+    /// Nil in workouts with no adaptive engine, which then never ask for effort.
+    @ObservationIgnored private let adaptive: (any AdaptiveEvidenceRecording)?
+    /// Set when this workout is Today's Session; its plan items carry the prescription they came from.
+    @ObservationIgnored private let todayLaunch: TodaySessionLaunch?
+    @ObservationIgnored private let evidenceDate: () -> Date
+    @ObservationIgnored private let makeEvidenceID: () -> UUID
+    /// The finished item behind the open effort card.
+    @ObservationIgnored private var pendingEffort: PendingEffort?
+    /// An item rated Easy whose evidence waits until its bonus is settled.
+    @ObservationIgnored private var pendingBonus: PendingBonus?
+    /// Items already asked about or recorded, so work the workout ended on is never recorded twice.
+    @ObservationIgnored private var reportedItems = Set<FinishedWorkoutItem.Key>()
+    /// What the user did about each item they flagged "Too hard?", until the item's evidence is recorded.
+    @ObservationIgnored private var tooHardChoices: [FinishedWorkoutItem.Key: WorkoutOutcomeAdapter.TooHardChoice] = [:]
+    /// The easier version the engine chose for the item under the open offer, ready to issue if it is taken.
+    @ObservationIgnored private var pendingSwap: PendingSwap?
+    /// Easier versions taken in this workout, by plan item id, so each one's evidence points at its own prescription.
+    @ObservationIgnored private var easierSwaps: [UUID: IssuedEasierSwap] = [:]
 
     @ObservationIgnored private var framePipeline = WorkoutFramePipeline()
     @ObservationIgnored private var generation = UUID()
@@ -132,7 +161,9 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
          voice: VoiceControlling?, clock: Clock, scheduler: Scheduling, preferences: any AppPreferencesStoring,
          exercises: [ExerciseDefinition], initialExercise: ExerciseID?, plan: WorkoutPlan?,
          settings: WorkoutSettings = WorkoutSettings(), recorder: (any WorkoutSessionRecording)? = nil,
-         audioTiming: AudioWorkTiming? = nil) {
+         audioTiming: AudioWorkTiming? = nil, adaptive: (any AdaptiveEvidenceRecording)? = nil,
+         todayLaunch: TodaySessionLaunch? = nil, evidenceDate: @escaping () -> Date = Date.init,
+         makeEvidenceID: @escaping () -> UUID = UUID.init) {
         self.camera = camera
         self.previewProvider = previewProvider
         self.permission = permission
@@ -144,6 +175,10 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         self.clock = clock
         self.scheduler = scheduler
         self.recorder = recorder
+        self.adaptive = adaptive
+        self.todayLaunch = todayLaunch
+        self.evidenceDate = evidenceDate
+        self.makeEvidenceID = makeEvidenceID
         workoutID = recorder?.id ?? UUID()
         isCoachMuted = preferences.workoutCoachCoachMuted
         isMicMuted = preferences.workoutCoachMicMuted
@@ -167,6 +202,18 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
             self?.showHeard(phrase)
         }
         voice?.onStatusChanged = { [weak self] status in self?.voiceStatusChanged(status) }
+        voice?.onEffort = { [weak self] effort in
+            // The spoken answer isn't a command, so its phrase must not attach to the next one.
+            self?.lastHeardPhrase = nil
+            self?.rateEffort(effort)
+        }
+        voice?.onBonus = { [weak self] answer in
+            self?.lastHeardPhrase = nil
+            switch answer {
+            case .accept: self?.acceptBonus()
+            case .decline: self?.declineBonus()
+            }
+        }
     }
 
     // MARK: - Lifecycle
@@ -190,6 +237,12 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
 
     func onDisappear() {
         isViewActive = false
+        // Leaving with the question open records the item unrated (or as its preselected answer), and so does work
+        // that never finished its item. An open offer is declined and a bonus under way is kept with whatever was done.
+        closeTooHardOffer()
+        closeEffortCardByDefault()
+        flushBonus()
+        if adaptive != nil { recordUnfinishedItems() }
         stopTicks()
         stopCapture()
         speech.stopAll()
@@ -212,6 +265,12 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     }
 
     private func handleVoiceCommand(_ command: WorkoutCommand, source: WorkoutCommandSource = .touch) {
+        var command = command
+        // "Done" closes the help list when it's open; otherwise it finishes a self-reported set in progress.
+        if command == .closeHelp, !isHelpPresented, session.phase == .exercising,
+           session.exercise?.isSelfReported == true {
+            command = .nextSet
+        }
         let phrase = source == .voice ? lastHeardPhrase : nil
         lastHeardPhrase = nil
         recorder?.recordEvent(.command(command, source: source, phrase: phrase), at: clock.now)
@@ -221,6 +280,10 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         case .repCount, .whichSet, .repeatLast:
             // Info keeps the help open so the list stays visible.
             break
+        case .tooHard:
+            // Not a change to the workout: it flags the item and offers a choice, and the set keeps going.
+            openTooHardOffer()
+            return
         // Sound changes apply before the reducer, so confirmations follow the new state.
         case .muteCoach:
             setCoachMuted(true)
@@ -276,8 +339,8 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         case .openSettings:
             break
         case .start, .pause, .resume, .restartSet, .nextSet, .changeExercise, .chooseExercise,
-             .cancelExerciseChange, .anotherRound, .nextExercise, .endWorkout:
-            assertionFailure("Reducer-backed intents are mapped above.")
+             .cancelExerciseChange, .anotherRound, .nextExercise, .endWorkout, .tooHard:
+            assertionFailure("Command-backed intents are mapped above.")
         }
     }
 
@@ -444,9 +507,9 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
             }
         case .frame(let frame):
             process(frame)
-        case .interrupted:
+        case .interrupted(let reason):
             cameraStatus = .interrupted
-            recorder?.recordEvent(.cameraInterrupted, at: clock.now)
+            recorder?.recordEvent(.cameraInterrupted(reason: reason), at: clock.now)
             dispatch(.interruptionBegan)
             resetTracking()
         case .failed(let message):
@@ -557,8 +620,21 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         let outer = dispatchTime
         dispatchTime = now
         defer { dispatchTime = outer }
+        let before = adaptive != nil && mayChangeFinishedItems(event) ? session : nil
         apply(session.handle(event, at: now))
         recordState()
+        // The offer is about the set under way, so it goes when the set does.
+        if tooHardOffer != nil, !Self.isSetActive(session.phase) { closeTooHardOffer() }
+        if let before { observeEffort(since: before, at: now) }
+    }
+
+    /// Only commands, counted reps, and ticks (a hold's timer, an automatic start) can finish an item or start a set,
+    /// so per-frame inputs skip the comparison.
+    private func mayChangeFinishedItems(_ event: WorkoutEvent) -> Bool {
+        switch event {
+        case .command, .repCompleted, .tick: return true
+        default: return false
+        }
     }
 
     /// The reducer's time for the next input: the frame being processed, else the clock.
@@ -610,6 +686,355 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
                 if session.phase == .ended { endRecording(.workoutEnded) }
             }
         }
+    }
+
+    // MARK: - Effort
+
+    /// A finished item and who its evidence is about, kept while its question is open.
+    private struct PendingEffort {
+        let identity: WorkoutOutcomeAdapter.Identity
+        let item: FinishedWorkoutItem
+        /// What the user did about the item after flagging it "Too hard?"; nil when they never did.
+        var choice: WorkoutOutcomeAdapter.TooHardChoice?
+    }
+
+    /// The easier version the engine offered for the item under the open "Too hard?" offer.
+    private struct PendingSwap {
+        /// The plan item the offer is about.
+        let planItemID: UUID
+        let item: PrescriptionItem
+        let option: EasierSwapOption
+    }
+
+    /// A prescribed item rated Easy whose evidence waits for its optional bonus: offered, taken and under way, then
+    /// rated. The evidence is recorded once, with the bonus, however that ends.
+    private struct PendingBonus {
+        enum Stage: Equatable {
+            case offered
+            /// Taken; the bonus set is the plan item with this id.
+            case running(itemID: UUID)
+        }
+
+        /// The id of the prescribed item's evidence, which the offer and the bonus card share.
+        let evidenceID: UUID
+        let identity: WorkoutOutcomeAdapter.Identity
+        let item: FinishedWorkoutItem
+        /// The prescribed item's own answer: rated Easy, with the amount the user confirmed.
+        let answer: WorkoutOutcomeAdapter.Answer
+        let offered: Dose
+        var stage: Stage
+        /// The bonus set once it finished, for the amount it records.
+        var finished: FinishedWorkoutItem?
+    }
+
+    /// Looks at what one reducer input changed. A set that starts, or the workout ending, closes the open question
+    /// unrated and an open offer as declined; an item that finished opens a new question. Nothing here changes the
+    /// reducer's transitions.
+    private func observeEffort(since before: WorkoutSession, at now: TimeInterval) {
+        let phase = session.phase
+        if before.phase != phase, phase == .exercising || phase == .ended {
+            if effortCard != nil { closeEffortCardByDefault() }
+            if bonusOffer != nil { settleBonus(accepted: false) }
+        }
+        for finished in FinishedItemDetector.finishedItems(before: before, after: session, at: now) {
+            if finished.isBonus {
+                finishBonus(finished)
+            } else {
+                beginEffort(for: finished)
+            }
+        }
+        if before.phase != .ended, phase == .ended {
+            recordUnfinishedItems()
+            flushBonus()
+        }
+    }
+
+    /// When the workout ends or its screen closes, work that never finished its item (the first set of two, then End
+    /// during rest) is recorded once, unrated, with the sets it has.
+    private func recordUnfinishedItems() {
+        for unfinished in FinishedItemDetector.unfinishedItems(in: session) {
+            beginEffort(for: unfinished)
+        }
+    }
+
+    private func beginEffort(for finished: FinishedWorkoutItem) {
+        // What the user did about the item after flagging it is spent here, whatever happens next.
+        let choice = tooHardChoices.removeValue(forKey: finished.key)
+        // A bonus is asked about on its own card, never as an item of its own.
+        guard !finished.isBonus, let identity = effortIdentity(for: finished) else { return }
+        // A routine exercise skipped before any work has nothing to rate.
+        if case .manual = identity.origin, finished.result == .skipped, !finished.didAnyWork { return }
+        // Work the workout ended on is recorded once, however many times that is noticed.
+        if finished.result == .endedWorkout, reportedItems.contains(finished.key) { return }
+        reportedItems.insert(finished.key)
+        // An earlier question that is still open closes first (as its preselected answer, or unrated), and an open
+        // offer is declined.
+        closeEffortCardByDefault()
+        if pendingBonus?.stage == .offered { settleBonus(accepted: false) }
+        let id = makeEvidenceID()
+        guard finished.result != .endedWorkout else {
+            // The workout is over, so there is no question: the item is recorded as it ended.
+            recordEvidence(id: id, identity: identity, item: finished, answer: nil, tooHard: choice)
+            return
+        }
+        // Stopping an item, or taking an easier version, said it was too hard, so the card opens on that answer.
+        let preselected: EffortFeedback? = choice == .stoppedHere || choice == .switchedToEasier ? .tooHard : nil
+        effortCard = EffortCardState(id: id, unit: finished.unit, setCount: finished.setAmounts.count,
+                                     amount: finished.counted, preselected: preselected)
+        pendingEffort = PendingEffort(identity: identity, item: finished, choice: choice)
+        voice?.acceptsEffortFeedback = true
+    }
+
+    /// Today's Session items carry their prescription; any other exercise is manual work, and counts only when it is
+    /// the current rung of an active family.
+    private func effortIdentity(for finished: FinishedWorkoutItem) -> WorkoutOutcomeAdapter.Identity? {
+        // An easier version the user took has its own prescription, so its evidence points at that one.
+        if let planItemID = finished.planItemID, let swap = easierSwaps[planItemID] {
+            return WorkoutOutcomeAdapter.Identity(
+                origin: .adaptive(prescriptionID: swap.prescriptionID, itemID: swap.item.itemID,
+                                  prescribed: swap.item.rungDose.dose),
+                family: swap.item.family, variant: swap.item.rungDose.variant)
+        }
+        if let launch = todayLaunch, let planItemID = finished.planItemID,
+           let item = launch.items.first(where: { $0.itemID == planItemID }) {
+            // Only a main item whose prescription offers one may earn a bonus.
+            let offersBonus = item.role == .main
+                && launch.prescription.items.first(where: { $0.id == item.itemID })?.offersBonus == true
+            return WorkoutOutcomeAdapter.Identity(
+                origin: .adaptive(prescriptionID: launch.prescription.id, itemID: item.itemID,
+                                  prescribed: item.rungDose.dose),
+                family: item.family, variant: item.rungDose.variant, offersBonus: offersBonus)
+        }
+        guard let rung = adaptive?.activeRung(for: finished.exerciseID, reducedRange: finished.reducedRange) else {
+            return nil
+        }
+        return WorkoutOutcomeAdapter.Identity(origin: .manual, family: rung.family, variant: rung.rungDose.variant)
+    }
+
+    /// Closes the open question without the user choosing: starting the next set, ending the workout, or leaving. A
+    /// card that opened on an answer (Too Hard after "Stop here") records it; any other is recorded unrated.
+    private func closeEffortCardByDefault() {
+        closeEffortCard(rating: effortCard?.preselected)
+    }
+
+    /// Closes the open question and records the item with the user's rating, or unrated when `rating` is nil.
+    private func closeEffortCard(rating: EffortFeedback?) {
+        guard let card = effortCard else { return }
+        let answer = WorkoutOutcomeAdapter.Answer(effort: rating, amount: card.amount, isAdjusted: card.isAdjusted)
+        if card.isBonus {
+            effortCard = nil
+            voice?.acceptsEffortFeedback = false
+            settleBonus(accepted: true, answer: answer)
+            return
+        }
+        guard let pending = pendingEffort else { return }
+        effortCard = nil
+        pendingEffort = nil
+        voice?.acceptsEffortFeedback = false
+        // Easy on a main item that offers one earns a bonus offer; the evidence then waits for the offer's outcome.
+        if let offered = WorkoutOutcomeAdapter.bonusOffer(identity: pending.identity, item: pending.item, answer: answer,
+                                                          tooHard: pending.choice) {
+            pendingBonus = PendingBonus(evidenceID: card.id, identity: pending.identity, item: pending.item,
+                                        answer: answer, offered: offered, stage: .offered)
+            bonusOffer = BonusOfferState(id: card.id, offered: offered)
+            voice?.acceptsBonusAnswer = true
+            return
+        }
+        recordEvidence(id: card.id, identity: pending.identity, item: pending.item, answer: answer,
+                       tooHard: pending.choice)
+    }
+
+    private func recordEvidence(id: UUID, identity: WorkoutOutcomeAdapter.Identity, item: FinishedWorkoutItem,
+                                answer: WorkoutOutcomeAdapter.Answer?, bonus: BonusRecord? = nil,
+                                tooHard: WorkoutOutcomeAdapter.TooHardChoice? = nil) {
+        adaptive?.record(WorkoutOutcomeAdapter.evidence(id: id, recordedAt: evidenceDate(), workoutID: workoutID,
+                                                        identity: identity, item: item, answer: answer, bonus: bonus,
+                                                        tooHard: tooHard))
+    }
+
+    // MARK: - Too hard
+
+    /// A set is under way while exercising or paused. A chooser opened over it is not "a set to flag".
+    private static func isSetActive(_ phase: WorkoutPhase) -> Bool {
+        switch phase {
+        case .exercising, .paused: return true
+        default: return false
+        }
+    }
+
+    /// "Too hard?" during a set (the button or the voice command): the item is flagged and the offer opens. Nothing
+    /// stops, pauses, or changes what the tracker sees. Outside a set, or with a question open, it does nothing.
+    private func openTooHardOffer() {
+        guard Self.isSetActive(session.phase), effortCard == nil, bonusOffer == nil,
+              let key = FinishedItemDetector.currentKey(in: session) else { return }
+        if tooHardChoices[key] == nil { tooHardChoices[key] = .flagged }
+        guard tooHardOffer == nil else { return }
+        let easier = easierVersionToOffer()
+        pendingSwap = easier?.swap
+        tooHardOffer = TooHardOfferState(id: makeEvidenceID(), easierVersion: easier?.version)
+    }
+
+    /// The easier version of the item under way, only for a Today's Session main item and only when the engine has
+    /// one the coach can run. The engine decides; the app just looks.
+    private func easierVersionToOffer() -> (swap: PendingSwap, version: TooHardOfferState.EasierVersion)? {
+        guard let adaptive, let launch = todayLaunch, let planItem = session.currentPlanItem,
+              let adaptiveItem = launch.items.first(where: { $0.itemID == planItem.id }), adaptiveItem.role == .main,
+              let item = launch.prescription.items.first(where: { $0.id == planItem.id }),
+              let option = adaptive.easierSwapOption(for: item, asOf: evidenceDate()),
+              let base = session.exercises.first(where: { $0.id == option.exerciseID }) else { return nil }
+        let name = WorkoutPlanItem(id: planItem.id, exerciseID: option.exerciseID, sets: 1, targetReps: 1...1,
+                                   reducedRange: option.reducedRange).resolved(from: base).displayName
+        return (PendingSwap(planItemID: planItem.id, item: item, option: option),
+                TooHardOfferState.EasierVersion(name: name, amountLabel: WorkAmount(option.target.dose).description))
+    }
+
+    func stopHere() {
+        guard tooHardOffer != nil, Self.isSetActive(session.phase),
+              let key = FinishedItemDetector.currentKey(in: session) else {
+            closeTooHardOffer()
+            return
+        }
+        tooHardChoices[key] = .stoppedHere
+        closeTooHardOffer()
+        endItemNow()
+    }
+
+    func takeEasierVersion() {
+        guard tooHardOffer != nil, let pending = pendingSwap, let adaptive, Self.isSetActive(session.phase),
+              session.currentPlanItem?.id == pending.planItemID,
+              let key = FinishedItemDetector.currentKey(in: session) else { return }
+        guard let issued = adaptive.issueEasierSwap(replacing: pending.item, option: pending.option,
+                                                    at: evidenceDate()) else {
+            // It couldn't be saved, so nothing was taken: the offer keeps only Stop here.
+            pendingSwap = nil
+            tooHardOffer?.easierVersion = nil
+            return
+        }
+        easierSwaps[issued.item.itemID] = issued
+        tooHardChoices[key] = .switchedToEasier
+        closeTooHardOffer()
+        endItemNow()
+        dispatch(.startEasierSwap(EasierSwapRequest(itemID: issued.item.itemID, after: pending.planItemID,
+                                                    exerciseID: issued.item.exerciseID,
+                                                    reducedRange: issued.item.reducedRange,
+                                                    amount: issued.item.rungDose.dose.amount)))
+        // The reducer refuses a swap it can't run; no easier version is running then, so the item just stopped early.
+        if session.plan?.items.contains(where: { $0.id == issued.item.itemID }) != true {
+            easierSwaps[issued.item.itemID] = nil
+            pendingEffort?.choice = .stoppedHere
+        }
+    }
+
+    func dismissTooHardOffer() {
+        closeTooHardOffer()
+    }
+
+    private func closeTooHardOffer() {
+        tooHardOffer = nil
+        pendingSwap = nil
+    }
+
+    /// Ends the item under way with what was done: the set finishes the way Done finishes it (the counted reps, the
+    /// seconds held, or a self-reported set's prescribed amount, which the card then lets the user correct). In a plan
+    /// the item's remaining sets are skipped; a standalone exercise ends without scheduling any (no rest, so nothing
+    /// can start after a rest deadline).
+    private func endItemNow() {
+        guard session.isFollowingPlan else {
+            handleVoiceCommand(.stopItem)
+            return
+        }
+        let itemID = session.currentPlanItem?.id
+        handleVoiceCommand(.nextSet)
+        if let itemID, session.currentPlanItem?.id == itemID, session.planRecords[itemID] == nil {
+            handleVoiceCommand(.nextExercise)
+        }
+    }
+
+    // MARK: - Bonus
+
+    /// Takes the offer: one more set of the same exercise and variant is inserted right after the item, without a
+    /// rest. Nothing is recorded until the bonus is done and rated, or the workout ends.
+    func acceptBonus() {
+        guard let pending = pendingBonus, pending.stage == .offered, let after = pending.item.planItemID else { return }
+        let itemID = makeEvidenceID()
+        bonusOffer = nil
+        voice?.acceptsBonusAnswer = false
+        pendingBonus?.stage = .running(itemID: itemID)
+        dispatch(.startBonus(BonusRequest(itemID: itemID, after: after, amount: pending.offered.amount)))
+        // The reducer refuses a bonus it can't run; nothing was taken then, and nothing is lost.
+        if session.plan?.items.contains(where: { $0.id == itemID }) != true { settleBonus(accepted: false) }
+    }
+
+    /// Declines the offer. The item is a full success; its evidence is recorded now.
+    func declineBonus() {
+        guard pendingBonus?.stage == .offered else { return }
+        settleBonus(accepted: false)
+    }
+
+    /// The bonus set finished or was left: ask how it was when there is something to rate, else record it as it ended.
+    private func finishBonus(_ finished: FinishedWorkoutItem) {
+        // What the user did about the bonus after flagging it is spent here. The prescribed item's rating is its own.
+        let choice = tooHardChoices.removeValue(forKey: finished.key)
+        guard var pending = pendingBonus, case .running(let itemID) = pending.stage,
+              itemID == finished.planItemID else { return }
+        pending.finished = finished
+        pendingBonus = pending
+        // A workout that ended, or a bonus skipped before any work, has no question to ask.
+        guard finished.result != .endedWorkout, finished.result == .completed || finished.didAnyWork else {
+            settleBonus(accepted: true)
+            return
+        }
+        // "Stop here" on the bonus opens its card on Too Hard, like any item's; the bonus's own rating is what it records.
+        effortCard = EffortCardState(id: pending.evidenceID, unit: finished.unit, setCount: finished.setAmounts.count,
+                                     amount: finished.counted, isBonus: true,
+                                     preselected: choice == .stoppedHere ? .tooHard : nil)
+        voice?.acceptsEffortFeedback = true
+    }
+
+    /// The workout ended or its screen closed: an open offer is declined, and a bonus under way is kept with whatever
+    /// was done.
+    private func flushBonus() {
+        guard var pending = pendingBonus else { return }
+        guard case .running(let itemID) = pending.stage else {
+            settleBonus(accepted: false)
+            return
+        }
+        // Closing the screen mid-set never ran the reducer's end transition, so the set under way is read from the
+        // session now. The usual rules apply: seconds held are kept, a camera count stays unconfirmed, and a
+        // self-reported set nobody marked done adds nothing.
+        if pending.finished == nil, let inProgress = FinishedItemDetector.itemInProgress(in: session, at: clock.now),
+           inProgress.planItemID == itemID {
+            pending.finished = inProgress
+            pendingBonus = pending
+        }
+        settleBonus(accepted: true)
+    }
+
+    /// Records the item's evidence once, with the bonus's outcome. Declining carries nothing else. A bonus taken
+    /// carries the amount the user confirmed on its card, and the rating if they gave one; a lost tracker is never
+    /// read as a failed bonus.
+    private func settleBonus(accepted: Bool, answer: WorkoutOutcomeAdapter.Answer? = nil) {
+        guard let pending = pendingBonus else { return }
+        pendingBonus = nil
+        bonusOffer = nil
+        voice?.acceptsBonusAnswer = false
+        let record = WorkoutOutcomeAdapter.bonusRecord(offered: pending.offered, accepted: accepted,
+                                                       item: pending.finished, answer: answer)
+        recordEvidence(id: pending.evidenceID, identity: pending.identity, item: pending.item, answer: pending.answer,
+                       bonus: record)
+    }
+
+    func rateEffort(_ effort: EffortFeedback) {
+        closeEffortCard(rating: effort)
+    }
+
+    func skipEffort() {
+        closeEffortCard(rating: nil)
+    }
+
+    /// Changes the amount on the open card by whole steps (1 rep or 5 seconds each).
+    func adjustEffortAmount(by steps: Int) {
+        effortCard?.adjust(by: steps)
     }
 
     // MARK: - Recording
@@ -710,6 +1135,11 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
             voice?.disable(status: .paused)
             speech.stopAll()
             dispatch(.interruptionBegan)
+        case .interruptionDiagnostic(let type, let reason, let wasSuspended, let shouldResume):
+            voice?.handleAudioEvent(event)
+            recorder?.recordEvent(.audioInterruptionDiagnostic(type: type, reason: reason,
+                                                                wasSuspended: wasSuspended,
+                                                                shouldResume: shouldResume), at: clock.now)
         case .interruptionEnded(let shouldResume):
             // The workout stays paused; voice resumes only when the system says so.
             recorder?.recordEvent(.audioInterruptionEnded(shouldResume: shouldResume), at: clock.now)
@@ -718,6 +1148,20 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         case .mediaServicesReset:
             speech.stopAll()
             voice?.handleAudioEvent(event)
+        case .routeDiagnostic(let reason, let outputs, let inputs):
+            voice?.handleAudioEvent(event)
+            recorder?.recordEvent(.audioRouteDiagnostic(reason: reason, outputs: outputs, inputs: inputs),
+                                   at: clock.now)
+        case .sessionOperation(let operation, let active, let category, let mode, let categoryOptions,
+                               let activeOptions, let isOtherAudioPlaying, let shouldBeSilenced):
+            voice?.handleAudioEvent(event)
+            recorder?.recordEvent(.audioSessionOperation(operation: operation, active: active,
+                                                          category: category, mode: mode,
+                                                          categoryOptions: categoryOptions,
+                                                          activeOptions: activeOptions,
+                                                          isOtherAudioPlaying: isOtherAudioPlaying,
+                                                          secondaryAudioShouldBeSilenced: shouldBeSilenced),
+                                   at: clock.now)
         case .routeChanged, .reactivated:
             voice?.handleAudioEvent(event)
         }

@@ -22,6 +22,15 @@ App code reaches the package through adapters in `PostureAnalysisApp/AdaptiveTra
   the app can offer (`Availability`: the exercises that exist, limited by the user's equipment). Its
   `notYetBuilt` list names ladder exercises that the app hasn't added yet; each exercise PR removes its ID, and
   `ExerciseVariantBridgeTests` fails if the list and the catalog disagree.
+- `AdaptiveTrainingCoordinator` is the one app object that calls the engine, besides the debug provider. It reports
+  Today's Session, prepares it as a workout plan, answers which rung an exercise is, and records evidence.
+- `WorkoutOutcomeAdapter` is a pure mapping from a finished workout item and the effort card's answer to
+  `AdaptiveEvidence`. `FinishedItemDetector` finds finished items by comparing the workout session before and after
+  an input.
+- The coordinator also asks the engine for an item's easier version and saves it when the user takes it; see
+  [Mid-set Too hard](#mid-set-too-hard).
+- It also starts, saves, commits, and abandons a calibration and prepares each calibration sample for the coach; see
+  [Calibration](#calibration). `CalibrationProbeRecorder` is the coach's evidence recorder for one sample.
 
 Dependencies point one way: the app imports the package, never the reverse, so package code can't name app types.
 `PackageBoundaryTests` fails if any package source imports anything but Foundation. The policy, projection, and
@@ -98,6 +107,438 @@ counts append-only facts by id and calibrations by their full contents, so any c
 A cached profile is valid only for the policy version, the ladders and built exercises, and the watermark it was built
 from; otherwise the engine replays the facts.
 
-## Policy
+## Policy V1
 
-The V1 recommendation policy lands in the next PR.
+`AdaptiveReplay.profile` rebuilds the profile from facts. It does not depend on input array order. Evidence, settings,
+engagement, and calibration commits replay by their effective time, then fact UUID. A calibration uses its end time, or
+its start time when it has no end time. Prescriptions provide item roles and targets but do not produce transitions.
+Each capacity or engagement fact gets a transition that records the decision and its rationale.
+
+Equipment in force starts empty. A committed calibration or `equipmentChanged` setting replaces it. Availability is the
+built exercise set plus the equipment in force at that point in the replay. A family's floor must be available before
+it can be offered.
+
+### Evidence decisions
+
+V1 checks evidence in this order. `TrackerObservation` is never read for capacity. An accepted tracker count matters
+only because the app records a separate confirmation source and confirmed amount.
+
+| Condition | Decision | Capacity effect |
+|---|---|---|
+| Evidence belongs to a calibration | `calibrationProbe` or `calibrationNotCommitted` | A committed probe updates comfortable dose and performance time only. An uncommitted probe has no effect. |
+| Variant is outside its family, family is not started, or family was removed | `familyInactive` | None. |
+| Item was not attempted | `notAttempted`; a declined harder sample also gets `harderSampleDeclined` | None. The sample remains due. |
+| No effort rating | `unrated`; also `trackingOnly` when confirmation is `none` | None. Performance time still updates for an active family. |
+| Okay/Easy without confirmed work | `unconfirmedRating` or `nothingCompleted` for confirmed zero | None. |
+| Okay/Easy on an easier swap | `easierSwapRecorded` | Comfortable dose only. |
+| Okay on the main item | `okayHold` | Hold current dose, clear the Easy streak, and raise confidence. |
+| Easy below the full prescribed amount, stopped early, switched to an easier version, or ended during the item | `stoppedEarlyHold` | Hold current dose and clear the Easy streak. |
+| Easy on the main item | `easyOnceHold` or `easyStreakIncrease` | Two Easy ratings on different days within the recency window add one dose step. Same-day Easy does not increment the streak. |
+| Easy at the top of the dose range | `topOfRangeSampleOffered` | Offer the next available rung as an optional sample. |
+| Okay/Easy on a harder sample | `harderSampleAccepted` | Move to that rung at its minimum dose. |
+| Too Hard on a harder sample | `harderSampleTooHard` | Keep current dose, clear the due flag and the Easy streak, and block samples for the cooldown. |
+
+An Easy streak requires different calendar days in the supplied calendar. A stale prior Easy starts a new streak and
+adds `staleHistoryIgnored`. An Okay, stopped attempt, Too Hard decision, calibration start, or capacity change clears
+the streak. A bonus adds `bonusRecordedOnly`; its acceptance and completion never change capacity.
+
+Too Hard is authoritative, including when the item was completed. The policy checks the branches in order:
+
+| Branch | Result |
+|---|---|
+| A recent comfortable dose on the performed rung is lower than the Too Hard dose | Use it (`tooHardBackToComfortable`). |
+| The dose is above the rung minimum | Reduce by at least one step, rounding the configured reduction up to a full step (`tooHardReducedDose`). |
+| The dose is at the minimum and an easier rung is available | Use its recent comfortable dose or its minimum (`tooHardEasierRung`). |
+| No easier rung is available | Keep the performed rung at its minimum (`tooHardAtFloor`). |
+
+The mid-item "Easier version" asks the same table. `AdaptiveTrainingEngine.easierSwap(for:asOf:)` (and the pure
+`AdaptiveReplay.easierSwap`) runs these branches on the item's own rung and dose, and returns where Too Hard on that
+item would go. It reuses the policy's internal Too Hard computation, so the answer and a Too Hard rating on the same item
+always agree. It returns nil for any role but the day's main item, for a family that isn't active, for a rung outside
+its family, when the item is already at the floor's minimum, and when nothing easier is available. The easier rung can
+count a different unit (a glute bridge's easier rung is a timed hold). `issueEasierSwap(replacing:target:prescriptionID:itemID:at:)`
+saves a `todaySession` prescription with one `easierSwap` item for the same family, with caller-provided ids; a target
+outside the item's family throws `AdaptiveTrainingEngineError.easierSwapOutsideFamily`. The swap item never offers a bonus.
+
+Too Hard clears the Easy streak and pending harder sample, lowers confidence, and removes comfortable doses on the
+performed rung that are at or above the Too Hard dose. At the floor minimum confidence is low. Too Hard on something
+harder than `current` (a harder rung, or a higher dose on the same rung, such as an older prescription) is recorded
+without moving capacity, whatever its source. A manual Too Hard with no positive work uses the performed rung's minimum
+as its dose.
+
+Manual Okay/Easy work on a harder rung advances by one available rung only, and never past the rung performed. On the
+current rung, manual work at or above the current dose follows the main-item rules (Okay holds, Easy counts toward the
+streak); less than the current dose is recorded without changing the streak. Manual work on an easier rung records a
+comfortable dose only.
+
+The first Okay or Easy after `absenceDays` or more without performing the family holds, clears the Easy streak, sets
+confidence to medium, and adds `returnedAfterAbsence`. This applies to main, manual, and harder-sample evidence. Too
+Hard still applies after an absence.
+
+V1 defaults (`PolicyParameters.standard`): two Easy ratings on different days to add a step, a 25% Too Hard reduction
+rounded up to a full step, a 28-day recency window, a 14-day absence threshold, and a 7-day harder-sample cooldown.
+
+### Replay invariants
+
+- The same facts, catalog, built exercises, parameters, and calendar produce the same encoded profile.
+- Tracking loss, tracker counts, and tracking signals do not imply physical failure or completion.
+- Time passing alone does not make a transition or change a prescription. Query-time confidence can become low after
+  the absence threshold.
+- Declining a bonus or harder sample is neutral. A declined sample remains due.
+- Session context changes only the returned session. A tiny context does not write facts or change the profile.
+- Calibration probes are applied at the calibration commit time before starting points. They change comfort and
+  performance time only, ordered by each probe's own time: an older probe never replaces a newer comfortable dose or
+  moves `lastPerformedAt` back, and a Too Hard probe removes comfortable doses rated before it. A committed
+  recalibration replaces `current` and keeps prior comfortable doses.
+- One manual fact can advance at most one rung.
+- Every rationale names the family, stable variant ID, dose, and a short reason. A streak increase includes every
+  distinct-day Easy fact that supports it.
+
+### Today's Session
+
+No states means `.needsCalibration`. States with no active family means `.nothingOffered`. Otherwise the planner
+chooses the active family with the oldest `lastPerformedAt`; a never-performed family comes first, and ties follow
+catalog order. Skipped days do not change the rotation. A completed main item from a Today Session prescription on
+the current calendar day returns `.completedToday` with the family that would rotate next.
+
+The main item uses `current`, clamped to the rung's dose range. If that rung is unavailable, the planner uses the
+nearest easier available rung at its minimum. A tiny context uses the main rung minimum and omits a harder sample.
+Otherwise a due sample is offered at the next available rung's minimum when its cooldown has expired. Main items offer
+a bonus. `isTiny` is true when the main dose is the rung minimum. Confidence is read as of the requested time.
+
+Estimated time is 45 seconds plus four seconds per rep, or the hold duration in seconds, plus 25 seconds when a sample
+is offered. The rationale is the family's latest non-record-only transition, or its calibration starting point.
+
+### Semantic events
+
+`AdaptiveEventDeriver` derives events from facts and transitions, oldest first. Ties use the fact UUID and then
+`AdaptiveEventKind.allCases` order. Starts from an initial or add-family calibration produce one
+`calibrationCompleted`; recalibration produces one `recalibrationCompleted`. Increases and harder samples produce
+`progressed`; decreases and easier variants produce `regressed`. Rated evidence produces an effort event unless it is
+a calibration probe. Completed adaptive main items produce `sessionCompleted`. Bonus facts produce `bonusOffered` and
+either `bonusAccepted` or `bonusDeclined`. A transition after absence produces `returnedAfterAbsence`.
+`tinySessionPrescribed` is raised by the app from `TodaySession.isTiny`, not from replay.
+
+### Cache
+
+The engine checks its in-memory profile, then the stored cache, then replays all facts. A stored payload is reusable
+only when the policy version, interpretation key, and fact watermark match. The interpretation key covers catalog
+version, built exercise IDs, policy parameters, and calendar time zone. The watermark changes when an append-only fact
+is added or a calibration's contents change. Cache timestamps come from the newest fact, not the current clock.
+
+## Today's Session flow
+
+The app never decides what is easier or harder. It runs what the engine returns and records the facts of what happened.
+
+- **Starting.** `AdaptiveTrainingCoordinator.start(asOf:)` works only while the engine's status is `.ready`. It saves the
+  prescription with `issue(...)`, with a new id for the prescription, the main item, and the sample item, and prepares a
+  `TodaySessionLaunch`: the prescription, a `WorkoutPlan`, and one `AdaptivePlanItem` per plan item (item id, role,
+  family, `RungDose`, exercise, and reduced range). `AppRoute.todaySession` (Train tab, full screen) reads the prepared
+  launch from the coordinator, so the route carries no plan.
+- **Developer entry point.** Settings › Developer diagnostics › Adaptive training has **Start Today's Session**
+  (`adaptiveDebugStartTodayButton`). It is enabled only for `.ready`. The Train hero arrives in PR 14.
+- **Plan shape.** The plan is named "Today's Session" and has the fixed id `AdaptiveTrainingCoordinator.todaySessionPlanID`
+  (`70DA0000-0000-4000-8000-000000000001`). The main item is one set whose `targetReps` is the dose, in seconds for a
+  timed dose. An optional harder sample is one set at its dose, labeled "Optional: <name>" wherever the plan shows item
+  names. A plan item's id is its prescription item's id.
+- **Reduced range.** `WorkoutPlanItem.reducedRange` runs the exercise's smaller-range variant, so a shallow floor and its
+  full-range sample can share one exercise id in one plan. When the next occurrence is the same exercise from the same
+  camera view, the session keeps its framing instead of resetting it, because the camera reports framing only when it
+  changes and counting would otherwise stay off for the whole next set.
+- **Saved names.** A saved entry is named from the plan occurrence it ran: "Shallow Wall Push-Up" for a reduced-range
+  main item, and "Optional: <name>" for the harder sample. The completion stats add "Optional: " only to an older entry
+  that lacks it.
+- **When a session can't start.** If the main rung has no exercise, or its exercise counts a different unit than the dose,
+  `start` returns nil and saves nothing. The debug page shows why. A sample the coach can't run is left out of the
+  prescription as well, so nothing is recorded that was never offered.
+- **Not a routine.** Today's Session saves a normal `WorkoutRecord` with `planID = todaySessionPlanID` and
+  `planName = "Today's Session"`. The plan id matches no routine, so `RoutineRotation` never counts it, and
+  `WorkoutHistorySaver` does not clear the Up Next override for it. A one-rep session saves and shows in History and
+  Progress like any workout.
+- **Completion screen.** For Today's Session the title is "Today's session complete" and the subtitle never says "every
+  set done". A session under a minute shows its actual length ("40 s"), or "Done" under one second, instead of "<1m". A
+  skipped optional sample reads "Optional, skipped". Other workouts keep their copy. There is no survey after the effort
+  cards.
+
+## Effort card
+
+After a prescribed item the coach asks "How was that?" with Too Hard, Okay, and Easy. The question is about the amount,
+not about whether the user was able to do it.
+
+- **When it appears.** Whenever an eligible item finishes. The coach detects that from `WorkoutSession` changes (plan
+  records, progress, and phase) in `WorkoutCoachModel.dispatch`; the reducer is unaware of the card.
+  - A Today's Session plan item that completed, stopped early, or was skipped.
+  - In any other workout, an exercise that is the current rung of an **active** family.
+    `AdaptiveTrainingCoordinator.activeRung(for:reducedRange:)` answers from the profile and compares the exercise and
+    its reduced range with the rung's modifiers. The app never compares difficulty. A routine exercise skipped before
+    any work asks nothing.
+  - An exercise outside a plan finishes with its last set. A routine or Today's Session item finishes with its record.
+  - **Skipping after work keeps the work.** The session record keeps only finished sets, so the detector reads the set
+    being skipped from the session before the skip: counted reps for a camera exercise, seconds held for a timed hold.
+    A self-reported rep set that nobody marked done adds nothing. Skipping before any work is still `.notAttempted`.
+- **What it shows.** A large card over the camera, clear of the bottom controls: the title, the amount ("3 reps" or
+  "20 s") with − and + (reps by 1, seconds by 5, never below 0), three buttons (`effortTooHardButton`,
+  `effortOkayButton`, `effortEasyButton`) with VoiceOver labels and hints, and a small **Skip** (`effortSkipButton`).
+  With several sets the amount reads "each set".
+- **Default amount.** Counted reps for camera items, the recorded amount for self-reported items, the seconds recorded
+  for timed holds, and 0 for a skipped item.
+- **Never blocks.** Rest keeps running under the card. Starting the next set, or ending the workout, closes it unrated
+  and records that. A second finished item closes the first card unrated. Closing the screen records an open card
+  unrated. When the last item finishes, the completion screen waits until the card is answered or skipped. If the
+  workout ends during an item, nothing is asked: the item is recorded as ended.
+- **Work that never finished.** When the workout ends, or its screen closes, an eligible exercise that has finished
+  sets but not all of them (the first of two, then End during rest) is recorded once as `.endedWorkout`, unrated, with
+  the sets it has. The coach remembers which items it has reported, so ending and then closing records once.
+- **Voice.** While the card is open, `WorkoutVoiceController` asks `EffortPhraseParser` before the command parser. It
+  maps "too hard", "too difficult", "that was too hard", "okay", "ok", "fine", "good", "that was okay", "easy",
+  "too easy", and "that was easy". The longest phrase wins. The only other words allowed are polite fillers ("please",
+  "um", "so", "yeah", "coach", "it was", "really", and "okay" itself), so a phrase that carries a command ("okay
+  start", "okay end workout") or a negation ("not easy") is not an answer and reaches the command parser instead. The
+  effort parser sees the raw transcript first because "okay" is a filler word to the command parser. An effort phrase
+  never runs as a command, and "skip" is not an effort phrase.
+- **Streaming speech.** A partial transcript that parses as an answer waits: it answers once the transcript is final or
+  has stayed unchanged for 0.6 s. If more words arrive first ("okay" becomes "okay start"), nothing is answered and the
+  normal parser handles the whole phrase.
+- **Recording.** `WorkoutOutcomeAdapter.evidence(...)` builds the evidence, and `AdaptiveTrainingCoordinator.record(_:)`
+  saves it. The model reaches the coordinator through `AdaptiveEvidenceRecording`, which the factory injects. It is nil
+  for workouts with no engine, which never ask. A failed save is logged and never reaches the workout.
+
+### Evidence mapping
+
+`WorkoutOutcomeAdapter` is pure and decides nothing about difficulty. Rejection reasons stay empty because the session
+doesn't keep the analyzer's rep rejections. `midSetTooHard` is true when the user flagged the item with "Too hard?"; see
+[Mid-set Too hard](#mid-set-too-hard). `bonus` is nil unless the item earned an offer; see [Bonus reps](#bonus-reps).
+
+| Field | Value |
+|---|---|
+| `source` | `.adaptive` for Today's Session items, `.manual` for anything else. |
+| `prescriptionID`, `prescriptionItemID`, `prescribed` | Today's Session items only. |
+| `workoutID` | The coach's `workoutID`, which is also the saved workout's id. |
+| `family`, `variant` | The prescription item's, or the active rung's for manual work. |
+| `confirmation` `.user` | The user changed the amount, or the item is self-reported or a timed hold. |
+| `confirmation` `.trackerAccepted` | A camera count that was rated and not changed, with tracking not lost. |
+| `confirmation` `.none` | A camera count that was unrated and unchanged, or tracking was lost and the amount was not changed, or the item was not attempted. `confirmed` is nil. |
+| `confirmed`, `setAmounts` | The card's amount. An item with several sets confirms its smallest set; a changed amount applies to each set. |
+| `tracker` `.tracked` | Camera items, with `observed` set to the counted reps. |
+| `tracker` `.lost` | A camera item that finished while tracking was lost; the count is kept as `observed`. |
+| `tracker` `.notTracked` | Self-reported or timed items, and camera items skipped before any work. |
+| `effort` | The card's answer; nil when skipped or closed unrated. |
+| `completion` `.completed` | Every set done at or above the target (the card's amount counts if the user changed it). |
+| `completion` `.stoppedEarly` | Done with less than the target, or skipped after some work (the counted reps or seconds held, read from before the skip), or "Stop here, it counts" at any amount. |
+| `completion` `.switchedToEasier` | The user took the easier version; the item ended with what was done. |
+| `completion` `.endedWorkout` | The workout ended during the item. |
+| `midSetTooHard` | True when the user tapped or said "Too hard?" during the item, whatever they chose next. Never read from, or written by, the tracker. |
+| `completion` `.notAttempted` | Skipped before any work, such as a declined harder sample. |
+| `bonus` | Only when the item was offered a bonus: see [Bonus reps](#bonus-reps). |
+
+## Bonus reps
+
+After a Today's Session main item is rated Easy, the coach offers one small optional extra. Declining is a full success
+with no penalty. The app only records the bonus (invariant 6): policy V1 notes `bonusRecordedOnly` and never moves the
+prescription because of it.
+
+- **When it is offered.** Only for a main item whose `PrescriptionItem.offersBonus` is true, rated Easy on the effort
+  card, with the card's amount at or above the prescribed amount (a corrected amount counts).
+  `WorkoutOutcomeAdapter.bonusOffer` decides, and returns nil for manual work, a harder sample, Okay or Too Hard, no
+  rating, a skipped item, an item stopped early, an item the workout ended on, and a bonus itself. A bonus is never
+  offered from a bonus.
+- **The offer.** When Easy closes an eligible card, `BonusOfferView` takes its place: "That felt easy. Want one more?"
+  with **One more** (`bonusAcceptButton`) and **I'm done** (`bonusDeclineButton`), both large and labeled for VoiceOver.
+  The offer is one rep, or five seconds of a hold (`WorkoutOutcomeAdapter.bonusDose`). The coach can speak the answer:
+  "one more", "one more rep", "sure", and "yes" accept; "I'm done", "I am done", "no thanks", "no", and "done" decline.
+  `BonusPhraseParser` runs on the raw transcript before the command parser, like the effort phrases, and accepts the
+  phrase plus polite filler words only. "Okay, start", "yes, end workout", and "yes no" are not answers and reach the
+  command parser. A partial transcript that parses as an answer waits until it is final or has settled for 0.6 s.
+- **Never blocks.** Rest keeps running under the offer. Starting the next set or item, skipping ahead, ending the
+  workout, or closing the screen settles it as declined. The completion screen waits for the offer.
+- **Recording waits.** The item's evidence is recorded once, when the bonus is settled, with `effort: .easy` and its
+  `bonus`. Declined: `BonusRecord(offered:, accepted: false)`, which carries nothing else. Accepted:
+  `accepted: true`, `completed` (the amount, or nil), and `effort` (the bonus's own rating, optional). The workout ending
+  or the screen closing during the offer settles it as declined; during the bonus, as accepted with whatever was done.
+  Closing the screen mid-set never ran the end transition, so the coach reads the set under way at that moment
+  (`FinishedItemDetector.itemInProgress`): the seconds held of a timed bonus are kept, a camera count stays unconfirmed,
+  and a self-reported rep nobody marked done adds nothing. A bonus with nothing done yet reports no amount, not zero.
+- **The bonus set.** Accepting sends the reducer `WorkoutEvent.startBonus`, which inserts a one-set plan item
+  (`isBonus`) right after the item, with the same exercise and reduced-range variant, and sets it up like any plan
+  item, with no rest. If a harder sample is next, the bonus runs first and the sample still follows. The reducer
+  accepts a bonus only after a completed item that nothing after it has started, and only once per item. Another Round
+  of the plan drops the bonus.
+- **After the bonus.** A light card asks "How was the bonus?" with the amount, − and +, Too Hard / Okay / Easy, and
+  **Skip**. The rating is optional. The card follows the effort card's rules: it never blocks, and starting the next
+  set closes it unrated. A bonus skipped before any work, or a workout that ends on it, has no card.
+- **Where the amount comes from.** The same rules as the prescribed item, so a tracker count is never the user's word
+  by itself: a corrected amount is the user's; a self-reported amount or a timed hold's seconds is the user's; a camera
+  count counts when it was rated without changing it and tracking was not lost. Otherwise `completed` is nil, meaning
+  not reported. A confirmed zero is zero reps. Losing the camera during the bonus is never a failed bonus. Skipping to
+  the next exercise, or choosing another exercise, partway through a bonus keeps what its set had observed (seconds held
+  or counted reps) in the bonus's own record, so the card, the evidence, and the saved workout agree. Any other skipped
+  occurrence keeps finished sets only.
+- **Saved and shown separately.** The saved entry is named "Bonus: <name>". The completion stats and History mark it as
+  a bonus, not as the optional sample, and do not count it as another exercise. A bonus nobody did anything in leaves no
+  entry, so it is never listed as skipped or not reached. A bonus left partway is saved with its work and no outcome, so
+  it never reads "Skipped" either. A recording writes `bonus` on its plan item and a `bonus` input
+  line when the set is inserted.
+
+## Mid-set Too hard
+
+During any active set (camera-tracked, self-reported, or timed) the user can tap **Too hard?** or say "too hard". It
+never stops the set by itself. It flags the item and opens a small offer above the bottom controls. The app only asks
+the engine what is easier (invariant 6).
+
+- **The control.** The large, labeled button (`tooHardButton`, with the VoiceOver hint "Tells the coach this is too hard.
+  The set keeps going unless you choose an option.") shows only while a set is exercising or paused, for every kind of
+  exercise (`WorkoutHUDViewState.showsTooHardButton`). It stands aside while the offer is open. The voice command is
+  `WorkoutCommand.tooHard`: "too hard", "this is too hard", "too difficult", "it's too hard" (also in Voice Commands help,
+  under Sets). The phrases live in one list (`TooHardPhrases`) used by both the command and the effort card, so each one
+  works whether or not the card is open: with the card open it is an effort answer, because the effort phrases are parsed
+  first. As an affirmative answer, the command matches only the phrase plus polite filler words ("okay", "please",
+  "coach", and the like). Any other word, including a negation ("not too hard") or another command ("this is too hard,
+  pause"), means the transcript is something else, and the normal commands see it. A streaming "this is too hard" waits
+  until the transcript is final or has settled for 0.6 s, so a command that follows is not lost. Saying it with no set
+  under way does nothing.
+- **The offer** (`TooHardOfferView`). Ignoring it keeps the set going and counting. It closes by itself when the set
+  ends or the user taps ×, and the item stays flagged: its evidence carries `midSetTooHard: true`, and the effort card
+  that follows opens as usual.
+  - **Stop here, it counts** (every item) ends the item now with what was done, the way Done does: the counted reps, the
+    seconds held, or, for a self-reported set, the prescribed amount, which the effort card lets the user correct. In
+    a plan, an item's remaining sets are skipped. A standalone exercise (Quick Start) ends too: the reducer's
+    `stopItem` command records the set under way, schedules nothing after it (no rest, so nothing can start once a rest
+    deadline passes), and completes the exercise with the sets it has; Another Round still starts it again from set 1. The
+    card opens with **Too Hard preselected**, and the user can choose another answer. The evidence is `.stoppedEarly` even when the
+    confirmed amount equals the target, because stopping was the user's choice.
+  - **Easier version** (Today's Session main items only, and only when the engine returns one) asks the coordinator
+    for `AdaptiveTrainingEngine.easierSwap` when the offer opens. With no answer, the offer shows only Stop here. When
+    taken, the coordinator issues the swap prescription, the main item ends as in Stop here but is recorded
+    `.switchedToEasier` (its card is preselected on Too Hard), and the reducer's `startEasierSwap` input inserts a one-set
+    plan item for the engine's target right after it and sets it up without a rest. The target may be another rung's
+    exercise (`reducedRange` from the rung's modifiers). A harder sample that follows still runs after it, and skipping
+    it stays neutral. Manual work and a harder sample never offer it, and the app never asks the engine about them.
+- **Preselection.** A card that opens on Too Hard records that answer if it closes without the user choosing: starting
+  the next set, ending the workout, or leaving the screen. Stop here during a [bonus](#bonus-reps) opens the bonus's own
+  card on Too Hard the same way; the bonus records that rating, and the prescribed item keeps its Easy. **Skip** is an explicit choice and records no rating, but the
+  flag stays. A flagged item is never offered a bonus, whatever it is rated.
+- **Evidence.** `midSetTooHard` is true on the flagged item's evidence. The tracker observation stays exactly what the
+  tracker saw: tracking loss is never turned into Too Hard, and a Too hard tap never changes the tracker's status. The
+  confirmation follows the card, so a camera count after tracking loss is the user's only when they correct it. The easier
+  version's evidence carries its own `prescriptionID` and `prescriptionItemID` (role `easierSwap`) and has its own effort
+  card. Replay notes it as `easierSwapRecorded`.
+- **Completion copy.** The saved entry is named "Easier: <name>" in History and on the completion screen, never counts as
+  skipped, shows only once it has sets, and is not an extra exercise in the totals. A new round drops it, like a bonus.
+
+## Calibration
+
+The first calibration finds a comfortable starting point for each movement area. It is never a test, a score, or a
+label. The screen opens with "Let's find a comfortable starting point. A few tiny samples, no tests." and never says
+"score", "level", or "beginner", or uses a medical word. Every rule lives in the package's `CalibrationFlow` (invariant
+6). The app shows the step the flow returns and reports what happened.
+
+`CalibrationFlow` is a pure `Codable` value, advanced by inputs like `WorkoutSession`. An input that doesn't fit the
+current step is ignored. `step` is one of:
+
+| Step | Shown | Input that answers it |
+|---|---|---|
+| `.equipment` | Dumbbells and a band, both optional. Skipped when a profile already knows the equipment. | `setEquipment` |
+| `.families` | The areas that can be offered, with push and squat preselected. | `setFamilies` (at least one) |
+| `.closeness(family, options:)` | "Which feels closest to what you can do comfortably today?" with the family's available rungs, easiest first, and Not sure. Skipped for a family with one available rung. | `answerCloseness(family:variant:)`, nil for Not sure |
+| `.probe(family, RungDose, isHarderOffer:)` | One tiny sample, run in the coach and rated Too Hard / Okay / Easy. | `probeResult`, or `declineHarderProbe` for a harder offer |
+| `.summary([CalibrationStart])` | One plain line per area, Use these, and a way out. | `engine.commit` or `engine.abandon` |
+
+`skipFamily` leaves one area out until it settles. Families that can't be offered (no available floor) never appear.
+No rung that needs dumbbells is asked about or offered without them.
+
+### Rules
+
+- **Start rung.** Not sure starts at the family's floor. An answer starts at that rung, but no higher than the middle rung
+  of the available ladder (the lower middle when the count is even). Push without equipment starts no higher than the
+  wall push-up. The samples can climb from there.
+- **Sample dose.** The first sample is 2 reps for a rep rung whose range allows it, otherwise the rung's minimum. A harder
+  or easier sample is the rung's minimum.
+- **Okay** settles at the sample's dose.
+- **Easy** offers the next harder available rung at its minimum (`isHarderOffer`). If nothing is harder, the limit is
+  reached, or a Too Hard was already seen in that family, it settles at the sample's dose. A single Easy never raises the
+  starting dose.
+- **Declining a harder offer** settles at the last Okay or Easy sample, at that sample's own dose. It is neutral: it adds
+  no sample and no evidence.
+- **Too Hard** is authoritative even when the work was finished. On a harder offer it settles at the last comfortable
+  sample, because the easier rung was already comfortable. Otherwise it samples the next easier available rung at its
+  minimum, or settles at the floor's minimum when there is none.
+- **Nothing confirmed.** Okay or Easy with no confirmed work proves nothing, so the same sample is offered again and
+  counts toward the limit.
+- **Limit.** A family gets at most 3 samples. After the third it settles at its last comfortable sample, or the floor's
+  minimum if none was.
+- **Starting dose.** The starting dose is the settled sample's dose.
+- **Recalibration.** The active areas are preselected and the user can add or drop areas. When a chosen area's current
+  rung is still available, the flow skips closeness and samples that rung at its first-sample dose. A new area has no
+  current rung, so it gets the closeness question. Equipment is already known and is not asked again.
+- **Keep the current dose.** In recalibration, an Okay or Easy sample of the current rung with confirmed work settles
+  at the greater of the sample dose and the current dose. Okay therefore keeps the prescription. Easy can offer the next
+  rung; declining keeps the current dose. Too Hard steps down one available rung at its minimum. Other rungs settle at
+  their sample dose. These rules do not change the initial calibration.
+- **Add an area.** The flow offers only inactive families and preselects none. An already active family is dropped from
+  the choice. The new family gets the usual closeness and sample steps; commit adds it to the rotation and leaves the
+  existing families unchanged.
+
+### Facts
+
+The flow builds the `CalibrationSessionRecord`. `engine.startCalibration(kind:id:at:)` saves it in progress, which changes
+no recommendation. `saveProgress` updates its families and equipment. `commit(_:at:)` saves it committed with
+`startingPoints` and `equipment`; it throws `calibrationNotAtSummary` unless the flow is at a summary with at least one
+starting point. `abandon(_:at:)` saves it abandoned with no starting points. All three go through `save(_:)`, so a
+committed or abandoned attempt can't change again (`calibrationChangeNotAllowed`).
+
+Each rated sample is `AdaptiveEvidence` with `source: .calibration` and the attempt's `calibrationID`, recorded by the
+app through `record(_:)` as the coach finishes it. Replay applies a committed attempt's samples at commit time and
+ignores an uncommitted attempt's, so abandoning changes nothing (invariant 7). A sample's prescription (kind
+`calibrationProbe`) is built for the coach but never saved.
+
+### In the app
+
+- **Entry.** Settings › Developer diagnostics › Adaptive training has **Find my starting point**
+  (`adaptiveDebugStartCalibrationButton`), which opens `AppRoute.calibration` full screen for the initial calibration.
+  Settings › Adaptive Training also offers the initial, recalibration, and add-an-area flows; these are pushed inside
+  Settings' navigation stack and return to the Adaptive Training page when they finish. The developer button stays as
+  it is. The Train hero arrives in PR 14. A reminder tap never replaces the open screen, including Settings while a calibration is active.
+- **Screen.** `CalibrationViewModel` holds the flow and sends each answer to it. `CalibrationScreen` draws the step. All
+  copy lives in `CalibrationCopy`, and a test scans every string for scoring and medical words. Every control has an
+  accessibility identifier that starts with `calibration`.
+- **Samples.** `AdaptiveTrainingCoordinator.prepareProbe(for:asOf:onResult:)` builds a one-item plan, "Finding your
+  starting point", with no plan id so it matches no routine. The calibration screen presents the coach over itself.
+  `CalibrationProbeRecorder` is the coach's evidence recorder for that run. It stores the coach's evidence as a probe
+  (source calibration, the attempt's id, no prescription or bonus) and reports the first result to the view model.
+  A sample offers no bonus and no easier version. It asks only how the sample was, on the usual effort card.
+- **No history.** A sample is a tiny trial of a rung, not a workout. `CalibrationScreen` presents its coach with
+  `WorkoutCoachView(model:savesHistory: false)`. Closing the coach or ending the workout then writes nothing to History
+  and tells no reminder, though the sample's evidence is still recorded. `WorkoutCoachHistory.save` is the one shared save
+  for Close and End Workout; every other workout keeps `savesHistory` true.
+- **A rating** closes the coach and goes to the flow. A sample closed or skipped before a rating changes nothing, and the
+  same sample is offered again or the area can be skipped.
+- **Leaving.** The close button leaves at once at the quiz and asks first once a sample was started. Leaving, or
+  **Leave without saving** at the summary, records an abandoned attempt and changes nothing. **Use these** commits, and
+  only then do the starting points change recommendations.
+
+## Settings
+
+When the coordinator is available, Settings shows an Adaptive Training group above Coach. Its row says **Not set up**
+until a starting point is saved, then lists active area names. The page shows a short introduction and **Find your
+starting point** when setup is needed. After setup it lists each area's current exercise and dose, offers **Add an area**
+when another family can be built, and provides **Recalibrate** and equipment choices. A removal requires confirmation;
+the history remains, and the last active area cannot be removed. Dumbbells and a resistance band can be changed, which
+updates availability and moves an active prescription to an available easier rung when needed. If the overview cannot be
+read, the page says Adaptive Training is unavailable and shows no settings controls.
+
+## Debug view and export
+
+Settings › Developer diagnostics › Adaptive training shows the same read-only `AdaptiveSnapshot` that the developer
+export encodes. It includes each state's current prescription and rationale, bounded recent evidence, counts, today's
+session status, the replayed profile and semantic events, and the facts needed to interpret the result. It contains no
+photos, frames, device identifiers, or account identifiers. Dates use ISO-8601 UTC with nine fractional digits, so
+they survive a round trip exactly: decoding an export and encoding it again gives the same bytes, and replaying it
+gives the engine's decisions even for facts less than a millisecond apart. Decoding also accepts fewer fractional
+digits or none. JSON keys are sorted for repeatable exports. The page encodes and writes the export off the main
+thread, so a long history doesn't stall it.
+
+Use `make adaptive-replay FILE="export.json"` to replay an export under its recorded parameters. Add
+`PARAMS="parameters.json"` to compare a candidate `PolicyParameters` value. The report lists changed prescriptions
+and transitions, matched by fact id, family, and occurrence: a transition only the replay makes shows as
+`none → <decision>`, and one it no longer makes shows as `<decision> → none`. It does not write facts or modify the
+export.

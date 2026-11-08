@@ -58,7 +58,8 @@ enum WorkoutSessionLines {
             ("confidenceFloor", .double(RealtimePoseProcessing.liveConfidenceFloor)),
             ("settings", settings(context)),
             ("plan", context.plan.map(plan)),
-            ("exercises", .object(context.exercises.map { (key: $0.id.rawValue, value: exercise($0)) })),
+            ("exercises", .object(context.exercises.map { (key: $0.id.rawValue, value: exercise($0)) }
+                                    + reducedRangeVariants(context))),
             ("framing", .raw(ExerciseDiagnostics.json(FramingConfiguration()))),
             ("offscreen", .raw(ExerciseDiagnostics.json(OffscreenJointConfiguration()))),
             ("cueScheduler", .raw(ExerciseDiagnostics.json(CoachingCueScheduler.Configuration()))),
@@ -87,11 +88,32 @@ enum WorkoutSessionLines {
             ("id", plan.id.map { .string($0.uuidString) }),
             ("name", .string(plan.name)),
             ("items", .array(plan.items.map { item in
+                // Written only when true, so ordinary plans read exactly as before and a recording without them
+                // means full range, required.
                 .object(("id", .string(item.id.uuidString)), ("exercise", .string(item.exerciseID.rawValue)),
                         ("sets", .int(item.sets)),
-                        ("reps", [.int(item.targetReps.lowerBound), .int(item.targetReps.upperBound)]))
+                        ("reps", [.int(item.targetReps.lowerBound), .int(item.targetReps.upperBound)]),
+                        ("reducedRange", item.reducedRange ? .bool(true) : nil),
+                        ("optional", item.isOptional ? .bool(true) : nil),
+                        ("bonus", item.isBonus ? .bool(true) : nil),
+                        ("easierSwap", item.isEasierSwap ? .bool(true) : nil))
             }))
         )
+    }
+
+    /// The key under which a header's `exercises` holds an exercise's smaller-range variant, and what a `pipe` control
+    /// names in its `variant` field.
+    static let reducedRangeVariant = "reducedRange"
+
+    /// One `exercises` entry per smaller-range variant the plan runs, such as `wall_push_up.reducedRange`, so replay
+    /// rebuilds that variant's own configuration rather than the full range's.
+    private static func reducedRangeVariants(_ context: WorkoutRecordingContext) -> [(key: String, value: DiagnosticJSON)] {
+        guard let plan = context.plan else { return [] }
+        return context.exercises.compactMap { base in
+            guard plan.items.contains(where: { $0.exerciseID == base.id && $0.reducedRange }),
+                  let variant = base.reducedRange?() else { return nil }
+            return (key: "\(base.id.rawValue).\(reducedRangeVariant)", value: exercise(variant))
+        }
     }
 
     private static func exercise(_ exercise: ExerciseDefinition) -> DiagnosticJSON {
@@ -115,6 +137,7 @@ enum WorkoutSessionLines {
             ("headroomArmLengths", .number(exercise.headroomArmLengths)),
             ("sideroomArmLengths", .number(exercise.sideroomArmLengths)),
             ("maximumShoulderSpan", .number(exercise.maximumShoulderSpan)),
+            ("centersInFrame", .bool(exercise.centersInFrame)),
             ("perSide", .bool(exercise.perSide)),
             ("countsArmsIndependently", .bool(exercise.countsArmsIndependently)),
             ("startsByHolding", .bool(exercise.startsByHolding)),
@@ -147,10 +170,14 @@ enum WorkoutSessionLines {
         case .sessionPhase(let phase):
             fields = [("control", "sessionPhase"), ("phase", .string(WorkoutStateSnapshot.label(phase)))]
         case .exercise(let exercise, let epoch):
-            fields = [("control", "exercise"),
-                      ("exercise", exercise.map { .string($0.id.rawValue) } ?? .null),
-                      ("cameraView", exercise.map { .string($0.cameraView.rawValue) } ?? .null),
-                      ("epoch", .int(epoch))]
+            var members: [(key: String, value: DiagnosticJSON)] = [
+                ("control", "exercise"),
+                ("exercise", exercise.map { .string($0.id.rawValue) } ?? .null),
+                ("cameraView", exercise.map { .string($0.cameraView.rawValue) } ?? .null),
+                ("epoch", .int(epoch))]
+            // Only a smaller-range variant says so; a control without `variant` is the full range.
+            if exercise?.isReducedRangeVariant == true { members.append(("variant", .string(reducedRangeVariant))) }
+            fields = members
         case .resetAnalyzer(let epoch):
             fields = [("control", "resetAnalyzer"), ("epoch", .int(epoch))]
         case .counting(let counting):
@@ -306,14 +333,31 @@ enum WorkoutSessionLines {
             fields = [("type", "clearFeedback")]
         case .cameraRunning:
             fields = [("type", "camera.running")]
-        case .cameraInterrupted:
-            fields = [("type", "camera.interrupted")]
+        case .cameraInterrupted(let reason):
+            fields = [("type", "camera.interrupted"), ("reason", reason.map(DiagnosticJSON.int) ?? .null)]
         case .cameraFailed(let message):
             fields = [("type", "camera.failed"), ("message", .string(message))]
         case .audioInterruptionBegan:
             fields = [("type", "audio.interruptionBegan")]
         case .audioInterruptionEnded(let shouldResume):
             fields = [("type", "audio.interruptionEnded"), ("shouldResume", .bool(shouldResume))]
+        case .audioInterruptionDiagnostic(let type, let reason, let wasSuspended, let shouldResume):
+            fields = [("type", "audio.interruption"), ("interruption", .string(type)),
+                      ("reason", reason.map(DiagnosticJSON.int) ?? .null),
+                      ("wasSuspended", .bool(wasSuspended)),
+                      ("shouldResume", shouldResume.map(DiagnosticJSON.bool) ?? .null)]
+        case .audioRouteDiagnostic(let reason, let outputs, let inputs):
+            fields = [("type", "audio.route"), ("reason", .int(reason)),
+                      ("outputs", .strings(outputs)), ("inputs", .strings(inputs))]
+        case .audioSessionOperation(let operation, let active, let category, let mode, let categoryOptions,
+                                    let activeOptions, let isOtherAudioPlaying, let shouldBeSilenced):
+            fields = [("type", "audio.session"), ("operation", .string(operation)),
+                      ("active", active.map(DiagnosticJSON.bool) ?? .null),
+                      ("category", .string(category)), ("mode", .string(mode)),
+                      ("categoryOptions", .strings(categoryOptions)),
+                      ("activeOptions", .strings(activeOptions)),
+                      ("isOtherAudioPlaying", .bool(isOtherAudioPlaying)),
+                      ("secondaryAudioShouldBeSilenced", .bool(shouldBeSilenced))]
         case .audioWork(let step, let seconds):
             fields = [("type", "audio.work"), ("step", .string(step.rawValue)), ("ms", .rounded(seconds * 1000, places: 1))]
         case .guidePresented(let shown):
@@ -411,6 +455,17 @@ enum WorkoutSessionLines {
         case .interruptionBegan: return [("type", "interruptionBegan")]
         case .interruptionEnded: return [("type", "interruptionEnded")]
         case .voiceControlChanged(let active): return [("type", "voiceControl"), ("active", .bool(active))]
+        case .startBonus(let bonus):
+            return [("type", "bonus"), ("id", .string(bonus.itemID.uuidString)),
+                    ("after", .string(bonus.after.uuidString)), ("amount", .int(bonus.amount))]
+        case .startEasierSwap(let swap):
+            var fields: [(key: String, value: DiagnosticJSON)] = [
+                ("type", "easierSwap"), ("id", .string(swap.itemID.uuidString)),
+                ("after", .string(swap.after.uuidString)), ("exercise", .string(swap.exerciseID.rawValue))]
+            // Written only when true, like the plan items' modifiers.
+            if swap.reducedRange { fields.append(("reducedRange", .bool(true))) }
+            fields.append(("amount", .int(swap.amount)))
+            return fields
         case .tick, .command, .formObserved, .coachSpeakingChanged, .poseObserved:
             return [("type", .string(String(describing: event)))]
         }

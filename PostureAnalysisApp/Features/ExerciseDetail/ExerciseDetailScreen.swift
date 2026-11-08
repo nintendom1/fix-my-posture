@@ -162,6 +162,9 @@ struct ExerciseDetailScreen: View {
             legs: sample.legs,
             torsoPitch: exercise.guide.motion.torsoPitch,
             shape: sample.shape,
+            wallPushUp: exercise.guide.motion.wallPushUp,
+            inclinePushUp: exercise.guide.motion.inclinePushUp,
+            seat: exercise.guide.motion.chairSeat,
             figureBounds: ExerciseDemoFigureView.bounds(for: exercise.guide.motion,
                                                         cameraView: exercise.cameraView),
             tint: .white

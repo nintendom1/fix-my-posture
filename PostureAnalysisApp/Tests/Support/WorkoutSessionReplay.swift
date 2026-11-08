@@ -88,14 +88,16 @@ struct WorkoutSessionReplayer {
     struct Frame {
         let line: Int
         let t: TimeInterval
+        let exerciseID: String
         let recorded: Outcome
         let replayed: Outcome
         let rejections: [RepRejection]
     }
 
-    static func replay(_ file: WorkoutSessionFile, catalog: [ExerciseDefinition] = ExerciseCatalog.all) throws -> [Frame] {
+    static func replay(_ file: WorkoutSessionFile, catalog: [ExerciseDefinition] = ExerciseCatalog.all,
+                       currentBuild: Bool = false) throws -> [Frame] {
         let header = file.header
-        let exercises = try definitions(header, catalog: catalog)
+        let exercises = try definitions(header, catalog: catalog, currentBuild: currentBuild)
         guard let jointNames = header["jointOrder"] as? [String] else { throw ReplayError.missing("jointOrder", line: 1) }
         let joints = try jointNames.map { name in
             guard let joint = LandmarkType(rawValue: name) else { throw ReplayError.unknownJoint(name) }
@@ -126,7 +128,12 @@ struct WorkoutSessionReplayer {
                 guard let values = record["j"] as? [Any] else { throw ReplayError.missing("j", line: line) }
                 let t = record["t"] as? Double ?? 0
                 let output = pipeline.process(frame: PoseFrame(pose: pose(values, joints: joints, size: size), timestamp: ts), at: t)
-                frames.append(Frame(line: line, t: t, recorded: recordedOutcome(record), replayed: replayedOutcome(output),
+                let exercise = pipeline.exercise
+                let exerciseID = exercise.map { definition in
+                    definition.id.rawValue + (definition.isReducedRangeVariant ? ".\(WorkoutSessionLines.reducedRangeVariant)" : "")
+                } ?? "(unknown)"
+                frames.append(Frame(line: line, t: t, exerciseID: exerciseID,
+                                    recorded: recordedOutcome(record), replayed: replayedOutcome(output),
                                     rejections: output.diagnostics?.analysis?.rejections ?? []))
             default:
                 continue
@@ -137,11 +144,16 @@ struct WorkoutSessionReplayer {
 
     /// Catalog exercises rebuilt from the configurations the recording carries. What framing and off-edge estimation
     /// read from the definition itself must match the recording, or replay can't reproduce its framing.
-    static func definitions(_ header: [String: Any], catalog: [ExerciseDefinition]) throws -> [String: ExerciseDefinition] {
+    static func definitions(_ header: [String: Any], catalog: [ExerciseDefinition],
+                            currentBuild: Bool = false) throws -> [String: ExerciseDefinition] {
         let recorded = header["exercises"] as? [String: Any] ?? [:]
         var definitions: [String: ExerciseDefinition] = [:]
         for exercise in catalog {
             let id = exercise.id.rawValue
+            if currentBuild {
+                definitions[id] = exercise
+                continue
+            }
             guard let entry = recorded[id] as? [String: Any] else {
                 definitions[id] = exercise
                 continue
@@ -152,6 +164,22 @@ struct WorkoutSessionReplayer {
                 continue
             }
             definitions[id] = try diagnostics.rebuild(JSONSerialization.data(withJSONObject: configuration))
+        }
+        // A smaller-range variant keeps its own recorded configuration. A recording without one (every recording from
+        // before variants were recorded) runs this build's variant, and a control that names none runs the full range.
+        for exercise in catalog {
+            guard let variant = exercise.reducedRange?() else { continue }
+            let key = "\(exercise.id.rawValue).\(WorkoutSessionLines.reducedRangeVariant)"
+            if currentBuild {
+                definitions[key] = variant
+                continue
+            }
+            guard let entry = recorded[key] as? [String: Any], let configuration = entry["configuration"] as? [String: Any],
+                  let diagnostics = variant.diagnostics else {
+                definitions[key] = variant
+                continue
+            }
+            definitions[key] = try diagnostics.rebuild(JSONSerialization.data(withJSONObject: configuration))
         }
         return definitions
     }
@@ -184,7 +212,8 @@ struct WorkoutSessionReplayer {
         case "exercise":
             guard let epoch = record["epoch"] as? Int else { throw ReplayError.missing("epoch", line: line) }
             guard let id = record["exercise"] as? String else { return .exercise(nil, analyzerEpoch: epoch) }
-            guard let exercise = exercises[id] else { throw ReplayError.unknownExercise(id, line: line) }
+            let key = (record["variant"] as? String).map { "\(id).\($0)" } ?? id
+            guard let exercise = exercises[key] else { throw ReplayError.unknownExercise(key, line: line) }
             if let view = record["cameraView"] as? String, view != exercise.cameraView.rawValue {
                 throw ReplayError.unsupportedCameraView(view, exercise: id, line: line)
             }

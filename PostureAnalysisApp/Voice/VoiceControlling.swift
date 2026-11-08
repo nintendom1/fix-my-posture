@@ -1,3 +1,4 @@
+import AdaptiveTraining
 import Foundation
 
 enum VoiceStatus: Equatable {
@@ -26,6 +27,12 @@ protocol VoiceControlling: AnyObject {
     var onStatusChanged: ((VoiceStatus) -> Void)? { get set }
     var onCommand: ((WorkoutCommand) -> Void)? { get set }
     var onHeard: ((String) -> Void)? { get set }
+    /// While true, "too hard", "okay", and "easy" answer the effort card through `onEffort` and never run as commands.
+    var acceptsEffortFeedback: Bool { get set }
+    var onEffort: ((EffortFeedback) -> Void)? { get set }
+    /// While true, "one more" and "I'm done" answer the bonus offer through `onBonus` and never run as commands.
+    var acceptsBonusAnswer: Bool { get set }
+    var onBonus: ((BonusAnswer) -> Void)? { get set }
     func enable()
     func disable(status: VoiceStatus)
     func setMuted(_ muted: Bool)

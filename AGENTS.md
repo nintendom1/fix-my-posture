@@ -13,7 +13,7 @@ A native Swift and SwiftUI iOS application designed for iPhone 15 Pro that analy
 ```text
 PostureAnalysisApp/
 ├── App/                         # Composition root, routes, four-tab shell, tab style, sticky CTA
-├── AdaptiveTraining/            # App adapters for the AdaptiveTraining package (exercise bridge)
+├── AdaptiveTraining/            # App adapters for the AdaptiveTraining package: exercise bridge, Today's Session coordinator, outcome adapter
 ├── Models/                      # Estimator-independent posture and measurement models
 ├── Preferences/                 # AppPreferencesStoring, UserDefaults/in-memory stores, SwiftUI environment
 ├── DesignSystem/
@@ -32,7 +32,7 @@ PostureAnalysisApp/
 │   ├── RealtimePosture/         # Live camera check, capture model, and posture overlays
 │   ├── Routines/                # Routine list and detail
 │   ├── RoutineEditor/           # Routine creation, editing, and exercise picker
-│   ├── Settings/                # Settings and acknowledgements
+│   ├── Settings/                # Settings, Adaptive Training settings, and acknowledgements
 │   ├── Train/                   # Train tab
 │   ├── VoiceCommands/           # Voice command help shared by Settings and workout
 │   ├── WorkoutRecordings/       # Developer page for workout session recordings
@@ -92,9 +92,9 @@ Design/NotificationCharacter/    # Chibi PSD, characters.json, notification-scen
 
 ## Adding a Workout Exercise
 
-Every new Workout Coach exercise ships with full guidance (guide, ghost demo, threshold lines, hold ring, coaching cues, docs, and checklist items) even when a request only names the exercise. Follow the *Adding an exercise* checklist in `docs/workout.md`.
+Every new camera-tracked Workout Coach exercise ships with full guidance (guide, ghost demo, threshold lines, hold ring, coaching cues, docs, and checklist items) even when a request only names the exercise. For self-reported exercises, follow the lighter checklist in `docs/workout.md`; the Ready-state ghost invariant below applies to camera-tracked exercises only.
 
-**Ready-state ghost invariant.** The full ghost figure renders throughout setup (getting into position, Ready, and rest), at an ideal spot until it calibrates. Any pose that can reach Ready must calibrate it. Ghost sizing may depend only on what Ready guarantees (`requiredJoints` plus any one `anyOfRequiredJoints` set), unless it has a fallback; optional landmarks may refine sizing but must never suppress the ghost. Never add `requiredJoints` or `anyOfRequiredJoints` just to make the ghost render. `ReadyGhostInvariantTests` enforces this for every catalog exercise.
+**Ready-state ghost invariant for camera-tracked exercises.** The full ghost figure renders throughout setup (getting into position, Ready, and rest), at an ideal spot until it calibrates. Any pose that can reach Ready must calibrate it. Ghost sizing may depend only on what Ready guarantees (`requiredJoints` plus any one `anyOfRequiredJoints` set), unless it has a fallback; optional landmarks may refine sizing but must never suppress the ghost. Never add `requiredJoints` or `anyOfRequiredJoints` just to make the ghost render. `ReadyGhostInvariantTests` enforces this for every camera-tracked catalog exercise.
 
 ## Exercise Photography
 

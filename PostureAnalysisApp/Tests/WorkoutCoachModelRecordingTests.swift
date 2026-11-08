@@ -1,3 +1,4 @@
+import AVFoundation
 import XCTest
 @testable import PostureAnalysisApp
 
@@ -242,12 +243,161 @@ final class WorkoutCoachModelRecordingTests: XCTestCase {
         let (harness, writer) = makeRecordingHarness()
         _ = try startSet(harness)
 
-        harness.camera.emit(.interrupted)
+        harness.camera.emit(.interrupted(reason: 3))
 
         let interrupted = try XCTUnwrap(writer.objects.lastIndex { $0["type"] as? String == "camera.interrupted" })
+        XCTAssertEqual(writer.objects[interrupted]["reason"] as? Int, 3)
         let reset = try XCTUnwrap(writer.objects.lastIndex { $0["control"] as? String == "resetTracking" })
         XCTAssertGreaterThan(reset, interrupted)
         XCTAssertEqual(writer.objects(kind: "state").last?["phase"] as? String, "paused(interruption)")
+    }
+
+    func testAudioDiagnosticsFromTheAudioFakeReachTheVoiceAndRecordingLines() throws {
+        let (harness, writer) = makeRecordingHarness()
+        harness.model.onAppear(isApplicationActive: true)
+
+        let route = AudioSessionEvent.routeDiagnostic(reason: 6, outputs: ["BluetoothA2DP"], inputs: ["BuiltInMic"])
+        harness.audio.emit(route)
+        XCTAssertEqual(harness.voice.audioEvents.last, route)
+        let routeLine = try XCTUnwrap(writer.objects.last { $0["type"] as? String == "audio.route" })
+        XCTAssertEqual(routeLine["reason"] as? Int, 6)
+        XCTAssertEqual(routeLine["outputs"] as? [String], ["BluetoothA2DP"])
+        XCTAssertEqual(routeLine["inputs"] as? [String], ["BuiltInMic"])
+
+        let operation = AudioSessionEvent.sessionOperation(
+            operation: "setCategory", active: nil, category: "playAndRecord", mode: "default",
+            categoryOptions: ["allowBluetoothA2DP", "defaultToSpeaker", "mixWithOthers"], activeOptions: [],
+            isOtherAudioPlaying: true, secondaryAudioShouldBeSilenced: false
+        )
+        harness.audio.emit(operation)
+        XCTAssertEqual(harness.voice.audioEvents.last, operation)
+        let operationLine = try XCTUnwrap(writer.objects.last { $0["type"] as? String == "audio.session" })
+        XCTAssertEqual(operationLine["operation"] as? String, "setCategory")
+        XCTAssertEqual(operationLine["category"] as? String, "playAndRecord")
+        XCTAssertEqual(operationLine["categoryOptions"] as? [String],
+                       ["allowBluetoothA2DP", "defaultToSpeaker", "mixWithOthers"])
+        XCTAssertEqual(operationLine["isOtherAudioPlaying"] as? Bool, true)
+        XCTAssertEqual(operationLine["secondaryAudioShouldBeSilenced"] as? Bool, false)
+
+        let interruption = AudioSessionEvent.interruptionDiagnostic(type: "began", reason: 1,
+                                                                    wasSuspended: true, shouldResume: nil)
+        harness.audio.emit(interruption)
+        XCTAssertEqual(harness.voice.audioEvents.last, interruption)
+        let interruptionLine = try XCTUnwrap(writer.objects.last { $0["type"] as? String == "audio.interruption" })
+        XCTAssertEqual(interruptionLine["interruption"] as? String, "began")
+        XCTAssertEqual(interruptionLine["reason"] as? Int, 1)
+        XCTAssertEqual(interruptionLine["wasSuspended"] as? Bool, true)
+        XCTAssertNil(interruptionLine["shouldResume"] as? Bool)
+    }
+
+    func testRouteNotificationTranslationRecordsEveryReasonAndOnlyDeviceChangesReconfigure() throws {
+        let reasons: [AVAudioSession.RouteChangeReason] = [
+            .unknown, .newDeviceAvailable, .oldDeviceUnavailable, .categoryChange,
+            .override, .wakeFromSleep, .noSuitableRouteForCategory, .routeConfigurationChange
+        ]
+        for reason in reasons {
+            let events = WorkoutAudioNotificationTranslator.routeEvents(
+                userInfo: [AVAudioSessionRouteChangeReasonKey: NSNumber(value: reason.rawValue)],
+                outputs: ["BluetoothA2DP"], inputs: ["BuiltInMic"])
+            XCTAssertEqual(events.first, .routeDiagnostic(reason: Int(reason.rawValue),
+                                                           outputs: ["BluetoothA2DP"], inputs: ["BuiltInMic"]))
+            let isDeviceChange = reason == .newDeviceAvailable || reason == .oldDeviceUnavailable
+            XCTAssertEqual(events.count, isDeviceChange ? 2 : 1, "Route reason \(reason.rawValue)")
+            if isDeviceChange {
+                XCTAssertEqual(events.dropFirst().first, .routeChanged, "Route reason \(reason.rawValue)")
+            } else {
+                XCTAssertFalse(events.contains(.routeChanged), "Route reason \(reason.rawValue)")
+            }
+        }
+
+        let unknown = WorkoutAudioNotificationTranslator.routeEvents(
+            userInfo: [AVAudioSessionRouteChangeReasonKey: NSNumber(value: 99)],
+            outputs: [], inputs: [])
+        XCTAssertEqual(unknown, [.routeDiagnostic(reason: 99, outputs: [], inputs: [])])
+    }
+
+    func testInterruptionNotificationTranslationDecodesAllDiagnosticFields() throws {
+        let began = WorkoutAudioNotificationTranslator.interruptionEvents(userInfo: [
+            AVAudioSessionInterruptionTypeKey: NSNumber(value: AVAudioSession.InterruptionType.began.rawValue),
+            AVAudioSessionInterruptionReasonKey: NSNumber(value: 2),
+            AVAudioSessionInterruptionWasSuspendedKey: NSNumber(value: true)
+        ])
+        XCTAssertEqual(began, [
+            .interruptionDiagnostic(type: "began", reason: 2, wasSuspended: true, shouldResume: nil),
+            .interruptionBegan
+        ])
+
+        let ended = WorkoutAudioNotificationTranslator.interruptionEvents(userInfo: [
+            AVAudioSessionInterruptionTypeKey: NSNumber(value: AVAudioSession.InterruptionType.ended.rawValue),
+            AVAudioSessionInterruptionReasonKey: NSNumber(value: 1),
+            AVAudioSessionInterruptionWasSuspendedKey: NSNumber(value: false),
+            AVAudioSessionInterruptionOptionKey: NSNumber(value: AVAudioSession.InterruptionOptions.shouldResume.rawValue)
+        ])
+        XCTAssertEqual(ended, [
+            .interruptionDiagnostic(type: "ended", reason: 1, wasSuspended: false, shouldResume: true),
+            .interruptionEnded(shouldResume: true)
+        ])
+    }
+
+    func testWorkoutAudioSessionPreservesCategoryOptionsAndActivationSequence() throws {
+        let session = RecordingAudioSessioning()
+        let audio = WorkoutAudioSession(session: session)
+        var operations: [AudioSessionEvent] = []
+        audio.onEvent = { event in
+            if case .sessionOperation = event { operations.append(event) }
+        }
+        let baseOptions: AVAudioSession.CategoryOptions = [.mixWithOthers, .defaultToSpeaker, .allowBluetoothA2DP]
+        let duckingOptions = baseOptions.union(.duckOthers)
+
+        audio.setRecordingEnabled(true)
+        XCTAssertTrue(audio.activateForListening())
+        audio.beginDucking()
+
+        XCTAssertEqual(session.calls, [
+            .setCategory(category: AVAudioSession.Category.playAndRecord.rawValue,
+                         mode: AVAudioSession.Mode.default.rawValue, options: baseOptions),
+            .setCategory(category: AVAudioSession.Category.playAndRecord.rawValue,
+                         mode: AVAudioSession.Mode.default.rawValue, options: baseOptions),
+            .setActive(true, options: []),
+            .setActive(false, options: []),
+            .setCategory(category: AVAudioSession.Category.playAndRecord.rawValue,
+                         mode: AVAudioSession.Mode.default.rawValue, options: duckingOptions),
+            .setActive(true, options: [])
+        ])
+        XCTAssertEqual(operations.count, session.calls.count,
+                       "Every production category and activation call has a diagnostic event.")
+        XCTAssertEqual(operations.compactMap { event -> String? in
+            if case .sessionOperation(let operation, _, _, _, _, _, _, _) = event { return operation }
+            return nil
+        }, ["setCategory", "setCategory", "setActive", "setActive", "setCategory", "setActive"])
+    }
+
+    /// The system posts audio notifications from the shared session, not from the injected wrapper, so an observer
+    /// filtered on the wrapper would silently miss every interruption and route change.
+    func testSystemAudioNotificationsReachTheSessionWithAnInjectedWrapper() throws {
+        let audio = WorkoutAudioSession(session: RecordingAudioSessioning())
+        var events: [AudioSessionEvent] = []
+        audio.onEvent = { event in
+            if case .sessionOperation = event { return }
+            events.append(event)
+        }
+
+        NotificationCenter.default.post(
+            name: AVAudioSession.routeChangeNotification, object: AVAudioSession.sharedInstance(),
+            userInfo: [AVAudioSessionRouteChangeReasonKey:
+                        NSNumber(value: AVAudioSession.RouteChangeReason.newDeviceAvailable.rawValue)])
+        NotificationCenter.default.post(
+            name: AVAudioSession.interruptionNotification, object: AVAudioSession.sharedInstance(),
+            userInfo: [AVAudioSessionInterruptionTypeKey:
+                        NSNumber(value: AVAudioSession.InterruptionType.began.rawValue)])
+
+        XCTAssertEqual(events, [
+            .routeDiagnostic(reason: Int(AVAudioSession.RouteChangeReason.newDeviceAvailable.rawValue),
+                             outputs: ["BuiltInSpeaker"], inputs: ["BuiltInMic"]),
+            .routeChanged,
+            .interruptionDiagnostic(type: "began", reason: nil, wasSuspended: false, shouldResume: nil),
+            .interruptionBegan
+        ])
     }
 
     func testEndingTheWorkoutEndsTheRecordingAndHidesREC() throws {
@@ -339,5 +489,34 @@ final class WorkoutCoachModelRecordingTests: XCTestCase {
         let recorder = WorkoutSessionRecorder(store: store)
         let harness = WorkoutCoachHarness.make(preferences: InMemoryPreferences(), recorder: recorder)
         return (harness, store.writer(for: recorder.id))
+    }
+}
+
+@MainActor
+private final class RecordingAudioSessioning: AudioSessioning {
+    enum Call: Equatable {
+        case setCategory(category: String, mode: String, options: AVAudioSession.CategoryOptions)
+        case setActive(Bool, options: AVAudioSession.SetActiveOptions)
+    }
+
+    private(set) var calls: [Call] = []
+    private(set) var category = AVAudioSession.Category.playback.rawValue
+    private(set) var mode = AVAudioSession.Mode.default.rawValue
+    private(set) var categoryOptions: AVAudioSession.CategoryOptions = [.mixWithOthers]
+    let outputs = ["BuiltInSpeaker"]
+    let inputs = ["BuiltInMic"]
+    let isOtherAudioPlaying = true
+    let secondaryAudioShouldBeSilenced = false
+
+    func setCategory(_ category: AVAudioSession.Category, mode: AVAudioSession.Mode,
+                     options: AVAudioSession.CategoryOptions) throws {
+        calls.append(.setCategory(category: category.rawValue, mode: mode.rawValue, options: options))
+        self.category = category.rawValue
+        self.mode = mode.rawValue
+        self.categoryOptions = options
+    }
+
+    func setActive(_ active: Bool, options: AVAudioSession.SetActiveOptions) throws {
+        calls.append(.setActive(active, options: options))
     }
 }

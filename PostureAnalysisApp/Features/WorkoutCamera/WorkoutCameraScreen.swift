@@ -86,6 +86,14 @@ struct WorkoutCameraScreen: View {
                               y: geometry.size.height / 2 - 2)
                     .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: toolbarVisibility.isVisible)
 
+                // Only while a set is under way; the offer's card takes its place once it is open.
+                if state.showsTooHardButton {
+                    tooHardButton
+                        .padding(.leading, 20)
+                        .padding(.bottom, 196)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                }
+
                 if state.visual.isRepFlashing {
                     repFlashOverlay
                         .transition(.opacity)
@@ -249,6 +257,32 @@ struct WorkoutCameraScreen: View {
         .frame(height: 44)
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 16)
+    }
+
+    /// Large and labelled, for a user mid-set. Tapping it flags the item and opens the offer; the set keeps going.
+    private var tooHardButton: some View {
+        let palette = ColorTokens.palette()
+        return Button {
+            toolbarVisibility.interact()
+            onIntent(.tooHard)
+        } label: {
+            Label("Too hard?", systemImage: "hand.raised.fill")
+                .font(.system(size: 17, weight: .black, design: .rounded))
+                .foregroundStyle(palette.textPrimary)
+                .padding(.horizontal, 18)
+                .frame(minHeight: 52)
+                .background(palette.warning.opacity(0.28), in: Capsule())
+                .overlay(Capsule().strokeBorder(palette.warning, lineWidth: 2))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Too hard?")
+        .accessibilityHint("Tells the coach this is too hard. The set keeps going unless you choose an option.")
+        .accessibilityIdentifier("tooHardButton")
+        .background(GeometryReader { proxy in
+            Color.clear.preference(key: WorkoutHUDRects.self,
+                                   value: [proxy.frame(in: .named(WorkoutCoachView.coordinateSpace))])
+        })
     }
 
     /// Developer builds only: shows that the session is being recorded; tapping it marks this moment.

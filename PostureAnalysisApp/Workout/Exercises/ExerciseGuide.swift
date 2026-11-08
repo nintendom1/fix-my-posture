@@ -44,6 +44,12 @@ struct FigureShape: Equatable {
     }
 }
 
+/// A chair's seat as a horizontal segment in guide-canvas points.
+struct ChairSeat: Equatable {
+    var from: CGPoint
+    var to: CGPoint
+}
+
 /// One pose in a looping demonstration.
 struct ArmKeyframe {
     var angles: ArmAngles
@@ -62,6 +68,15 @@ struct ArmMotionSample: Equatable {
     var legs: LegPose = .standing
     /// Resolved samples always have a non-nil torso pitch.
     var shape: FigureShape = FigureShape(torsoPitch: 0)
+    /// Uses the planted-hand wall layout instead of the generic standing side figure.
+    var wallPushUp = false
+    /// Uses the planted-hand bench layout instead of the generic standing side figure.
+    var inclinePushUp = false
+
+    /// The planted-hand layout this sample draws, if it is a push-up against a fixed surface.
+    var plantedLayout: PlantedBodyLayout? {
+        PlantedBodyLayout.layout(wallPushUp: wallPushUp, inclinePushUp: inclinePushUp)
+    }
 }
 
 /// The plane a forearm moves in, as seen by a front-facing camera.
@@ -81,6 +96,23 @@ struct ArmMotion {
     var holdsDumbbells = true
     /// Forward lean of the side-view figure's torso, in degrees from upright (for example, a bent-over row).
     var torsoPitch: Double = 0
+    /// Draw a side-view wall push-up with fixed wrists and a straight body line.
+    var wallPushUp = false
+    /// Draw a side-view incline push-up with fixed wrists on a bench and a straight body line.
+    var inclinePushUp = false
+    /// Draw a seat line behind a front-view figure that starts seated. The ghost then sizes itself from the
+    /// shins, which stay upright when seated, because a seated thigh points at the camera and looks short.
+    var chair = false
+
+    /// The planted-hand layout this motion draws, if it is a push-up against a fixed surface.
+    var plantedLayout: PlantedBodyLayout? {
+        PlantedBodyLayout.layout(wallPushUp: wallPushUp, inclinePushUp: inclinePushUp)
+    }
+
+    /// The chair's seat in guide-canvas points, just under the hips of the start pose; nil without a chair.
+    var chairSeat: ChairSeat? {
+        chair ? ExerciseDemoFigureView.chairSeat(for: startLegs) : nil
+    }
 
     var duration: TimeInterval {
         keyframes.reduce(0) { $0 + $1.moveDuration + $1.holdDuration }
@@ -93,7 +125,8 @@ struct ArmMotion {
     var startSample: ArmMotionSample {
         guard let first = keyframes.first else {
             return ArmMotionSample(angles: startAngles, stepIndex: 0, legs: startLegs,
-                                   shape: FigureShape(torsoPitch: torsoPitch))
+                                   shape: FigureShape(torsoPitch: torsoPitch), wallPushUp: wallPushUp,
+                                   inclinePushUp: inclinePushUp)
         }
         return sample(of: first)
     }
@@ -145,7 +178,8 @@ struct ArmMotion {
     /// Returns a keyframe with the motion-level pitch filled in when the frame does not override it.
     func sample(of keyframe: ArmKeyframe) -> ArmMotionSample {
         ArmMotionSample(angles: keyframe.angles, stepIndex: keyframe.stepIndex, legs: keyframe.legs,
-                       shape: Self.resolvedShape(keyframe.shape, torsoPitch: torsoPitch))
+                       shape: Self.resolvedShape(keyframe.shape, torsoPitch: torsoPitch),
+                       wallPushUp: wallPushUp, inclinePushUp: inclinePushUp)
     }
 
     func sample(at time: TimeInterval) -> ArmMotionSample {
@@ -163,7 +197,8 @@ struct ArmMotion {
                 return ArmMotionSample(angles: Self.interpolate(previous.angles, keyframe.angles, progress),
                                        stepIndex: keyframe.stepIndex,
                                        legs: Self.interpolate(previous.legs, keyframe.legs, progress),
-                                       shape: Self.interpolate(previousSample.shape, targetSample.shape, progress))
+                                       shape: Self.interpolate(previousSample.shape, targetSample.shape, progress),
+                                       wallPushUp: wallPushUp, inclinePushUp: inclinePushUp)
             }
             elapsed -= keyframe.moveDuration
             if elapsed < keyframe.holdDuration {

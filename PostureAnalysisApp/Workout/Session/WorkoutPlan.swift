@@ -7,6 +7,73 @@ struct WorkoutPlanItem: Equatable, Identifiable {
     let exerciseID: ExerciseID
     var sets: Int
     var targetReps: ClosedRange<Int>
+    /// Runs the exercise's smaller-range variant, so a shallow floor and its full-range sample can share one exercise
+    /// id in one plan.
+    var reducedRange = false
+    /// An offer the user may decline, such as Today's Session harder sample.
+    var isOptional = false
+    /// The extra set the user took after rating an item Easy. It is inserted into the plan while the workout runs,
+    /// runs the same exercise and variant, and is never part of what was prescribed.
+    var isBonus = false
+    /// The easier version the user took when an item was too hard. It is inserted while the workout runs, in place of
+    /// what was left of that item, and may be another rung's exercise. It is never a skipped or unreached item.
+    var isEasierSwap = false
+
+    /// Added while the workout runs, never prescribed: a bonus or an easier version. It isn't one of the plan's
+    /// exercises, so it is never numbered, skipped, or unreached.
+    var isInserted: Bool { isBonus || isEasierSwap }
+
+    /// The exercise this occurrence runs, before its sets and reps apply.
+    func resolved(from base: ExerciseDefinition) -> ExerciseDefinition {
+        reducedRange ? (base.reducedRange?() ?? base) : base
+    }
+
+    /// Starts the label of an optional occurrence.
+    static let optionalPrefix = "Optional: "
+    /// Starts the label of a bonus occurrence.
+    static let bonusPrefix = "Bonus: "
+    /// Starts the label of an easier-swap occurrence.
+    static let easierSwapPrefix = "Easier: "
+
+    /// The name a plan shows for this occurrence: the variant it runs, with "Optional: " for an optional one,
+    /// "Bonus: " for a bonus, and "Easier: " for an easier version.
+    func label(for exercise: ExerciseDefinition?) -> String {
+        let name = exercise.map { resolved(from: $0).displayName } ?? "Unavailable exercise"
+        if isBonus { return Self.bonusPrefix + name }
+        if isEasierSwap { return Self.easierSwapPrefix + name }
+        return isOptional ? Self.optionalPrefix + name : name
+    }
+}
+
+/// A request to run the easier version of an item the user just ended, for the reducer to insert right after it.
+struct EasierSwapRequest: Equatable {
+    /// The id of the new occurrence.
+    let itemID: UUID
+    /// The occurrence it replaces the rest of.
+    let after: UUID
+    /// The exercise to run, which may differ from the item's when the easier rung is another exercise.
+    let exerciseID: ExerciseID
+    let reducedRange: Bool
+    /// Reps, or seconds for a timed hold.
+    let amount: Int
+}
+
+/// A request to run one more set of a finished plan item, for the reducer to insert right after it.
+struct BonusRequest: Equatable {
+    /// The id of the new bonus occurrence.
+    let itemID: UUID
+    /// The finished occurrence the bonus follows.
+    let after: UUID
+    /// Reps, or seconds for a timed hold.
+    let amount: Int
+}
+
+extension ExerciseDefinition {
+    /// True for a smaller-range variant made by another definition's `reducedRange` (a shallow wall push-up), which
+    /// shares its exercise id with the full-range one. Recordings mark it so replay runs the same variant.
+    var isReducedRangeVariant: Bool {
+        reducedRange == nil && ExerciseCatalog.definition(for: id)?.reducedRange != nil
+    }
 }
 
 /// Exercises run one after another, such as a Saved Set.
@@ -49,7 +116,7 @@ extension ExerciseDefinition {
 
     /// "2 sets × 8–10 reps", with the limb for one-side-at-a-time exercises.
     var setsAndRepsLabel: String {
-        "\(sets) \(sets == 1 ? "set" : "sets") × \(targetLabel) reps"
+        "\(sets) \(sets == 1 ? "set" : "sets") × \(targetAmountLabel)"
             + (perSide ? " each \(sideLimb.rawValue)" : "")
     }
 }

@@ -93,6 +93,10 @@ struct AppShellView: View {
             ExerciseDetailRouteView(viewModel: environment.makeExerciseDetailViewModel(id: id))
         case .workout:
             Text("Workout camera is presented full screen.")
+        case .todaySession:
+            Text("Today's Session is presented full screen.")
+        case .calibration:
+            Text("Finding a starting point is presented full screen.")
         case .workoutComplete:
             Text("Workout complete")
         case .progress:
@@ -134,6 +138,16 @@ struct AppShellView: View {
                 exerciseID: exerciseID,
                 routineID: routineID
             ))
+        case .todaySession:
+            // The session was prepared (and its prescription saved) before this route opened.
+            if let launch = environment.adaptiveCoordinator?.preparedLaunch {
+                WorkoutCoachView(model: environment.workoutCoachFactory.makeTodaySession(launch: launch))
+            }
+        case .calibration:
+            CalibrationRouteView(viewModel: environment.makeCalibrationViewModel(
+                kind: .initial,
+                onFinish: { router.dismissFullScreen() }
+            ))
         case .livePostureCheck:
             RealtimeCorrectionView()
         default:
@@ -142,15 +156,27 @@ struct AppShellView: View {
     }
 
     private var settingsScreen: some View {
-        SettingsScreen(viewModel: SettingsViewModel(
+        let environment = self.environment
+        let viewModel = SettingsViewModel(
             preferences: environment.preferences,
             router: router,
             reminderManager: environment.workoutReminderCoordinator,
             latestAssessmentID: environment.postureHomeViewModel.state.assessments.first?.id,
             notificationPreview: environment.makeNotificationPreviewViewModel(),
             personaDebug: environment.makePersonaDebugViewModel(),
-            workoutRecordings: environment.makeWorkoutRecordingsViewModel()
-        ))
+            adaptiveDebug: environment.makeAdaptiveDebugViewModel(),
+            workoutRecordings: environment.makeWorkoutRecordingsViewModel(),
+            makeCalibration: { [weak environment] kind, onFinish in
+                environment?.makeCalibrationViewModel(kind: kind, onFinish: onFinish)
+            }
+        )
+        if let coordinator = environment.adaptiveCoordinator {
+            viewModel.adaptiveTraining = AdaptiveTrainingSettingsViewModel(
+                provider: coordinator,
+                openCalibration: { [weak viewModel] kind in viewModel?.openCalibration(kind: kind) }
+            )
+        }
+        return SettingsScreen(viewModel: viewModel)
     }
 
     private var selectionBinding: Binding<AppTab> {
@@ -196,6 +222,24 @@ private struct ProgressRouteView: View {
 
     var body: some View {
         ProgressScreen(viewModel: viewModel)
+    }
+}
+
+/// Holds the calibration's view model for as long as the route is up. The route builds a new one on every refresh, so
+/// only the first is kept, and nothing starts until the screen appears.
+private struct CalibrationRouteView: View {
+    @State private var viewModel: CalibrationViewModel?
+
+    init(viewModel: CalibrationViewModel?) {
+        _viewModel = State(initialValue: viewModel)
+    }
+
+    var body: some View {
+        if let viewModel {
+            CalibrationScreen(viewModel: viewModel)
+        } else {
+            CalibrationUnavailableView()
+        }
     }
 }
 

@@ -30,11 +30,12 @@ struct ExerciseCompleteCard: View {
                             .textStyle(.body)
                             .foregroundStyle(ColorTokens.palette().textMuted)
                     }
-                    Text(sets.enumerated().map { "\(exercise.setLabel(entry: $0.offset)): \($0.element)" }.joined(separator: " · "))
+                    Text(sets.enumerated().map { "\(exercise.setLabel(entry: $0.offset)): \($0.element)\(exercise.doseUnit == .seconds ? " s" : "")" }.joined(separator: " · "))
                         .textStyle(.headline)
                         .monospacedDigit()
                         .foregroundStyle(ColorTokens.palette().textPrimary)
-                    Text("\(sets.reduce(0, +)) reps")
+                    // A timed hold's amounts are seconds.
+                    Text(exercise.doseUnit == .seconds ? "\(sets.reduce(0, +)) s" : "\(sets.reduce(0, +)) reps")
                         .textStyle(.body)
                         .monospacedDigit()
                         .foregroundStyle(ColorTokens.palette().textSecondary)
@@ -67,9 +68,9 @@ struct ExerciseCompleteCard: View {
                 .foregroundStyle(ColorTokens.palette().textPrimary)
                 .multilineTextAlignment(.center)
             VStack(alignment: .leading, spacing: 6) {
-                ForEach(Array(plan.items.enumerated()), id: \.element.id) { index, item in
-                    PlanItemSummaryRow(index: index, item: item, record: session.planRecords[item.id],
-                                       exercise: session.exercises.first { $0.id == item.exerciseID })
+                ForEach(summaryRows(of: plan), id: \.item.id) { row in
+                    PlanItemSummaryRow(index: row.index, item: row.item, record: session.planRecords[row.item.id],
+                                       exercise: session.exercises.first { $0.id == row.item.exerciseID })
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -77,6 +78,19 @@ struct ExerciseCompleteCard: View {
             buttons
         }
         .modifier(CardStyle())
+    }
+
+    /// The plan's occurrences in order, numbered among the exercises. A bonus or an easier version has no number and
+    /// shows only once it has sets, so it is never listed as skipped or not reached.
+    private func summaryRows(of plan: WorkoutPlan) -> [(index: Int?, item: WorkoutPlanItem)] {
+        var exercisesSoFar = 0
+        return plan.items.compactMap { item in
+            if item.isInserted {
+                return session.planRecords[item.id]?.setReps.isEmpty == false ? (index: nil, item: item) : nil
+            }
+            exercisesSoFar += 1
+            return (index: exercisesSoFar - 1, item: item)
+        }
     }
 
     private var buttons: some View {
@@ -136,20 +150,22 @@ private struct CardStyle: ViewModifier {
 
 /// "2. Hammer Curl — Set 1: 10 · Set 2: 9", or "Skipped" with any sets done first.
 struct PlanItemSummaryRow: View {
-    let index: Int
+    /// Zero-based position among the exercises; nil for a bonus or an easier version, which isn't one of them.
+    let index: Int?
     let item: WorkoutPlanItem
     let record: PlanItemRecord?
     let exercise: ExerciseDefinition?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text("\(index + 1). \(exercise?.displayName ?? "Unavailable exercise")")
+            Text("\(index.map { "\($0 + 1). " } ?? "")\(item.label(for: exercise))")
                 .textStyle(.body)
                 .foregroundStyle(ColorTokens.palette().textPrimary)
             Text(detail)
                 .textStyle(.caption2)
                 .monospacedDigit()
-                .foregroundStyle(record?.outcome == .skipped ? ColorTokens.palette().warning : ColorTokens.palette().textSecondary)
+                .foregroundStyle(record?.outcome == .skipped && !item.isInserted
+                                 ? ColorTokens.palette().warning : ColorTokens.palette().textSecondary)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
@@ -160,10 +176,15 @@ struct PlanItemSummaryRow: View {
     private var detail: String {
         let sets = (record?.setReps ?? []).enumerated().map { entry in
             "\(exercise?.setLabel(entry: entry.offset) ?? "Set \(entry.offset + 1)"): \(entry.element)"
+                + (exercise?.doseUnit == .seconds ? " s" : "")
         }.joined(separator: " · ")
+        // A bonus or an easier version left partway shows what was done, not "Skipped after ...".
+        if item.isInserted, !sets.isEmpty { return sets }
         switch record?.outcome {
         case .completed: return sets
-        case .skipped: return sets.isEmpty ? "Skipped" : "Skipped after \(sets)"
+        case .skipped:
+            if sets.isEmpty { return item.isOptional ? "Optional, skipped" : "Skipped" }
+            return "Skipped after \(sets)"
         case nil: return "Not reached"
         }
     }

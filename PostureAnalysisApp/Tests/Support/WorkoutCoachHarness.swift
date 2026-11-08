@@ -16,9 +16,13 @@ struct WorkoutCoachHarness {
 
     static func make(permissionStatus: CameraAuthorization = .authorized,
                      preferences: any AppPreferencesStoring = UserDefaultsPreferences(),
+                     exercises: [ExerciseDefinition] = ExerciseCatalog.all,
                      initialExercise: ExerciseID = .shoulderPress,
                      recorder: (any WorkoutSessionRecording)? = nil,
-                     audioTiming: AudioWorkTiming? = nil) -> WorkoutCoachHarness {
+                     audioTiming: AudioWorkTiming? = nil,
+                     plan: WorkoutPlan? = nil,
+                     adaptive: (any AdaptiveEvidenceRecording)? = nil,
+                     todayLaunch: TodaySessionLaunch? = nil) -> WorkoutCoachHarness {
         let clock = ManualClock(now: 10)
         let scheduler = ManualScheduler(clock: clock)
         let camera = FakePoseFrameSource()
@@ -38,11 +42,14 @@ struct WorkoutCoachHarness {
             clock: clock,
             scheduler: scheduler,
             preferences: preferences,
-            exercises: ExerciseCatalog.all,
+            exercises: exercises,
             initialExercise: initialExercise,
-            plan: nil,
+            plan: plan,
             recorder: recorder,
-            audioTiming: audioTiming
+            audioTiming: audioTiming,
+            adaptive: adaptive,
+            todayLaunch: todayLaunch,
+            evidenceDate: { Date(timeIntervalSince1970: 1_000) }
         )
         return WorkoutCoachHarness(model: model, camera: camera, permission: permission, speech: speech,
                                    audio: audio, tilt: tilt, voice: voice, clock: clock, scheduler: scheduler)
