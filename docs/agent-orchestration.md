@@ -1,8 +1,9 @@
 # Agent orchestration on Herdr
 
 Read this when splitting a change across agents in the shared working tree. The orchestration command is
-`scripts/orchestrate/agent.py`; it discovers the repository root from the current directory and stores its small
-metadata file at `build/orchestrate/state.json`.
+`scripts/orchestrate/agent.py`; it discovers the repository root from the current directory and stores shared metadata
+at `<git-common-dir>/build/orchestrate/state.json`, with maps keyed by `HERDR_WORKSPACE_ID`. A common-dir `flock`
+serializes commands across worktrees, and existing per-checkout state is migrated once.
 
 ## Messages and model routing
 

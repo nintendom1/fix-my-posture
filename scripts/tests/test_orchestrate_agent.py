@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import fcntl
 import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -256,9 +258,10 @@ elif group == "agent" and command == "read":
     pane = next(p for p in state["panes"] if p.get("name") == name)
     source = args[args.index("--source") + 1] if "--source" in args else "recent"
     if os.environ.get("FAKE_HERDR_FAIL") == "agent read":
-        metadata_path = Path(os.environ["FAKE_REPO_ROOT"]) / "build" / "orchestrate" / "state.json"
+        metadata_path = Path(os.environ["FAKE_GIT_COMMON_DIR"]) / "build" / "orchestrate" / "state.json"
         try:
-            managed = json.loads(metadata_path.read_text()).get("agents", {})
+            shared = json.loads(metadata_path.read_text())
+            managed = shared.get("workspaces", {}).get(os.environ["HERDR_WORKSPACE_ID"], {}).get("agents", {})
         except (OSError, json.JSONDecodeError):
             managed = {}
         state["read_saw_managed"] = name in managed
@@ -299,6 +302,9 @@ import sys
 if sys.argv[1:] == ["rev-parse", "--show-toplevel"]:
     print(os.environ["FAKE_REPO_ROOT"])
     sys.exit(0)
+if sys.argv[1:] == ["rev-parse", "--git-common-dir"]:
+    print(os.environ["FAKE_GIT_COMMON_DIR"])
+    sys.exit(0)
 sys.exit(2)
 '''
 
@@ -309,6 +315,10 @@ class OrchestrateAgentTests(unittest.TestCase):
         self.base = Path(self.temp.name)
         self.repo = self.base / "repo"
         self.repo.mkdir()
+        self.common_dir = self.base / "git-common"
+        self.common_dir.mkdir()
+        self.shared_state_path = self.common_dir / "build" / "orchestrate" / "state.json"
+        self.shared_lock_path = self.common_dir / "build" / "orchestrate" / "state.lock"
         self.bin = self.base / "bin"
         self.bin.mkdir()
         for filename, source in (("herdr", FAKE_HERDR), ("git", FAKE_GIT)):
@@ -325,6 +335,7 @@ class OrchestrateAgentTests(unittest.TestCase):
             "HERDR_ENV": "1",
             "HERDR_WORKSPACE_ID": "w1",
             "FAKE_REPO_ROOT": str(self.repo),
+            "FAKE_GIT_COMMON_DIR": str(self.common_dir),
             "FAKE_HERDR_STATE": str(self.state_path),
             "FAKE_HERDR_LOG": str(self.log_path),
         })
@@ -354,7 +365,7 @@ class OrchestrateAgentTests(unittest.TestCase):
         return self.state
 
     def write_metadata(self, *, agents: dict | None = None, scripts: dict | None = None) -> None:
-        path = self.repo / "build" / "orchestrate" / "state.json"
+        path = self.shared_state_path
         path.parent.mkdir(parents=True, exist_ok=True)
         agent_metadata = agents or {}
         script_metadata = scripts or {}
@@ -384,8 +395,11 @@ class OrchestrateAgentTests(unittest.TestCase):
         self.state["managed_tabs"] = sorted(managed_tabs)
         self.write_state()
         path.write_text(json.dumps({
-            "agents": agent_metadata, "scripts": script_metadata,
-            "managed_tabs": sorted(managed_tabs),
+            "workspaces": {"w1": {
+                "agents": agent_metadata, "scripts": script_metadata,
+                "managed_tabs": sorted(managed_tabs),
+            }},
+            "migrated_legacy_states": [], "legacy_buckets": [],
         }), encoding="utf-8")
 
     def run_tool(self, *args: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -393,6 +407,19 @@ class OrchestrateAgentTests(unittest.TestCase):
             [sys.executable, str(ENTRY_POINT), *args],
             cwd=self.repo, env=env or self.env, text=True, capture_output=True, check=False,
         )
+
+    def run_tool_in(self, repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
+        env = self.env.copy()
+        env["FAKE_REPO_ROOT"] = str(repo)
+        return subprocess.run(
+            [sys.executable, str(ENTRY_POINT), *args],
+            cwd=repo, env=env, text=True, capture_output=True, check=False,
+        )
+
+    def run_tool_in_workspace(self, workspace_id: str, *args: str) -> subprocess.CompletedProcess[str]:
+        env = self.env.copy()
+        env["HERDR_WORKSPACE_ID"] = workspace_id
+        return self.run_tool(*args, env=env)
 
     def calls(self) -> list[list[str]]:
         if not self.log_path.exists():
@@ -405,8 +432,11 @@ class OrchestrateAgentTests(unittest.TestCase):
             "--purpose", purpose or f"{name} pane", "--role", role, *extra,
         )
 
+    def get_shared_state(self) -> dict:
+        return json.loads(self.shared_state_path.read_text(encoding="utf-8"))
+
     def get_managed_state(self) -> dict:
-        return json.loads((self.repo / "build" / "orchestrate" / "state.json").read_text(encoding="utf-8"))
+        return self.get_shared_state()["workspaces"]["w1"]
 
     def pane(self, name: str) -> dict:
         return next(p for p in self.read_state()["panes"] if p.get("name") == name)
@@ -424,6 +454,160 @@ class OrchestrateAgentTests(unittest.TestCase):
         self.assertEqual(len(actual), len(expected))
         for width, target in zip(actual, expected):
             self.assertAlmostEqual(width, target, places=3)
+
+    def test_state_is_shared_between_worktrees(self) -> None:
+        other_checkout = self.base / "other-checkout"
+        other_checkout.mkdir()
+        started = self.start("sharedworker", purpose="Shared worker")
+        self.assertEqual(started.returncode, 0, started.stderr)
+
+        status = self.run_tool_in(other_checkout, "status")
+        self.assertEqual(status.returncode, 0, status.stderr)
+        self.assertIn("sharedworker state=idle", status.stdout)
+        self.assertIn("sharedworker", self.get_managed_state()["agents"])
+        self.assertFalse((self.repo / "build" / "orchestrate" / "state.json").exists())
+        self.assertFalse((other_checkout / "build" / "orchestrate" / "state.json").exists())
+
+    def test_workspace_state_isolated_between_herdr_workspaces(self) -> None:
+        started = self.start("workspaceagent", purpose="Workspace agent")
+        self.assertEqual(started.returncode, 0, started.stderr)
+        pane_id = self.pane("workspaceagent")["pane_id"]
+
+        status = self.run_tool_in_workspace("w2", "status")
+        self.assertEqual(status.returncode, 0, status.stderr)
+        self.assertEqual(status.stdout.strip(), "no managed agents")
+        self.assertNotIn("workspaceagent", status.stdout)
+
+        self.log_path.write_text("", encoding="utf-8")
+        close = self.run_tool_in_workspace("w2", "close", "workspaceagent")
+        self.assertNotEqual(close.returncode, 0)
+        self.assertIn("not managed", close.stderr)
+        self.assertFalse(any(call[:2] == ["pane", "close"] for call in self.calls()))
+        self.assertTrue(any(pane["pane_id"] == pane_id for pane in self.read_state()["panes"]))
+        self.assertIn("workspaceagent", self.get_shared_state()["workspaces"]["w1"]["agents"])
+
+    def test_unscoped_shared_state_migrates_only_to_its_pane_workspace(self) -> None:
+        pane = self.add_pane(name="legacyworkspaceagent")
+        self.shared_state_path.parent.mkdir(parents=True, exist_ok=True)
+        self.shared_state_path.write_text(json.dumps({
+            "agents": {"legacyworkspaceagent": {
+                "kind": "codex", "model": "gpt-6-luna", "pane_id": pane["pane_id"],
+            }},
+            "scripts": {}, "managed_tabs": [], "migrated_legacy_states": [],
+        }), encoding="utf-8")
+
+        other_workspace = self.run_tool_in_workspace("w2", "status")
+        self.assertEqual(other_workspace.returncode, 0, other_workspace.stderr)
+        self.assertEqual(other_workspace.stdout.strip(), "no managed agents")
+        self.assertNotIn(
+            "legacyworkspaceagent", self.get_shared_state()["workspaces"]["w2"]["agents"]
+        )
+
+        owner_workspace = self.run_tool("status")
+        self.assertEqual(owner_workspace.returncode, 0, owner_workspace.stderr)
+        self.assertIn("legacyworkspaceagent state=idle", owner_workspace.stdout)
+        self.assertIn(
+            "legacyworkspaceagent", self.get_shared_state()["workspaces"]["w1"]["agents"]
+        )
+
+    def test_legacy_state_from_each_checkout_migrates_once(self) -> None:
+        other_checkout = self.base / "other-checkout"
+        other_checkout.mkdir()
+        legacy_one_pane = self.add_pane(name="legacyone")
+        legacy_two_pane = self.add_pane(name="legacytwo")
+        legacy_script_pane = self.add_pane(label="Legacy script", proc="make")
+        legacy_agent_tab = self.add_tab("Agent")
+        legacy_scripts_tab = self.add_tab("Scripts")
+        self.write_state()
+        legacy_one = self.repo / "build" / "orchestrate" / "state.json"
+        legacy_two = other_checkout / "build" / "orchestrate" / "state.json"
+        legacy_one.parent.mkdir(parents=True)
+        legacy_two.parent.mkdir(parents=True)
+        legacy_one.write_text(json.dumps({
+            "agents": {"legacyone": {
+                "kind": "codex", "model": "gpt-6-luna", "pane_id": legacy_one_pane["pane_id"],
+            }},
+            "scripts": {}, "managed_tabs": [legacy_agent_tab["tab_id"]],
+        }), encoding="utf-8")
+        legacy_two.write_text(json.dumps({
+            "agents": {"legacytwo": {
+                "kind": "claude", "model": "claude-opus-5-5", "pane_id": legacy_two_pane["pane_id"],
+            }},
+            "scripts": {"Legacy script": {"pane_id": legacy_script_pane["pane_id"]}},
+            "managed_tabs": [legacy_scripts_tab["tab_id"]],
+        }), encoding="utf-8")
+
+        first = self.run_tool("status")
+        self.assertEqual(first.returncode, 0, first.stderr)
+        second = self.run_tool_in(other_checkout, "status")
+        self.assertEqual(second.returncode, 0, second.stderr)
+        shared = self.get_managed_state()
+        self.assertEqual(set(shared["agents"]), {"legacyone", "legacytwo"})
+        self.assertIn("Legacy script", shared["scripts"])
+        self.assertEqual(set(shared["managed_tabs"]), {legacy_agent_tab["tab_id"], legacy_scripts_tab["tab_id"]})
+        self.assertEqual(
+            set(self.get_shared_state()["migrated_legacy_states"]),
+            {str(legacy_one.resolve()), str(legacy_two.resolve())},
+        )
+
+        legacy_one.write_text(json.dumps({
+            "agents": {"legacyone": {}, "latewrite": {}}, "scripts": {}, "managed_tabs": [],
+        }), encoding="utf-8")
+        repeated = self.run_tool("status")
+        self.assertEqual(repeated.returncode, 0, repeated.stderr)
+        self.assertNotIn("latewrite", self.get_managed_state()["agents"])
+
+    def test_concurrent_agent_commands_wait_for_common_state_lock(self) -> None:
+        self.shared_lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with self.shared_lock_path.open("a", encoding="utf-8") as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            process = subprocess.Popen(
+                [sys.executable, str(ENTRY_POINT), "status"],
+                cwd=self.repo, env=self.env, text=True,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            )
+            try:
+                time.sleep(0.5)
+                self.assertIsNone(process.poll(), "status should wait for the shared state lock")
+                self.assertEqual(self.calls(), [], "Herdr must not be queried until the state lock is held")
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+            stdout, stderr = process.communicate(timeout=10)
+        self.assertEqual(process.returncode, 0, stderr)
+        self.assertEqual(stdout.strip(), "no managed agents")
+
+    def test_placement_fills_shared_overflow_tab_before_creating_next(self) -> None:
+        other_checkout = self.base / "other-checkout"
+        other_checkout.mkdir()
+        for name in ("one", "two", "three", "four"):
+            result = self.start(name)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+        fifth = self.run_tool_in(other_checkout, "start", "five", "--kind", "codex", "--model", "gpt-6-luna", "--purpose", "Five pane")
+        self.assertEqual(fifth.returncode, 0, fifth.stderr)
+        shared = self.get_managed_state()
+        agent_tab = next(tab for tab in self.read_state()["tabs"] if tab["label"] == "Agent")
+        self.assertEqual(self.pane("five")["tab_id"], agent_tab["tab_id"])
+        self.assertEqual(sum(pane["tab_id"] == agent_tab["tab_id"] for pane in self.read_state()["panes"]), 3)
+        self.assertFalse(any(tab["label"] == "Agent 2" for tab in self.read_state()["tabs"]))
+        self.assertIn("five", shared["agents"])
+
+        sixth = self.start("six")
+        self.assertEqual(sixth.returncode, 0, sixth.stderr)
+        self.assertTrue(any(tab["label"] == "Agent 2" for tab in self.read_state()["tabs"]))
+
+    def test_close_managed_agent_from_another_worktree(self) -> None:
+        other_checkout = self.base / "other-checkout"
+        other_checkout.mkdir()
+        started = self.start("closeacross", purpose="Close across")
+        self.assertEqual(started.returncode, 0, started.stderr)
+        pane_id = self.pane("closeacross")["pane_id"]
+
+        closed = self.run_tool_in(other_checkout, "close", "closeacross")
+        self.assertEqual(closed.returncode, 0, closed.stderr)
+        self.assertIn(f"closed closeacross pane={pane_id}", closed.stdout)
+        self.assertNotIn("closeacross", self.get_managed_state()["agents"])
+        self.assertFalse(any(pane["pane_id"] == pane_id for pane in self.read_state()["panes"]))
 
     def add_pane(self, *, tab: str = "w1:t1", label: str | None = None, name: str | None = None, kind: str = "codex", status: str = "idle", proc: str | None = None, width: float | None = None, cwd: str | None = None, visible: str = "Ready") -> dict:
         pane_id = f"w1:p{self.state['next_pane'] + 1}"
