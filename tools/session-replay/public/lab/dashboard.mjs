@@ -17,6 +17,68 @@ async function getJSON(url) {
   return result;
 }
 
+async function postLabJSON(url, body, confirmationToken = null) {
+  const nonce = document.querySelector('meta[name="fmp-replay-nonce"]')?.content ?? "";
+  const headers = { "content-type": "application/json", "x-fmp-replay": "1", "x-fmp-replay-nonce": nonce };
+  if (confirmationToken) headers["x-fmp-lab-confirmation"] = confirmationToken;
+  const response = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
+  const result = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(result?.error ?? `${response.status} ${response.statusText}`);
+  return result;
+}
+
+async function refreshScenario(runID, scenarioID) {
+  await openRun(runID);
+  if (state.runID === runID && state.run?.plan?.scenarios?.some((scenario) => scenario.id === scenarioID)) {
+    await openScenario(scenarioID);
+  }
+}
+
+async function saveReview(button) {
+  const panel = button.closest("[data-lab-review-panel]");
+  const reviewPanel = panel?.querySelector("[data-lab-review-message]");
+  if (!panel) return;
+  const note = panel.querySelector("[data-lab-review-note]")?.value?.trim() ?? "";
+  if (!note) {
+    if (reviewPanel) { reviewPanel.textContent = "Add a note describing what you verified."; reviewPanel.classList.add("error"); }
+    return;
+  }
+  const runID = panel.dataset.labReviewRun;
+  const scenarioID = panel.dataset.labReviewScenario;
+  const revision = Number(panel.dataset.labReviewRevision);
+  const status = button.dataset.labReviewAction;
+  button.disabled = true;
+  try {
+    await postLabJSON("/api/lab/review", { runID, scenarioID, revision, status, note });
+    await refreshScenario(runID, scenarioID);
+    if (status === "needs-edit") await window.FMPLabEditor?.open({ runID, scenarioID });
+  } catch (error) {
+    if (reviewPanel) { reviewPanel.textContent = error?.message ?? String(error); reviewPanel.classList.add("error"); }
+  } finally { button.disabled = false; }
+}
+
+async function promoteScenario(button) {
+  const panel = button.closest("[data-lab-review-panel]");
+  const message = panel?.querySelector("[data-lab-review-message]");
+  if (!panel) return;
+  const target = { runID: panel.dataset.labReviewRun, scenarioID: panel.dataset.labReviewScenario,
+    revision: Number(panel.dataset.labReviewRevision) };
+  const exerciseID = button.dataset.labPromoteExercise;
+  const relativePath = `PostureAnalysisApp/Tests/Fixtures/MovementScenarios/approved/${exerciseID}/${target.scenarioID}.r${target.revision}.json`;
+  const confirmed = window.confirm(`Write this synthetic scenario, its frozen assertions, and observed results to ${relativePath}? No recording frames will be included.`);
+  if (!confirmed) return;
+  button.disabled = true;
+  try {
+    const grant = await postLabJSON("/api/lab/promote/confirm-token", target);
+    const code = window.prompt("Type the one-time 6-digit promotion code shown in the terminal running this viewer. It expires in 60 seconds.");
+    if (code === null) return;
+    await postLabJSON("/api/lab/promote", { ...target, confirmationCode: code.trim() }, grant.token);
+    await refreshScenario(target.runID, target.scenarioID);
+  } catch (error) {
+    if (message) { message.textContent = error?.message ?? String(error); message.classList.add("error"); }
+  } finally { button.disabled = false; }
+}
+
 function switchView(name, { updateURL = true } = {}) {
   const view = name === "recordings" ? "recordings" : "runs";
   const showRuns = view === "runs";
@@ -268,6 +330,10 @@ document.addEventListener("click", (event) => {
   if (runButton) { openRun(runButton.dataset.labRun); return; }
   const scenarioButton = event.target.closest("[data-lab-scenario]");
   if (scenarioButton && state.run) openScenario(scenarioButton.dataset.labScenario);
+  const reviewButton = event.target.closest("[data-lab-review-action]");
+  if (reviewButton) { event.preventDefault(); void saveReview(reviewButton); return; }
+  const promoteButton = event.target.closest("[data-lab-promote]");
+  if (promoteButton) { event.preventDefault(); void promoteScenario(promoteButton); }
 });
 
 $("labRefresh").addEventListener("click", loadRuns);

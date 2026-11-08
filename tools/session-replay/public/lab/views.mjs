@@ -243,6 +243,12 @@ export function renderScenarioDetail({ plan, scenario, result = null, recording 
   const links = failureLinks(scenario, result, recording);
   const hasPlayback = session?.frames.length > 0;
   const referenceText = referenceSession?.frames.length ? "Canonical reference" : "Reference unavailable";
+  const review = scenario.review ?? null;
+  const reviewStatus = review?.status ?? "not reviewed";
+  const canApprove = result?.outcome === "passed" && Array.isArray(scenario.assertions) && scenario.assertions.length > 0
+    && Array.isArray(result.assertionResults) && result.assertionResults.length === scenario.assertions.length
+    && result.assertionResults.every((item) => item.passed === true);
+  const promoted = scenario.promoted === true;
   return `<article class="lab-selected-scenario" data-lab-scenario-id="${replay.esc(scenario.id)}" data-lab-status="${replay.esc(status)}">
     <header class="lab-scenario-heading"><div><p class="lab-eyebrow">${replay.esc(scenario.category ?? "scenario")} · revision ${replay.num(scenario.revision)}</p>
       <h3>${replay.esc(scenario.name ?? scenario.title ?? scenario.id)}</h3><p>${replay.esc(scenario.purpose ?? "No stated purpose.")}</p></div>
@@ -263,6 +269,21 @@ export function renderScenarioDetail({ plan, scenario, result = null, recording 
     </section>
     <section class="lab-expected-observed"><h4>Expected vs. observed</h4><div class="lab-assertions">${expectedHTML}</div>
       ${invalidReasons(result)}<div class="lab-observed"><strong>Observed summary</strong>${observedSummary(result, status)}</div></section>
+    <section class="lab-review-panel" data-lab-review-panel data-lab-review-run="${replay.esc(runID)}" data-lab-review-scenario="${replay.esc(scenario.id)}" data-lab-review-revision="${replay.num(scenario.revision)}">
+      <div class="lab-review-heading"><div><h4>Human review</h4><span class="lab-review-badge ${statusClass(reviewStatus)}" data-lab-review-status>${replay.esc(reviewStatus)}</span>
+        ${promoted ? '<span class="lab-review-badge promoted">Promoted to CI</span>' : ""}</div>
+        ${review?.updatedAt ? `<time datetime="${replay.esc(review.updatedAt)}">Reviewed ${replay.esc(dateLabel(review.updatedAt))}</time>` : ""}</div>
+      ${review?.note ? `<p class="lab-review-saved-note">${replay.esc(review.note)}</p>` : ""}
+      <label>Review note<textarea maxlength="500" rows="2" data-lab-review-note placeholder="What did you verify?">${replay.esc(review?.note ?? "")}</textarea></label>
+      <div class="lab-review-actions">
+        <button type="button" class="button primary" data-lab-review-action="approved" ${canApprove ? "" : "disabled"}>Approve</button>
+        <button type="button" class="button ghost" data-lab-review-action="rejected">Reject</button>
+        <button type="button" class="button ghost" data-lab-review-action="exploratory">Keep exploratory</button>
+        <button type="button" class="button ghost" data-lab-review-action="needs-edit">Edit and rerun</button>
+        ${reviewStatus === "approved" && !promoted ? `<button type="button" class="button primary" data-lab-promote data-lab-promote-exercise="${replay.esc(scenario.exercise)}">Promote approved fixture</button>` : ""}
+      </div>
+      <p class="lab-review-message" data-lab-review-message role="status">Approval requires a passing run with frozen assertions.</p>
+    </section>
   </article>`;
 }
 

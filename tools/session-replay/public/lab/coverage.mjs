@@ -83,8 +83,12 @@ function mutationSummary(scenario) {
 /** Build one safely escaped scenario card, including a seek control when a keyframe exists. */
 export function renderCoverageScenarioRow(scenario, { thumbnailHTML = "" } = {}) {
   const domKey = esc(scenarioDOMKey(scenario));
+  const reviewStatus = scenario.reviewStatus ?? "not reviewed";
+  const reviewState = `<span class="lab-review-badge ${statusClass(reviewStatus)}">${esc(reviewStatus)}</span>`;
+  const promotedState = scenario.promoted ? '<span class="lab-review-badge promoted">Promoted to CI</span>' : "";
   return `<article class="coverage-scenario" data-coverage-row="${domKey}">
     <div class="coverage-scenario-info"><div class="coverage-scenario-heading"><h4>${esc(scenario.id)} <span>rev ${num(scenario.revision)}</span></h4><span class="lab-status ${statusClass(scenario.status)}">${esc(scenario.status)}</span></div>
+      <div class="coverage-review-state">${reviewState}${promotedState}</div>
       <p>${esc(scenario.purpose ?? "No stated purpose.")}</p><div class="coverage-scenario-meta"><span>${esc(mutationSummary(scenario))}</span><span>scenario coverage · ${esc(scenario.exercise)}</span></div>
       ${scenario.sourceRunID ? `<button type="button" class="button ghost coverage-edit-button" data-lab-edit-run="${esc(scenario.sourceRunID)}" data-lab-edit-scenario="${esc(scenario.id)}">Edit movement</button>` : ""}</div>
     <div class="coverage-thumb-slot" data-coverage-scenario="${domKey}">${thumbnailHTML || `<div class="coverage-thumb-loading">Loading stored keyframe…</div>`}</div>
@@ -317,7 +321,7 @@ export function installCoverageView() {
       view.hidden = false;
       document.getElementById("app").hidden = true;
       updateTabs();
-      if (!model) fetchModel(); else paint();
+      fetchModel();
       return;
     }
     if (event.target.closest?.("[data-lab-view]")) deactivate();

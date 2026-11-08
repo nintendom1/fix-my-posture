@@ -9,13 +9,14 @@
 
 import { createServer as createHTTPServer } from "node:http";
 import { spawn } from "node:child_process";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes, randomInt, randomUUID } from "node:crypto";
 import { promises as fs, constants as fsConstants } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createStore, StoreError } from "./lib/store.mjs";
 import { createLabStore, LabStoreError } from "./lib/lab/store.mjs";
 import { buildCoverageModel } from "./lib/lab/coverage.mjs";
+import { createReviewStore, ReviewStoreError, scenarioReviewKey } from "./lib/lab/review.mjs";
 import { buildScenarioRevision, RevisionError } from "./lib/lab/revisions.mjs";
 import { validatePlanText } from "./lib/lab/plan.mjs";
 import { DEFAULT_SIMULATOR, isSafeRunID, MAX_PLAN_BYTES, runPlan as runMovementPlan } from "./lib/lab/runner.mjs";
@@ -42,6 +43,9 @@ const STATIC = {
 const EDIT_ID = /^[a-f0-9]{32}$/;
 const EDIT_DIRECTORY = ["diagnostics", "movement-lab", "edits"];
 const PAGE_NONCE_LIFETIME_MS = 60 * 60 * 1000;
+const CONFIRMATION_TOKEN_LIFETIME_MS = 60 * 1000;
+const PROMOTION_CODE_MAX_ATTEMPTS = 5;
+const SAFE_LAB_ID = /^[a-z0-9_-]{1,64}$/;
 
 function within(root, candidate) {
   const relative = path.relative(root, candidate);
@@ -125,6 +129,87 @@ async function readEditPlan(root, editID, maxBytes) {
   return { planPath, plan: checked.plan };
 }
 
+async function approvedFixtureDirectory(root, exerciseID) {
+  if (typeof exerciseID !== "string" || !SAFE_LAB_ID.test(exerciseID)) {
+    throw new LabStoreError(400, "Invalid exercise id for an approved fixture.");
+  }
+  const canonicalRoot = await fs.realpath(root);
+  const components = ["PostureAnalysisApp", "Tests", "Fixtures", "MovementScenarios", "approved", exerciseID];
+  let current = canonicalRoot;
+  for (const component of components) {
+    current = path.join(current, component);
+    try { await fs.mkdir(current); }
+    catch (error) { if (error?.code !== "EEXIST") throw error; }
+    const stat = await fs.lstat(current);
+    const resolved = await fs.realpath(current);
+    if (!stat.isDirectory() || stat.isSymbolicLink() || resolved !== current || !within(canonicalRoot, resolved)) {
+      throw new LabStoreError(403, "Approved fixture path must stay inside the repository fixture folder.");
+    }
+  }
+  return { canonicalRoot, directory: current };
+}
+
+function approvedFixtureRelativePath(scenario) {
+  if (!scenario || typeof scenario.id !== "string" || !SAFE_LAB_ID.test(scenario.id)
+    || typeof scenario.exercise !== "string" || !SAFE_LAB_ID.test(scenario.exercise)
+    || !Number.isSafeInteger(scenario.revision) || scenario.revision < 1) {
+    throw new LabStoreError(400, "Invalid scenario identity for an approved fixture.");
+  }
+  return path.join("PostureAnalysisApp", "Tests", "Fixtures", "MovementScenarios", "approved",
+    scenario.exercise, `${scenario.id}.r${scenario.revision}.json`);
+}
+
+async function writeApprovedFixture(root, scenario, fixture) {
+  const relative = approvedFixtureRelativePath(scenario);
+  const { canonicalRoot, directory } = await approvedFixtureDirectory(root, scenario.exercise);
+  const target = path.join(directory, `${scenario.id}.r${scenario.revision}.json`);
+  if (!within(canonicalRoot, target)) throw new LabStoreError(403, "Approved fixture path escaped the repository.");
+  const temporary = path.join(directory, `.${scenario.id}.r${scenario.revision}.${randomUUID()}.tmp`);
+  try {
+    await fs.writeFile(temporary, `${JSON.stringify(fixture, null, 2)}\n`, { flag: "wx", mode: 0o644 });
+    await fs.link(temporary, target);
+    await fs.unlink(temporary);
+  } catch (error) {
+    await fs.unlink(temporary).catch(() => {});
+    if (error?.code === "EEXIST") throw new LabStoreError(409, "Approved fixtures are immutable; this scenario revision already exists.");
+    throw error;
+  }
+  return relative;
+}
+
+async function hasApprovedFixture(root, scenario) {
+  let relative;
+  try { relative = approvedFixtureRelativePath(scenario); }
+  catch { return false; }
+  const canonicalRoot = await fs.realpath(root);
+  const target = path.join(canonicalRoot, relative);
+  if (!within(canonicalRoot, target)) return false;
+  try {
+    const stat = await fs.lstat(target);
+    return stat.isFile() && !stat.isSymbolicLink() && await fs.realpath(target) === target;
+  } catch (error) {
+    if (error?.code === "ENOENT" || error?.code === "ENOTDIR") return false;
+    throw error;
+  }
+}
+
+function isSyntheticMovementLab(recording) {
+  if (!Array.isArray(recording)) return false;
+  const header = recording.find((record) => record?.k === "header");
+  return header?.schema === "fmp.workout-session/1"
+    && header.app?.configuration === "MovementLab"
+    && header.device?.model === "synthetic"
+    && recording.some((record) => record?.k === "f" && Array.isArray(record.j));
+}
+
+function resultCanBeApproved(scenario, result) {
+  return Array.isArray(scenario?.assertions) && scenario.assertions.length > 0
+    && result?.outcome === "passed"
+    && Array.isArray(result.assertionResults)
+    && result.assertionResults.length === scenario.assertions.length
+    && result.assertionResults.every((assertion) => assertion?.passed === true);
+}
+
 function serialQueue() {
   let tail = Promise.resolve();
   return (operation) => {
@@ -136,30 +221,74 @@ function serialQueue() {
 
 /** The viewer's server. `root` is the repository; recordings live in `root/diagnostics/sessions`. */
 export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT, executePlan = runMovementPlan,
-  maxJSONBytes = MAX_JSON_BYTES } = {}) {
+  maxJSONBytes = MAX_JSON_BYTES, now = () => Date.now(),
+  writePromotionCode = (line) => process.stdout.write(line) } = {}) {
   const store = createStore(root);
   const labStore = createLabStore(root);
+  const reviewStore = createReviewStore(root, { now: () => new Date(now()) });
   const clients = new Set();
   const pageNonces = new Map();
+  const confirmationTokens = new Map();
   const enqueueRerun = serialQueue();
   let viewerState = null;
   let lastSent = null;
 
   function issuePageNonce() {
-    const now = Date.now();
-    for (const [nonce, expiry] of pageNonces) if (expiry <= now) pageNonces.delete(nonce);
+    const currentTime = now();
+    for (const [nonce, expiry] of pageNonces) if (expiry <= currentTime) pageNonces.delete(nonce);
     while (pageNonces.size >= 128) pageNonces.delete(pageNonces.keys().next().value);
     const nonce = randomBytes(24).toString("base64url");
-    pageNonces.set(nonce, now + PAGE_NONCE_LIFETIME_MS);
+    pageNonces.set(nonce, currentTime + PAGE_NONCE_LIFETIME_MS);
     return nonce;
   }
 
   function requirePageNonce(request) {
     const nonce = request.headers["x-fmp-replay-nonce"];
     const expiry = pageNonces.get(nonce);
-    if (typeof nonce !== "string" || expiry === undefined || expiry <= Date.now()) {
+    if (typeof nonce !== "string" || expiry === undefined || expiry <= now()) {
       throw new StoreError(403, "Missing or expired page nonce.");
     }
+  }
+
+  async function scenarioContext(input) {
+    if (!input || typeof input !== "object" || Array.isArray(input)
+      || typeof input.scenarioID !== "string" || !SAFE_LAB_ID.test(input.scenarioID)
+      || !Number.isSafeInteger(input.revision) || input.revision < 1) {
+      throw new LabStoreError(400, "Promotion and review requests require runID, scenarioID, and a positive revision.");
+    }
+    const run = await labStore.readRun(input.runID);
+    const scenario = run.plan.scenarios.find((item) => item?.id === input.scenarioID);
+    if (!scenario) throw new LabStoreError(404, "Scenario was not found in the stored Movement Lab run.");
+    if (scenario.revision !== input.revision) {
+      throw new LabStoreError(409, "The requested scenario revision does not match the stored run.");
+    }
+    const result = run.results.find((item) => item?.scenarioID === scenario.id && item?.revision === scenario.revision) ?? null;
+    return { run, scenario, result, key: scenarioReviewKey({ runID: input.runID, planID: run.plan.id, scenario }) };
+  }
+
+  function promotionBinding(key) {
+    return JSON.stringify([key.runID, key.planID, key.scenarioID, key.revision, key.contentHash]);
+  }
+
+  function requireExecutionMode(context) {
+    const mode = context.run.summary?.executionMode;
+    if (mode !== "pipeline" && mode !== "coach") {
+      throw new LabStoreError(409, "This run has no supported stored execution mode. Rerun it with pipeline or coach before promotion.");
+    }
+    return mode;
+  }
+
+  function issuePromotionToken(binding) {
+    const currentTime = now();
+    for (const [token, record] of confirmationTokens) {
+      if (record.expiresAt <= currentTime) confirmationTokens.delete(token);
+    }
+    while (confirmationTokens.size >= 256) confirmationTokens.delete(confirmationTokens.keys().next().value);
+    const token = randomBytes(32).toString("base64url");
+    const expiresAt = currentTime + CONFIRMATION_TOKEN_LIFETIME_MS;
+    const code = String(randomInt(100_000, 1_000_000));
+    confirmationTokens.set(token, { binding, expiresAt, code, attempts: 0 });
+    return { token, code, expiresAt: new Date(expiresAt).toISOString() };
   }
 
   function broadcast(event) {
@@ -210,6 +339,85 @@ export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT, exec
       const editID = await writeEditPlan(root, plan);
       return sendJSON(response, { editID, plan }, 201);
     }
+    if (url.pathname === "/api/lab/review") {
+      if (request.method !== "POST") throw new LabStoreError(405, "Movement Lab review state requires POST.");
+      requirePageNonce(request);
+      const input = JSON.parse(await body(request, maxJSONBytes));
+      const context = await scenarioContext(input);
+      if (input.status === "approved" && !resultCanBeApproved(context.scenario, context.result)) {
+        throw new LabStoreError(409, "Only a completed passing scenario with frozen assertions can be approved.");
+      }
+      const review = await reviewStore.save({ ...context.key, status: input.status, note: input.note, runID: input.runID });
+      return sendJSON(response, { review }, 201);
+    }
+    if (url.pathname === "/api/lab/promote/confirm-token") {
+      if (request.method !== "POST") throw new LabStoreError(405, "Promotion confirmation tokens require POST.");
+      requirePageNonce(request);
+      const input = JSON.parse(await body(request, maxJSONBytes));
+      const context = await scenarioContext(input);
+      requireExecutionMode(context);
+      const review = await reviewStore.read(context.key);
+      if (review?.status !== "approved") throw new LabStoreError(409, "Approve this scenario revision before promoting it.");
+      const grant = issuePromotionToken(promotionBinding(context.key));
+      try {
+        writePromotionCode(`Movement Lab promotion code for ${context.key.runID}/${context.key.scenarioID} r${context.key.revision}: ${grant.code}\n`);
+      } catch {
+        confirmationTokens.delete(grant.token);
+        throw new LabStoreError(500, "Could not print the promotion code in the viewer terminal.");
+      }
+      return sendJSON(response, { token: grant.token, expiresAt: grant.expiresAt }, 201);
+    }
+    if (url.pathname === "/api/lab/promote") {
+      if (request.method !== "POST") throw new LabStoreError(405, "Movement Lab promotion requires POST.");
+      requirePageNonce(request);
+      const input = JSON.parse(await body(request, maxJSONBytes));
+      const token = request.headers["x-fmp-lab-confirmation"];
+      const confirmation = typeof token === "string" ? confirmationTokens.get(token) : null;
+      if (!confirmation) throw new LabStoreError(403, "Missing or already used promotion confirmation token.");
+      if (confirmation.expiresAt <= now()) {
+        confirmationTokens.delete(token);
+        throw new LabStoreError(403, "Promotion confirmation token expired.");
+      }
+      if (typeof input?.confirmationCode !== "string" || !/^\d{6}$/.test(input.confirmationCode)
+        || input.confirmationCode !== confirmation.code) {
+        confirmation.attempts += 1;
+        if (confirmation.attempts >= PROMOTION_CODE_MAX_ATTEMPTS) {
+          confirmationTokens.delete(token);
+          throw new LabStoreError(429, "Five promotion-code attempts used. Request a fresh code.");
+        }
+        throw new LabStoreError(403, "Incorrect promotion code.");
+      }
+      confirmationTokens.delete(token);
+      const context = await scenarioContext(input);
+      if (confirmation.binding !== promotionBinding(context.key)) {
+        throw new LabStoreError(403, "Promotion confirmation token does not match this scenario revision.");
+      }
+      const executionMode = requireExecutionMode(context);
+      const review = await reviewStore.read(context.key);
+      if (review?.status !== "approved") throw new LabStoreError(409, "Only an approved scenario revision can be promoted.");
+      if (!resultCanBeApproved(context.scenario, context.result)) {
+        throw new LabStoreError(409, "Only a completed passing scenario with frozen assertions can be promoted.");
+      }
+      const recording = await labStore.readScenarioArtifact(input.runID, input.scenarioID, "recording");
+      if (!isSyntheticMovementLab(recording)) {
+        throw new LabStoreError(422, "Only synthetic Movement Lab recordings can be promoted.");
+      }
+      const fixture = {
+        schemaVersion: 1,
+        executionMode,
+        provenance: {
+          kind: "developer-approved",
+          runID: input.runID,
+          reviewedAt: review.updatedAt,
+          reviewNote: review.note,
+        },
+        plan: { ...context.run.plan, scenarios: [context.scenario] },
+        result: context.result,
+      };
+      const fixturePath = await writeApprovedFixture(root, context.scenario, fixture);
+      return sendJSON(response, { runID: input.runID, scenarioID: input.scenarioID,
+        revision: input.revision, fixturePath }, 201);
+    }
     if (url.pathname === "/api/lab/runs") {
       if (request.method === "POST") {
         // Preserve the old read-only response for a bodyless POST; editor requests carry a JSON body.
@@ -233,7 +441,20 @@ export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT, exec
       if (request.method !== "GET") throw new LabStoreError(405, "Movement Lab routes are read-only.");
       const runs = await labStore.listRuns();
       const storedRuns = await Promise.all(runs.map((run) => labStore.readRun(run.id)));
-      return sendJSON(response, buildCoverageModel(storedRuns));
+      const model = buildCoverageModel(storedRuns);
+      const storedRunsByID = new Map(storedRuns.map((run) => [run.summary.id, run]));
+      for (const scenario of model.scenarios) {
+        const storedRun = storedRunsByID.get(scenario.sourceRunID);
+        const storedScenario = storedRun?.plan.scenarios.find((item) => item?.id === scenario.id
+          && item?.revision === scenario.revision);
+        const reviewKey = scenarioReviewKey({ runID: scenario.sourceRunID, planID: scenario.planID, scenario: storedScenario });
+        const review = await reviewStore.read(reviewKey);
+        scenario.reviewStatus = review?.status ?? "not reviewed";
+        scenario.reviewNote = review?.note ?? null;
+        scenario.reviewUpdatedAt = review?.updatedAt ?? null;
+        scenario.promoted = await hasApprovedFixture(root, scenario);
+      }
+      return sendJSON(response, model);
     }
     const labArtifact = url.pathname.match(/^\/api\/lab\/runs\/([^/]+)\/scenarios\/([^/]+)\/([^/]+)$/);
     if (labArtifact) {
@@ -246,7 +467,12 @@ export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT, exec
       if (request.method !== "GET") throw new LabStoreError(405, "Movement Lab routes are read-only.");
       const run = await labStore.readRun(labRun[1]);
       run.runID = labRun[1];
-      for (const scenario of run.plan.scenarios) scenario.sourceRunID = labRun[1];
+      for (const scenario of run.plan.scenarios) {
+        const reviewKey = scenarioReviewKey({ runID: labRun[1], planID: run.plan.id, scenario });
+        scenario.sourceRunID = labRun[1];
+        scenario.review = await reviewStore.read(reviewKey);
+        scenario.promoted = await hasApprovedFixture(root, scenario);
+      }
       return sendJSON(response, run);
     }
     if (request.method === "GET" && url.pathname === "/api/identity") {
@@ -303,7 +529,7 @@ export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT, exec
 
   const server = createHTTPServer((request, response) => {
     handle(request, response).catch((error) => {
-      const status = error instanceof StoreError || error instanceof LabStoreError || error instanceof RevisionError ? error.status
+      const status = error instanceof StoreError || error instanceof LabStoreError || error instanceof ReviewStoreError || error instanceof RevisionError ? error.status
         : error instanceof SyntaxError ? 400 : error?.code === "ENOENT" ? 404 : 500;
       sendJSON(response, { error: error?.message ?? String(error) }, status);
     });

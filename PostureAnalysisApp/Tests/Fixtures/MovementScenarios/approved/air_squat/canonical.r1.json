@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "executionMode": "pipeline",
+  "provenance": {
+    "kind": "orchestrator-seeded",
+    "reviewedAt": "2026-11-08T12:00:00Z",
+    "reviewNote": "Canonical Air Squat baseline seeded to exercise approved-fixture CI coverage."
+  },
+  "plan": {
+    "schemaVersion": 1,
+    "id": "air-squat-core-v1",
+    "title": "Air Squat Movement Scenarios",
+    "purpose": "Synthetic hypotheses for Air Squat counting, tracking, and framing.",
+    "author": "developer",
+    "createdAt": "1970-01-01T00:00:00Z",
+    "scenarios": [
+      {
+        "id": "canonical",
+        "exercise": "air_squat",
+        "category": "canonical",
+        "purpose": "Count the guide motion at its normal range.",
+        "canonicalRevision": "guide-fnv1a-4b44a52dbe5c07a6",
+        "seed": "133",
+        "reps": 5,
+        "mode": "constrained",
+        "mutations": [],
+        "assertions": [
+          { "kind": "repCount", "equals": 5 }
+        ],
+        "revision": 1
+      }
+    ]
+  },
+  "result": {
+    "scenarioID": "canonical",
+    "revision": 1,
+    "outcome": "passed",
+    "observed": {
+      "reps": 5,
+      "rejections": [],
+      "signals": [],
+      "framingChanges": ["unreliable", "reliable"],
+      "cues": []
+    },
+    "assertionResults": [
+      { "assertionIndex": 0, "passed": true, "detail": "expected rep count 5; observed 5" }
+    ],
+    "invalidReasons": []
+  }
+}
