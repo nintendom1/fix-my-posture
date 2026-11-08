@@ -1,3 +1,4 @@
+import AdaptiveTraining
 import SwiftUI
 import UIKit
 
@@ -159,7 +160,16 @@ struct WorkoutCoachView: View {
 
                 WorkoutCameraScreen(state: model.hud, onIntent: sendHUDIntent)
 
-                if model.hud.visual.showsCompletionCard {
+                // Over the camera but clear of the bottom controls, so the next set can start while it is open.
+                if let card = model.effortCard {
+                    EffortCardView(state: card, showsVoiceHint: model.micStatus.isUsable,
+                                   onAdjust: { model.adjustEffortAmount(by: $0) },
+                                   onRate: { model.rateEffort($0) },
+                                   onSkip: { model.skipEffort() })
+                        .transition(.opacity)
+                }
+
+                if model.showsCompletionCard {
                     if model.session.plan != nil, model.session.isFollowingPlan {
                         WorkoutCompleteScreen(
                             viewModel: WorkoutCompleteViewModel(record: planCompletionRecord ?? completionRecord(),
@@ -184,7 +194,8 @@ struct WorkoutCoachView: View {
             }
             .coordinateSpace(name: Self.coordinateSpace)
             .onPreferenceChange(WorkoutHUDRects.self) { hudRects = $0 }
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: model.hud.visual.showsCompletionCard)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: model.showsCompletionCard)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: model.effortCard?.id)
         }
     }
 

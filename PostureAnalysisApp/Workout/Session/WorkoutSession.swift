@@ -233,7 +233,9 @@ struct WorkoutSession {
     /// The selected exercise, with the plan occurrence's sets and reps when following a plan.
     var exercise: ExerciseDefinition? {
         guard let id = exerciseID, let base = exercises.first(where: { $0.id == id }) else { return nil }
-        if let item = currentPlanItem, item.exerciseID == id { return base.withTarget(sets: item.sets, reps: item.targetReps) }
+        if let item = currentPlanItem, item.exerciseID == id {
+            return item.resolved(from: base).withTarget(sets: item.sets, reps: item.targetReps)
+        }
         return base
     }
 
@@ -675,6 +677,7 @@ struct WorkoutSession {
     private mutating func advancePlan(to index: Int, at now: TimeInterval, restSeconds: Int?, lead: String) -> [WorkoutEffect] {
         guard let plan, plan.items.indices.contains(index) else { return [] }
         let item = plan.items[index]
+        let previous = exercise
         planIndex = index
         exerciseID = item.exerciseID
         // This occurrence counts its own sets, even when the exercise appeared earlier.
@@ -683,7 +686,10 @@ struct WorkoutSession {
         progress[item.exerciseID] = record
         sideReps = [.left: 0, .right: 0]
         clearHold()
-        framing = .lost
+        // A new exercise or camera view is framed afresh. The same one again (a shallow floor, then its full-range
+        // sample) keeps its framing: the camera reports a change only when the status changes, so resetting it here
+        // would leave counting off for the whole next set.
+        if previous?.id != exercise?.id || previous?.cameraView != exercise?.cameraView { framing = .lost }
         guidanceChangedAt = nil
         lastSpokenGuidance = nil
         coaching = Self.scheduler(for: exercise)
@@ -696,7 +702,8 @@ struct WorkoutSession {
             restLeadsToNextExercise = true
             isRestingBeforeNextExercise = true
             let target = "\(next.sets == 1 ? "1 set" : "\(next.sets) sets") of \(next.spokenTarget)"
-            return [.speak(Utterance(text: "\(lead) Up next: \(next.spokenName), \(target). Rest up."))]
+            let name = item.isOptional ? "optional \(next.spokenName)" : next.spokenName
+            return [.speak(Utterance(text: "\(lead) Up next: \(name), \(target). Rest up."))]
         }
         enterSetup(at: now)
         restEndsAt = nil
@@ -724,7 +731,8 @@ struct WorkoutSession {
         }
         let effects = setCounting(false) + newAnalyzer() + clearFeedback()
         if let next = nextPlanIndex(after: planIndex) {
-            let name = exercises.first { $0.id == plan.items[next].exerciseID }?.spokenName ?? "the next exercise"
+            let spoken = exercises.first { $0.id == plan.items[next].exerciseID }.map { plan.items[next].resolved(from: $0).spokenName }
+            let name = spoken.map { plan.items[next].isOptional ? "optional \($0)" : $0 } ?? "the next exercise"
             return effects + advancePlan(to: next, at: now, restSeconds: nil, lead: "Skipping to \(name).")
         }
         sideReps = [.left: 0, .right: 0]

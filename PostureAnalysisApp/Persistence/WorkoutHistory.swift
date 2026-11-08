@@ -87,7 +87,9 @@ struct WorkoutRecord: Codable, Equatable, Identifiable {
                 let exercise = session.exercises.first { $0.id == item.exerciseID }
                 guard !record.setReps.isEmpty || record.outcome != nil else { continue }
                 let outcome: WorkoutRecordEntry.Outcome? = record.outcome.map { $0 == .completed ? .completed : .skipped }
-                entries.append(WorkoutRecordEntry(exerciseID: item.exerciseID, name: exercise?.displayName ?? item.exerciseID.rawValue,
+                // Named from the occurrence it ran: a shallow variant, or an optional offer, keeps that in its name.
+                let name = exercise.map { item.label(for: $0) } ?? item.exerciseID.rawValue
+                entries.append(WorkoutRecordEntry(exerciseID: item.exerciseID, name: name,
                                                   outcome: outcome, sets: sets(record.setReps, record.setWeights, for: exercise)))
             }
         } else {

@@ -316,6 +316,16 @@ final class WorkoutRemindersTests: XCTestCase {
         XCTAssertEqual(router.presentedFullScreenRoute, activeRoute)
     }
 
+    func testNotificationTapDoesNotReplaceTodaysSession() {
+        let router = AppRouter()
+        router.open(.todaySession)
+        let coordinator = makeCoordinator(router: router)
+
+        coordinator.handleTap(.exercise(.airSquat))
+
+        XCTAssertEqual(router.presentedFullScreenRoute, .todaySession)
+    }
+
     func testEnablingRequestsAuthorizationOnlyWhenStatusIsNotDetermined() async {
         let preferences = InMemoryPreferences()
         preferences.workoutReminderSettings = settings(enabled: true)

@@ -19,6 +19,8 @@ struct WorkoutCompletionStats: Equatable {
         var seconds: Int? = nil
         let weightLabel: String?
         let outcome: WorkoutRecordEntry.Outcome?
+        /// Today's Session harder sample, which the user may decline.
+        var isOptional = false
 
         /// "8 reps", or "40 s" for timed holds.
         var amountLabel: String {
@@ -27,7 +29,7 @@ struct WorkoutCompletionStats: Equatable {
 
         var summary: String {
             if outcome == .skipped, setCount == 0 {
-                return "\(name) — Skipped"
+                return "\(name) — \(isOptional ? "Optional, skipped" : "Skipped")"
             }
 
             var details = ["\(setCount) \(setCount == 1 ? "set" : "sets")", amountLabel]
@@ -56,19 +58,27 @@ struct WorkoutCompletionStats: Equatable {
         exerciseCount = record.entries.count
         totalSets = record.entries.reduce(0) { $0 + $1.sets.count }
         totalReps = record.totalReps
-        durationLabel = Self.durationLabel(from: record.startedAt, to: record.endedAt)
-        exerciseRows = record.entries.map { entry in
+        let isTodaySession = AdaptiveTrainingCoordinator.isTodaySession(record)
+        durationLabel = isTodaySession
+            ? Self.tinyDurationLabel(from: record.startedAt, to: record.endedAt)
+            : Self.durationLabel(from: record.startedAt, to: record.endedAt)
+        exerciseRows = record.entries.enumerated().map { index, entry in
             let isOneArm = entry.sets.contains { $0.side != nil }
             let latestWeight = entry.sets.reversed().compactMap(\.weight).first?.label
             let weightLabel = latestWeight.map { isOneArm ? "\($0) / side" : $0 }
             let heldSeconds = entry.sets.compactMap(\.seconds)
+            // Today's Session lists its main item first; anything after it is the optional harder sample. Entries
+            // saved from the plan already carry "Optional: "; an older one gets it once.
+            let isOptional = isTodaySession && index > 0
+            let hasPrefix = entry.name.hasPrefix(WorkoutPlanItem.optionalPrefix)
             return ExerciseRow(id: entry.id,
-                               name: entry.name,
+                               name: isOptional && !hasPrefix ? WorkoutPlanItem.optionalPrefix + entry.name : entry.name,
                                setCount: entry.sets.count,
                                reps: entry.sets.reduce(0) { $0 + $1.reps },
                                seconds: heldSeconds.isEmpty ? nil : heldSeconds.reduce(0, +),
                                weightLabel: weightLabel,
-                               outcome: entry.outcome)
+                               outcome: entry.outcome,
+                               isOptional: isOptional)
         }
     }
 
@@ -76,5 +86,12 @@ struct WorkoutCompletionStats: Equatable {
         let seconds = max(0, end.timeIntervalSince(start))
         guard seconds >= 60 else { return "<1m" }
         return "\(max(1, Int((seconds / 60).rounded())))m"
+    }
+
+    /// A short Today's Session shows its actual length ("40 s") or "Done", never "<1m".
+    private static func tinyDurationLabel(from start: Date, to end: Date) -> String {
+        let seconds = max(0, end.timeIntervalSince(start))
+        guard seconds < 60 else { return durationLabel(from: start, to: end) }
+        return seconds >= 1 ? "\(Int(seconds.rounded(.down))) s" : "Done"
     }
 }

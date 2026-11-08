@@ -73,7 +73,7 @@ A **Saved Set** is an ordered sequence of exercises, each occurrence with its ow
   - The HUD shows "Exercise 3 of 5".
   - Finishing an occurrence's last set records it as completed and starts the normal rest with the next exercise already selected: "Shoulder press complete. Up next: hammer curl, 2 sets of 10. Rest up." The HUD shows "Up next: Hammer Curl · 2 sets × 10 reps".
   - When rest ends, the next exercise's setup and framing begin. Counting waits for "start", Start, or holding its start position. The first time an exercise appears, its guide opens.
-  - An exercise that appears again later counts its own sets.
+  - An exercise that appears again later counts its own sets. When the next occurrence is the same exercise from the same camera view, such as a shallow floor then its full-range sample in Today's Session, it keeps its framing and can count at once.
 - **Skipping.** Long-press **Next set** in the camera edge toolbar for **Skip to Next Exercise**, or say "next exercise", "skip exercise", or "skip this exercise" (destructive, so it must be said on its own) to move to the next occurrence. Any sets finished there are kept, and the occurrence is recorded as skipped rather than completed.
 - **Changing exercise.** **Change exercise** in the camera edge toolbar opens the existing chooser, which warns that choosing another exercise leaves the Saved Set and skips the rest of it. Naming an exercise directly mid-set asks you to use "next exercise" or "change exercise" instead.
 - **Completion.** After the last occurrence, the completion card lists each occurrence: its sets and reps, "Skipped" (with any sets done first), or "Not reached". **Another Round** runs the whole Saved Set again, and the end-of-workout summary lists the same.
@@ -828,5 +828,13 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
 - [ ] **48.** Set Weight units to **kg**. A new History weight entry starts with kg selected, and saying "my weights are twenty" records 20 kg. Saying "my weights are twenty pounds" records 20 lb. Existing history entries keep their recorded unit and value.
 - [ ] **49.** Turn **Start by holding position** off. Holding the shoulder press start position does not begin a set; tapping play and saying "start" do. The ready status says "Tap play to start" without voice and "Say ‘start’ or tap play" when voice is available. Air squats still require an explicit start.
 - [ ] **50.** Restore defaults and confirm **Exercise default**, **lb**, and Start by holding on. Verify press rests for 90 seconds and curls and lateral raises rest for 60 seconds; holding the press start position still starts the set.
+- [ ] **51.** Today's Session and the effort card (needs a calibrated family; see [Adaptive training](adaptive-training.md)):
+    - In Settings → Developer diagnostics → Adaptive training, **Start Today's Session** is enabled only when Today's Session reads as ready. Tap it and the coach opens with a one-item plan named "Today's Session".
+    - Finish a 1-rep item. The "How was that?" card appears over the camera, clear of the bottom controls, with the amount (1 rep), − and +, **Too Hard**, **Okay**, **Easy**, and **Skip**. Rate it, then close the coach.
+    - The completion screen waits for the answer, then reads "Today's session complete", with the real length (such as "40 s") instead of "<1m".
+    - Reopen the Adaptive training page: Recent evidence shows the item with its prescribed and confirmed amounts, the effort you chose, and the decision and codes the engine made. Repeat with − to change the amount (confirmation reads "user") and with **Skip** (Effort reads "Not rated").
+    - With the card open, say "okay": it rates Okay once you pause for about half a second. Saying "okay, start" starts the next set and does not rate it, and "not easy" rates nothing. "Skip exercise" is still a command, not an answer. Starting the next set with the card open closes it unrated and does not delay the set.
+    - Skip a Today item after a few reps (or seconds of a hold): the card opens at that amount, not at 0. Do a shallow main item then its full-range sample: the sample counts reps.
+    - A routine or Quick Start exercise that is a calibrated family's current rung shows the same card, and its evidence source reads "manual". An exercise from a family that isn't active asks nothing.
 
 These checks remain manual; a passing simulator run does not imply they were performed.

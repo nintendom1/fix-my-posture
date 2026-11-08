@@ -12,23 +12,47 @@ final class AdaptiveDebugViewModel {
     private(set) var errorMessage: String?
     private(set) var didCopy = false
     private(set) var exportedJSON: String?
+    /// Why Today's Session didn't start, when the last tap on Start produced nothing.
+    private(set) var startMessage: String?
 
     var isEmpty: Bool { provider == nil }
+
+    /// The engine says Today's Session is ready, and the app can start it. Enabled only then.
+    var canStartToday: Bool {
+        guard todayStarter != nil, case .ready? = snapshot?.today else { return false }
+        return true
+    }
 
     private let provider: (any AdaptiveDebugProviding)?
     private let now: () -> Date
     private let timeZone: TimeZone
     private let exportDirectory: URL
     private let copy: (String) -> Void
+    private let todayStarter: (any TodaySessionStarting)?
+    private let openTodaySession: @MainActor () -> Void
 
     init(provider: (any AdaptiveDebugProviding)?, now: @escaping () -> Date = Date.init,
          timeZone: TimeZone = .current, exportDirectory: URL = FileManager.default.temporaryDirectory,
-         copy: @escaping (String) -> Void = { UIPasteboard.general.string = $0 }) {
+         copy: @escaping (String) -> Void = { UIPasteboard.general.string = $0 },
+         todayStarter: (any TodaySessionStarting)? = nil, openTodaySession: @escaping @MainActor () -> Void = {}) {
         self.provider = provider
         self.now = now
         self.timeZone = timeZone
         self.exportDirectory = exportDirectory
         self.copy = copy
+        self.todayStarter = todayStarter
+        self.openTodaySession = openTodaySession
+    }
+
+    /// Prepares Today's Session (saving its prescription) and opens it. Does nothing unless it is ready.
+    func startTodaySession() {
+        startMessage = nil
+        guard canStartToday, let todayStarter else { return }
+        guard todayStarter.start(asOf: now()) != nil else {
+            startMessage = todayStarter.lastStartProblem ?? "Today's Session couldn't start."
+            return
+        }
+        openTodaySession()
     }
 
     private var refreshGeneration = 0

@@ -7,10 +7,14 @@ struct WorkoutCompleteState: Equatable {
     let stats: WorkoutCompletionStats
 
     init(record: WorkoutRecord) {
-        title = "Workout complete!"
+        let isTodaySession = AdaptiveTrainingCoordinator.isTodaySession(record)
+        title = isTodaySession ? "Today's session complete" : "Workout complete!"
         routineName = record.planName ?? record.entries.first?.name ?? "Workout"
         let hasSkippedExercise = record.entries.contains { $0.outcome == .skipped }
-        subtitle = "\(routineName) · \(hasSkippedExercise ? "workout complete" : "every set done")"
+        // A tiny session did what it prescribed, so it never claims "every set done".
+        subtitle = isTodaySession
+            ? "\(routineName) · done"
+            : "\(routineName) · \(hasSkippedExercise ? "workout complete" : "every set done")"
         stats = WorkoutCompletionStats(record: record)
     }
 }

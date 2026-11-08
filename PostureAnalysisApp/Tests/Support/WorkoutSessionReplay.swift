@@ -153,6 +153,18 @@ struct WorkoutSessionReplayer {
             }
             definitions[id] = try diagnostics.rebuild(JSONSerialization.data(withJSONObject: configuration))
         }
+        // A smaller-range variant keeps its own recorded configuration. A recording without one (every recording from
+        // before variants were recorded) runs this build's variant, and a control that names none runs the full range.
+        for exercise in catalog {
+            guard let variant = exercise.reducedRange?() else { continue }
+            let key = "\(exercise.id.rawValue).\(WorkoutSessionLines.reducedRangeVariant)"
+            guard let entry = recorded[key] as? [String: Any], let configuration = entry["configuration"] as? [String: Any],
+                  let diagnostics = variant.diagnostics else {
+                definitions[key] = variant
+                continue
+            }
+            definitions[key] = try diagnostics.rebuild(JSONSerialization.data(withJSONObject: configuration))
+        }
         return definitions
     }
 
@@ -184,7 +196,8 @@ struct WorkoutSessionReplayer {
         case "exercise":
             guard let epoch = record["epoch"] as? Int else { throw ReplayError.missing("epoch", line: line) }
             guard let id = record["exercise"] as? String else { return .exercise(nil, analyzerEpoch: epoch) }
-            guard let exercise = exercises[id] else { throw ReplayError.unknownExercise(id, line: line) }
+            let key = (record["variant"] as? String).map { "\(id).\($0)" } ?? id
+            guard let exercise = exercises[key] else { throw ReplayError.unknownExercise(key, line: line) }
             if let view = record["cameraView"] as? String, view != exercise.cameraView.rawValue {
                 throw ReplayError.unsupportedCameraView(view, exercise: id, line: line)
             }
