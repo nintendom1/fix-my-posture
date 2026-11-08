@@ -105,6 +105,42 @@ final class TodaySessionPlannerTests: XCTestCase {
         }
     }
 
+    func testAMainItemSwitchedToEasierCountsAsCompletedTodayButTheSwapItselfDoesNot() throws {
+        let starts = [
+            CalibrationStart(family: .push, start: RungDose(variant: Fixtures.wall, dose: .reps(6))),
+            CalibrationStart(family: .squat,
+                             start: RungDose(variant: VariantID(rawValue: "squat.sit_to_stand"), dose: .reps(3)))
+        ]
+        let calibration = Fixtures.calibration(id: 240, families: [.push, .squat], starts: starts)
+        let main = Fixtures.prescription(id: 241, day: 2, itemID: 242, family: .push, dose: .reps(6))
+        let swap = Fixtures.prescription(id: 243, day: 2, itemID: 244, family: .push, variant: Fixtures.shallowWall,
+                                         dose: .reps(3), role: .easierSwap, offersBonus: false)
+        let switched = Fixtures.evidence(id: 245, day: 2, prescribed: .reps(6), confirmed: .reps(2), effort: .tooHard,
+                                         completion: .switchedToEasier, itemID: 242, prescriptionID: 241,
+                                         midSetTooHard: true)
+        let swapDone = Fixtures.evidence(id: 246, day: 2, variant: Fixtures.shallowWall, prescribed: .reps(3),
+                                         confirmed: .reps(3), effort: .okay, itemID: 244, prescriptionID: 243)
+
+        func status(_ facts: AdaptiveFacts) -> TodaySessionStatus {
+            AdaptiveReplay.todaySession(profile: Fixtures.profile(facts), facts: facts,
+                                        builtExerciseIDs: Fixtures.allBuiltExerciseIDs,
+                                        calendar: Fixtures.calendar, asOf: Fixtures.date(day: 2))
+        }
+
+        guard case .completedToday(let family, let next) = status(AdaptiveFacts(
+            prescriptions: [main, swap], evidence: [switched], calibrations: [calibration])) else {
+            return XCTFail("A main item switched to the easier version is today's main item done.")
+        }
+        XCTAssertEqual(family, .push)
+        XCTAssertEqual(next?.family, .squat, "The rotation moves on.")
+
+        // Only the swap done: the day's main item was never finished, so Today's Session is still offered.
+        guard case .ready = status(AdaptiveFacts(prescriptions: [main, swap], evidence: [swapDone],
+                                                 calibrations: [calibration])) else {
+            return XCTFail("An easier swap alone isn't the day's main item.")
+        }
+    }
+
     func testTinyContextUsesMinimumDoseOmitsSampleAndDoesNotMutateProfile() throws {
         let first = Fixtures.evidence(id: 230, day: 1, prescribed: .reps(12), confirmed: .reps(12))
         let second = Fixtures.evidence(id: 231, day: 2, prescribed: .reps(12), confirmed: .reps(12))

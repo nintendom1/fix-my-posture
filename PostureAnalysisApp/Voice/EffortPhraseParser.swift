@@ -1,6 +1,12 @@
 import AdaptiveTraining
 import Foundation
 
+/// The ways to say "this is too hard", for the Too hard command (`VoiceCommandAlias.standard`) and for the effort card
+/// (`EffortPhraseParser`), so the two never disagree about what was advertised.
+enum TooHardPhrases {
+    static let aliases = ["too hard", "this is too hard", "too difficult", "it's too hard"]
+}
+
 /// An effort answer found in a spoken transcript.
 struct EffortPhraseMatch: Equatable {
     let effort: EffortFeedback
@@ -16,11 +22,17 @@ struct EffortPhraseMatch: Equatable {
 /// command ("okay start"), a negation ("not easy"), or any other word doesn't match, so it reaches the command parser
 /// and the card stays open.
 enum EffortPhraseParser {
-    static let aliases: [(phrase: String, effort: EffortFeedback)] = [
-        ("too hard", .tooHard), ("too difficult", .tooHard), ("that was too hard", .tooHard),
-        ("okay", .okay), ("ok", .okay), ("fine", .okay), ("good", .okay), ("that was okay", .okay),
-        ("easy", .easy), ("too easy", .easy), ("that was easy", .easy)
-    ]
+    /// "Too hard" comes from the one list the Too hard command uses, so every phrase Help advertises works whether or not
+    /// the effort card is open.
+    static let aliases: [(phrase: String, effort: EffortFeedback)] =
+        TooHardPhrases.aliases.map { (phrase: $0, effort: EffortFeedback.tooHard) } + [
+            (phrase: "that was too hard", effort: EffortFeedback.tooHard),
+            (phrase: "okay", effort: EffortFeedback.okay), (phrase: "ok", effort: EffortFeedback.okay),
+            (phrase: "fine", effort: EffortFeedback.okay), (phrase: "good", effort: EffortFeedback.okay),
+            (phrase: "that was okay", effort: EffortFeedback.okay),
+            (phrase: "easy", effort: EffortFeedback.easy), (phrase: "too easy", effort: EffortFeedback.easy),
+            (phrase: "that was easy", effort: EffortFeedback.easy)
+        ]
 
     /// The only other words an answer may carry. "Okay" and "ok" are polite here (never a command), but no verb, noun,
     /// or negation is.

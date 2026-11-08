@@ -26,6 +26,19 @@ public enum AdaptiveReplay {
                             calendar: calendar).status(profile: profile, facts: facts, asOf: now, context: context)
     }
 
+    /// Where policy V1's Too Hard rule would go from `item`'s rung and dose, given the profile's availability: the
+    /// easier version to offer mid-item. Nil when `item` isn't a main item of an active family, is already at the
+    /// floor minimum, or nothing easier is available.
+    public static func easierSwap(for item: PrescriptionItem, profile: AdaptiveProfile,
+                                  catalog: ProgressionCatalog = .v1, builtExerciseIDs: Set<String>,
+                                  parameters: PolicyParameters = .standard, calendar: Calendar,
+                                  asOf now: Date) -> RungDose? {
+        guard profile.activeFamilies.contains(item.family), let state = profile.state(item.family) else { return nil }
+        let availability = Availability(builtExerciseIDs: builtExerciseIDs, equipment: Set(profile.equipment))
+        return RecommendationPolicyV1(catalog: catalog, parameters: parameters, calendar: calendar)
+            .easierSwapTarget(for: item, state: state, availability: availability, at: now)
+    }
+
     /// The debug view's and the export's single source, as of `now`.
     public static func snapshot(facts: AdaptiveFacts, catalog: ProgressionCatalog = .v1,
                                 builtExerciseIDs: Set<String>, parameters: PolicyParameters = .standard,

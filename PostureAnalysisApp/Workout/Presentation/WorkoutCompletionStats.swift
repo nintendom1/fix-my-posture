@@ -23,6 +23,8 @@ struct WorkoutCompletionStats: Equatable {
         var isOptional = false
         /// The extra set the user took after rating an item Easy. It is never prescribed, so it is never skipped.
         var isBonus = false
+        /// The easier version the user took when an item was too hard. It is never prescribed, so it is never skipped.
+        var isEasierSwap = false
 
         /// "8 reps", or "40 s" for timed holds.
         var amountLabel: String {
@@ -57,8 +59,8 @@ struct WorkoutCompletionStats: Equatable {
     }
 
     init(record: WorkoutRecord) {
-        // A bonus repeats an exercise already counted, though its sets and reps still add up.
-        exerciseCount = record.entries.filter { !Self.isBonus($0) }.count
+        // A bonus or an easier version repeats a movement already counted, though its sets and reps still add up.
+        exerciseCount = record.entries.filter { !Self.isBonus($0) && !Self.isEasierSwap($0) }.count
         totalSets = record.entries.reduce(0) { $0 + $1.sets.count }
         totalReps = record.totalReps
         let isTodaySession = AdaptiveTrainingCoordinator.isTodaySession(record)
@@ -73,7 +75,8 @@ struct WorkoutCompletionStats: Equatable {
             // Today's Session lists its main item first; anything after it but a bonus is the optional harder sample.
             // Entries saved from the plan already carry "Optional: "; an older one gets it once.
             let isBonus = Self.isBonus(entry)
-            let isOptional = isTodaySession && index > 0 && !isBonus
+            let isEasierSwap = Self.isEasierSwap(entry)
+            let isOptional = isTodaySession && index > 0 && !isBonus && !isEasierSwap
             let hasPrefix = entry.name.hasPrefix(WorkoutPlanItem.optionalPrefix)
             return ExerciseRow(id: entry.id,
                                name: isOptional && !hasPrefix ? WorkoutPlanItem.optionalPrefix + entry.name : entry.name,
@@ -83,13 +86,19 @@ struct WorkoutCompletionStats: Equatable {
                                weightLabel: weightLabel,
                                outcome: entry.outcome,
                                isOptional: isOptional,
-                               isBonus: isBonus)
+                               isBonus: isBonus,
+                               isEasierSwap: isEasierSwap)
         }
     }
 
     /// A bonus entry is named "Bonus: <name>" when the workout is saved.
     private static func isBonus(_ entry: WorkoutRecordEntry) -> Bool {
         entry.name.hasPrefix(WorkoutPlanItem.bonusPrefix)
+    }
+
+    /// An easier version is named "Easier: <name>" when the workout is saved.
+    private static func isEasierSwap(_ entry: WorkoutRecordEntry) -> Bool {
+        entry.name.hasPrefix(WorkoutPlanItem.easierSwapPrefix)
     }
 
     private static func durationLabel(from start: Date, to end: Date) -> String {

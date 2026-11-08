@@ -38,7 +38,8 @@ enum VoiceCommandHelp {
                 (.pause, "Pauses counting during a set. \u{201C}Wait\u{201D} takes a second, in case you meant \u{201C}weight\u{201D}."),
                 (.resume, "Continues a paused set."),
                 (.restartSet, "Restarts the current set from zero."),
-                (.nextSet, "Finishes this set and starts rest, or starts the next set after rest.")
+                (.nextSet, "Finishes this set and starts rest, or starts the next set after rest."),
+                (.tooHard, "Tells the coach this is too hard. The set keeps going; you can then stop here or try an easier version.")
             ])),
             Section(title: "Exercises", entries: entries([(.changeExercise, "Asks which exercise to switch to."),
                                                          (.nextExercise, "In a Saved Set, skips to the next exercise.")])

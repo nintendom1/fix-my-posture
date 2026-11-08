@@ -40,6 +40,8 @@ struct FinishedWorkoutItem: Equatable {
     var round = 1
     /// The extra set taken after an Easy rating, not an item the app prescribed.
     var isBonus = false
+    /// The easier version taken when an item was too hard, run in its place.
+    var isEasierSwap = false
 
     /// Names one occurrence, so the workout reports it once however many times it notices it.
     enum Key: Hashable {
@@ -82,13 +84,27 @@ enum WorkoutOutcomeAdapter {
         let isAdjusted: Bool
     }
 
+    /// What the user did about an item after tapping or saying "Too hard?" during it. Any of them flags the item's
+    /// evidence (`midSetTooHard`); none of them touches the tracker's observation.
+    enum TooHardChoice: Equatable {
+        /// The offer was ignored (or closed) and the set ran its course.
+        case flagged
+        /// "Stop here, it counts": the item ended early with what was done.
+        case stoppedHere
+        /// "Easier version": the item ended with what was done and an easier rung or dose ran in its place.
+        case switchedToEasier
+    }
+
     /// `answer` is nil when no card was shown, for example when the workout ended during the item. `bonus` is the
-    /// optional extra offered after an Easy rating, kept apart from the prescribed work.
+    /// optional extra offered after an Easy rating, kept apart from the prescribed work. `tooHard` is set when the
+    /// user flagged the item mid-set.
     static func evidence(id: UUID, recordedAt: Date, workoutID: UUID?, identity: Identity, item: FinishedWorkoutItem,
-                         answer: Answer?, bonus: BonusRecord? = nil) -> AdaptiveEvidence {
+                         answer: Answer?, bonus: BonusRecord? = nil, tooHard: TooHardChoice? = nil) -> AdaptiveEvidence {
         let adjusted = answer.flatMap { $0.isAdjusted ? $0.amount : nil }
-        let completion = completion(of: item, adjusted: adjusted)
-        let confirmation = confirmation(of: item, completion: completion, adjusted: adjusted, rated: answer?.effort != nil)
+        // What the item itself did, whatever the user then chose; confirmation and the tracker read this.
+        let outcome = completion(of: item, adjusted: adjusted)
+        let confirmation = confirmation(of: item, completion: outcome, adjusted: adjusted, rated: answer?.effort != nil)
+        let completion = completionAfter(outcome, choice: tooHard)
 
         var source = EvidenceSource.manual
         var prescriptionID: UUID?
@@ -108,11 +124,24 @@ enum WorkoutOutcomeAdapter {
             confirmed: confirmation.source == .none ? nil : WorkAmount(kind: item.unit, amount: adjusted ?? item.counted),
             confirmation: confirmation.source,
             setAmounts: confirmation.setAmounts.map { WorkAmount(kind: item.unit, amount: $0) },
-            tracker: tracker(of: item, completion: completion),
+            tracker: tracker(of: item, completion: outcome),
             effort: answer?.effort,
-            // Mid-set Too Hard is recorded by a later PR.
-            midSetTooHard: false, bonus: bonus,
+            midSetTooHard: tooHard != nil, bonus: bonus,
             completion: completion)
+    }
+
+    /// How the item ended once the user's Too hard choice is counted. Stopping early is the user's choice, so even a
+    /// self-reported item confirmed at its full amount reads as stopped early; taking the easier version is its own
+    /// ending. A workout that ended, or an item never attempted, keeps its own reason.
+    static func completionAfter(_ outcome: CompletionReason, choice: TooHardChoice?) -> CompletionReason {
+        switch choice {
+        case .switchedToEasier?:
+            return .switchedToEasier
+        case .stoppedHere?:
+            return outcome == .completed ? .stoppedEarly : outcome
+        case .flagged?, nil:
+            return outcome
+        }
     }
 
     // MARK: - Bonus
@@ -128,8 +157,11 @@ enum WorkoutOutcomeAdapter {
     /// The bonus to offer once a prescribed item is rated, or nil. Only a main Today's Session item whose
     /// prescription offers one, rated Easy and done in full (counting a corrected amount), earns it. Manual work, a
     /// harder sample, Okay or Too Hard, a skipped item, an item stopped early, and a bonus itself never do.
-    static func bonusOffer(identity: Identity, item: FinishedWorkoutItem, answer: Answer) -> Dose? {
-        guard identity.offersBonus, case .adaptive = identity.origin, !item.isBonus, answer.effort == .easy,
+    static func bonusOffer(identity: Identity, item: FinishedWorkoutItem, answer: Answer,
+                           tooHard: TooHardChoice? = nil) -> Dose? {
+        // Nobody who said it was too hard is asked to do more, whatever they rate it afterwards.
+        guard identity.offersBonus, case .adaptive = identity.origin, !item.isBonus, !item.isEasierSwap,
+              tooHard == nil, answer.effort == .easy,
               item.result == .completed,
               completion(of: item, adjusted: answer.isAdjusted ? answer.amount : nil) == .completed else { return nil }
         return bonusDose(for: item.unit)
@@ -218,8 +250,8 @@ enum FinishedItemDetector {
                 case .skipped?:
                     result = .skipped
                     // The record keeps only finished sets, so work in the set being skipped is read from before it. A
-                    // bonus's record already carries that work, so it isn't added twice.
-                    if before.currentPlanItem?.id == planItem.id, !planItem.isBonus {
+                    // bonus's or an easier version's record already carries that work, so it isn't added twice.
+                    if before.currentPlanItem?.id == planItem.id, !planItem.isInserted {
                         let partial = before.observedSetAmount(at: now)
                         if partial > 0 { amounts.append(partial) }
                     }
@@ -241,7 +273,8 @@ enum FinishedItemDetector {
                 if after.phase == .ended {
                     result = .endedWorkout
                 } else {
-                    result = sets >= definition.setEntries ? .completed : nil
+                    // The last set, or "Stop here" ending the exercise early: complete with the sets it has.
+                    result = sets >= definition.setEntries || after.phase == .exerciseComplete ? .completed : nil
                 }
                 if let result {
                     items.append(item(planItem: nil, definition: definition,
@@ -301,6 +334,15 @@ enum FinishedItemDetector {
             planItemID: planItem?.id, exerciseID: definition.id, reducedRange: planItem?.reducedRange ?? false,
             unit: isTimed ? .seconds : .reps, tracking: tracking, setAmounts: amounts,
             target: definition.targetReps.lowerBound, result: result,
-            trackingLost: tracking == .camera && trackingLost, round: round, isBonus: planItem?.isBonus ?? false)
+            trackingLost: tracking == .camera && trackingLost, round: round, isBonus: planItem?.isBonus ?? false,
+            isEasierSwap: planItem?.isEasierSwap ?? false)
+    }
+
+    /// Names the occurrence the session is on, the way `FinishedWorkoutItem.key` will once it finishes: the plan
+    /// occurrence, or the standalone exercise and its round. Nil before an exercise is chosen.
+    static func currentKey(in session: WorkoutSession) -> FinishedWorkoutItem.Key? {
+        if session.isFollowingPlan, let planItem = session.currentPlanItem { return .plan(planItem.id) }
+        guard let id = session.exerciseID else { return nil }
+        return .exercise(id, round: session.progress[id]?.round ?? 1)
     }
 }

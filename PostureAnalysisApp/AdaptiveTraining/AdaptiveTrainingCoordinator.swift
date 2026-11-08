@@ -27,6 +27,20 @@ struct TodaySessionLaunch: Equatable {
     let items: [AdaptivePlanItem]
 }
 
+/// The easier version the engine chose for an item that was too hard, resolved to something the coach can run. The
+/// engine decided `target`; the app only found its exercise.
+struct EasierSwapOption: Equatable {
+    let target: RungDose
+    let exerciseID: ExerciseID
+    let reducedRange: Bool
+}
+
+/// An easier version the engine saved as a prescription, ready to run as a plan item of its own.
+struct IssuedEasierSwap: Equatable {
+    let prescriptionID: UUID
+    let item: AdaptivePlanItem
+}
+
 /// What the workout model needs from adaptive training: which rung a manual exercise is, and a place to record
 /// evidence. Nil in workouts that have no engine.
 @MainActor
@@ -35,6 +49,17 @@ protocol AdaptiveEvidenceRecording: AnyObject {
     func activeRung(for exerciseID: ExerciseID, reducedRange: Bool) -> ActiveRung?
     /// Saves evidence. A failure is logged and never reaches the workout.
     func record(_ evidence: AdaptiveEvidence)
+    /// The easier version of a Today's Session main item that is under way, or nil when the engine has none or the
+    /// coach can't run it. Read-only. The engine decides what is easier; callers never compare difficulty.
+    func easierSwapOption(for item: PrescriptionItem, asOf now: Date) -> EasierSwapOption?
+    /// Saves `option` as the prescription the user is now following in place of `item`, or nil when it couldn't be
+    /// saved. A failure is logged and never reaches the workout.
+    func issueEasierSwap(replacing item: PrescriptionItem, option: EasierSwapOption, at now: Date) -> IssuedEasierSwap?
+}
+
+extension AdaptiveEvidenceRecording {
+    func easierSwapOption(for item: PrescriptionItem, asOf now: Date) -> EasierSwapOption? { nil }
+    func issueEasierSwap(replacing item: PrescriptionItem, option: EasierSwapOption, at now: Date) -> IssuedEasierSwap? { nil }
 }
 
 /// What the Adaptive training debug page needs to start Today's Session.
@@ -153,6 +178,36 @@ final class AdaptiveTrainingCoordinator: AdaptiveEvidenceRecording, TodaySession
             try engine.record(evidence)
         } catch {
             PersistenceRepositoryLogging.failed("Record adaptive evidence", error: error)
+        }
+    }
+
+    func easierSwapOption(for item: PrescriptionItem, asOf now: Date) -> EasierSwapOption? {
+        do {
+            guard let target = try engine.easierSwap(for: item, asOf: now), let resolved = resolve(target) else {
+                return nil
+            }
+            return EasierSwapOption(target: target, exerciseID: resolved.exercise.id,
+                                    reducedRange: resolved.rung.modifiers.contains(.reducedRange))
+        } catch {
+            PersistenceRepositoryLogging.failed("Read the easier version", error: error)
+            return nil
+        }
+    }
+
+    func issueEasierSwap(replacing item: PrescriptionItem, option: EasierSwapOption,
+                         at now: Date) -> IssuedEasierSwap? {
+        let prescriptionID = makeID()
+        let itemID = makeID()
+        do {
+            let prescription = try engine.issueEasierSwap(replacing: item, target: option.target,
+                                                          prescriptionID: prescriptionID, itemID: itemID, at: now)
+            return IssuedEasierSwap(
+                prescriptionID: prescription.id,
+                item: AdaptivePlanItem(itemID: itemID, role: .easierSwap, family: item.family, rungDose: option.target,
+                                       exerciseID: option.exerciseID, reducedRange: option.reducedRange))
+        } catch {
+            PersistenceRepositoryLogging.failed("Issue the easier version", error: error)
+            return nil
         }
     }
 

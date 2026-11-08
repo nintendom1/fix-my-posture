@@ -27,6 +27,8 @@ App code reaches the package through adapters in `PostureAnalysisApp/AdaptiveTra
 - `WorkoutOutcomeAdapter` is a pure mapping from a finished workout item and the effort card's answer to
   `AdaptiveEvidence`. `FinishedItemDetector` finds finished items by comparing the workout session before and after
   an input.
+- The coordinator also asks the engine for an item's easier version and saves it when the user takes it; see
+  [Mid-set Too hard](#mid-set-too-hard).
 
 Dependencies point one way: the app imports the package, never the reverse, so package code can't name app types.
 `PackageBoundaryTests` fails if any package source imports anything but Foundation. The policy, projection, and
@@ -128,7 +130,7 @@ only because the app records a separate confirmation source and confirmed amount
 | Okay/Easy without confirmed work | `unconfirmedRating` or `nothingCompleted` for confirmed zero | None. |
 | Okay/Easy on an easier swap | `easierSwapRecorded` | Comfortable dose only. |
 | Okay on the main item | `okayHold` | Hold current dose, clear the Easy streak, and raise confidence. |
-| Easy below the full prescribed amount, stopped early, or ended during the item | `stoppedEarlyHold` | Hold current dose and clear the Easy streak. |
+| Easy below the full prescribed amount, stopped early, switched to an easier version, or ended during the item | `stoppedEarlyHold` | Hold current dose and clear the Easy streak. |
 | Easy on the main item | `easyOnceHold` or `easyStreakIncrease` | Two Easy ratings on different days within the recency window add one dose step. Same-day Easy does not increment the streak. |
 | Easy at the top of the dose range | `topOfRangeSampleOffered` | Offer the next available rung as an optional sample. |
 | Okay/Easy on a harder sample | `harderSampleAccepted` | Move to that rung at its minimum dose. |
@@ -146,6 +148,15 @@ Too Hard is authoritative, including when the item was completed. The policy che
 | The dose is above the rung minimum | Reduce by at least one step, rounding the configured reduction up to a full step (`tooHardReducedDose`). |
 | The dose is at the minimum and an easier rung is available | Use its recent comfortable dose or its minimum (`tooHardEasierRung`). |
 | No easier rung is available | Keep the performed rung at its minimum (`tooHardAtFloor`). |
+
+The mid-item "Easier version" asks the same table. `AdaptiveTrainingEngine.easierSwap(for:asOf:)` (and the pure
+`AdaptiveReplay.easierSwap`) runs these branches on the item's own rung and dose, and returns where Too Hard on that
+item would go. It reuses the policy's internal Too Hard computation, so the answer and a Too Hard rating on the same item
+always agree. It returns nil for any role but the day's main item, for a family that isn't active, for a rung outside
+its family, when the item is already at the floor's minimum, and when nothing easier is available. The easier rung can
+count a different unit (a glute bridge's easier rung is a timed hold). `issueEasierSwap(replacing:target:prescriptionID:itemID:at:)`
+saves a `todaySession` prescription with one `easierSwap` item for the same family, with caller-provided ids; a target
+outside the item's family throws `AdaptiveTrainingEngineError.easierSwapOutsideFamily`. The swap item never offers a bonus.
 
 Too Hard clears the Easy streak and pending harder sample, lowers confidence, and removes comfortable doses on the
 performed rung that are at or above the Too Hard dose. At the floor minimum confidence is low. Too Hard on something
@@ -293,8 +304,8 @@ not about whether the user was able to do it.
 ### Evidence mapping
 
 `WorkoutOutcomeAdapter` is pure and decides nothing about difficulty. Rejection reasons stay empty because the session
-doesn't keep the analyzer's rep rejections. `midSetTooHard` is false until a later PR. `bonus` is nil unless the item
-earned an offer; see [Bonus reps](#bonus-reps).
+doesn't keep the analyzer's rep rejections. `midSetTooHard` is true when the user flagged the item with "Too hard?"; see
+[Mid-set Too hard](#mid-set-too-hard). `bonus` is nil unless the item earned an offer; see [Bonus reps](#bonus-reps).
 
 | Field | Value |
 |---|---|
@@ -311,8 +322,10 @@ earned an offer; see [Bonus reps](#bonus-reps).
 | `tracker` `.notTracked` | Self-reported or timed items, and camera items skipped before any work. |
 | `effort` | The card's answer; nil when skipped or closed unrated. |
 | `completion` `.completed` | Every set done at or above the target (the card's amount counts if the user changed it). |
-| `completion` `.stoppedEarly` | Done with less than the target, or skipped after some work (the counted reps or seconds held, read from before the skip). |
+| `completion` `.stoppedEarly` | Done with less than the target, or skipped after some work (the counted reps or seconds held, read from before the skip), or "Stop here, it counts" at any amount. |
+| `completion` `.switchedToEasier` | The user took the easier version; the item ended with what was done. |
 | `completion` `.endedWorkout` | The workout ended during the item. |
+| `midSetTooHard` | True when the user tapped or said "Too hard?" during the item, whatever they chose next. Never read from, or written by, the tracker. |
 | `completion` `.notAttempted` | Skipped before any work, such as a declined harder sample. |
 | `bonus` | Only when the item was offered a bonus: see [Bonus reps](#bonus-reps). |
 
@@ -363,6 +376,52 @@ prescription because of it.
   entry, so it is never listed as skipped or not reached. A bonus left partway is saved with its work and no outcome, so
   it never reads "Skipped" either. A recording writes `bonus` on its plan item and a `bonus` input
   line when the set is inserted.
+
+## Mid-set Too hard
+
+During any active set (camera-tracked, self-reported, or timed) the user can tap **Too hard?** or say "too hard". It
+never stops the set by itself. It flags the item and opens a small offer above the bottom controls. The app only asks
+the engine what is easier (invariant 6).
+
+- **The control.** The large, labeled button (`tooHardButton`, with the VoiceOver hint "Tells the coach this is too hard.
+  The set keeps going unless you choose an option.") shows only while a set is exercising or paused, for every kind of
+  exercise (`WorkoutHUDViewState.showsTooHardButton`). It stands aside while the offer is open. The voice command is
+  `WorkoutCommand.tooHard`: "too hard", "this is too hard", "too difficult", "it's too hard" (also in Voice Commands help,
+  under Sets). The phrases live in one list (`TooHardPhrases`) used by both the command and the effort card, so each one
+  works whether or not the card is open: with the card open it is an effort answer, because the effort phrases are parsed
+  first. As an affirmative answer, the command matches only the phrase plus polite filler words ("okay", "please",
+  "coach", and the like). Any other word, including a negation ("not too hard") or another command ("this is too hard,
+  pause"), means the transcript is something else, and the normal commands see it. A streaming "this is too hard" waits
+  until the transcript is final or has settled for 0.6 s, so a command that follows is not lost. Saying it with no set
+  under way does nothing.
+- **The offer** (`TooHardOfferView`). Ignoring it keeps the set going and counting. It closes by itself when the set
+  ends or the user taps ×, and the item stays flagged: its evidence carries `midSetTooHard: true`, and the effort card
+  that follows opens as usual.
+  - **Stop here, it counts** (every item) ends the item now with what was done, the way Done does: the counted reps, the
+    seconds held, or, for a self-reported set, the prescribed amount, which the effort card lets the user correct. In
+    a plan, an item's remaining sets are skipped. A standalone exercise (Quick Start) ends too: the reducer's
+    `stopItem` command records the set under way, schedules nothing after it (no rest, so nothing can start once a rest
+    deadline passes), and completes the exercise with the sets it has; Another Round still starts it again from set 1. The
+    card opens with **Too Hard preselected**, and the user can choose another answer. The evidence is `.stoppedEarly` even when the
+    confirmed amount equals the target, because stopping was the user's choice.
+  - **Easier version** (Today's Session main items only, and only when the engine returns one) asks the coordinator
+    for `AdaptiveTrainingEngine.easierSwap` when the offer opens. With no answer, the offer shows only Stop here. When
+    taken, the coordinator issues the swap prescription, the main item ends as in Stop here but is recorded
+    `.switchedToEasier` (its card is preselected on Too Hard), and the reducer's `startEasierSwap` input inserts a one-set
+    plan item for the engine's target right after it and sets it up without a rest. The target may be another rung's
+    exercise (`reducedRange` from the rung's modifiers). A harder sample that follows still runs after it, and skipping
+    it stays neutral. Manual work and a harder sample never offer it, and the app never asks the engine about them.
+- **Preselection.** A card that opens on Too Hard records that answer if it closes without the user choosing: starting
+  the next set, ending the workout, or leaving the screen. Stop here during a [bonus](#bonus-reps) opens the bonus's own
+  card on Too Hard the same way; the bonus records that rating, and the prescribed item keeps its Easy. **Skip** is an explicit choice and records no rating, but the
+  flag stays. A flagged item is never offered a bonus, whatever it is rated.
+- **Evidence.** `midSetTooHard` is true on the flagged item's evidence. The tracker observation stays exactly what the
+  tracker saw: tracking loss is never turned into Too Hard, and a Too hard tap never changes the tracker's status. The
+  confirmation follows the card, so a camera count after tracking loss is the user's only when they correct it. The easier
+  version's evidence carries its own `prescriptionID` and `prescriptionItemID` (role `easierSwap`) and has its own effort
+  card. Replay notes it as `easierSwapRecorded`.
+- **Completion copy.** The saved entry is named "Easier: <name>" in History and on the completion screen, never counts as
+  skipped, shows only once it has sets, and is not an extra exercise in the totals. A new round drops it, like a bonus.
 
 ## Debug view and export
 

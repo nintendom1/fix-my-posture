@@ -33,6 +33,92 @@ final class AdaptiveTrainingEngineTests: XCTestCase {
         XCTAssertEqual(try store.loadFacts().prescriptions, [prescription])
     }
 
+    func testEasierSwapAsksThePolicyAndNeverWritesAFact() throws {
+        let facts = Fixtures.seededFacts(dose: .reps(8))
+        let store = InMemoryAdaptiveTrainingStore(facts: facts)
+        let engine = AdaptiveTrainingEngine(store: store, builtExerciseIDs: Fixtures.allBuiltExerciseIDs,
+                                            calendar: Fixtures.calendar)
+        let item = PrescriptionItem(id: Fixtures.id(270), family: .push,
+                                    target: RungDose(variant: Fixtures.wall, dose: .reps(8)))
+
+        let target = try engine.easierSwap(for: item, asOf: Fixtures.date(day: 1))
+
+        XCTAssertEqual(target, RungDose(variant: Fixtures.wall, dose: .reps(6)))
+        XCTAssertEqual(try store.loadFacts(), facts, "Asking is read-only.")
+
+        let floor = PrescriptionItem(id: Fixtures.id(271), family: .push,
+                                     target: RungDose(variant: Fixtures.shallowWall, dose: .reps(1)))
+        XCTAssertNil(try engine.easierSwap(for: floor, asOf: Fixtures.date(day: 1)))
+    }
+
+    func testIssueEasierSwapSavesATodaySessionPrescriptionWithOneEasierSwapItem() throws {
+        let store = InMemoryAdaptiveTrainingStore(facts: Fixtures.seededFacts(dose: .reps(8)))
+        let engine = AdaptiveTrainingEngine(store: store, builtExerciseIDs: Fixtures.allBuiltExerciseIDs,
+                                            calendar: Fixtures.calendar)
+        let item = PrescriptionItem(id: Fixtures.id(272), family: .push,
+                                    target: RungDose(variant: Fixtures.wall, dose: .reps(8)))
+        let target = try XCTUnwrap(try engine.easierSwap(for: item, asOf: Fixtures.date(day: 1)))
+
+        let prescription = try engine.issueEasierSwap(replacing: item, target: target, prescriptionID: Fixtures.id(273),
+                                                      itemID: Fixtures.id(274), at: Fixtures.date(day: 1))
+
+        XCTAssertEqual(prescription.id, Fixtures.id(273))
+        XCTAssertEqual(prescription.kind, .todaySession)
+        XCTAssertEqual(prescription.issuedAt, Fixtures.date(day: 1))
+        XCTAssertEqual(prescription.policyVersion, .v1)
+        XCTAssertEqual(prescription.catalogVersion, Fixtures.catalog.version)
+        XCTAssertEqual(prescription.items, [PrescriptionItem(id: Fixtures.id(274), family: .push, target: target,
+                                                            role: .easierSwap, offersBonus: false)])
+        XCTAssertEqual(try store.loadFacts().prescriptions, [prescription])
+        XCTAssertFalse(prescription.rationale.isEmpty)
+
+        // Saving the same ids again is a no-op, like every fact.
+        _ = try engine.issueEasierSwap(replacing: item, target: target, prescriptionID: Fixtures.id(273),
+                                       itemID: Fixtures.id(274), at: Fixtures.date(day: 1))
+        XCTAssertEqual(try store.loadFacts().prescriptions.count, 1)
+    }
+
+    func testIssueEasierSwapRefusesATargetOutsideTheItemsFamily() throws {
+        let store = InMemoryAdaptiveTrainingStore(facts: Fixtures.seededFacts(dose: .reps(8)))
+        let engine = AdaptiveTrainingEngine(store: store, builtExerciseIDs: Fixtures.allBuiltExerciseIDs,
+                                            calendar: Fixtures.calendar)
+        let item = PrescriptionItem(id: Fixtures.id(275), family: .push,
+                                    target: RungDose(variant: Fixtures.wall, dose: .reps(8)))
+        let foreign = RungDose(variant: VariantID(rawValue: "squat.sit_to_stand"), dose: .reps(3))
+
+        XCTAssertThrowsError(try engine.issueEasierSwap(replacing: item, target: foreign, prescriptionID: Fixtures.id(276),
+                                                        itemID: Fixtures.id(277), at: Fixtures.date(day: 1))) { error in
+            XCTAssertEqual(error as? AdaptiveTrainingEngineError, .easierSwapOutsideFamily(.push))
+        }
+        XCTAssertTrue(try store.loadFacts().prescriptions.isEmpty)
+    }
+
+    func testTheSwapsEvidenceAndTheMainItemsEvidenceReplayThroughTheEngine() throws {
+        let store = InMemoryAdaptiveTrainingStore(facts: Fixtures.seededFacts(dose: .reps(8)))
+        let engine = AdaptiveTrainingEngine(store: store, builtExerciseIDs: Fixtures.allBuiltExerciseIDs,
+                                            calendar: Fixtures.calendar)
+        let main = Fixtures.prescription(id: 278, day: 1, itemID: 279, variant: Fixtures.wall, dose: .reps(8))
+        try store.record(main)
+        let item = try XCTUnwrap(main.items.first)
+        let target = try XCTUnwrap(try engine.easierSwap(for: item, asOf: Fixtures.date(day: 1)))
+        _ = try engine.issueEasierSwap(replacing: item, target: target, prescriptionID: Fixtures.id(280),
+                                       itemID: Fixtures.id(281), at: Fixtures.date(day: 1))
+
+        let mainEvents = try engine.record(Fixtures.evidence(id: 282, day: 1, prescribed: .reps(8), confirmed: .reps(3),
+                                                             effort: .tooHard, completion: .switchedToEasier,
+                                                             itemID: 279, prescriptionID: 278, midSetTooHard: true))
+        XCTAssertTrue(mainEvents.contains { $0.kind == .effortTooHard })
+        XCTAssertEqual(try engine.profile().state(.push)?.current, target)
+
+        let swapEvents = try engine.record(Fixtures.evidence(id: 283, day: 1, hour: 13, variant: target.variant,
+                                                             prescribed: target.dose, confirmed: WorkAmount(target.dose),
+                                                             effort: .okay, itemID: 281, prescriptionID: 280))
+        XCTAssertEqual(swapEvents.map(\.kind), [.effortOkay])
+        let profile = try engine.profile()
+        XCTAssertEqual(profile.state(.push)?.current, target, "The swap's own rating never moves the prescription again.")
+        XCTAssertTrue(profile.transitions.last?.rationale.codes.contains(.easierSwapRecorded) == true)
+    }
+
     func testValidStoredCachePayloadIsReturnedAsIs() throws {
         let facts = AdaptiveFacts()
         let store = InMemoryAdaptiveTrainingStore(facts: facts)

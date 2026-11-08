@@ -13,6 +13,8 @@ enum WorkoutIntent: Equatable {
     case anotherRound
     case nextExercise
     case endWorkout
+    /// "Too hard?" during a set: flags it and opens the offer. The set keeps going.
+    case tooHard
     case toggleCoachMute
     case setCoachMuted(Bool)
     case toggleMicrophoneMute
@@ -47,6 +49,7 @@ enum WorkoutIntent: Equatable {
         case .anotherRound: return .anotherRound
         case .nextExercise: return .nextExercise
         case .endWorkout: return .endWorkout
+        case .tooHard: return .tooHard
         default: return nil
         }
     }

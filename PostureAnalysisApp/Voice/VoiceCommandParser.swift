@@ -49,8 +49,10 @@ struct VoiceCommandParser: VoiceCommandParsing {
         }
         let meaningfulWords = words.filter { !Self.fillers.contains($0) }.count
         guard let best = candidates.first(where: { candidate in
-            !candidate.alias.isDestructive
-                || meaningfulWords - candidate.tokens.filter({ !Self.fillers.contains($0) }).count <= Self.destructiveExtraWords
+            Self.acceptsSurroundings(of: candidate.alias.command, matching: candidate.end - candidate.tokens.count..<candidate.end,
+                                     in: words)
+                && (!candidate.alias.isDestructive
+                    || meaningfulWords - candidate.tokens.filter({ !Self.fillers.contains($0) }).count <= Self.destructiveExtraWords)
         }) else { return nil }
 
         let endsTranscript = best.end == words.count
@@ -58,11 +60,22 @@ struct VoiceCommandParser: VoiceCommandParsing {
             return VoiceCommandMatch(command: best.alias.command, phrase: best.alias.display, isPrefixOfLongerPhrase: true,
                                      settleTime: Self.weightSoundAlikeSettleTime)
         }
-        let isPrefix = endsTranscript && entries.contains { other in
+        // A streaming "this is too hard" may be followed by the command it was said with ("... pause"), so it waits for
+        // a final or settled transcript rather than flagging the set first.
+        let isPrefix = best.alias.command == .tooHard || endsTranscript && entries.contains { other in
             other.alias.command != best.alias.command && other.tokens.count > best.tokens.count
                 && Array(other.tokens.prefix(best.tokens.count)) == best.tokens
         }
         return VoiceCommandMatch(command: best.alias.command, phrase: best.alias.display, isPrefixOfLongerPhrase: isPrefix)
+    }
+
+    /// "Too hard" is an affirmative answer, so, like the effort card's answers, it matches only the phrase plus polite
+    /// filler words. Any other word ("pause", "not", a negation) means the transcript is something else, and the normal
+    /// commands see it. Every other command tolerates what surrounds it, as before.
+    private static func acceptsSurroundings(of command: WorkoutCommand, matching range: Range<Int>,
+                                            in words: [String]) -> Bool {
+        guard command == .tooHard else { return true }
+        return (words[..<range.lowerBound] + words[range.upperBound...]).allSatisfy(EffortPhraseParser.politeWords.contains)
     }
 
     /// Lowercase words without punctuation or apostrophes ("Let's go!" becomes ["lets", "go"]).

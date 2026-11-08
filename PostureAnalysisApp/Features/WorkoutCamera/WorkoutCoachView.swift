@@ -177,6 +177,15 @@ struct WorkoutCoachView: View {
                         .transition(.opacity)
                 }
 
+                // During a set, above the bottom controls. It never covers them and never stops the set.
+                if let offer = model.tooHardOffer {
+                    TooHardOfferView(state: offer,
+                                     onStopHere: { model.stopHere() },
+                                     onEasierVersion: { model.takeEasierVersion() },
+                                     onDismiss: { model.dismissTooHardOffer() })
+                        .transition(.opacity)
+                }
+
                 if model.showsCompletionCard {
                     if model.session.plan != nil, model.session.isFollowingPlan {
                         WorkoutCompleteScreen(
@@ -205,6 +214,7 @@ struct WorkoutCoachView: View {
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: model.showsCompletionCard)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: model.effortCard?.id)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: model.bonusOffer?.id)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: model.tooHardOffer?.id)
         }
     }
 

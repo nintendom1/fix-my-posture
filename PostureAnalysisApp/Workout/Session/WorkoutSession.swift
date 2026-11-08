@@ -50,6 +50,13 @@ enum WorkoutCommand: Equatable {
     /// Stops listening; turning it back on is touch-only, since a muted microphone can't hear.
     case muteMicrophone
     case endWorkout
+    /// "Too hard": flags the item under way and offers to stop it or take an easier version. The reducer ignores it;
+    /// the coach model owns the flag and the offer, and a set never stops because of it.
+    case tooHard
+    /// Ends the exercise under way with what was done, whatever sets are left: the set in progress is recorded the way
+    /// Done records it, and no remaining set is scheduled. Touch only (the Too hard offer's "Stop here"), and only
+    /// outside a plan; a plan item skips its remaining sets with `nextExercise`.
+    case stopItem
 }
 
 struct Utterance: Equatable {
@@ -88,6 +95,9 @@ enum WorkoutEvent: Equatable {
     /// The user took the optional extra set after an item: one more set of the same exercise is inserted right after
     /// it and set up, without a rest.
     case startBonus(BonusRequest)
+    /// The user took the easier version of the item they just ended: a one-set occurrence is inserted right after it
+    /// and set up, without a rest, in place of what was left of the item.
+    case startEasierSwap(EasierSwapRequest)
 }
 
 enum WorkoutEffect: Equatable {
@@ -279,8 +289,9 @@ struct WorkoutSession {
     var planPositionLabel: String? {
         guard let plan, isFollowingPlan else { return nil }
         if currentPlanItem?.isBonus == true { return "Bonus" }
-        let position = plan.items.prefix(planIndex).filter { !$0.isBonus }.count + 1
-        return "Exercise \(position) of \(plan.items.filter { !$0.isBonus }.count)"
+        if currentPlanItem?.isEasierSwap == true { return "Easier version" }
+        let position = plan.items.prefix(planIndex).filter { !$0.isInserted }.count + 1
+        return "Exercise \(position) of \(plan.items.filter { !$0.isInserted }.count)"
     }
 
     /// Reps both sides have completed in the current set.
@@ -376,6 +387,8 @@ struct WorkoutSession {
             return []
         case .startBonus(let bonus):
             return startBonus(bonus, at: now)
+        case .startEasierSwap(let swap):
+            return startEasierSwap(swap, at: now)
         }
     }
 
@@ -489,7 +502,7 @@ struct WorkoutSession {
             return [.repeatLastInstruction]
         case .help:
             return [.speak(Utterance(text: helpText, isInstruction: false))]
-        case .closeHelp, .muteCoach:
+        case .closeHelp, .muteCoach, .tooHard:
             return []
         case .unmuteCoach:
             return [.speak(Utterance(text: "Coach voice on.", isInstruction: false))]
@@ -497,6 +510,8 @@ struct WorkoutSession {
             return [.speak(Utterance(text: "Microphone off. Tap the microphone to turn it back on.", isInstruction: false))]
         case .endWorkout:
             return endWorkout(at: now)
+        case .stopItem:
+            return stopItem(at: now)
         }
     }
 
@@ -674,6 +689,25 @@ struct WorkoutSession {
         return effects
     }
 
+    /// Ends a standalone exercise early. The set under way is recorded the way Done records it (the counted reps, the
+    /// seconds held, or a self-reported set's prescribed amount), nothing is scheduled after it (no rest, so no automatic
+    /// start once a rest deadline passes), and the exercise is complete with the sets it has. Another Round starts it
+    /// again from set 1. Does nothing outside a set, or while following a plan.
+    private mutating func stopItem(at now: TimeInterval) -> [WorkoutEffect] {
+        guard !isFollowingPlan, let exercise, phase == .exercising || isPaused else { return [] }
+        let amount = currentSetAmount(at: now)
+        progress[exercise.id, default: ExerciseProgress()].record(reps: amount, weight: currentWeights[exercise.id])
+        sideReps = [.left: 0, .right: 0]
+        clearHold()
+        restEndsAt = nil
+        restDurationSeconds = nil
+        restLeadsToNextExercise = false
+        isRestingBeforeNextExercise = false
+        phase = .exerciseComplete
+        let effects = setCounting(false) + newAnalyzer() + clearFeedback()
+        return effects + [.speak(Utterance(text: "Stopped at \(exercise.amountPhrase(amount)). \(exercise.displayName) counts. \(completePrompt)"))]
+    }
+
     /// The same exercise again from set 1. Earlier rounds stay in the progress for the summary.
     private mutating func startAnotherRound(at now: TimeInterval) -> [WorkoutEffect] {
         guard let exercise else { return [] }
@@ -747,28 +781,57 @@ struct WorkoutSession {
     /// after it has started (it may still be resting before the next occurrence), and only once; otherwise nothing
     /// changes.
     private mutating func startBonus(_ bonus: BonusRequest, at now: TimeInterval) -> [WorkoutEffect] {
-        guard var plan, isFollowingPlan, bonus.amount >= 1,
-              let index = plan.items.firstIndex(where: { $0.id == bonus.after }),
-              !plan.items[index].isBonus, planRecords[bonus.after]?.outcome == .completed,
-              planIndex == index || planIndex == index + 1 else { return [] }
+        guard let plan, bonus.amount >= 1, let index = insertionIndex(after: bonus.after, in: plan),
+              planRecords[bonus.after]?.outcome == .completed else { return [] }
+        let source = plan.items[index - 1]
+        return insert(WorkoutPlanItem(id: bonus.itemID, exerciseID: source.exerciseID, sets: 1,
+                                      targetReps: bonus.amount...bonus.amount, reducedRange: source.reducedRange,
+                                      isBonus: true),
+                      at: index, lead: "One more.", at: now)
+    }
+
+    /// Inserts the easier version of the occurrence `swap.after` right after it and sets it up, without a rest. The
+    /// occurrence has just ended with what was done (completed, or skipped past its remaining sets), so the swap
+    /// replaces the rest of it. It may run a different exercise, or the same one at a smaller range or dose. It is
+    /// accepted only once per occurrence, and only while nothing after that occurrence has started.
+    private mutating func startEasierSwap(_ swap: EasierSwapRequest, at now: TimeInterval) -> [WorkoutEffect] {
+        guard let plan, swap.amount >= 1, exercises.contains(where: { $0.id == swap.exerciseID }),
+              let index = insertionIndex(after: swap.after, in: plan), !plan.items[index - 1].isEasierSwap,
+              planRecords[swap.after]?.outcome != nil,
+              !(plan.items.indices.contains(index) && plan.items[index].isEasierSwap) else { return [] }
+        return insert(WorkoutPlanItem(id: swap.itemID, exerciseID: swap.exerciseID, sets: 1,
+                                      targetReps: swap.amount...swap.amount, reducedRange: swap.reducedRange,
+                                      isEasierSwap: true),
+                      at: index, lead: "Let's try an easier version.", at: now)
+    }
+
+    /// Where an occurrence inserted after `id` goes: the index right after it. Nil unless the plan is being followed,
+    /// `id` is an occurrence of it that is on screen or just left (not a bonus), the coach is between sets, and the
+    /// occurrence after it hasn't started.
+    private func insertionIndex(after id: UUID, in plan: WorkoutPlan) -> Int? {
+        guard isFollowingPlan, let index = plan.items.firstIndex(where: { $0.id == id }),
+              !plan.items[index].isBonus, planIndex == index || planIndex == index + 1 else { return nil }
         switch phase {
         case .exerciseComplete, .resting, .framing, .ready: break
-        default: return []
+        default: return nil
         }
         let nextIndex = index + 1
         if plan.items.indices.contains(nextIndex) {
             let next = plan.items[nextIndex]
-            guard !next.isBonus, planRecords[next.id] == nil else { return [] }
+            guard !next.isBonus, planRecords[next.id] == nil else { return nil }
         }
-        let source = plan.items[index]
-        plan.items.insert(WorkoutPlanItem(id: bonus.itemID, exerciseID: source.exerciseID, sets: 1,
-                                          targetReps: bonus.amount...bonus.amount, reducedRange: source.reducedRange,
-                                          isBonus: true),
-                          at: nextIndex)
+        return nextIndex
+    }
+
+    /// Puts `item` at `index` and sets it up like the next occurrence, with no rest.
+    private mutating func insert(_ item: WorkoutPlanItem, at index: Int, lead: String,
+                                 at now: TimeInterval) -> [WorkoutEffect] {
+        guard var plan else { return [] }
+        plan.items.insert(item, at: index)
         // The occurrence on screen keeps its place in the list, so the move compares with what the user last saw.
-        if planIndex >= nextIndex { planIndex += 1 }
+        if planIndex >= index { planIndex += 1 }
         self.plan = plan
-        return advancePlan(to: nextIndex, at: now, restSeconds: nil, lead: "One more.")
+        return advancePlan(to: index, at: now, restSeconds: nil, lead: lead)
     }
 
     /// Skips the rest of the current occurrence, keeping any finished sets, and moves on.
@@ -802,20 +865,20 @@ struct WorkoutSession {
     /// The whole Saved Set again from its first exercise; earlier sets stay in the summary.
     private mutating func restartPlan(at now: TimeInterval) -> [WorkoutEffect] {
         guard let plan, let first = plan.items.indices.first(where: { index in exercises.contains { $0.id == plan.items[index].exerciseID } }) else { return [] }
-        // A new round starts from what was prescribed: a bonus belonged to the round that earned it.
-        self.plan?.items.removeAll { $0.isBonus }
+        // A new round starts from what was prescribed: a bonus or an easier version belonged to the round that earned it.
+        self.plan?.items.removeAll { $0.isInserted }
         planRecords = [:]
         let effects = setCounting(false) + newAnalyzer() + clearFeedback()
         return effects + advancePlan(to: first, at: now, restSeconds: nil, lead: "Another round of \(plan.name).")
     }
 
     /// The record of an occurrence that was skipped: the sets it finished (only the occurrence in progress has any).
-    /// A bonus also keeps what its set under way had observed. It is never listed as skipped, so work the user did
-    /// in it must not vanish from history; any other occurrence keeps finished sets only.
+    /// A bonus or an easier version also keeps what its set under way had observed. Neither is ever listed as skipped,
+    /// so work the user did in it must not vanish from history; any other occurrence keeps finished sets only.
     private func skippedRecord(for item: WorkoutPlanItem, isCurrent: Bool, at now: TimeInterval) -> PlanItemRecord {
         var reps = isCurrent ? (progress[item.exerciseID]?.roundSetReps ?? []) : []
         var weights = isCurrent ? (progress[item.exerciseID]?.roundSetWeights ?? []) : []
-        if isCurrent, item.isBonus {
+        if isCurrent, item.isInserted {
             let observed = observedSetAmount(at: now)
             if observed > 0 {
                 reps.append(observed)

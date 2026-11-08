@@ -6,6 +6,7 @@ final class EffortPhraseParserTests: XCTestCase {
     func testEveryPhraseMapsToItsEffort() {
         let expected: [(String, EffortFeedback)] = [
             ("too hard", .tooHard), ("too difficult", .tooHard), ("that was too hard", .tooHard),
+            ("this is too hard", .tooHard), ("it's too hard", .tooHard),
             ("okay", .okay), ("ok", .okay), ("fine", .okay), ("good", .okay), ("that was okay", .okay),
             ("easy", .easy), ("too easy", .easy), ("that was easy", .easy)
         ]
