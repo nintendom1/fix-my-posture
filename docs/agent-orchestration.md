@@ -97,13 +97,12 @@ Use `make notification-character-check` when content or art changed.
 ## Review gate
 
 Before pushing a branch, run `scripts/orchestrate/review.sh <base>..<head> --name <branch> --brief <brief>`.
-Use `WORKTREE` as head for uncommitted changes. The command writes the request and findings template; `--criteria`
-overrides criteria extracted from the brief's Goal and Done sections, and `--notes` supplies test and deviation notes.
-To start a read-only reviewer, add `--start sol` or `--start opus` and a unique `--purpose "Review: area"`. The
-command uses the sibling `agent.py`, checks the visible model footer against the requested model, and warns on a
-mismatch or unavailable footer. Reviewers are Codex Sol or Claude Opus only; never use Fable or Codex Astra. Collect
-the blocking and major findings with `scripts/orchestrate/review.sh --collect <branch>`. Fix blocking and major
-findings, re-validate, amend, then request one confirm-only pass. If review cannot run, record that in the PR body.
+Use `WORKTREE` for uncommitted changes. `--criteria` overrides extracted Goal/Done criteria; `--notes` records checks.
+`--start sol|opus` hands off to a reviewer only when its visible model matches. `--confirm NAME` sends a delta; use
+`--findings-for NAME --open` to list open findings. Delta failures fall back to a full review. `--collect NAME` shows
+blockers and majors. The three-round fixture used 13,239 full-request bytes versus 6,703 bytes for full plus deltas
+(49.4% fewer request bytes; model tokens were not measured). Never use Fable or Astra for reviews. Fix findings, validate,
+amend, then confirm. If review fails, record it in the PR body.
 
 ## Unattended runs
 
