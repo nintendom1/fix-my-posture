@@ -86,6 +86,7 @@ struct ExerciseGuideView: View {
                                    holdsDumbbells: guide.motion.holdsDumbbells, legs: sample.legs,
                                    torsoPitch: guide.motion.torsoPitch, shape: sample.shape,
                                    wallPushUp: guide.motion.wallPushUp, inclinePushUp: guide.motion.inclinePushUp,
+                                   seat: guide.motion.chairSeat,
                                    figureBounds: ExerciseDemoFigureView.bounds(for: guide.motion,
                                                                                cameraView: exercise.cameraView))
                 .frame(maxWidth: .infinity)
@@ -119,6 +120,7 @@ struct ExerciseGuideView: View {
                                    holdsDumbbells: guide.motion.holdsDumbbells, legs: sample.legs,
                                    torsoPitch: guide.motion.torsoPitch, shape: sample.shape,
                                    wallPushUp: guide.motion.wallPushUp, inclinePushUp: guide.motion.inclinePushUp,
+                                   seat: guide.motion.chairSeat,
                                    figureBounds: ExerciseDemoFigureView.bounds(for: guide.motion, cameraView: exercise.cameraView))
                 .frame(height: 200)
             Text(title)

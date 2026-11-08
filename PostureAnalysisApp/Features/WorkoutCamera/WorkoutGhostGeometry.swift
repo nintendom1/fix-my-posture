@@ -32,6 +32,8 @@ struct WorkoutGhostGeometry: Equatable {
         var dumbbells: [Dumbbell] = []
         var forearmLength: CGFloat = 0
         var isCalibrated = false
+        /// The chair's seat in container points, for a motion that sits on one.
+        var seat: ChairSeat?
         var isEmpty: Bool { joints.isEmpty }
     }
 
@@ -84,7 +86,8 @@ struct WorkoutGhostGeometry: Equatable {
                       bodyScale: scale,
                       dumbbells: dumbbells,
                       forearmLength: ExerciseDemoFigureView.forearm * scale,
-                      isCalibrated: false)
+                      isCalibrated: false,
+                      seat: motion.chairSeat.map { ChairSeat(from: map($0.from), to: map($0.to)) })
     }
 
     /// The figure fitted to the user: exact limbs from `make`, with the body placed around them.
@@ -135,7 +138,8 @@ struct WorkoutGhostGeometry: Equatable {
         let scale: CGFloat
         if motion.animatesLegs {
             // Measured on the user's own leg, not the ghost's lowered one, so the body keeps its size
-            // through the squat.
+            // through the squat. Sitting on a chair, the thigh points at the camera and looks short, so the
+            // shin alone sizes the body.
             let legScales = limbs.compactMap { limb -> CGFloat? in
                 guard limb.joints.count == 3,
                       let ankle = point(limb.joints[0], in: fitOverlay, containerSize: containerSize),
@@ -144,10 +148,9 @@ struct WorkoutGhostGeometry: Equatable {
                       let figureAnkle = ExerciseDemoFigureView.figureJoints[limb.joints[0]],
                       let figureKnee = ExerciseDemoFigureView.figureJoints[limb.joints[1]],
                       let figureHip = ExerciseDemoFigureView.figureJoints[limb.joints[2]] else { return nil }
-                let figureLength = ArmGeometry.distance(figureAnkle, figureKnee)
-                    + ArmGeometry.distance(figureKnee, figureHip)
+                let figureLength = legLength(ankle: figureAnkle, knee: figureKnee, hip: figureHip, chair: motion.chair)
                 guard figureLength > 0 else { return nil }
-                return (ArmGeometry.distance(ankle, knee) + ArmGeometry.distance(knee, hip)) / figureLength
+                return legLength(ankle: ankle, knee: knee, hip: hip, chair: motion.chair) / figureLength
             }
             scale = legScales.isEmpty
                 ? fallbackScale
@@ -246,7 +249,14 @@ struct WorkoutGhostGeometry: Equatable {
                       bodyScale: scale,
                       dumbbells: dumbbells,
                       forearmLength: forearmLength,
-                      isCalibrated: true)
+                      isCalibrated: true,
+                      seat: motion.chairSeat.map { ChairSeat(from: map($0.from), to: map($0.to)) })
+    }
+
+    /// The length that sizes a leg: ankle to knee to hip, or just the shin when sitting on a chair.
+    private static func legLength(ankle: CGPoint, knee: CGPoint, hip: CGPoint, chair: Bool) -> CGFloat {
+        let shin = ArmGeometry.distance(ankle, knee)
+        return chair ? shin : shin + ArmGeometry.distance(knee, hip)
     }
 
     /// Linear blend of figure geometry, keeping labels that only appear in either endpoint.
@@ -260,6 +270,12 @@ struct WorkoutGhostGeometry: Equatable {
                 joints[label] = point
             }
         }
+        let seat: ChairSeat?
+        if let start = from.seat, let end = to.seat {
+            seat = ChairSeat(from: interpolate(start.from, end.from, amount), to: interpolate(start.to, end.to, amount))
+        } else {
+            seat = to.seat ?? from.seat
+        }
         if from.dumbbells.count == to.dumbbells.count {
             let dumbbells = zip(from.dumbbells, to.dumbbells).map { start, end in
                 Figure.Dumbbell(elbow: interpolate(start.elbow, end.elbow, amount),
@@ -269,13 +285,15 @@ struct WorkoutGhostGeometry: Equatable {
                           bodyScale: from.bodyScale + (to.bodyScale - from.bodyScale) * amount,
                           dumbbells: dumbbells,
                           forearmLength: from.forearmLength + (to.forearmLength - from.forearmLength) * amount,
-                          isCalibrated: to.isCalibrated)
+                          isCalibrated: to.isCalibrated,
+                          seat: seat)
         }
         return Figure(joints: joints,
                       bodyScale: from.bodyScale + (to.bodyScale - from.bodyScale) * amount,
                       dumbbells: to.dumbbells,
                       forearmLength: from.forearmLength + (to.forearmLength - from.forearmLength) * amount,
-                      isCalibrated: to.isCalibrated)
+                      isCalibrated: to.isCalibrated,
+                      seat: seat)
     }
 
     /// Eased 0…1 progress of a glide that started at `start`.
@@ -360,10 +378,9 @@ struct WorkoutGhostGeometry: Equatable {
                       let figureAnkle = standing[side.ankle], let figureKnee = standing[side.knee],
                       let figureHip = standing[side.hip], let loweredKnee = lowered[side.knee],
                       let loweredHip = lowered[side.hip] else { continue }
-                let figureLength = ArmGeometry.distance(figureAnkle, figureKnee)
-                    + ArmGeometry.distance(figureKnee, figureHip)
+                let figureLength = legLength(ankle: figureAnkle, knee: figureKnee, hip: figureHip, chair: motion.chair)
                 guard figureLength > 0 else { continue }
-                let scale = (ArmGeometry.distance(ankle, knee) + ArmGeometry.distance(knee, hip)) / figureLength
+                let scale = legLength(ankle: ankle, knee: knee, hip: hip, chair: motion.chair) / figureLength
                 // The figure's left leg is on its larger-x side; match whichever way the user's leg points.
                 let flip: CGFloat = (side == .left ? 1 : -1) * (ankle.x >= otherAnkle.x ? 1 : -1)
                 func place(_ figurePoint: CGPoint) -> CGPoint {

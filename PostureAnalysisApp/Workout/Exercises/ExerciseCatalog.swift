@@ -21,6 +21,7 @@ enum ExerciseCatalog {
         HammerCurlExercise.definition(),
         TricepsExtensionExercise.definition(),
         AirSquatExercise.definition(),
+        SitToStandExercise.definition(),
         StiffLegDeadliftExercise.definition(),
         RearLungeExercise.definition(),
         GluteBridgeExercise.definition(),

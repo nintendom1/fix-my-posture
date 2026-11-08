@@ -446,6 +446,9 @@
 		A10000012B00000000000456 /* InclinePushUpExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000456 /* InclinePushUpExercise.swift */; };
 		A10000012B00000000000457 /* InclinePushUpAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000457 /* InclinePushUpAnalyzer.swift */; };
 		A10000012B00000000000458 /* InclinePushUpAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000458 /* InclinePushUpAnalyzerTests.swift */; };
+		A10000012B00000000000459 /* SitToStandExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000459 /* SitToStandExercise.swift */; };
+		A10000012B00000000000460 /* SitToStandAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000460 /* SitToStandAnalyzer.swift */; };
+		A10000012B00000000000461 /* SitToStandAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000461 /* SitToStandAnalyzerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -900,6 +903,9 @@
 		B10000012B00000000000456 /* InclinePushUpExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InclinePushUpExercise.swift; sourceTree = "<group>"; };
 		B10000012B00000000000457 /* InclinePushUpAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InclinePushUpAnalyzer.swift; sourceTree = "<group>"; };
 		B10000012B00000000000458 /* InclinePushUpAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InclinePushUpAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000459 /* SitToStandExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SitToStandExercise.swift; sourceTree = "<group>"; };
+		B10000012B00000000000460 /* SitToStandAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SitToStandAnalyzer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000461 /* SitToStandAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SitToStandAnalyzerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1177,6 +1183,7 @@
 				B10000012B00000000000452 /* WorkoutSelfReportedTests.swift */,
 				B10000012B00000000000455 /* WallPushUpAnalyzerTests.swift */,
 				B10000012B00000000000458 /* InclinePushUpAnalyzerTests.swift */,
+				B10000012B00000000000461 /* SitToStandAnalyzerTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1228,6 +1235,7 @@
 				B10000012B00000000000451 /* ExerciseTracking.swift */,
 				H10000012B00000000000070 /* WallPushUp */,
 				H10000012B00000000000071 /* InclinePushUp */,
+				H10000012B00000000000072 /* SitToStand */,
 			);
 			path = Exercises;
 			sourceTree = "<group>";
@@ -1928,6 +1936,15 @@
 			path = InclinePushUp;
 			sourceTree = "<group>";
 		};
+		H10000012B00000000000072 /* SitToStand */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000459 /* SitToStandExercise.swift */,
+				B10000012B00000000000460 /* SitToStandAnalyzer.swift */,
+			);
+			path = SitToStand;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -2317,6 +2334,8 @@
 				A10000012B00000000000454 /* WallPushUpAnalyzer.swift in Sources */,
 				A10000012B00000000000456 /* InclinePushUpExercise.swift in Sources */,
 				A10000012B00000000000457 /* InclinePushUpAnalyzer.swift in Sources */,
+				A10000012B00000000000459 /* SitToStandExercise.swift in Sources */,
+				A10000012B00000000000460 /* SitToStandAnalyzer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2466,6 +2485,7 @@
 				A10000012B00000000000452 /* WorkoutSelfReportedTests.swift in TestSources */,
 				A10000012B00000000000455 /* WallPushUpAnalyzerTests.swift in TestSources */,
 				A10000012B00000000000458 /* InclinePushUpAnalyzerTests.swift in TestSources */,
+				A10000012B00000000000461 /* SitToStandAnalyzerTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

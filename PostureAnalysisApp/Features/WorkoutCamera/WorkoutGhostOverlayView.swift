@@ -86,6 +86,16 @@ struct WorkoutGhostOverlayView: View {
                 )
                 .opacity(opacity)
 
+                if let seat = figure.seat {
+                    Canvas { context, _ in
+                        var line = Path()
+                        line.move(to: seat.from)
+                        line.addLine(to: seat.to)
+                        context.stroke(line, with: .color(Self.ghostColor.opacity(0.75)), lineWidth: 3)
+                    }
+                    .opacity(opacity + 0.2)
+                }
+
                 Canvas { context, _ in
                     guard fit.width > 0, fit.height > 0 else { return }
                     var clipped = context

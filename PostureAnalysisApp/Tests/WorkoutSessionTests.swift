@@ -337,6 +337,34 @@ final class WorkoutSessionTests: XCTestCase {
         XCTAssertEqual(session.progress[inclinePushUp.id]?.setReps, [inclinePushUp.autoCompleteReps])
     }
 
+    func testSitToStandCreditsBothSidesAndCompletesItsSessionTarget() {
+        let sitToStand = SitToStandExercise.definition()
+        var session = readySession(exercise: sitToStand)
+        _ = session.handle(.command(.start), at: 2)
+
+        let analyzer = SitToStandAnalyzer(epoch: session.analyzerEpoch)
+        let motion = sitToStand.guide.motion
+        // The demo starts seated and the fresh analyzer has never seen anyone stand, as when Start is pressed
+        // seated. Every loop counts, so the target is reached in exactly that many loops.
+        let sampleCount = Int(motion.duration * Double(sitToStand.autoCompleteReps) * 10)
+        var creditedSides = Set<BodySide>()
+        for index in 0..<sampleCount {
+            let time = Double(index) / 10
+            let frame = ReadyPoseFixtures.demoFrame(sitToStand, motionTime: time, at: time)
+            let analysis = analyzer.process(frame, counting: true)
+            for event in analysis.repEvents {
+                creditedSides.formUnion(event.sides)
+                XCTAssertEqual(event.sides, Set(BodySide.allCases))
+                _ = session.handle(.repCompleted(event), at: time + 2)
+            }
+            if session.phase == .resting { break }
+        }
+
+        XCTAssertEqual(creditedSides, Set(BodySide.allCases))
+        XCTAssertEqual(session.phase, .resting)
+        XCTAssertEqual(session.progress[sitToStand.id]?.setReps, [sitToStand.autoCompleteReps])
+    }
+
     func testGluteBridgeFinalTargetPeakFaultReachesTheSessionBeforeCompletion() {
         var bridge = GluteBridgeExercise.definition()
         bridge.autoCompleteReps = 2

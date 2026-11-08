@@ -145,6 +145,8 @@ struct ExerciseDemoFigureView: View {
     var shape: FigureShape = .neutral
     var wallPushUp = false
     var inclinePushUp = false
+    /// A chair seat drawn behind the figure, from `ArmMotion.chairSeat`; nil draws none.
+    var seat: ChairSeat?
     /// Bounds from `bounds(for:cameraView:)`; the default keeps the original canvas framing.
     var figureBounds: CGRect = CGRect(x: 0, y: 0, width: 300, height: 470)
     var tint: Color = Color(red: 0.62, green: 0.42, blue: 0.95)
@@ -415,6 +417,17 @@ struct ExerciseDemoFigureView: View {
         return joints
     }
 
+    /// A chair seat for a front-view figure sitting at `legs`: a segment about as wide as the figure's hips plus
+    /// a margin, centered on them and just under the hip joints.
+    static func chairSeat(for legs: LegPose) -> ChairSeat? {
+        guard let hip = lowered(figureJoints, by: legs)[.leftHip],
+              let otherHip = figureJoints[.rightHip] else { return nil }
+        let center = (hip.x + otherHip.x) / 2
+        let halfWidth = abs(hip.x - otherHip.x) / 2 + 52
+        let y = hip.y + 10
+        return ChairSeat(from: CGPoint(x: center - halfWidth, y: y), to: CGPoint(x: center + halfWidth, y: y))
+    }
+
     /// Front view lowering into a squat: the upper body drops with the hips, the knees push out and dip
     /// slightly, and the feet stay planted.
     static func lowered(_ joints: [LandmarkType: CGPoint], by legs: LegPose) -> [LandmarkType: CGPoint] {
@@ -504,6 +517,12 @@ struct ExerciseDemoFigureView: View {
                         floorLine.move(to: Self.map(CGPoint(x: 20, y: 436), fit: fit, bounds: bounds))
                         floorLine.addLine(to: Self.map(CGPoint(x: 280, y: 436), fit: fit, bounds: bounds))
                         context.stroke(floorLine, with: .color(tint.opacity(0.6)), lineWidth: 2)
+                    }
+                    if let seat {
+                        var seatLine = Path()
+                        seatLine.move(to: Self.map(seat.from, fit: fit, bounds: bounds))
+                        seatLine.addLine(to: Self.map(seat.to, fit: fit, bounds: bounds))
+                        context.stroke(seatLine, with: .color(tint.opacity(0.65)), lineWidth: 3)
                     }
                     for side in BodySide.allCases {
                         guard let elbow = pose.jointLocations[side.elbow],
