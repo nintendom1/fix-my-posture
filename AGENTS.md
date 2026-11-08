@@ -127,7 +127,7 @@ Each tab has at most three equal-width side-by-side columns; put overflow agents
   ./scripts/validate.sh
   ```
 - Register new or renamed Swift files with `python3 scripts/pbxproj.py add|rename`; `validate.sh` runs `check`.
-- When orchestrating other agents, read `docs/agent-orchestration.md`; agents compile with `scripts/agent-build.sh`, run focused XCTest via `scripts/orchestrate/test.sh`, and summarize bundles with `scripts/orchestrate/test-summary.py`, never `validate.sh`. The orchestrator runs `scripts/orchestrate/validate-both.sh`.
+- When orchestrating other agents, read `docs/agent-orchestration.md`; agents compile with `scripts/agent-build.sh`, run focused XCTest via `scripts/orchestrate/test.sh`, and summarize bundles with `scripts/orchestrate/test-summary.py`, never `validate.sh`. Use `scripts/orchestrate/mutate.sh` for single or batch mutation checks. These orchestration scripts resolve and announce the root from the current worktree. The orchestrator runs `scripts/orchestrate/validate-both.sh`.
 - **Required Before Every Commit** (run after staging changes):
   ```bash
   gitleaks git . --pre-commit --staged --redact --exit-code=1

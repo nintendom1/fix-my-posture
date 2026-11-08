@@ -109,6 +109,12 @@ class OrchestrateTestsTests(unittest.TestCase):
         self.bin = self.base / "bin"
         self.bin.mkdir()
         self.repo.mkdir()
+        subprocess.run(
+            ["git", "init", "--quiet", str(self.repo)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         (self.repo / "scripts" / "orchestrate").mkdir(parents=True)
         (self.repo / "scripts" / "tests").mkdir(parents=True)
         for name in ("test-summary.py", "validate-both.sh", "test.sh", "with-lock.py"):
