@@ -102,6 +102,7 @@ struct FramingEvaluator {
     /// check. Guidance only: it holds setup but never affects reliability, because the shoulders widen as the body
     /// nears the phone during every rep.
     let maximumShoulderSpan: CGFloat?
+    let centersInFrame: Bool
     let cameraView: ExerciseCameraView
     let configuration: FramingConfiguration
     private var presentSince: TimeInterval?
@@ -116,12 +117,14 @@ struct FramingEvaluator {
 
     init(requiredJoints: Set<LandmarkType>, anyOfRequiredJoints: [Set<LandmarkType>] = [], headroomArmLengths: CGFloat?,
          sideroomArmLengths: CGFloat? = nil, maximumShoulderSpan: CGFloat? = nil,
-         cameraView: ExerciseCameraView = .front, configuration: FramingConfiguration = FramingConfiguration()) {
+         centersInFrame: Bool = true, cameraView: ExerciseCameraView = .front,
+         configuration: FramingConfiguration = FramingConfiguration()) {
         self.requiredJoints = requiredJoints
         self.anyOfRequiredJoints = anyOfRequiredJoints
         self.headroomArmLengths = headroomArmLengths
         self.sideroomArmLengths = sideroomArmLengths
         self.maximumShoulderSpan = maximumShoulderSpan
+        self.centersInFrame = centersInFrame
         self.cameraView = cameraView
         self.configuration = configuration
     }
@@ -199,7 +202,7 @@ struct FramingEvaluator {
 
         if isPhoneTooClose { return .movePhoneFartherFloor }
 
-        if cameraView == .lyingSide { return nil }
+        if cameraView == .lyingSide || !centersInFrame { return nil }
 
         let anchors = [LandmarkType.leftShoulder, .rightShoulder, .leftHip, .rightHip]
             .compactMap { frame.point($0, minimumConfidence: confidence) }

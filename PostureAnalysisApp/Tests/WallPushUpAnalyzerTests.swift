@@ -32,18 +32,88 @@ final class WallPushUpAnalyzerTests: XCTestCase {
         let down = try armMetrics(fullDownPose.jointLocations)
         XCTAssertEqual(up.elbowAngle, 180, accuracy: 0.001)
         XCTAssertEqual(up.horizontalRatio, 1, accuracy: 0.001)
-        XCTAssertEqual(down.elbowAngle, 88, accuracy: 0.001)
-        XCTAssertEqual(down.horizontalRatio, 0.514, accuracy: 0.002)
+        XCTAssertEqual(down.elbowAngle, 70, accuracy: 0.001)
+        XCTAssertEqual(down.horizontalRatio, 0.556, accuracy: 0.002)
         XCTAssertNotEqual(fullStart, fullDown)
 
         let shallow = try XCTUnwrap(exercise.reducedRange?())
         let shallowMetrics = try armMetrics(
             ExerciseDemoFigureView.wallPushUpPose(for: shallow.guide.motion.topAngles).jointLocations
         )
-        XCTAssertEqual(shallowMetrics.elbowAngle, 105, accuracy: 0.001)
-        XCTAssertEqual(shallowMetrics.horizontalRatio, 0.652, accuracy: 0.002)
+        XCTAssertEqual(shallowMetrics.elbowAngle, 120, accuracy: 0.001)
+        XCTAssertEqual(shallowMetrics.horizontalRatio, 0.866, accuracy: 0.002)
         XCTAssertEqual(shallow.displayName, "Shallow Wall Push-Up")
         XCTAssertEqual(shallow.id, exercise.id)
+    }
+
+    func testNormalNinetyDegreeWallPushUpCountsWithFifteenPercentSegmentVariation() {
+        let up = exercise.guide.motion.startAngles
+        let normalDown = ArmAngles(upperArmElevation: -65, forearmElevation: 25)
+        let motion = motion(with: [(up, 0, 1.0, 0), (normalDown, 1.2, 0.3, 1), (up, 1.2, 0, 2)])
+        for (upper, forearm) in [(CGFloat(0.85), CGFloat(1.15)), (CGFloat(1.15), CGFloat(0.85))] {
+            let result = run(motion, analyzer: WallPushUpAnalyzer(epoch: 20), loops: 1,
+                             upperArmScale: upper, forearmScale: forearm)
+            XCTAssertEqual(result.reps, 1, "upper \(upper), forearm \(forearm)")
+        }
+    }
+
+    func testPlantedPushUpsFrameAndCountWithoutTheHipAndIgnoreALowConfidenceHip() throws {
+        let definitions = [exercise, try XCTUnwrap(exercise.reducedRange?()), InclinePushUpExercise.definition()]
+        for definition in definitions {
+            XCTAssertFalse(definition.centersInFrame, definition.displayName)
+
+            var framing = framingEvaluator(for: definition)
+            var reliable = false
+            for index in 0...8 {
+                let frame = plantedFrame(definition, at: Double(index) / 10, includeHip: false,
+                                         hipConfidence: 0.3, xOffset: 180)
+                let status = framing.evaluate(frame)
+                reliable = status.isReliable
+                if let guidance = status.guidance {
+                    XCTAssertFalse([FramingGuidance.moveLeft, .moveRight].contains(guidance),
+                                   definition.displayName + " emitted side-view centering guidance")
+                }
+            }
+            XCTAssertTrue(reliable, definition.displayName + " lost framing without a hip")
+            XCTAssertTrue(definition.anyOfRequiredJoints.allSatisfy {
+                $0 == [.leftShoulder, .leftElbow, .leftWrist] || $0 == [.rightShoulder, .rightElbow, .rightWrist]
+            }, definition.displayName)
+
+            let analyzer = definition.makeAnalyzer(30)
+            var reps = 0
+            let motion = definition.guide.motion
+            for index in 0...Int((motion.duration * 10).rounded()) {
+                let time = Double(index) / 10
+                let frame = plantedFrame(definition, at: time, includeHip: false, hipConfidence: 0.3)
+                reps += analyzer.process(frame, counting: true).repEvents.count
+            }
+            XCTAssertEqual(reps, 1, definition.displayName + " should count from its arm alone")
+
+            var lowHipFraming = framingEvaluator(for: definition)
+            for index in 0...8 {
+                let frame = plantedFrame(definition, at: Double(index) / 10, includeHip: true,
+                                         hipConfidence: 0.3)
+                reliable = lowHipFraming.evaluate(frame).isReliable
+            }
+            XCTAssertTrue(reliable, "A hip at confidence 0.3 must not drop " + definition.displayName + " framing")
+        }
+
+        let other = ShoulderPressExercise.definition()
+        XCTAssertTrue(other.centersInFrame)
+        var otherFraming = framingEvaluator(for: other)
+        let fixture = try XCTUnwrap(ReadyPoseFixtures.variants(for: other).first { $0.name == "full" })
+        var centeredGuide = fixture.pose.landmarks
+        centeredGuide = centeredGuide.mapValues { landmark in
+            let pixel = CGPoint(x: landmark.imageLocation.x + 420, y: landmark.imageLocation.y)
+            return Landmark(type: landmark.type,
+                            normalizedLocation: CoordinateConverter.imagePixelToNormalized(
+                                pixel: pixel, imageWidth: fixture.pose.imageWidth, imageHeight: fixture.pose.imageHeight),
+                            imageLocation: pixel, confidence: landmark.confidence)
+        }
+        let offCenter = PoseFrame(pose: BodyPose(landmarks: centeredGuide, imageWidth: fixture.pose.imageWidth,
+                                                 imageHeight: fixture.pose.imageHeight), timestamp: 0)
+        XCTAssertEqual(otherFraming.evaluate(offCenter).guidance, .moveRight,
+                       "Center guidance stays enabled for exercises that use the default.")
     }
 
     func testShallowVariantCountsItsDemoAndAcceptsFullDepth() throws {
@@ -120,9 +190,9 @@ final class WallPushUpAnalyzerTests: XCTestCase {
         send(exercise.guide.motion.topAngles, at: 1.3, scale: 1.5, translate: CGPoint(x: 50, y: -80))
         send(exercise.guide.motion.topAngles, at: 1.4, scale: 1.5, translate: CGPoint(x: 50, y: -80))
         send(exercise.guide.motion.topAngles, at: 1.5, scale: 1.5, translate: CGPoint(x: 50, y: -80))
-        send(ArmAngles(upperArmElevation: 0, forearmElevation: -40), at: 1.7,
+        send(ArmAngles(upperArmElevation: -37.5, forearmElevation: 2.5), at: 1.7,
              scale: 1.5, translate: CGPoint(x: 50, y: -80))
-        send(ArmAngles(upperArmElevation: 0, forearmElevation: -40), at: 1.8,
+        send(ArmAngles(upperArmElevation: -37.5, forearmElevation: 2.5), at: 1.8,
              scale: 1.5, translate: CGPoint(x: 50, y: -80))
         send(exercise.guide.motion.startAngles, at: 1.9, scale: 1.5, translate: CGPoint(x: 50, y: -80))
         send(exercise.guide.motion.startAngles, at: 2.0, scale: 1.5, translate: CGPoint(x: 50, y: -80))
@@ -134,7 +204,7 @@ final class WallPushUpAnalyzerTests: XCTestCase {
     func testDeeperBodyLineAndLockoutCuesFireOnlyForTheirTriggers() {
         let partial = motion(with: [
             (exercise.guide.motion.startAngles, 0, 1.0, 0),
-            (ArmAngles(upperArmElevation: 0, forearmElevation: -40), 1.2, 0.3, 1),
+            (ArmAngles(upperArmElevation: -37.5, forearmElevation: 2.5), 1.2, 0.3, 1),
             (exercise.guide.motion.startAngles, 1.2, 0, 2)
         ])
         let partialRun = run(partial, analyzer: WallPushUpAnalyzer(epoch: 6), loops: 1)
@@ -150,7 +220,7 @@ final class WallPushUpAnalyzerTests: XCTestCase {
         let lockout = motion(with: [
             (exercise.guide.motion.startAngles, 0, 1.0, 0),
             (fullDownAngles, 1.2, 0.3, 1),
-            (ArmAngles(upperArmElevation: 0, forearmElevation: -40), 0.8, 0.2, 1),
+            (ArmAngles(upperArmElevation: -37.5, forearmElevation: 2.5), 0.8, 0.2, 1),
             (fullDownAngles, 0.8, 0.3, 1),
             (exercise.guide.motion.startAngles, 1.2, 0, 2)
         ])
@@ -193,7 +263,7 @@ final class WallPushUpAnalyzerTests: XCTestCase {
 
     func testOneNoisyDownSampleStillAsksForDepthAndJitterAtDownIsNotALockout() throws {
         let up = exercise.guide.motion.startAngles
-        let partial = ArmAngles(upperArmElevation: 0, forearmElevation: -40)
+        let partial = ArmAngles(upperArmElevation: -37.5, forearmElevation: 2.5)
         var single = Player(analyzer: WallPushUpAnalyzer(epoch: 13), test: self)
         single.play([(up, 3), (partial, 4), (fullDownAngles, 1), (partial, 4), (up, 3)])
         XCTAssertEqual(single.reps, 0)
@@ -205,7 +275,7 @@ final class WallPushUpAnalyzerTests: XCTestCase {
             .first { angles in
                 guard let metrics = try? self.armMetrics(
                     ExerciseDemoFigureView.wallPushUpPose(for: angles).jointLocations) else { return false }
-                return metrics.horizontalRatio > 0.61 && metrics.horizontalRatio < 0.66
+                return metrics.horizontalRatio > 0.73 && metrics.horizontalRatio < 0.78
             })
         var held = Player(analyzer: WallPushUpAnalyzer(epoch: 14), test: self)
         held.play([(up, 3), (fullDownAngles, 4), (jitter, 1), (fullDownAngles, 3), (jitter, 1), (fullDownAngles, 3),
@@ -305,7 +375,9 @@ final class WallPushUpAnalyzerTests: XCTestCase {
         XCTAssertEqual(exercise.autoCompleteReps, 10)
         XCTAssertEqual(exercise.restSeconds, 45)
         XCTAssertEqual(exercise.cameraView, .side)
-        XCTAssertEqual(exercise.anyOfRequiredJoints.count, 2)
+        XCTAssertEqual(exercise.anyOfRequiredJoints, [Set([LandmarkType.leftShoulder, .leftElbow, .leftWrist]),
+                                                      Set([.rightShoulder, .rightElbow, .rightWrist])])
+        XCTAssertFalse(exercise.centersInFrame)
         XCTAssertEqual(exercise.plantedJoints, [.leftWrist, .rightWrist])
         XCTAssertEqual(exercise.equipment, .bodyweight)
         XCTAssertEqual(ExercisePhotography.placeholders[.wallPushUp], "figure.strengthtraining.functional")
@@ -319,7 +391,38 @@ final class WallPushUpAnalyzerTests: XCTestCase {
         var forms: [RepForm] = []
     }
 
-    private var fullDownAngles: ArmAngles { ArmAngles(upperArmElevation: 0, forearmElevation: -92) }
+    private var fullDownAngles: ArmAngles { ArmAngles(upperArmElevation: -65, forearmElevation: 45) }
+
+    private func framingEvaluator(for exercise: ExerciseDefinition) -> FramingEvaluator {
+        FramingEvaluator(requiredJoints: exercise.requiredJoints,
+                         anyOfRequiredJoints: exercise.anyOfRequiredJoints,
+                         headroomArmLengths: exercise.headroomArmLengths,
+                         sideroomArmLengths: exercise.sideroomArmLengths,
+                         maximumShoulderSpan: exercise.maximumShoulderSpan,
+                         centersInFrame: exercise.centersInFrame,
+                         cameraView: exercise.cameraView)
+    }
+
+    private func plantedFrame(_ exercise: ExerciseDefinition, at time: TimeInterval,
+                              includeHip: Bool, hipConfidence: Double, xOffset: CGFloat = 0) -> PoseFrame {
+        let motion = exercise.guide.motion
+        let sample = motion.sample(at: time)
+        let joints = ExerciseDemoFigureView.pose(for: sample, forearmPlane: motion.forearmPlane,
+                                                 cameraView: exercise.cameraView).jointLocations
+        var wanted: Set<LandmarkType> = [.leftShoulder, .leftElbow, .leftWrist]
+        if includeHip { wanted.insert(.leftHip) }
+        let landmarks = Dictionary(uniqueKeysWithValues: wanted.compactMap { joint in
+            joints[joint].map { original in
+                let point = CGPoint(x: original.x + xOffset, y: original.y)
+                return (joint, Landmark(type: joint,
+                                        normalizedLocation: CoordinateConverter.imagePixelToNormalized(
+                                            pixel: point, imageWidth: 300, imageHeight: 470),
+                                        imageLocation: point,
+                                        confidence: joint == .leftHip ? hipConfidence : 0.9))
+            }
+        })
+        return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 300, imageHeight: 470), timestamp: time)
+    }
 
     private func run(_ motion: ArmMotion, analyzer: ExerciseAnalyzing, loops: Int,
                      imageScale: CGFloat = 1, upperArmScale: CGFloat = 1, forearmScale: CGFloat = 1,

@@ -59,10 +59,15 @@ enum WorkoutRecordingEvent: Equatable {
     case tipCleared
     case clearFeedback
     case cameraRunning
-    case cameraInterrupted
+    case cameraInterrupted(reason: Int?)
     case cameraFailed(String)
     case audioInterruptionBegan
     case audioInterruptionEnded(shouldResume: Bool)
+    case audioInterruptionDiagnostic(type: String, reason: Int?, wasSuspended: Bool, shouldResume: Bool?)
+    case audioRouteDiagnostic(reason: Int, outputs: [String], inputs: [String])
+    case audioSessionOperation(operation: String, active: Bool?, category: String, mode: String,
+                               categoryOptions: [String], activeOptions: [String],
+                               isOtherAudioPlaying: Bool, secondaryAudioShouldBeSilenced: Bool)
     /// Audio work that ran synchronously on the main thread, and how long it took.
     case audioWork(AudioWorkStep, seconds: TimeInterval)
     case guidePresented(Bool)

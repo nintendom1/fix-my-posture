@@ -155,7 +155,8 @@ final class WorkoutVoiceController: VoiceControlling {
             } else if wantsListening, !isCoachSpeaking {
                 startRecognizing()
             }
-        case .interruptionBegan, .interruptionEnded:
+        case .interruptionBegan, .interruptionEnded, .interruptionDiagnostic,
+             .routeDiagnostic, .sessionOperation:
             break
         }
     }

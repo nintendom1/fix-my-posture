@@ -507,9 +507,9 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
             }
         case .frame(let frame):
             process(frame)
-        case .interrupted:
+        case .interrupted(let reason):
             cameraStatus = .interrupted
-            recorder?.recordEvent(.cameraInterrupted, at: clock.now)
+            recorder?.recordEvent(.cameraInterrupted(reason: reason), at: clock.now)
             dispatch(.interruptionBegan)
             resetTracking()
         case .failed(let message):
@@ -1135,6 +1135,11 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
             voice?.disable(status: .paused)
             speech.stopAll()
             dispatch(.interruptionBegan)
+        case .interruptionDiagnostic(let type, let reason, let wasSuspended, let shouldResume):
+            voice?.handleAudioEvent(event)
+            recorder?.recordEvent(.audioInterruptionDiagnostic(type: type, reason: reason,
+                                                                wasSuspended: wasSuspended,
+                                                                shouldResume: shouldResume), at: clock.now)
         case .interruptionEnded(let shouldResume):
             // The workout stays paused; voice resumes only when the system says so.
             recorder?.recordEvent(.audioInterruptionEnded(shouldResume: shouldResume), at: clock.now)
@@ -1143,6 +1148,20 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         case .mediaServicesReset:
             speech.stopAll()
             voice?.handleAudioEvent(event)
+        case .routeDiagnostic(let reason, let outputs, let inputs):
+            voice?.handleAudioEvent(event)
+            recorder?.recordEvent(.audioRouteDiagnostic(reason: reason, outputs: outputs, inputs: inputs),
+                                   at: clock.now)
+        case .sessionOperation(let operation, let active, let category, let mode, let categoryOptions,
+                               let activeOptions, let isOtherAudioPlaying, let shouldBeSilenced):
+            voice?.handleAudioEvent(event)
+            recorder?.recordEvent(.audioSessionOperation(operation: operation, active: active,
+                                                          category: category, mode: mode,
+                                                          categoryOptions: categoryOptions,
+                                                          activeOptions: activeOptions,
+                                                          isOtherAudioPlaying: isOtherAudioPlaying,
+                                                          secondaryAudioShouldBeSilenced: shouldBeSilenced),
+                                   at: clock.now)
         case .routeChanged, .reactivated:
             voice?.handleAudioEvent(event)
         }

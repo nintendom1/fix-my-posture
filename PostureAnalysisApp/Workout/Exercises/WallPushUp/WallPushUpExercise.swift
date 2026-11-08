@@ -34,7 +34,7 @@ struct PlantedPushUpConfiguration: Codable {
     var upMinHorizontalRatio: Double = 0.75
     var downMaxElbowAngle: Double = 115
     /// Down needs the distance ratio (`h` or `r`, by `kind`) at most this large.
-    var downMaxHorizontalRatio: Double = 0.6
+    var downMaxHorizontalRatio: Double = 0.72
     var confirmationSamples = 2
     var minimumRepDuration: TimeInterval = 0.8
     var maximumSampleGap: TimeInterval = 0.28
@@ -56,7 +56,7 @@ struct PlantedPushUpConfiguration: Codable {
     static var reducedRange: PlantedPushUpConfiguration {
         var configuration = wall
         configuration.downMaxElbowAngle = 135
-        configuration.downMaxHorizontalRatio = 0.72
+        configuration.downMaxHorizontalRatio = 0.92
         configuration.shallow = true
         return configuration
     }
@@ -102,6 +102,7 @@ enum WallPushUpExercise {
                 FocusSegment(from: .rightKnee, to: .rightAnkle, style: .reference)
             ],
             headroomArmLengths: nil,
+            centersInFrame: false,
             countsArmsIndependently: false,
             setupLine: "Wall push-ups, two sets of 6 to 10. Stand an arm's length from a wall, side-on to the phone, and place your hands on the wall at shoulder height.",
             voiceAliases: ["wall push-up", "wall push-ups", "wall pushup", "wall pushups", "wall press"],
@@ -121,8 +122,8 @@ enum WallPushUpExercise {
             motionEnvelope: MotionEnvelope(above: 0.3, below: 0.9, outward: 1.0),
             cameraView: .side,
             anyOfRequiredJoints: [
-                [.leftShoulder, .leftElbow, .leftWrist, .leftHip],
-                [.rightShoulder, .rightElbow, .rightWrist, .rightHip]
+                [.leftShoulder, .leftElbow, .leftWrist],
+                [.rightShoulder, .rightElbow, .rightWrist]
             ],
             startsByHolding: true,
             equipment: .bodyweight,
@@ -135,9 +136,12 @@ enum WallPushUpExercise {
 
     private static func guide(shallow: Bool) -> ExerciseGuide {
         let start = ArmAngles(upperArmElevation: 0, forearmElevation: 0)
-        // The planted hands stay at the wall. A 92° full-depth elbow and a 105° shallow elbow meet both
-        // the angle and horizontal-distance checkpoints, including 15% segment-length variation.
-        let down = ArmAngles(upperArmElevation: 0, forearmElevation: shallow ? -75 : -92)
+        // The planted hands stay at the wall. Full range uses a deep, elbow-down 70° bend. The shallow
+        // floor uses a level-shoulder 120° bend. The depth lines also admit a 90° full rep and a shallow
+        // 120° rep with ±15% segment variation: h is about 0.65–0.70 at 90° and 0.87 at 120°.
+        let down = shallow
+            ? ArmAngles(upperArmElevation: -30, forearmElevation: 30)
+            : ArmAngles(upperArmElevation: -65, forearmElevation: 45)
         let bendCopy = shallow ? "Bend a little" : "Bend your elbows"
         let bendDetail = shallow
             ? "Bend a little to bring your chest toward the wall, keeping your body in one straight line."
