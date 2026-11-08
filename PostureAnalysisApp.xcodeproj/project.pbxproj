@@ -486,6 +486,11 @@
 		A10000012B00000000000496 /* SoundCue.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000496 /* SoundCue.swift */; };
 		A10000012B00000000000497 /* SpeechCoachQueueTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000497 /* SpeechCoachQueueTests.swift */; };
 		A10000012B00000000000498 /* AudioCoordinatorTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000498 /* AudioCoordinatorTests.swift */; };
+		A10000012B00000000000499 /* MovementScenarioTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000499 /* MovementScenarioTests.swift */; };
+		A10000012B00000000000500 /* MovementGenerator.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000500 /* MovementGenerator.swift */; };
+		A10000012B00000000000501 /* MovementInfluence.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000501 /* MovementInfluence.swift */; };
+		A10000012B00000000000502 /* MovementPresets.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000502 /* MovementPresets.swift */; };
+		A10000012B00000000000503 /* MovementScenario.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000503 /* MovementScenario.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -980,6 +985,11 @@
 		B10000012B00000000000496 /* SoundCue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundCue.swift; sourceTree = "<group>"; };
 		B10000012B00000000000497 /* SpeechCoachQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechCoachQueueTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000498 /* AudioCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCoordinatorTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000499 /* MovementScenarioTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementScenarioTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000500 /* MovementGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementGenerator.swift; sourceTree = "<group>"; };
+		B10000012B00000000000501 /* MovementInfluence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementInfluence.swift; sourceTree = "<group>"; };
+		B10000012B00000000000502 /* MovementPresets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementPresets.swift; sourceTree = "<group>"; };
+		B10000012B00000000000503 /* MovementScenario.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementScenario.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1276,6 +1286,7 @@
 				B10000012B00000000000493 /* WorkoutObservationTests.swift */,
 				B10000012B00000000000497 /* SpeechCoachQueueTests.swift */,
 				B10000012B00000000000498 /* AudioCoordinatorTests.swift */,
+				B10000012B00000000000499 /* MovementScenarioTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1525,6 +1536,7 @@
 				B10000012B00000000000483 /* WorkoutTraceRecorder.swift */,
 				B10000012B00000000000484 /* WorkoutGoldenTraces.swift */,
 				B10000012B00000000000490 /* SpeechActivityGoldenTraces.swift */,
+				H10000012B00000000000074 /* MovementLab */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -2062,6 +2074,17 @@
 				B10000012B00000000000475 /* CalibrationViewModel.swift */,
 			);
 			path = Calibration;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000074 /* MovementLab */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000500 /* MovementGenerator.swift */,
+				B10000012B00000000000501 /* MovementInfluence.swift */,
+				B10000012B00000000000502 /* MovementPresets.swift */,
+				B10000012B00000000000503 /* MovementScenario.swift */,
+			);
+			path = MovementLab;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -2642,6 +2665,11 @@
 				A10000012B00000000000493 /* WorkoutObservationTests.swift in TestSources */,
 				A10000012B00000000000497 /* SpeechCoachQueueTests.swift in TestSources */,
 				A10000012B00000000000498 /* AudioCoordinatorTests.swift in TestSources */,
+				A10000012B00000000000499 /* MovementScenarioTests.swift in TestSources */,
+				A10000012B00000000000500 /* MovementGenerator.swift in TestSources */,
+				A10000012B00000000000501 /* MovementInfluence.swift in TestSources */,
+				A10000012B00000000000502 /* MovementPresets.swift in TestSources */,
+				A10000012B00000000000503 /* MovementScenario.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
