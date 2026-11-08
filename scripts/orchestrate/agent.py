@@ -32,6 +32,8 @@ REVIEWER_TOOLS = (
     "Read Glob Grep Write(build/reviews/**) Edit(build/reviews/**)"
 )
 RPC_TIMEOUT_SECONDS = 20.0
+AGENT_REGISTRATION_TIMEOUT_SECONDS = 10.0
+AGENT_REGISTRATION_POLL_SECONDS = 0.2
 WAIT_DEFAULT_SECONDS = 3600.0
 WAIT_TRANSPORT_MARGIN_SECONDS = 10.0
 STATE_RELATIVE_PATH = Path("build/orchestrate/state.json")
@@ -191,7 +193,7 @@ class StateFileLock:
 
 
 def _empty_workspace_state() -> dict[str, Any]:
-    return {"agents": {}, "scripts": {}, "managed_tabs": []}
+    return {"agents": {}, "orphaned_panes": {}, "scripts": {}, "managed_tabs": []}
 
 
 def _validated_legacy_state(data: Any, path: Path) -> dict[str, Any]:
@@ -244,12 +246,14 @@ def _normalize_shared_state(data: Any, path: Path) -> tuple[dict[str, Any], bool
     for workspace_id, state in workspaces.items():
         if not isinstance(workspace_id, str) or not isinstance(state, dict):
             raise OrchestrationError(f"invalid workspace state in {path}")
-        if any(key not in state for key in ("agents", "scripts", "managed_tabs")):
+        if any(key not in state for key in ("agents", "orphaned_panes", "scripts", "managed_tabs")):
             changed = True
         agents = state.setdefault("agents", {})
+        orphaned_panes = state.setdefault("orphaned_panes", {})
         scripts = state.setdefault("scripts", {})
         tabs = state.setdefault("managed_tabs", [])
-        if not isinstance(agents, dict) or not isinstance(scripts, dict) or not isinstance(tabs, list):
+        if (not isinstance(agents, dict) or not isinstance(orphaned_panes, dict)
+                or not isinstance(scripts, dict) or not isinstance(tabs, list)):
             raise OrchestrationError(f"invalid workspace state in {path}")
     for bucket in buckets:
         if not isinstance(bucket, dict):
@@ -349,12 +353,14 @@ def _load_state(root: Path, path: Path, workspace_id: str) -> tuple[dict[str, An
         changed = True
     else:
         workspace_state = workspaces[workspace_id]
-        if any(key not in workspace_state for key in ("agents", "scripts", "managed_tabs")):
+        if any(key not in workspace_state for key in ("agents", "orphaned_panes", "scripts", "managed_tabs")):
             changed = True
     agents = workspace_state.setdefault("agents", {})
+    orphaned_panes = workspace_state.setdefault("orphaned_panes", {})
     scripts = workspace_state.setdefault("scripts", {})
     managed_tabs = workspace_state.setdefault("managed_tabs", [])
-    if not isinstance(agents, dict) or not isinstance(scripts, dict) or not isinstance(managed_tabs, list):
+    if (not isinstance(agents, dict) or not isinstance(orphaned_panes, dict)
+            or not isinstance(scripts, dict) or not isinstance(managed_tabs, list)):
         raise OrchestrationError(f"invalid workspace state for {workspace_id!r} in {path}")
     pending = [
         bucket for bucket in data["legacy_buckets"]
@@ -486,11 +492,16 @@ def _recorded_agent_panes(
 
 def _recorded_agent_ids(state: dict[str, Any], snapshot: dict[str, Any]) -> set[str]:
     pane_ids = {str(pane.get("pane_id", "")) for pane in snapshot["panes"]}
-    return {
+    active = {
         str(meta["pane_id"])
         for meta in state.get("agents", {}).values()
         if isinstance(meta, dict) and meta.get("pane_id") and str(meta["pane_id"]) in pane_ids
     }
+    orphaned = {
+        str(pane_id) for pane_id in state.get("orphaned_panes", {})
+        if str(pane_id) in pane_ids
+    }
+    return active | orphaned
 
 
 def _pane_agents(
@@ -605,9 +616,11 @@ def _assert_unique_purpose(
             used[str(existing).casefold()] = f"script {existing}"
     orchestrator_id = _orchestrator_pane_id(snapshot)
     owned_ids = _recorded_agent_ids(ctx.state, snapshot) | _script_pane_ids(ctx.state)
+    orphaned_ids = {str(pane_id) for pane_id in ctx.state.get("orphaned_panes", {})}
     for pane in snapshot["panes"]:
         pane_id = str(pane.get("pane_id", ""))
-        if pane_id == except_pane_id or pane_id == orchestrator_id or pane_id not in owned_ids:
+        if (pane_id == except_pane_id or pane_id == orchestrator_id or pane_id not in owned_ids
+                or pane_id in orphaned_ids):
             continue
         label = str(pane.get("label") or "").strip()
         if not label:
@@ -616,6 +629,97 @@ def _assert_unique_purpose(
     collision = used.get(purpose.casefold())
     if collision:
         raise OrchestrationError(f"pane purpose {purpose!r} is already used by {collision}")
+
+
+def _reconcile_agent_records(ctx: Context, snapshot: dict[str, Any]) -> None:
+    live = {
+        (str(agent.get("name", "")), str(agent.get("pane_id", "")))
+        for agent in snapshot["agents"]
+        if agent.get("name") and agent.get("pane_id")
+    }
+    pane_ids = {str(pane.get("pane_id", "")) for pane in snapshot["panes"]}
+    orphaned = ctx.state.setdefault("orphaned_panes", {})
+    changed = False
+    for name, meta in list(ctx.state["agents"].items()):
+        pane_id = str(meta.get("pane_id", "")) if isinstance(meta, dict) else ""
+        if pane_id and (name, pane_id) in live:
+            continue
+        if pane_id and pane_id in pane_ids:
+            if isinstance(meta, dict) and meta.get("cleanup_pending"):
+                continue
+            record = dict(meta) if isinstance(meta, dict) else {}
+            record["name"] = name
+            record["agent_status"] = "not-running"
+            orphaned[pane_id] = record
+        ctx.state["agents"].pop(name, None)
+        changed = True
+    for pane_id in list(orphaned):
+        if str(pane_id) not in pane_ids:
+            orphaned.pop(pane_id, None)
+            changed = True
+    if changed:
+        ctx.save_state()
+
+
+def _wait_for_agent_registration(ctx: Context, name: str, pane_id: str) -> None:
+    deadline = time.monotonic() + AGENT_REGISTRATION_TIMEOUT_SECONDS
+    last_error = ""
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        try:
+            result = _herdr_json(
+                "agent", "list", timeout=min(RPC_TIMEOUT_SECONDS, remaining)
+            )
+            agents = result.get("agents", [])
+            if isinstance(agents, list) and any(
+                str(agent.get("name", "")) == name
+                and str(agent.get("pane_id", "")) == pane_id
+                and agent.get("workspace_id", ctx.workspace) == ctx.workspace
+                for agent in agents if isinstance(agent, dict)
+            ):
+                return
+        except OrchestrationError as exc:
+            last_error = " ".join(str(exc).split())
+        remaining = deadline - time.monotonic()
+        if remaining > 0:
+            time.sleep(min(AGENT_REGISTRATION_POLL_SECONDS, remaining))
+    detail = f"; last Herdr error: {last_error}" if last_error else ""
+    raise OrchestrationError(
+        f"Herdr did not register agent {name} in pane {pane_id} "
+        f"within {AGENT_REGISTRATION_TIMEOUT_SECONDS:g} seconds{detail}"
+    )
+
+
+def _rollback_agent_start(ctx: Context, name: str, pane_id: str, touched: set[str]) -> list[str]:
+    errors: list[str] = []
+    closed = False
+    try:
+        _herdr_json("pane", "close", pane_id)
+        closed = True
+    except OrchestrationError as exc:
+        errors.append("close pane: " + " ".join(str(exc).split()))
+    if closed:
+        ctx.state["agents"].pop(name, None)
+        ctx.state.setdefault("orphaned_panes", {}).pop(pane_id, None)
+    else:
+        record = ctx.state["agents"].setdefault(name, {"pane_id": pane_id})
+        if not isinstance(record, dict):
+            record = {"pane_id": pane_id}
+            ctx.state["agents"][name] = record
+        record["pane_id"] = pane_id
+        record["cleanup_pending"] = True
+    try:
+        ctx.save_state()
+    except OrchestrationError as exc:
+        action = "remove record" if closed else "preserve cleanup record"
+        errors.append(action + ": " + " ".join(str(exc).split()))
+    try:
+        _equalize_touched(ctx, touched)
+    except OrchestrationError as exc:
+        errors.append("restore pane widths: " + " ".join(str(exc).split()))
+    return errors
 
 
 def _panes_by_x(panes: list[dict[str, Any]], layout: dict[str, Any] | None = None) -> list[dict[str, Any]]:
@@ -1176,9 +1280,10 @@ def _start(args: argparse.Namespace, ctx: Context) -> None:
         raise OrchestrationError("pane purpose must be 20 characters or fewer")
     if purpose.casefold() == "orchestrator":
         raise OrchestrationError("pane purpose 'Orchestrator' is reserved")
+    snapshot = ctx.snapshot(refresh=True)
+    _reconcile_agent_records(ctx, snapshot)
     if name in ctx.state["agents"]:
         raise OrchestrationError(f"agent {name} is already managed")
-    snapshot = ctx.snapshot()
     _assert_unique_purpose(ctx, snapshot, purpose)
     if any(agent.get("name") == name for agent in snapshot["agents"]):
         raise OrchestrationError(f"agent {name} is already running")
@@ -1192,33 +1297,47 @@ def _start(args: argparse.Namespace, ctx: Context) -> None:
             raise OrchestrationError(f"working directory does not exist: {cwd}")
     _layout(ctx)
     tab, pane = _place_start_pane(ctx, touched, cwd)
-    ctx.state["agents"][name] = {
-        "kind": args.kind,
-        "model": args.model,
-        "role": args.role,
-        "purpose": purpose,
-        "pane_id": str(pane["pane_id"]),
-        "started_at": _now(),
-        "start_order": _next_start_order(ctx.state),
-    }
-    ctx.save_state()
-    _herdr_json("pane", "rename", str(pane["pane_id"]), purpose)
+    pane_id = str(pane["pane_id"])
+    try:
+        ctx.state["agents"][name] = {
+            "kind": args.kind,
+            "model": args.model,
+            "role": args.role,
+            "purpose": purpose,
+            "pane_id": pane_id,
+            "started_at": _now(),
+            "start_order": _next_start_order(ctx.state),
+        }
+        ctx.save_state()
+        _herdr_json("pane", "rename", pane_id, purpose)
 
-    if args.kind == "codex":
-        effort = args.effort or ("max" if model_lower == "gpt-6-luna" else "high")
-        herdr_args = [
-            "agent", "start", name, "--kind", "codex", "--pane", str(pane["pane_id"]),
-            "--", "-m", args.model, "-c", f"model_reasoning_effort={effort}",
-            "-s", "workspace-write", "-a", "on-request"
-        ]
-    else:
-        tool_list = IMPLEMENTER_TOOLS if args.role == "implementer" else REVIEWER_TOOLS
-        herdr_args = [
-            "agent", "start", name, "--kind", "claude", "--pane", str(pane["pane_id"]),
-            "--", "--model", args.model, "--permission-mode", "acceptEdits",
-            "--allowedTools", tool_list
-        ]
-    _herdr_json(*herdr_args)
+        if args.kind == "codex":
+            effort = args.effort or ("max" if model_lower == "gpt-6-luna" else "high")
+            herdr_args = [
+                "agent", "start", name, "--kind", "codex", "--pane", pane_id,
+                "--", "-m", args.model, "-c", f"model_reasoning_effort={effort}",
+                "-s", "workspace-write", "-a", "on-request"
+            ]
+        else:
+            tool_list = IMPLEMENTER_TOOLS if args.role == "implementer" else REVIEWER_TOOLS
+            herdr_args = [
+                "agent", "start", name, "--kind", "claude", "--pane", pane_id,
+                "--", "--model", args.model, "--permission-mode", "acceptEdits",
+                "--allowedTools", tool_list
+            ]
+        _herdr_json(*herdr_args)
+        _wait_for_agent_registration(ctx, name, pane_id)
+    except Exception as exc:
+        cleanup_errors = _rollback_agent_start(ctx, name, pane_id, touched)
+        cause = " ".join(str(exc).split()) or type(exc).__name__
+        if cleanup_errors:
+            raise OrchestrationError(
+                f"agent {name} failed to start: {cause}; cleanup incomplete: "
+                + "; ".join(cleanup_errors)
+            ) from exc
+        raise OrchestrationError(
+            f"agent {name} failed to start: {cause}; created pane {pane_id} closed and record removed"
+        ) from exc
     if args.kind == "codex":
         try:
             _codex_update_prompt(name)
@@ -1317,22 +1436,41 @@ def _prompt(args: argparse.Namespace, ctx: Context) -> None:
 
 
 def _status(ctx: Context, name: str | None) -> None:
-    if name and name not in ctx.state["agents"]:
-        raise OrchestrationError(f"agent {name} is not managed")
     snapshot = ctx.snapshot()
     pane_lookup = {pane.get("pane_id"): pane for pane in snapshot["panes"]}
     tab_lookup = {tab.get("tab_id"): tab for tab in snapshot["tabs"]}
     live_by_name = {agent.get("name"): agent for agent in _live_agents(ctx, snapshot) if agent.get("name")}
-    names = [name] if name else sorted(ctx.state["agents"])
-    if not names:
+    orphaned = ctx.state.get("orphaned_panes", {})
+    selected_orphans = [] if name in ctx.state["agents"] else [
+        (pane_id, meta) for pane_id, meta in orphaned.items()
+        if isinstance(meta, dict) and (name is None or meta.get("name") == name)
+    ]
+    if name and name not in ctx.state["agents"] and not selected_orphans:
+        raise OrchestrationError(f"agent {name} is not managed")
+    if name is None:
+        names = sorted(ctx.state["agents"])
+    elif name in ctx.state["agents"]:
+        names = [name]
+    else:
+        names = []
+    if not names and not selected_orphans:
         print("no managed agents")
         return
     for agent_name in names:
         agent = live_by_name.get(agent_name)
         meta = ctx.state["agents"].get(agent_name, {})
+        pane_id = str(meta.get("pane_id", "")) if isinstance(meta, dict) else ""
+        pane = pane_lookup.get(pane_id, {})
+        tab = tab_lookup.get(pane.get("tab_id"), {})
+        if isinstance(meta, dict) and meta.get("cleanup_pending"):
+            print(
+                f"{agent_name} state=cleanup-pending pane={pane_id or '-'} tab={tab.get('label', '-')} "
+                f"kind={meta.get('kind', '-')} model={meta.get('model', '-')}"
+            )
+            continue
         if not agent:
             print(
-                f"{agent_name} state=not-running pane=- tab=- "
+                f"{agent_name} state=not-running pane={pane_id or '-'} tab={tab.get('label', '-')} "
                 f"kind={meta.get('kind', '-')} model={meta.get('model', '-')}"
             )
             continue
@@ -1342,6 +1480,13 @@ def _status(ctx: Context, name: str | None) -> None:
             f"{agent_name} state={agent.get('agent_status', 'unknown')} "
             f"pane={agent.get('pane_id', '-')} tab={tab.get('label', '-')} "
             f"kind={meta.get('kind', agent.get('agent', '-'))} model={meta.get('model', '-')}"
+        )
+    for pane_id, meta in selected_orphans:
+        pane = pane_lookup.get(pane_id, {})
+        tab = tab_lookup.get(pane.get("tab_id"), {})
+        print(
+            f"{meta.get('name', 'orphan')} state=not-running pane={pane_id} tab={tab.get('label', '-')} "
+            f"kind={meta.get('kind', '-')} model={meta.get('model', '-')} owner=pane"
         )
 
 
