@@ -491,18 +491,19 @@ The tip is measured on one line (up to 320 pt) and as a compact, wrapped tip (up
 
 ## Speech and audio
 
-- Audio ownership, the speech synthesizer seam, and dormant future audio contracts are described in [docs/audio.md](audio.md).
+- Audio ownership, the speech synthesizer seam, and Dormant and internal audio contracts are described in [docs/audio.md](audio.md).
 - `SpeechCoach` keeps a short utterance queue: at most 2 pending lines, older ones dropped. It remembers the last instruction for "repeat that". Delegate callbacks (start, finish, cancel) advance the queue. A watchdog stops any utterance that runs past its estimated duration + 5 s.
 - `WorkoutAudioSession` mixes with other audio, so music keeps playing. With voice control it uses `.playAndRecord` with `.mixWithOthers`, `.defaultToSpeaker`, and `.allowBluetoothA2DP` (Bluetooth headphones keep high-quality music while the built-in mic listens), and stays active between utterances. Without it, `.playback` with `.mixWithOthers`.
 - Ducking only takes effect when the session activates, and other audio only returns when it deactivates. So before speaking, listening stops, the session is cycled with `.duckOthers`, and the coach speaks. When the queue drains, `endDucking()` deactivates with `.notifyOthersOnDeactivation`, restores the non-ducking category, and re-activates for listening. It retries briefly if deactivation reports busy.
 - `endDucking()` is idempotent and runs on every exit path: speech finished or cancelled, the watchdog, activation errors, interruptions, backgrounding, leaving the screen, and ending the workout. If the app crashes, iOS releases its audio session, which restores other audio.
 
-## Observation (internal)
+## Dormant and internal workout observation
 
-`WorkoutObserving` is a read-only, nonthrowing seam for downstream presentation. Its callbacks receive value types only,
-including a value identifying a newly opened Too Hard, effort, or bonus offer.
-`WorkoutCoachFactory` explicitly passes no observer, and production attaches none. The test-only
-`WorkoutPresentationMapper` maps the same values to semantic events; production has no mapper consumer.
+**Dormant and internal:** `WorkoutObserving` is a read-only, nonthrowing seam for downstream presentation. Its
+callbacks receive value types only, including a value identifying a newly opened Too Hard, effort, or bonus offer.
+`WorkoutCoachFactory` explicitly passes no observer, and production attaches none. **Dormant and internal:**
+`WorkoutPresentationEvent` values and `WorkoutPresentationMapper` map the same observer stream to semantic events;
+production has no mapper consumer.
 
 Callbacks run after their production action. Speech and repeat callbacks follow the speech call. Tip callbacks follow
 the tip state update and expiry scheduling; offer callbacks follow opening the offer and updating voice routing.
@@ -637,7 +638,7 @@ The model sends `.sessionPhase` to the frame pipeline before processing a frame.
 
 A mismatch fails with the first differing line, the expected and actual line, and nearby context. To re-record, run the class with `FMP_GOLDEN_PRINT=1` (or `TEST_RUNNER_FMP_GOLDEN_PRINT=1` through `xcodebuild test`): each actual trace is printed ready to paste and attached to the result, and the tests still fail until the literal is replaced. Change a golden only for an intended behaviour change, and give the reviewed reason in the PR: which lines changed and why.
 
-Limits: `FakeSpeechCoach` bypasses real speech activity, ducking, queue handling, and synthesizer callbacks; scenarios drive speech activity themselves. `FakeVoiceController` bypasses the production voice controller's listening and audio calls, including recognizer stop/restart behavior. Camera and tilt start/stop calls are not logged. Item 11 exercises the production save helper and record contents under a simulated lifecycle; `GoldenRun` supplies the once-only guard, so it does not test the view's once-only save invariant. Add a separate production-lifecycle or shared-save-coordinator test before relying on this suite for save deduplication. The audio facade work must also keep the voice and audio parity tests (`VoiceListeningParityTests`, `AudioSessionParityTests`, `SpeechActivityTraceTests`) unchanged.
+Limits: `FakeSpeechCoach` bypasses real speech activity, ducking, queue handling, and synthesizer callbacks; scenarios drive speech activity themselves. `FakeVoiceController` bypasses the production voice controller's listening and audio calls, including recognizer stop/restart behavior. Camera and tilt start/stop calls are not logged. `WorkoutObservationTests` exercises the production `WorkoutCoachHistory.save` helper and successful-save observer delivery; it does not exercise the SwiftUI view's `historySaved` lifecycle guard, which remains untested. The audio facade PR preserved the voice and audio parity tests (`VoiceListeningParityTests`, `AudioSessionParityTests`, `SpeechActivityTraceTests`).
 
 ## Adding an exercise
 

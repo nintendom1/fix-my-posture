@@ -4,8 +4,9 @@
 
 This is the current-state inventory for #132 (Refactor: behaviour-preserving foundations, phases 0–3). It records
 what the app does today, which tests pin it, and the gates every invisible PR for it must pass. This revision includes
-the internal observation seams added on 2026-11-07. Plans for game-style UI, audio, companion, and narrative features (phases 4–6) belong to
-#138 (Feature: game-style UI, audio, companion and narrative integration), not here. Update this file in the same PR whenever a baseline fact changes.
+the speech backend seam plus Dormant and internal observer, coordinator, cue, and narrative contracts. User-facing
+game-style screens, companion overlays, sound effects, background music, and narrative integration are later feature
+work in #138, not current app behaviour. Update this file in the same PR whenever a baseline fact changes.
 
 ## Test environment
 
@@ -15,10 +16,11 @@ the internal observation seams added on 2026-11-07. Plans for game-style UI, aud
 2. Session replay viewer tests: `node --test tools/session-replay/test/*.test.mjs` (Node 20 or later).
 3. Xcode project registration: `python3 scripts/pbxproj.py check`.
 4. AdaptiveTraining package tests: `swift test --package-path Packages/AdaptiveTraining --quiet`.
-5. Toolchain checks: full Xcode (`xcodebuild -version`) and `simctl`.
-6. Simulator choice: `SIMULATOR_DESTINATION` when set (it must start with `platform=iOS Simulator,`). Otherwise the
+5. Narrative package tests: `swift test --package-path Packages/Narrative --quiet`.
+6. Toolchain checks: full Xcode (`xcodebuild -version`) and `simctl`.
+7. Simulator choice: `SIMULATOR_DESTINATION` when set (it must start with `platform=iOS Simulator,`). Otherwise the
    available iPhone simulator on the newest iOS 17+ runtime, preferring iPhone 15 Pro within that runtime.
-7. `xcodebuild test` of the `PostureAnalysisApp` scheme with `-derivedDataPath build/validation`,
+8. `xcodebuild test` of the `PostureAnalysisApp` scheme with `-derivedDataPath build/validation`,
    `-parallel-testing-enabled NO`, and `CODE_SIGNING_ALLOWED=NO`. This runs the whole app test bundle, including the
    design anchor checks in `Tests/Design`. `WorkoutSessionReplayTests.testLocalRecordingsReplayToWhatThePhoneCounted`
    skips unless a recordings folder is named.
@@ -51,8 +53,9 @@ rules, not test running.
 the owning tab and either pushes onto its `NavigationStack` path or, for `settings`, `workout`, `todaySession`,
 `calibration`, and `livePostureCheck`, sets the one full-screen cover. `present` shows a cover without switching tabs.
 Reselecting the active tab pops it to its root. `workoutComplete` has only a placeholder destination; the summary
-shows inside the workout flow. Today's Session opens from Settings › Developer diagnostics › Adaptive training;
-calibration opens from that page and from Settings › Adaptive Training. When the store cannot open at all, the app
+shows inside the workout flow. Today's Session opens from Settings › Developer diagnostics › Adaptive training.
+Calibration is available from Settings › Adaptive Training (initial, add-area, and recalibration flows), with an
+additional initial-calibration shortcut on Settings › Developer diagnostics › Adaptive training. When the store cannot open at all, the app
 shows `PersistenceUnavailableView` instead of the tabs.
 
 **Protected by:** `AppRouteTests`, `AppShellSmokeTests`, `TrainHomeViewModelTests`, `RoutinesViewModelTests`,
@@ -69,10 +72,11 @@ today only test fixtures use them. `WorkoutSession` phases are `choosingExercise
 `paused(reason)`, `resting`, `changingExercise(previous)`, `exerciseComplete`, and `ended`. A `WorkoutPlan` comes from a
 Saved Set (user or `BuiltInRoutines`), Today's Session, or a calibration sample (`savesHistory: false`). Adaptive items
 end with an effort card; an Easy answer can offer a bonus set; "Too hard?" offers an easier version mid-set.
-`WorkoutCoachView.saveHistory()` saves once per presentation on End or Close, then tells reminders. `WorkoutObserving`
-provides optional value-only callbacks after reducer handling, speech, tips, newly opened offers, successful history
-commits, and successful adaptive operations. Production attaches no observer; `WorkoutPresentationMapper` is used only
-by tests.
+`WorkoutCoachView.saveHistory()` saves once per presentation on End or Close, then tells reminders. The
+`WorkoutCoachHistory.save` helper's successful-save behavior is covered, but the view's `historySaved` lifecycle guard
+is not. **Dormant and internal:** `WorkoutObserving` provides optional value-only callbacks after reducer handling,
+speech, tips, newly opened offers, successful history commits, and successful adaptive operations. Production attaches
+no observer. `WorkoutPresentationEvent` and `WorkoutPresentationMapper` are test-only consumers of the observer stream.
 
 **Protected by:** `WorkoutSessionTests`, `WorkoutCoachModelTests`, `WorkoutIntentTests`, `WorkoutCameraIntentTests`,
 `WorkoutSelfReportedTests`, the 14 `*AnalyzerTests`, `RepRejectionTests`, `WorkoutSessionReplayTests` (each catalog
@@ -81,9 +85,9 @@ demonstration recorded and replayed), `SavedExerciseSetTests`, `BuiltInRoutinesT
 `TodaySessionFlowTests`, `BonusRepsTests`, `TooHardOfferTests`, `CalibrationViewModelTests`, `CalibrationScreenTests`,
 `ExerciseCatalogTests`, `WorkoutGoldenTraceTests` (including per-side arm changes, rest, and the next set), and
 `WorkoutObservationTests` (observer order, save delivery, and semantic mapping).
-**Gaps:** effect order inside `WorkoutCoachModel.apply` is not exhaustively tested. The view's once-only `saveHistory`
-guard is untested; the non-View helper used by the view pins successful-save delivery, failed-save, and calibration-probe
-observer behavior.
+**Gaps:** effect order inside `WorkoutCoachModel.apply` is not exhaustively tested. The non-View save helper pins
+successful-save delivery, failed-save, and calibration-probe observer behavior; the SwiftUI view's once-only
+`historySaved` lifecycle guard remains untested.
 
 ### Camera overlays
 
@@ -207,19 +211,20 @@ with a Today's Session evidence scenario.
 
 ## Docs inventory
 
-Status comes from a keyword and section review on 2026-11-07, not a line-by-line audit.
+Status reflects a Gate A line-by-line review against the code on `fdn-gate-a` on 2026-11-08. User-facing README claims
+and the persistence/design references were checked; only docs changed by the foundation PRs are listed as impacted.
 
 | File | Covers | Status |
 |---|---|---|
 | `README.md` | Features, build, tests, Gitleaks, notices, limits | Current |
 | `AGENTS.md` | Structure map, architecture, invariants, commands | Current |
-| `docs/adaptive-training.md` | Package boundary, ladders, facts, policy, Today's Session, effort, bonus, Too Hard, calibration, debug | Current; "The Train hero arrives in PR 14" (Today's Session flow, Calibration › In the app) is planned |
+| `docs/adaptive-training.md` | Package boundary, ladders, facts, policy, Today's Session, effort, bonus, Too Hard, calibration, debug | Current; Today's Session is developer-only, while calibration is available in Settings and from its developer shortcut |
 | `docs/agent-orchestration.md` | Agent roles, panes, briefs, build lock, review | Current (process) |
-| `docs/audio.md` | Audio ownership, speech backend seam, dormant coordinator, future cue policy | Current and future contracts labeled |
+| `docs/audio.md` | Audio ownership, speech backend seam, Dormant and internal coordinator, future cue policy | Current behavior and Dormant and internal contracts labeled |
 | `docs/baseline.md` | This inventory | Current |
 | `docs/commit-and-pr.md` | Gitleaks gate, commit and PR format | Current |
 | `docs/debugging.md` | Developer diagnostics view and links | Current |
-| `docs/design.md` | Design bundle, metrics, tokens, components, anchors, routes | Current; "Deferred features" lists deferred work |
+| `docs/design.md` | Design bundle, metrics, tokens, components, anchors, routes | Current app screens and unchanged visual references; game-style screen work is future |
 | `docs/diagnostics.md` | Workout recordings, viewer, MCP, replay, file format | Current |
 | `docs/geometry.md` | Coordinate systems, aspect rule, reference geometry, horizon | Current |
 | `docs/notification-scenarios.md` | Generated scenario table | Current (generated) |
@@ -231,6 +236,7 @@ Status comes from a keyword and section review on 2026-11-07, not a line-by-line
 | `docs/reminders.md` | Reminder scheduling, taps, developer preview | Current |
 | `docs/validation.md` | Photo validation rules (not CI) | Current |
 | `docs/workout.md` | Workout Coach behaviour, rep rules, coaching, speech, voice, tests, device checklist | Current; "Future options" is future work |
+| `docs/narrative.md` | Narrative model, validation, runtime, and companion presentation contract | Dormant and internal; no app integration |
 | `Design/AppIcon/README.md` | Icon source and export | Current |
 | `Design/NotificationCharacter/README.md` | Character art pipeline and scenario data | Current |
 
@@ -262,13 +268,49 @@ it does not apply:
 | Assets | `THIRD_PARTY_NOTICES.md`, asset source manifests, in-app acknowledgements |
 | New directory or responsibility | `AGENTS.md` |
 | Tests or validation steps | The doc that names them, with real invocations; never `docs/validation.md` |
-| Dormant internal interfaces | Label them dormant/internal wherever they are documented |
+| Dormant and internal interfaces | Label them Dormant and internal wherever they are documented |
 | A fact recorded here | `docs/baseline.md` |
+
+## Boundaries for the feature phases
+
+The speech seam is in use for the existing behavior. All other contracts below are Dormant and internal and add no user-facing feature.
+
+| Boundary | Location | Guarantee today | A feature PR must add first |
+|---|---|---|---|
+| **Dormant and internal:** observation contract and presentation events | `PostureAnalysisApp/Workout/Session/WorkoutObserving.swift`; `PostureAnalysisApp/Workout/Presentation/WorkoutPresentationEvent.swift` | The optional observer receives value-only callbacks after the corresponding action. Production attaches none. The semantic mapper is exercised only by tests. | Add a production observer behind a feature switch, prove it is absent by default, and retain the observer-free golden traces. |
+| Speech backend seam | `PostureAnalysisApp/Voice/SpeechSynthesizing.swift`; `PostureAnalysisApp/Voice/SpeechCoach.swift` | `SpeechCoach` defaults to the system wrapper. Its queue, interrupt, repeat, activity and ducking behavior is tested through the injected synthesizer; the system wrapper delivers delegate callbacks asynchronously on the main queue. | Add a backend behind a feature switch and pin queue, repeat, cancellation, callback ordering, and shared-session behavior. Prerecorded clips may need a sibling protocol because this seam accepts `AVSpeechUtterance`. |
+| **Dormant and internal:** audio coordinator | `PostureAnalysisApp/Voice/AudioCoordinating.swift` | `WorkoutAudioCoordinator` forwards methods and events to the supplied `AudioSessionControlling`; it does not own an audio session. `WorkoutAudioSession` remains the sole system owner. | Add explicit feature-switch wiring and parity tests while retaining `WorkoutAudioSession` as the only `AVAudioSession` owner. |
+| **Dormant and internal:** cue vocabulary and BGM/SFX contracts | `PostureAnalysisApp/Voice/SoundCue.swift` | `SoundCueID` values and priority-policy labels are stable vocabulary only. The BGM/SFX protocols have no implementations or production callers and play no sound. | Add policy-aware players, a feature switch, and audio-focus tests before any cue or music is played. |
+| **Dormant and internal:** narrative package and companion presentation contract | `Packages/Narrative/`; `Packages/Narrative/Sources/Narrative/NarrativeModel.swift` | The Foundation-only package validates scripts and runs a pure value runtime. `CompanionPresentation` and `CompanionCallout` are data contracts; the app does not link or present them. | Add an app adapter behind a feature switch, define asset/audio and persistence ownership, and test non-blocking presentation plus isolation from workout, adaptive, and notification state. |
+
+## #132 PR documentation reconciliation
+
+The PR template requires **Docs impacted**, **Docs reviewed**, and **No-change rationale**. This table consolidates
+those checklist items across the #132 documentation PRs; Gate A rechecked the listed docs against the current code.
+
+| PR | Docs impacted | Docs reviewed / no-change rationale |
+|---|---|---|
+| #139 baseline docs | `.github/pull_request_template.md`, `AGENTS.md`, `README.md`, `docs/adaptive-training.md`, `docs/baseline.md`, `docs/persistence.md`, `docs/workout.md` | Gate A rechecked the listed current-state docs. This PR established the baseline and added the three-field docs checklist to the template. |
+| #140 golden traces | `docs/workout.md` | Gate A rechecked the trace description against the fixtures and tests. No other docs changed because this PR documented test traces without changing app behavior or architecture. |
+| #143 parity tests | `docs/baseline.md` | Gate A rechecked the parity inventory. No other docs changed because the PR added tests for existing audio, voice, and route behavior. |
+| #144 narrative package | `AGENTS.md`, `docs/narrative.md` | Gate A rechecked package APIs and boundaries. No README or design change: the package remains dormant and is not linked into the app. |
+| #148 observer | `docs/adaptive-training.md`, `docs/baseline.md`, `docs/workout.md` | Gate A rechecked callback order and default wiring. No README, design, or persistence change: production attaches no observer and the PR adds no user-facing behavior. |
+| #149 audio | `AGENTS.md`, `docs/audio.md`, `docs/baseline.md`, `docs/workout.md` | Gate A rechecked the speech seam and dormant contracts. No README, design, or persistence change: the default speech path remains unchanged and no new player is wired. |
+| `fdn-gate-a` Gate A (this PR) | `AGENTS.md`, `docs/adaptive-training.md`, `docs/audio.md`, `docs/baseline.md`, `docs/design.md`, `docs/narrative.md`, `docs/workout.md` | README and `docs/persistence.md` reviewed with no changes because user-visible setup/features and schema/recovery behavior are unchanged. Design references and design test sources remain unchanged (`git diff main -- Design/Metrics PostureAnalysisApp/Tests/Design` is empty). |
 
 ## Known limits
 
 Parity tests run on the simulator with fakes for the camera, speech, recognizer, audio session, and clock. They cannot
-prove behaviour on real audio routes (Bluetooth, AirPlay, calls, Siri, media-services resets), Vision pose accuracy,
-real speech and recognition timing, permission prompts, or notification delivery. A change that touches any of
-these needs explicit review and the relevant items from the physical-device checklists in [workout.md](workout.md)
-and [realtime.md](realtime.md), run on an iPhone with `make ios`.
+prove behaviour on physical hardware. `git diff main -- Design/Metrics PostureAnalysisApp/Tests/Design` is empty, so
+#132 leaves the visual references and design test sources unchanged. Known test and coverage limits are:
+
+- Real audio-route behavior (Bluetooth, AirPlay, calls, Siri, and media-services resets) is device-only.
+- Vision pose accuracy and camera capture are device-only.
+- Voice choice and real speech/recognition timing are device-only; simulator watchdog tests inject a scheduler rather
+  than wait for Foundation's wall-clock timer.
+- The non-View `WorkoutCoachHistory.save` helper is tested, but the SwiftUI view's once-only `historySaved` lifecycle
+  guard is not.
+- Permission prompts and actual notification delivery are device-only.
+
+A change that touches these needs explicit review and the relevant items from the physical-device checklists in
+[workout.md](workout.md) and [realtime.md](realtime.md), run on an iPhone with `make ios`.

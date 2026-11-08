@@ -1,8 +1,8 @@
 # Adaptive Training
 
 Adaptive training finds a comfortable starting point for each movement and moves the dose or variant up or down
-from the user's own Too Hard / Okay / Easy feedback. This document grows with each PR in the adaptive-training stack
-(#99–#114); sections that have not landed yet are marked as such.
+from the user's own Too Hard / Okay / Easy feedback. This document records the engine and app behavior implemented
+through #131; remaining work is marked explicitly.
 
 ## Where it lives
 
@@ -33,9 +33,9 @@ App code reaches the package through adapters in `PostureAnalysisApp/AdaptiveTra
   [Calibration](#calibration). `CalibrationProbeRecorder` is the coach's evidence recorder for one sample.
 
 Dependencies point one way: the app imports the package, never the reverse, so package code can't name app types.
-`PackageBoundaryTests` fails if any package source imports anything but Foundation. The policy, projection, and
-planning code that later PRs add stays `internal` to the package, exposed only through the engine's public entry
-point, so screens can read recommendations but never compute them.
+`PackageBoundaryTests` fails if any package source imports anything but Foundation. Policy, projection, and planning
+code stays `internal` to the package, exposed only through the engine's public entry point, so screens can read
+recommendations but never compute them.
 
 ## Progression ladders
 
@@ -222,8 +222,9 @@ either `bonusAccepted` or `bonusDeclined`. A transition after absence produces `
 
 The engine's `record`, `save`, `commit`, `abandon`, `removeFamily`, and `changeEquipment` return the events derived for
 their fact. `AdaptiveTrainingCoordinator` forwards each nonempty result, in engine order, to its optional
-`WorkoutObserving` observer after the successful operation. Production attaches none, so nothing in the app reacts to
-an event yet; they also appear in the developer snapshot and export (see [Debug view and export](#debug-view-and-export)).
+`WorkoutObserving` observer after the successful operation. **Dormant and internal:** production attaches none, so
+nothing in the app reacts to an event yet; events also appear in the developer snapshot and export (see [Debug view
+and export](#debug-view-and-export)).
 Persona and notification reactions are planned in #112 (Persona Reactions for Adaptive Training Events).
 
 ### Cache
@@ -243,7 +244,7 @@ The app never decides what is easier or harder. It runs what the engine returns 
   family, `RungDose`, exercise, and reduced range). `AppRoute.todaySession` (Train tab, full screen) reads the prepared
   launch from the coordinator, so the route carries no plan.
 - **Developer entry point.** Settings › Developer diagnostics › Adaptive training has **Start Today's Session**
-  (`adaptiveDebugStartTodayButton`). It is enabled only for `.ready`. The Train hero arrives in PR 14.
+  (`adaptiveDebugStartTodayButton`). It is enabled only for `.ready`. This branch has no Train hero entry for Today's Session.
 - **Plan shape.** The plan is named "Today's Session" and has the fixed id `AdaptiveTrainingCoordinator.todaySessionPlanID`
   (`70DA0000-0000-4000-8000-000000000001`). The main item is one set whose `targetReps` is the dose, in seconds for a
   timed dose. An optional harder sample is one set at its dose, labeled "Optional: <name>" wherever the plan shows item
@@ -504,7 +505,7 @@ ignores an uncommitted attempt's, so abandoning changes nothing (invariant 7). A
   (`adaptiveDebugStartCalibrationButton`), which opens `AppRoute.calibration` full screen for the initial calibration.
   Settings › Adaptive Training also offers the initial, recalibration, and add-an-area flows; these are pushed inside
   Settings' navigation stack and return to the Adaptive Training page when they finish. The developer button stays as
-  it is. The Train hero arrives in PR 14. A reminder tap never replaces the open screen, including Settings while a calibration is active.
+  it is; this branch has no Train hero entry for calibration. A reminder tap never replaces the open screen, including Settings while a calibration is active.
 - **Screen.** `CalibrationViewModel` holds the flow and sends each answer to it. `CalibrationScreen` draws the step. All
   copy lives in `CalibrationCopy`, and a test scans every string for scoring and medical words. Every control has an
   accessibility identifier that starts with `calibration`.
