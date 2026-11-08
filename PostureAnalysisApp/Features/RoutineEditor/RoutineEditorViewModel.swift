@@ -227,10 +227,13 @@ final class RoutineEditorViewModel: RoutineEditorViewModeling {
         }
         state.pickerExercises = sorted.map { _, exercise, count in
             let presentation = exercise.presentation
+            let target = exercise.doseUnit == .seconds
+                ? "\(exercise.sets) × \(exercise.targetLabel) s"
+                : "\(exercise.sets) × \(exercise.targetLabel)"
             return AddExercisePresentation(
                 exerciseID: exercise.id,
                 name: presentation.shortName,
-                target: "\(exercise.sets) × \(exercise.targetLabel)"
+                target: target
                     + (exercise.perSide && exercise.sideLimb == .leg ? " each leg" : ""),
                 muscles: presentation.muscles.joined(separator: " · "),
                 gradient: presentation.gradient,
@@ -271,7 +274,8 @@ final class RoutineEditorViewModel: RoutineEditorViewModeling {
             setCount: item.setCount,
             minimumReps: item.targetRepMinimum,
             maximumReps: item.targetRepMaximum,
-            isExpanded: expanded
+            isExpanded: expanded,
+            isTimed: exercise?.doseUnit == .seconds
         )
     }
 }

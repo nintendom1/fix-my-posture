@@ -30,11 +30,12 @@ struct ExerciseCompleteCard: View {
                             .textStyle(.body)
                             .foregroundStyle(ColorTokens.palette().textMuted)
                     }
-                    Text(sets.enumerated().map { "\(exercise.setLabel(entry: $0.offset)): \($0.element)" }.joined(separator: " · "))
+                    Text(sets.enumerated().map { "\(exercise.setLabel(entry: $0.offset)): \($0.element)\(exercise.doseUnit == .seconds ? " s" : "")" }.joined(separator: " · "))
                         .textStyle(.headline)
                         .monospacedDigit()
                         .foregroundStyle(ColorTokens.palette().textPrimary)
-                    Text("\(sets.reduce(0, +)) reps")
+                    // A timed hold's amounts are seconds.
+                    Text(exercise.doseUnit == .seconds ? "\(sets.reduce(0, +)) s" : "\(sets.reduce(0, +)) reps")
                         .textStyle(.body)
                         .monospacedDigit()
                         .foregroundStyle(ColorTokens.palette().textSecondary)
@@ -160,6 +161,7 @@ struct PlanItemSummaryRow: View {
     private var detail: String {
         let sets = (record?.setReps ?? []).enumerated().map { entry in
             "\(exercise?.setLabel(entry: entry.offset) ?? "Set \(entry.offset + 1)"): \(entry.element)"
+                + (exercise?.doseUnit == .seconds ? " s" : "")
         }.joined(separator: " · ")
         switch record?.outcome {
         case .completed: return sets

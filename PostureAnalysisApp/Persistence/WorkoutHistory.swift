@@ -3,10 +3,42 @@ import SwiftData
 
 /// One finished set in the history: its reps, which side for per-side exercises, and the weight used.
 struct RecordedSet: Codable, Equatable {
+    /// Reps done; 0 for a timed hold, whose length is in `seconds`.
     var reps: Int
     /// "L" or "R" for exercises done one side at a time.
     var side: String?
     var weight: WorkoutWeight?
+    /// Seconds held, for timed exercises; nil for rep sets (and every record saved before timed holds existed).
+    var seconds: Int? = nil
+
+    /// "1 rep", "8 reps", or "20 s".
+    var amountLabel: String {
+        if let seconds { return "\(seconds) s" }
+        return reps == 1 ? "1 rep" : "\(reps) reps"
+    }
+
+    init(reps: Int, side: String? = nil, weight: WorkoutWeight? = nil, seconds: Int? = nil) {
+        self.reps = reps
+        self.side = side
+        self.weight = weight
+        self.seconds = seconds
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case reps
+        case side
+        case weight
+        case seconds
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        reps = try values.decode(Int.self, forKey: .reps)
+        side = try values.decodeIfPresent(String.self, forKey: .side)
+        weight = try values.decodeIfPresent(WorkoutWeight.self, forKey: .weight)
+        // Older workout records have no seconds key. Treat those sets as rep-based history.
+        seconds = try values.decodeIfPresent(Int.self, forKey: .seconds)
+    }
 }
 
 /// One exercise (or one Saved Set occurrence) in a saved workout.
@@ -40,8 +72,12 @@ struct WorkoutRecord: Codable, Equatable, Identifiable {
     init?(session: WorkoutSession, startedAt: Date, endedAt: Date, id: UUID = UUID()) {
         func sets(_ reps: [Int], _ weights: [WorkoutWeight?], for exercise: ExerciseDefinition?) -> [RecordedSet] {
             reps.enumerated().map { index, count in
-                RecordedSet(reps: count, side: exercise?.perSide == true ? (index % 2 == 0 ? "L" : "R") : nil,
-                            weight: weights.indices.contains(index) ? weights[index] : nil)
+                // A timed hold's amount is seconds, kept apart so it never adds to rep totals.
+                let timed = exercise?.doseUnit == .seconds
+                return RecordedSet(reps: timed ? 0 : count,
+                                   side: exercise?.perSide == true ? (index % 2 == 0 ? "L" : "R") : nil,
+                                   weight: weights.indices.contains(index) ? weights[index] : nil,
+                                   seconds: timed ? count : nil)
             }
         }
         var entries: [WorkoutRecordEntry] = []

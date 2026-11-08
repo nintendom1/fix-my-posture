@@ -92,9 +92,9 @@ Design/NotificationCharacter/    # Chibi PSD, characters.json, notification-scen
 
 ## Adding a Workout Exercise
 
-Every new Workout Coach exercise ships with full guidance (guide, ghost demo, threshold lines, hold ring, coaching cues, docs, and checklist items) even when a request only names the exercise. Follow the *Adding an exercise* checklist in `docs/workout.md`.
+Every new camera-tracked Workout Coach exercise ships with full guidance (guide, ghost demo, threshold lines, hold ring, coaching cues, docs, and checklist items) even when a request only names the exercise. For self-reported exercises, follow the lighter checklist in `docs/workout.md`; the Ready-state ghost invariant below applies to camera-tracked exercises only.
 
-**Ready-state ghost invariant.** The full ghost figure renders throughout setup (getting into position, Ready, and rest), at an ideal spot until it calibrates. Any pose that can reach Ready must calibrate it. Ghost sizing may depend only on what Ready guarantees (`requiredJoints` plus any one `anyOfRequiredJoints` set), unless it has a fallback; optional landmarks may refine sizing but must never suppress the ghost. Never add `requiredJoints` or `anyOfRequiredJoints` just to make the ghost render. `ReadyGhostInvariantTests` enforces this for every catalog exercise.
+**Ready-state ghost invariant for camera-tracked exercises.** The full ghost figure renders throughout setup (getting into position, Ready, and rest), at an ideal spot until it calibrates. Any pose that can reach Ready must calibrate it. Ghost sizing may depend only on what Ready guarantees (`requiredJoints` plus any one `anyOfRequiredJoints` set), unless it has a fallback; optional landmarks may refine sizing but must never suppress the ghost. Never add `requiredJoints` or `anyOfRequiredJoints` just to make the ghost render. `ReadyGhostInvariantTests` enforces this for every camera-tracked catalog exercise.
 
 ## Exercise Photography
 

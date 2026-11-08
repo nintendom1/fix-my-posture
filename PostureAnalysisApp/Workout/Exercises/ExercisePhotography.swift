@@ -11,6 +11,9 @@ struct ExercisePhotography: Identifiable {
     let sourceURL: URL
     let license: String
 
+    /// SF Symbols for catalog exercises waiting on approved photography. Keep empty until a source is vetted.
+    static let placeholders: [ExerciseID: String] = [:]
+
     static let all: [ExercisePhotography] = [
         ExercisePhotography(
             id: .airSquat,

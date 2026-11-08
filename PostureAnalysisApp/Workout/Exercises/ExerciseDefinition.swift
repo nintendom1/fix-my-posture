@@ -102,6 +102,92 @@ struct ExerciseDefinition: Identifiable {
     /// Joints resting on the floor during a rep, such as push-up hands. One that drops out at the frame edge
     /// is held where it was last seen instead of carried with its limb.
     var plantedJoints: Set<LandmarkType> = []
+    /// Camera-counted, or self-reported when the camera can't follow the movement.
+    var tracking: ExerciseTracking = .camera
+    /// Reps, or seconds for a timed hold (then `targetReps` and `autoCompleteReps` are seconds).
+    var doseUnit: ExerciseDoseUnit = .reps
+
+    private let cameraAnalyzer: (_ epoch: Int) -> ExerciseAnalyzing
+
+    /// The analyzer for this definition. Self-reported definitions use a no-op analyzer even when made by
+    /// adapting a camera-tracked catalog definition.
+    var makeAnalyzer: (_ epoch: Int) -> ExerciseAnalyzing {
+        let usesCamera = tracking == .camera
+        let cameraAnalyzer = self.cameraAnalyzer
+        return { epoch in
+            usesCamera ? cameraAnalyzer(epoch) : SelfReportedAnalyzer(epoch: epoch)
+        }
+    }
+
+    init(
+        id: ExerciseID,
+        displayName: String,
+        presentation: ExercisePresentation,
+        spokenName: String,
+        sets: Int,
+        targetReps: ClosedRange<Int>,
+        autoCompleteReps: Int,
+        targetRangeAnnouncementReps: Int?,
+        restSeconds: Int,
+        requiredJoints: Set<LandmarkType>,
+        focusSegments: [FocusSegment],
+        headroomArmLengths: CGFloat?,
+        sideroomArmLengths: CGFloat? = nil,
+        maximumShoulderSpan: CGFloat? = nil,
+        countsArmsIndependently: Bool,
+        setupLine: String,
+        voiceAliases: [String],
+        guide: ExerciseGuide,
+        coachingCues: [CoachingCue],
+        reminders: [CoachingCue],
+        motionEnvelope: MotionEnvelope,
+        cameraView: ExerciseCameraView = .front,
+        anyOfRequiredJoints: [Set<LandmarkType>] = [],
+        startsByHolding: Bool = true,
+        perSide: Bool = false,
+        sideLimb: ExerciseSideLimb = .arm,
+        warnsAboutTilt: Bool = true,
+        equipment: ExerciseEquipment = .dumbbells,
+        plantedJoints: Set<LandmarkType> = [],
+        tracking: ExerciseTracking = .camera,
+        doseUnit: ExerciseDoseUnit = .reps,
+        makeAnalyzer: @escaping (_ epoch: Int) -> ExerciseAnalyzing,
+        diagnostics: ExerciseDiagnostics? = nil
+    ) {
+        self.id = id
+        self.displayName = displayName
+        self.presentation = presentation
+        self.spokenName = spokenName
+        self.sets = sets
+        self.targetReps = targetReps
+        self.autoCompleteReps = autoCompleteReps
+        self.targetRangeAnnouncementReps = targetRangeAnnouncementReps
+        self.restSeconds = restSeconds
+        self.requiredJoints = requiredJoints
+        self.focusSegments = focusSegments
+        self.headroomArmLengths = headroomArmLengths
+        self.sideroomArmLengths = sideroomArmLengths
+        self.maximumShoulderSpan = maximumShoulderSpan
+        self.countsArmsIndependently = countsArmsIndependently
+        self.setupLine = setupLine
+        self.voiceAliases = voiceAliases
+        self.guide = guide
+        self.coachingCues = coachingCues
+        self.reminders = reminders
+        self.motionEnvelope = motionEnvelope
+        self.cameraView = cameraView
+        self.anyOfRequiredJoints = anyOfRequiredJoints
+        self.startsByHolding = startsByHolding
+        self.perSide = perSide
+        self.sideLimb = sideLimb
+        self.warnsAboutTilt = warnsAboutTilt
+        self.equipment = equipment
+        self.plantedJoints = plantedJoints
+        self.tracking = tracking
+        self.doseUnit = doseUnit
+        cameraAnalyzer = makeAnalyzer
+        self.diagnostics = diagnostics
+    }
 
     /// Recorded entries that make up the full exercise.
     var setEntries: Int { perSide ? sets * 2 : sets }
@@ -121,7 +207,6 @@ struct ExerciseDefinition: Identifiable {
     func setLabel(entry index: Int) -> String {
         perSide ? "Set \(index / 2 + 1) \(index % 2 == 0 ? "L" : "R")" : "Set \(index + 1)"
     }
-    let makeAnalyzer: (_ epoch: Int) -> ExerciseAnalyzing
     /// The analyzer's tuning for session recordings, and a way to rebuild this exercise from a recorded tuning.
     var diagnostics: ExerciseDiagnostics? = nil
 
@@ -135,9 +220,24 @@ struct ExerciseDefinition: Identifiable {
             : "\(targetReps.lowerBound)–\(targetReps.upperBound)"
     }
 
+    /// "10 reps" or, for a timed hold, "20 s".
+    var targetAmountLabel: String {
+        doseUnit == .seconds ? "\(targetLabel) s" : "\(targetLabel) reps"
+    }
+
+    /// "10" for reps; "20 seconds" for a timed hold, since a bare number would read as reps.
     var spokenTarget: String {
-        targetReps.lowerBound == targetReps.upperBound
+        let range = targetReps.lowerBound == targetReps.upperBound
             ? "\(targetReps.upperBound)"
             : "\(targetReps.lowerBound) to \(targetReps.upperBound)"
+        return doseUnit == .seconds ? "\(range) seconds" : range
     }
+
+    /// A set's amount as spoken or shown: "1 rep", "3 reps", or "20 seconds".
+    func amountPhrase(_ amount: Int) -> String {
+        if doseUnit == .seconds { return amount == 1 ? "1 second" : "\(amount) seconds" }
+        return amount == 1 ? "1 rep" : "\(amount) reps"
+    }
+
+    var isSelfReported: Bool { tracking == .selfReported }
 }

@@ -16,6 +16,7 @@ struct WorkoutCoachHarness {
 
     static func make(permissionStatus: CameraAuthorization = .authorized,
                      preferences: any AppPreferencesStoring = UserDefaultsPreferences(),
+                     exercises: [ExerciseDefinition] = ExerciseCatalog.all,
                      initialExercise: ExerciseID = .shoulderPress,
                      recorder: (any WorkoutSessionRecording)? = nil,
                      audioTiming: AudioWorkTiming? = nil) -> WorkoutCoachHarness {
@@ -38,7 +39,7 @@ struct WorkoutCoachHarness {
             clock: clock,
             scheduler: scheduler,
             preferences: preferences,
-            exercises: ExerciseCatalog.all,
+            exercises: exercises,
             initialExercise: initialExercise,
             plan: nil,
             recorder: recorder,

@@ -17,15 +17,18 @@ struct ExerciseTargetEditor: View {
         _target = State(initialValue: ExerciseTargetStore.target(for: exercise.id, preferences: preferences) ?? ExerciseTarget(exercise))
     }
 
+    /// Timed holds keep seconds in the rep fields.
+    private var unit: String { exercise.doseUnit == .seconds ? "Seconds" : "Reps" }
+
     var body: some View {
         NavigationStack {
             Form {
                 Section {
                     Stepper("Sets: \(target.sets)", value: $target.sets, in: 1...10)
-                    Stepper("Reps from: \(target.repMinimum)", value: Binding(
+                    Stepper("\(unit) from: \(target.repMinimum)", value: Binding(
                         get: { target.repMinimum },
                         set: { target.repMinimum = $0; target.repMaximum = max(target.repMaximum, $0) }), in: 1...50)
-                    Stepper("Reps to: \(target.repMaximum)", value: Binding(
+                    Stepper("\(unit) to: \(target.repMaximum)", value: Binding(
                         get: { target.repMaximum },
                         set: { target.repMaximum = $0; target.repMinimum = min(target.repMinimum, $0) }), in: 1...50)
                 } footer: {

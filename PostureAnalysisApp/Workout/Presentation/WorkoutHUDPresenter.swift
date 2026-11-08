@@ -59,12 +59,15 @@ struct WorkoutHUDExercise: Equatable {
     let sideLimb: ExerciseSideLimb
     let targetReps: ClosedRange<Int>
     let restSeconds: Int
+    let tracking: ExerciseTracking
+    let doseUnit: ExerciseDoseUnit
 
     init(id: ExerciseID, displayName: String, targetLabel: String, startsByHolding: Bool,
          startPositionInstruction: String, sets: Int, setsAndRepsLabel: String,
          equipment: ExerciseEquipment, countsArmsIndependently: Bool,
          perSide: Bool = false, sideLimb: ExerciseSideLimb = .arm,
-         targetReps: ClosedRange<Int> = 1...1, restSeconds: Int = 60) {
+         targetReps: ClosedRange<Int> = 1...1, restSeconds: Int = 60,
+         tracking: ExerciseTracking = .camera, doseUnit: ExerciseDoseUnit = .reps) {
         self.id = id
         self.displayName = displayName
         self.targetLabel = targetLabel
@@ -78,6 +81,8 @@ struct WorkoutHUDExercise: Equatable {
         self.sideLimb = sideLimb
         self.targetReps = targetReps
         self.restSeconds = restSeconds
+        self.tracking = tracking
+        self.doseUnit = doseUnit
     }
 
     init(exercise: ExerciseDefinition, startsByHolding: Bool? = nil, restSeconds: Int? = nil) {
@@ -93,7 +98,16 @@ struct WorkoutHUDExercise: Equatable {
                   perSide: exercise.perSide,
                   sideLimb: exercise.sideLimb,
                   targetReps: exercise.targetReps,
-                  restSeconds: restSeconds ?? exercise.restSeconds)
+                  restSeconds: restSeconds ?? exercise.restSeconds,
+                  tracking: exercise.tracking,
+                  doseUnit: exercise.doseUnit)
+    }
+
+    var isSelfReported: Bool { tracking == .selfReported }
+
+    /// "10 reps" or "20 s".
+    var targetAmountLabel: String {
+        doseUnit == .seconds ? "\(targetLabel) s" : "\(targetLabel) reps"
     }
 
     func sideLabel(_ side: BodySide) -> String {
@@ -117,11 +131,13 @@ struct WorkoutHUDInputs: Equatable {
     let planPositionLabel: String?
     let planName: String?
     let nextPlanExercise: WorkoutHUDExercise?
+    /// Seconds left in a timed hold that is running or paused.
+    let holdRemaining: TimeInterval?
 
     init(visual: WorkoutVisualInputs, exercise: WorkoutHUDExercise?, voiceCommandsAvailable: Bool,
          currentSetNumber: Int, currentSide: BodySide?, repCount: Int, repEventCount: Int,
          isRestingBeforeNextExercise: Bool, planPositionLabel: String?,
-         planName: String? = nil, nextPlanExercise: WorkoutHUDExercise? = nil) {
+         planName: String? = nil, nextPlanExercise: WorkoutHUDExercise? = nil, holdRemaining: TimeInterval? = nil) {
         self.visual = visual
         self.exercise = exercise
         self.voiceCommandsAvailable = voiceCommandsAvailable
@@ -133,6 +149,7 @@ struct WorkoutHUDInputs: Equatable {
         self.planPositionLabel = planPositionLabel
         self.planName = planName
         self.nextPlanExercise = nextPlanExercise
+        self.holdRemaining = holdRemaining
     }
 
     init(session: WorkoutSession, visual: WorkoutVisualInputs, voiceCommandsAvailable: Bool) {
@@ -153,7 +170,8 @@ struct WorkoutHUDInputs: Equatable {
             isRestingBeforeNextExercise: session.isRestingBeforeNextExercise,
             planPositionLabel: session.planPositionLabel,
             planName: session.isFollowingPlan ? session.plan?.name : nil,
-            nextPlanExercise: Self.nextPlanExercise(in: session)
+            nextPlanExercise: Self.nextPlanExercise(in: session),
+            holdRemaining: session.holdRemaining(at: visual.now)
         )
     }
 
@@ -226,6 +244,9 @@ enum WorkoutHUDPresenter {
                 statusText = "Ready"
             }
             statusTone = .endPosition
+        case .exercising where exercise?.isSelfReported == true:
+            statusText = exercise?.doseUnit == .seconds ? "Holding" : "Your set"
+            statusTone = .tracked
         case .exercising:
             statusText = inputs.visual.isCounting
                 ? "Counting"
@@ -290,6 +311,10 @@ enum WorkoutHUDPresenter {
         let progressLine: String?
         if let exercise {
             switch phase {
+            case .exercising where exercise.doseUnit == .seconds, .paused where exercise.doseUnit == .seconds:
+                progressLine = "Set \(inputs.currentSetNumber) of \(exercise.sets) · \(format(inputs.holdRemaining ?? 0)) left"
+            case .exercising where exercise.isSelfReported, .paused where exercise.isSelfReported:
+                progressLine = "Set \(inputs.currentSetNumber) of \(exercise.sets) · \(exercise.targetAmountLabel)"
             case .exercising, .paused:
                 progressLine = "Set \(inputs.currentSetNumber) of \(exercise.sets) · \(inputs.repCount) reps"
             case .resting:
@@ -306,13 +331,16 @@ enum WorkoutHUDPresenter {
         let restCountdownText = semanticState.primary == .rest
             ? inputs.visual.restRemaining.map(format)
             : nil
-        let primaryAction = primaryAction(for: semanticState.primary)
-        let primaryActionLabel = primaryLabel(for: semanticState.primary)
-        let primaryActionIcon = primaryIcon(for: semanticState.primary)
+        // A self-reported set ends when the user says so: the main button is Done instead of Pause.
+        let isSelfReportedSet = phase == .exercising && exercise?.isSelfReported == true
+        let primaryAction = isSelfReportedSet ? .nextSet : primaryAction(for: semanticState.primary)
+        let primaryActionLabel = isSelfReportedSet ? "Done" : primaryLabel(for: semanticState.primary)
+        let primaryActionIcon = isSelfReportedSet ? "check" : primaryIcon(for: semanticState.primary)
 
         let setSummary = exercise.map { value in
             let side = inputs.currentSide.map { " · \(value.sideLabel($0))" } ?? ""
-            return "Set \(inputs.currentSetNumber) of \(value.sets) · target \(value.targetLabel)\(value.perSideTargetSuffix)\(side)"
+            let target = value.doseUnit == .seconds ? "\(value.targetLabel) s" : value.targetLabel
+            return "Set \(inputs.currentSetNumber) of \(value.sets) · target \(target)\(value.perSideTargetSuffix)\(side)"
         }
         let nextLine = nextLine(for: inputs, phase: phase)
         let subtitle: String?
@@ -324,7 +352,9 @@ enum WorkoutHUDPresenter {
             subtitle = nil
         }
         let progressValue: Double
-        if semanticState.primary == .rest, let exercise, let remaining = inputs.visual.restRemaining {
+        if let exercise, exercise.doseUnit == .seconds, let remaining = inputs.holdRemaining {
+            progressValue = min(max(1 - remaining / Double(max(1, exercise.targetReps.upperBound)), 0), 1)
+        } else if semanticState.primary == .rest, let exercise, let remaining = inputs.visual.restRemaining {
             progressValue = min(max(1 - remaining / Double(max(1, exercise.restSeconds)), 0), 1)
         } else if let exercise {
             progressValue = min(max(Double(inputs.repCount) / Double(max(1, exercise.targetReps.upperBound)), 0), 1)
@@ -345,7 +375,7 @@ enum WorkoutHUDPresenter {
                                       isSetInProgress: isSetInProgress(phase),
                                       canAdvanceSet: canAdvanceSet(phase),
                                       canEndWorkout: phase != .ended,
-                                      pillLabel: semanticState.label,
+                                      pillLabel: pillLabel(semanticState, exercise: exercise),
                                       pillIcon: semanticState.iconName,
                                       instructionText: cameraCopy,
                                       subtitle: subtitle,
@@ -355,9 +385,32 @@ enum WorkoutHUDPresenter {
                                       primaryActionIcon: primaryActionIcon,
                                       setSummary: setSummary,
                                       nextLine: nextLine,
-                                      counterText: restCountdownText ?? "\(inputs.repCount)",
-                                      counterTargetText: restCountdownText == nil ? exercise.map { "/ \($0.targetReps.upperBound)" } : nil,
+                                      counterText: counterText(inputs, restCountdownText: restCountdownText),
+                                      counterTargetText: counterTargetText(inputs, restCountdownText: restCountdownText),
                                       progressValue: progressValue)
+    }
+
+    /// The big number: rest countdown, then a hold's time left (or its length before it starts), then the
+    /// self-reported target, then the camera's count.
+    private static func counterText(_ inputs: WorkoutHUDInputs, restCountdownText: String?) -> String {
+        if let restCountdownText { return restCountdownText }
+        guard let exercise = inputs.exercise else { return "\(inputs.repCount)" }
+        if exercise.doseUnit == .seconds {
+            return format(inputs.holdRemaining ?? TimeInterval(exercise.targetReps.upperBound))
+        }
+        return exercise.isSelfReported ? "\(exercise.targetReps.upperBound)" : "\(inputs.repCount)"
+    }
+
+    private static func counterTargetText(_ inputs: WorkoutHUDInputs, restCountdownText: String?) -> String? {
+        guard restCountdownText == nil, let exercise = inputs.exercise else { return nil }
+        if exercise.doseUnit == .seconds { return nil }
+        if exercise.isSelfReported { return exercise.targetReps.upperBound == 1 ? "rep" : "reps" }
+        return "/ \(exercise.targetReps.upperBound)"
+    }
+
+    private static func pillLabel(_ state: WorkoutVisualState, exercise: WorkoutHUDExercise?) -> String {
+        guard state.primary == .active, let exercise, exercise.isSelfReported else { return state.label }
+        return exercise.doseUnit == .seconds ? "Holding" : "Your set"
     }
 
     private static func cameraCopy(for state: WorkoutVisualState, inputs: WorkoutHUDInputs) -> String? {
@@ -366,6 +419,11 @@ enum WorkoutHUDPresenter {
             guard let exercise = inputs.exercise else { return nil }
             return exercise.startsByHolding ? exercise.startPositionInstruction : "Tap Start to begin"
         case .active:
+            if let exercise = inputs.exercise, exercise.isSelfReported {
+                return exercise.doseUnit == .seconds
+                    ? "Hold steady. Tap Done to stop early."
+                    : "Do \(exercise.targetAmountLabel), then tap Done."
+            }
             return inputs.exercise?.id == .shoulderPress ? "Breathe out as you press." : nil
         case .paused:
             return "Say “resume” or tap play"
@@ -414,17 +472,17 @@ enum WorkoutHUDPresenter {
     private static func nextLine(for inputs: WorkoutHUDInputs, phase: WorkoutPhase) -> String? {
         guard let exercise = inputs.exercise else { return nil }
         if inputs.isRestingBeforeNextExercise {
-            return "Next: set 1 of \(exercise.sets) · \(exercise.targetLabel) reps\(exercise.perSideTargetSuffix)"
+            return "Next: set 1 of \(exercise.sets) · \(exercise.targetAmountLabel)\(exercise.perSideTargetSuffix)"
         }
         if phase == .resting {
-            return "Next: set \(inputs.currentSetNumber) of \(exercise.sets) · \(exercise.targetLabel) reps\(exercise.perSideTargetSuffix)"
+            return "Next: set \(inputs.currentSetNumber) of \(exercise.sets) · \(exercise.targetAmountLabel)\(exercise.perSideTargetSuffix)"
         }
         if let next = inputs.nextPlanExercise {
             let displayName = next.displayName.replacingOccurrences(of: "One-Arm ", with: "")
             return "Next: \(displayName)"
         }
         guard inputs.currentSetNumber < exercise.sets else { return nil }
-        return "Next: set \(inputs.currentSetNumber + 1) of \(exercise.sets) · \(exercise.targetLabel) reps\(exercise.perSideTargetSuffix)"
+        return "Next: set \(inputs.currentSetNumber + 1) of \(exercise.sets) · \(exercise.targetAmountLabel)\(exercise.perSideTargetSuffix)"
     }
 
     static func format(_ seconds: TimeInterval) -> String {
