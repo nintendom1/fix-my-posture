@@ -252,6 +252,158 @@ final class AdaptiveTrainingCoordinatorTests: XCTestCase {
         XCTAssertFalse(BuiltInRoutines.all.contains { $0.id == AdaptiveTrainingCoordinator.todaySessionPlanID })
     }
 
+    // MARK: - Calibration
+
+    /// A flow that has finished the quiz for push alone, answering "Not sure", so its first sample is the floor.
+    private func pushFlow(_ rig: Rig) throws -> CalibrationFlow {
+        var flow = try XCTUnwrap(rig.coordinator.startCalibration(asOf: date(day: 20)))
+        flow.setEquipment([])
+        flow.setFamilies([.push])
+        flow.answerCloseness(family: .push, variant: nil)
+        return flow
+    }
+
+    func testStartingACalibrationSavesAnInProgressAttemptWithAFreshID() throws {
+        let rig = makeRig()
+
+        let flow = try XCTUnwrap(rig.coordinator.startCalibration(asOf: date(day: 20)))
+
+        XCTAssertEqual(flow.id, rig.ids.uuid(1))
+        XCTAssertEqual(flow.kind, .initial)
+        XCTAssertEqual(flow.startedAt, date(day: 20))
+        XCTAssertEqual(rig.facts.calibrations, [flow.inProgressRecord])
+        XCTAssertEqual(rig.coordinator.status(asOf: date(day: 21)), .needsCalibration)
+    }
+
+    func testPreparingASampleBuildsAOneItemPlanForItsRungAndSavesNothing() throws {
+        let rig = makeRig()
+        let flow = try pushFlow(rig)
+
+        let launch = try XCTUnwrap(rig.coordinator.prepareProbe(for: flow, asOf: date(day: 20), onResult: { _ in }))
+
+        XCTAssertEqual(launch.family, .push)
+        XCTAssertEqual(launch.rungDose, RungDose(variant: shallowWall, dose: .reps(2)))
+        XCTAssertEqual(launch.id, launch.launch.prescription.id)
+        XCTAssertEqual(launch.id, launch.recorder.launchID)
+        XCTAssertEqual(launch.launch.plan.name, AdaptiveTrainingCoordinator.calibrationProbeName)
+        XCTAssertNil(launch.launch.plan.id, "It matches no routine and is not Today's Session.")
+        let planItem = try XCTUnwrap(launch.launch.plan.items.first)
+        XCTAssertEqual(launch.launch.plan.items.count, 1)
+        XCTAssertEqual(planItem.exerciseID, .wallPushUp)
+        XCTAssertEqual(planItem.sets, 1)
+        XCTAssertEqual(planItem.targetReps, 2...2)
+        XCTAssertTrue(planItem.reducedRange, "The floor is the shallow variant.")
+        XCTAssertFalse(planItem.isOptional)
+        XCTAssertEqual(launch.launch.items, [AdaptivePlanItem(itemID: planItem.id, role: .main, family: .push,
+                                                              rungDose: launch.rungDose, exerciseID: .wallPushUp,
+                                                              reducedRange: true)])
+        XCTAssertEqual(launch.launch.prescription.kind, .calibrationProbe)
+        XCTAssertEqual(launch.launch.prescription.items.map(\.offersBonus), [false], "A sample never offers a bonus.")
+        XCTAssertTrue(rig.facts.prescriptions.isEmpty, "The sample's prescription is never saved.")
+    }
+
+    func testThereIsNoSampleToPrepareOutsideASampleStep() throws {
+        let rig = makeRig()
+        let flow = try XCTUnwrap(rig.coordinator.startCalibration(asOf: date(day: 20)))
+
+        XCTAssertEqual(flow.step, .equipment)
+        XCTAssertNil(rig.coordinator.prepareProbe(for: flow, asOf: date(day: 20), onResult: { _ in }))
+    }
+
+    func testTheProbeRecorderTurnsCoachEvidenceIntoAProbeAndReportsOnlyTheFirstResult() throws {
+        let rig = makeRig()
+        let flow = try pushFlow(rig)
+        var results: [CalibrationProbeResult] = []
+        let launch = try XCTUnwrap(rig.coordinator.prepareProbe(for: flow, asOf: date(day: 20),
+                                                                onResult: { results.append($0) }))
+        let item = try XCTUnwrap(launch.launch.items.first)
+        let workoutID = UUID()
+        func coachEvidence(_ id: UUID, effort: EffortFeedback?) -> AdaptiveEvidence {
+            AdaptiveEvidence(id: id, recordedAt: date(day: 20, hour: 11), source: .adaptive, family: .push,
+                             variant: shallowWall, prescriptionID: launch.launch.prescription.id,
+                             prescriptionItemID: item.itemID, workoutID: workoutID, prescribed: .reps(2),
+                             confirmed: .reps(2), confirmation: .trackerAccepted,
+                             tracker: TrackerObservation(status: .tracked, observed: .reps(2)), effort: effort,
+                             midSetTooHard: true, bonus: BonusRecord(offered: .reps(1), accepted: false),
+                             completion: .completed)
+        }
+        let first = coachEvidence(rig.ids.uuid(40), effort: .easy)
+
+        launch.recorder.record(first)
+
+        let stored = try XCTUnwrap(rig.facts.evidence.first)
+        XCTAssertEqual(rig.facts.evidence.count, 1)
+        XCTAssertEqual(stored.id, first.id)
+        XCTAssertEqual(stored.source, .calibration)
+        XCTAssertEqual(stored.calibrationID, flow.id)
+        XCTAssertNil(stored.prescriptionID)
+        XCTAssertNil(stored.prescriptionItemID)
+        XCTAssertNil(stored.bonus)
+        XCTAssertEqual(stored.workoutID, workoutID)
+        XCTAssertEqual(stored.recordedAt, first.recordedAt)
+        XCTAssertEqual(stored.family, .push)
+        XCTAssertEqual(stored.variant, shallowWall)
+        XCTAssertEqual(stored.prescribed, .reps(2))
+        XCTAssertEqual(stored.confirmed, .reps(2))
+        XCTAssertEqual(stored.confirmation, .trackerAccepted)
+        XCTAssertEqual(stored.tracker, first.tracker)
+        XCTAssertEqual(stored.effort, .easy)
+        XCTAssertTrue(stored.midSetTooHard)
+        XCTAssertEqual(stored.completion, .completed)
+        XCTAssertEqual(results, [CalibrationProbeResult(launchID: launch.id, effort: .easy, confirmed: .reps(2))])
+
+        launch.recorder.record(coachEvidence(rig.ids.uuid(41), effort: nil))
+
+        XCTAssertEqual(rig.facts.evidence.count, 2, "Everything the coach records is kept.")
+        XCTAssertEqual(results.count, 1, "Only the first result is reported.")
+    }
+
+    func testTheProbeRecorderKnowsNoActiveRungAndOffersNoEasierVersion() throws {
+        let rig = makeRig()
+        let flow = try pushFlow(rig)
+        let launch = try XCTUnwrap(rig.coordinator.prepareProbe(for: flow, asOf: date(day: 20), onResult: { _ in }))
+        let item = PrescriptionItem(id: rig.ids.uuid(50), family: .push,
+                                    target: RungDose(variant: wall, dose: .reps(2)))
+
+        XCTAssertNil(launch.recorder.activeRung(for: .wallPushUp, reducedRange: false))
+        XCTAssertNil(launch.recorder.easierSwapOption(for: item, asOf: date(day: 20)))
+    }
+
+    func testDisplayNamesArePlainExerciseNames() {
+        let rig = makeRig()
+
+        XCTAssertEqual(rig.coordinator.displayName(of: wall), "Wall Push-Up")
+        XCTAssertEqual(rig.coordinator.displayName(of: shallowWall), "Shallow Wall Push-Up")
+        let unknown = VariantID(rawValue: "push.unknown")
+        XCTAssertEqual(rig.coordinator.displayName(of: unknown), "push.unknown", "An unknown rung falls back to its ID.")
+    }
+
+    func testCommittingNeedsASummaryAndAbandoningNeverReachesACommittedAttempt() throws {
+        let rig = makeRig()
+        var flow = try pushFlow(rig)
+        XCTAssertFalse(rig.coordinator.commitCalibration(flow, asOf: date(day: 20, hour: 12)),
+                       "A sample is still waiting.")
+        XCTAssertEqual(rig.facts.calibrations.map(\.status), [.inProgress])
+
+        flow.probeResult(family: .push, effort: .okay, confirmed: .reps(2))
+        XCTAssertTrue(rig.coordinator.commitCalibration(flow, asOf: date(day: 20, hour: 12)))
+        XCTAssertEqual(rig.facts.calibrations.map(\.status), [.committed])
+        XCTAssertEqual(try rig.engine.profile().states.map(\.family), [.push])
+
+        rig.coordinator.abandonCalibration(flow, asOf: date(day: 20, hour: 13))
+        XCTAssertEqual(rig.facts.calibrations.map(\.status), [.committed], "A committed attempt never changes.")
+    }
+
+    func testAbandoningRecordsAnAbandonedAttemptThatChangesNothing() throws {
+        let rig = makeRig()
+        let flow = try pushFlow(rig)
+
+        rig.coordinator.abandonCalibration(flow, asOf: date(day: 20, hour: 12))
+
+        XCTAssertEqual(rig.facts.calibrations.map(\.status), [.abandoned])
+        XCTAssertEqual(rig.coordinator.status(asOf: date(day: 21)), .needsCalibration)
+    }
+
     // MARK: - Rig
 
     @MainActor

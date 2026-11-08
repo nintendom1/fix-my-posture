@@ -209,8 +209,19 @@ final class AppEnvironment {
 
     func makeAdaptiveDebugViewModel() -> AdaptiveDebugViewModel {
         let router = router
+        var openCalibration: (@MainActor () -> Void)?
+        if adaptiveCoordinator != nil { openCalibration = { router.open(.calibration) } }
         return AdaptiveDebugViewModel(provider: adaptiveTraining, todayStarter: adaptiveCoordinator,
-                                      openTodaySession: { router.open(.todaySession) })
+                                      openTodaySession: { router.open(.todaySession) },
+                                      openCalibration: openCalibration)
+    }
+
+    /// The first calibration's screen state, or nil when persistence is unavailable. It saves nothing until the screen
+    /// appears; leaving the screen closes the route.
+    func makeCalibrationViewModel() -> CalibrationViewModel? {
+        guard let adaptiveCoordinator else { return nil }
+        let router = router
+        return CalibrationViewModel(coordinator: adaptiveCoordinator, onFinish: { router.dismissFullScreen() })
     }
 
     func makeWorkoutRecordingsViewModel() -> WorkoutRecordingsViewModel? {

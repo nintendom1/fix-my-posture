@@ -232,9 +232,9 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
 
     /// Called by the notification delegate after the router is ready.
     func handleTap(_ target: WorkoutReminderTarget) {
-        // A tap never replaces a workout in progress, including Today's Session.
+        // A tap never replaces a workout in progress, including Today's Session and a calibration.
         switch router.presentedFullScreenRoute {
-        case .workout?, .todaySession?: return
+        case .workout?, .todaySession?, .calibration?: return
         default: break
         }
 

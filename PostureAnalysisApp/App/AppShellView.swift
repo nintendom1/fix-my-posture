@@ -95,6 +95,8 @@ struct AppShellView: View {
             Text("Workout camera is presented full screen.")
         case .todaySession:
             Text("Today's Session is presented full screen.")
+        case .calibration:
+            Text("Finding a starting point is presented full screen.")
         case .workoutComplete:
             Text("Workout complete")
         case .progress:
@@ -141,6 +143,8 @@ struct AppShellView: View {
             if let launch = environment.adaptiveCoordinator?.preparedLaunch {
                 WorkoutCoachView(model: environment.workoutCoachFactory.makeTodaySession(launch: launch))
             }
+        case .calibration:
+            CalibrationRouteView(viewModel: environment.makeCalibrationViewModel())
         case .livePostureCheck:
             RealtimeCorrectionView()
         default:
@@ -204,6 +208,24 @@ private struct ProgressRouteView: View {
 
     var body: some View {
         ProgressScreen(viewModel: viewModel)
+    }
+}
+
+/// Holds the calibration's view model for as long as the route is up. The route builds a new one on every refresh, so
+/// only the first is kept, and nothing starts until the screen appears.
+private struct CalibrationRouteView: View {
+    @State private var viewModel: CalibrationViewModel?
+
+    init(viewModel: CalibrationViewModel?) {
+        _viewModel = State(initialValue: viewModel)
+    }
+
+    var body: some View {
+        if let viewModel {
+            CalibrationScreen(viewModel: viewModel)
+        } else {
+            CalibrationUnavailableView()
+        }
     }
 }
 

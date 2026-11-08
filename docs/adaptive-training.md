@@ -29,6 +29,8 @@ App code reaches the package through adapters in `PostureAnalysisApp/AdaptiveTra
   an input.
 - The coordinator also asks the engine for an item's easier version and saves it when the user takes it; see
   [Mid-set Too hard](#mid-set-too-hard).
+- It also starts, saves, commits, and abandons a calibration and prepares each calibration sample for the coach; see
+  [Calibration](#calibration). `CalibrationProbeRecorder` is the coach's evidence recorder for one sample.
 
 Dependencies point one way: the app imports the package, never the reverse, so package code can't name app types.
 `PackageBoundaryTests` fails if any package source imports anything but Foundation. The policy, projection, and
@@ -422,6 +424,85 @@ the engine what is easier (invariant 6).
   card. Replay notes it as `easierSwapRecorded`.
 - **Completion copy.** The saved entry is named "Easier: <name>" in History and on the completion screen, never counts as
   skipped, shows only once it has sets, and is not an extra exercise in the totals. A new round drops it, like a bonus.
+
+## Calibration
+
+The first calibration finds a comfortable starting point for each movement area. It is never a test, a score, or a
+label. The screen opens with "Let's find a comfortable starting point. A few tiny samples, no tests." and never says
+"score", "level", or "beginner", or uses a medical word. Every rule lives in the package's `CalibrationFlow` (invariant
+6). The app shows the step the flow returns and reports what happened.
+
+`CalibrationFlow` is a pure `Codable` value, advanced by inputs like `WorkoutSession`. An input that doesn't fit the
+current step is ignored. `step` is one of:
+
+| Step | Shown | Input that answers it |
+|---|---|---|
+| `.equipment` | Dumbbells and a band, both optional. Skipped when a profile already knows the equipment. | `setEquipment` |
+| `.families` | The areas that can be offered, with push and squat preselected. | `setFamilies` (at least one) |
+| `.closeness(family, options:)` | "Which feels closest to what you can do comfortably today?" with the family's available rungs, easiest first, and Not sure. Skipped for a family with one available rung. | `answerCloseness(family:variant:)`, nil for Not sure |
+| `.probe(family, RungDose, isHarderOffer:)` | One tiny sample, run in the coach and rated Too Hard / Okay / Easy. | `probeResult`, or `declineHarderProbe` for a harder offer |
+| `.summary([CalibrationStart])` | One plain line per area, Use these, and a way out. | `engine.commit` or `engine.abandon` |
+
+`skipFamily` leaves one area out until it settles. Families that can't be offered (no available floor) never appear.
+No rung that needs dumbbells is asked about or offered without them.
+
+### Rules
+
+- **Start rung.** Not sure starts at the family's floor. An answer starts at that rung, but no higher than the middle rung
+  of the available ladder (the lower middle when the count is even). Push without equipment starts no higher than the
+  wall push-up. The samples can climb from there.
+- **Sample dose.** The first sample is 2 reps for a rep rung whose range allows it, otherwise the rung's minimum. A harder
+  or easier sample is the rung's minimum.
+- **Okay** settles at the sample's dose.
+- **Easy** offers the next harder available rung at its minimum (`isHarderOffer`). If nothing is harder, the limit is
+  reached, or a Too Hard was already seen in that family, it settles at the sample's dose. A single Easy never raises the
+  starting dose.
+- **Declining a harder offer** settles at the last Okay or Easy sample, at that sample's own dose. It is neutral: it adds
+  no sample and no evidence.
+- **Too Hard** is authoritative even when the work was finished. On a harder offer it settles at the last comfortable
+  sample, because the easier rung was already comfortable. Otherwise it samples the next easier available rung at its
+  minimum, or settles at the floor's minimum when there is none.
+- **Nothing confirmed.** Okay or Easy with no confirmed work proves nothing, so the same sample is offered again and
+  counts toward the limit.
+- **Limit.** A family gets at most 3 samples. After the third it settles at its last comfortable sample, or the floor's
+  minimum if none was.
+- **Starting dose.** The starting dose is the settled sample's dose.
+
+### Facts
+
+The flow builds the `CalibrationSessionRecord`. `engine.startCalibration(kind:id:at:)` saves it in progress, which changes
+no recommendation. `saveProgress` updates its families and equipment. `commit(_:at:)` saves it committed with
+`startingPoints` and `equipment`; it throws `calibrationNotAtSummary` unless the flow is at a summary with at least one
+starting point. `abandon(_:at:)` saves it abandoned with no starting points. All three go through `save(_:)`, so a
+committed or abandoned attempt can't change again (`calibrationChangeNotAllowed`).
+
+Each rated sample is `AdaptiveEvidence` with `source: .calibration` and the attempt's `calibrationID`, recorded by the
+app through `record(_:)` as the coach finishes it. Replay applies a committed attempt's samples at commit time and
+ignores an uncommitted attempt's, so abandoning changes nothing (invariant 7). A sample's prescription (kind
+`calibrationProbe`) is built for the coach but never saved.
+
+### In the app
+
+- **Entry.** Settings › Developer diagnostics › Adaptive training has **Find my starting point**
+  (`adaptiveDebugStartCalibrationButton`), which opens `AppRoute.calibration` full screen. The Train hero arrives in PR 14.
+  A reminder tap never replaces the open screen.
+- **Screen.** `CalibrationViewModel` holds the flow and sends each answer to it. `CalibrationScreen` draws the step. All
+  copy lives in `CalibrationCopy`, and a test scans every string for scoring and medical words. Every control has an
+  accessibility identifier that starts with `calibration`.
+- **Samples.** `AdaptiveTrainingCoordinator.prepareProbe(for:asOf:onResult:)` builds a one-item plan, "Finding your
+  starting point", with no plan id so it matches no routine. The calibration screen presents the coach over itself.
+  `CalibrationProbeRecorder` is the coach's evidence recorder for that run. It stores the coach's evidence as a probe
+  (source calibration, the attempt's id, no prescription or bonus) and reports the first result to the view model.
+  A sample offers no bonus and no easier version. It asks only how the sample was, on the usual effort card.
+- **No history.** A sample is a tiny trial of a rung, not a workout. `CalibrationScreen` presents its coach with
+  `WorkoutCoachView(model:savesHistory: false)`. Closing the coach or ending the workout then writes nothing to History
+  and tells no reminder, though the sample's evidence is still recorded. `WorkoutCoachHistory.save` is the one shared save
+  for Close and End Workout; every other workout keeps `savesHistory` true.
+- **A rating** closes the coach and goes to the flow. A sample closed or skipped before a rating changes nothing, and the
+  same sample is offered again or the area can be skipped.
+- **Leaving.** The close button leaves at once at the quiz and asks first once a sample was started. Leaving, or
+  **Leave without saving** at the summary, records an abandoned attempt and changes nothing. **Use these** commits, and
+  only then do the starting points change recommendations.
 
 ## Debug view and export
 

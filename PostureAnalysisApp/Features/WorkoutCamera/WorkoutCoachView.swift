@@ -2,9 +2,38 @@ import AdaptiveTraining
 import SwiftUI
 import UIKit
 
+/// What the coach does with a workout's record when it closes or ends. It is the one place that decides, so Close and
+/// End Workout can't disagree.
+@MainActor
+enum WorkoutCoachHistory {
+    /// The record of what was done, or nil when no set finished. A presentation that opted out of history
+    /// (`savesHistory` false, such as a calibration sample) still gets the record back to show, but nothing is written
+    /// to history and reminders aren't told. Otherwise the record is saved and reminders are told, as for any workout.
+    @discardableResult
+    static func save(session: WorkoutSession, startedAt: Date, endedAt: Date, workoutID: UUID, savesHistory: Bool,
+                     history: (any WorkoutHistoryRepository)?, preferences: any AppPreferencesStoring,
+                     reminders: (any WorkoutReminderReconciliation)?) -> WorkoutRecord? {
+        guard let record = WorkoutRecord(session: session, startedAt: startedAt, endedAt: endedAt, id: workoutID) else {
+            return nil
+        }
+        guard savesHistory, let history else { return record }
+        do {
+            try WorkoutHistorySaver.save(record, using: history, preferences: preferences)
+            reminders?.workoutSaved(record)
+        } catch {
+            // A failed history save is retried only through the existing workout flow.
+        }
+        return record
+    }
+}
+
 /// Workout Coach (Beta): mirrored selfie preview, focus-joint overlay, rep counter, and spoken coaching.
 struct WorkoutCoachView: View {
     static let coordinateSpace = "workoutOverlay"
+
+    /// False for a calibration sample: it is a tiny trial of a rung, not a workout, so closing or ending it writes
+    /// nothing to history and tells no reminder. Evidence is recorded either way.
+    let savesHistory: Bool
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
@@ -23,8 +52,9 @@ struct WorkoutCoachView: View {
     @State private var planCompletionRecord: WorkoutRecord?
     @State private var finishedRecord: WorkoutRecord?
 
-    init(model: any WorkoutCoachViewModeling) {
+    init(model: any WorkoutCoachViewModeling, savesHistory: Bool = true) {
         _model = State(initialValue: model)
+        self.savesHistory = savesHistory
     }
 
     var body: some View {
@@ -253,20 +283,15 @@ struct WorkoutCoachView: View {
         }
     }
 
-    /// Saves what was done once per workout; nothing is saved when no set was finished.
+    /// Saves what was done once per workout; nothing is saved when no set was finished, or when this presentation
+    /// opted out of history. Both Close and End Workout come through here.
     private func saveHistory() {
         guard !historySaved else { return }
         historySaved = true
-        guard let record = WorkoutRecord(session: model.session, startedAt: startedAt, endedAt: Date(),
-                                         id: model.workoutID) else { return }
-        finishedRecord = record
-        guard let history = appRepositories?.workoutHistory else { return }
-        do {
-            try WorkoutHistorySaver.save(record, using: history, preferences: preferences)
-            workoutReminderReconciliation?.workoutSaved(record)
-        } catch {
-            // A failed history save is retried only through the existing workout flow.
-        }
+        finishedRecord = WorkoutCoachHistory.save(
+            session: model.session, startedAt: startedAt, endedAt: Date(), workoutID: model.workoutID,
+            savesHistory: savesHistory, history: appRepositories?.workoutHistory, preferences: preferences,
+            reminders: workoutReminderReconciliation)
     }
 
     private func displayCompletionRecord() -> WorkoutRecord {

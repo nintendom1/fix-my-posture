@@ -12,6 +12,9 @@ enum AppRoute: Codable, Hashable, Identifiable {
     /// Today's Session: the engine's one-family prescription, run in the coach. The prepared session lives in
     /// `AdaptiveTrainingCoordinator`, not in the route.
     case todaySession
+    /// The first calibration: a short quiz and tiny samples that find a comfortable starting point. Samples run in
+    /// the coach from the calibration screen itself, so the route needs nothing else.
+    case calibration
     case workoutComplete
     case progress
     case history
@@ -28,7 +31,7 @@ enum AppRoute: Codable, Hashable, Identifiable {
 
     var owningTab: AppTab {
         switch self {
-        case .train, .library, .exercise, .workout, .todaySession, .workoutComplete, .settings:
+        case .train, .library, .exercise, .workout, .todaySession, .calibration, .workoutComplete, .settings:
             return .train
         case .routines, .routine, .routineEditor:
             return .routines
@@ -42,7 +45,7 @@ enum AppRoute: Codable, Hashable, Identifiable {
 
     var isPresentedFullScreen: Bool {
         switch self {
-        case .settings, .workout, .todaySession, .livePostureCheck:
+        case .settings, .workout, .todaySession, .calibration, .livePostureCheck:
             return true
         default:
             return false
