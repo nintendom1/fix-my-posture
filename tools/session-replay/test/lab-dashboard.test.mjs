@@ -9,7 +9,8 @@ import { createLabStore, LabStoreError } from "../lib/lab/store.mjs";
 import { recordsToFileText, Session } from "../lib/session.mjs";
 import * as replayViews from "../public/views.mjs";
 import { renderRunCards, renderRunHeader, renderScenarioDetail, renderScenarioList } from "../public/lab/views.mjs";
-import { createSelectionToken, sectionHref } from "../public/lab/selection.mjs";
+import { createCoveragePlaybackNavigator } from "../public/lab/coverage.mjs";
+import { createLabOpenHandler, createSelectionToken, installLabOpenCommandReceiver, labOpenRequestFromURL, sectionHref } from "../public/lab/selection.mjs";
 
 const RUN_ID = "20261108-100000-a1b2";
 const OLD_RUN_ID = "20261108-090000-c3d4";
@@ -234,6 +235,67 @@ test("section URLs retain recording deep links and clear them when returning to 
   const deepLink = "http://127.0.0.1:4317/?session=synthetic-id&t=4.9&from=4&to=6&export=1";
   assert.equal(sectionHref(deepLink, "recordings"), "/?session=synthetic-id&t=4.9&from=4&to=6&export=1&view=recordings");
   assert.equal(sectionHref(deepLink, "runs"), "/?view=runs");
+});
+
+test("dashboard deep links and live lab-open commands select the requested run, scenario, and keyframe", async () => {
+  const targetRun = { id: OLD_RUN_ID, plan: { scenarios: [{ id: "first" }, { id: "requested" }] } };
+  const selected = { activeView: "recordings", runID: null, scenarioID: null, playhead: 0, scrubberReady: false };
+  const operations = [];
+  const navigateToScenario = createCoveragePlaybackNavigator({
+    activateRuns: async () => { selected.activeView = "runs"; operations.push("activate"); return true; },
+    loadRun: async (runID) => {
+      operations.push(`load:${runID}`);
+      selected.runID = runID;
+      selected.scenarioID = null;
+      selected.playhead = 0;
+      selected.scrubberReady = false;
+      return targetRun;
+    },
+    selectScenario: async (runID, scenarioID) => {
+      operations.push(`select:${scenarioID}`);
+      selected.runID = runID;
+      selected.scenarioID = scenarioID;
+      await Promise.resolve(); // The real dashboard waits for scenario artifacts and playback controls.
+      selected.scrubberReady = true;
+      return true;
+    },
+    seek: async ({ runID, scenarioID, timestamp }) => {
+      operations.push(`seek:${timestamp}`);
+      if (!selected.scrubberReady || selected.runID !== runID || selected.scenarioID !== scenarioID) return false;
+      selected.playhead = timestamp;
+      return true;
+    },
+  });
+  const navigateToRun = async ({ runID, scenarioID }) => {
+    selected.activeView = "runs";
+    selected.runID = runID;
+    selected.scenarioID = scenarioID ?? "first";
+    return true;
+  };
+  const handleLabOpenRequest = createLabOpenHandler({ navigateToScenario, navigateToRun });
+  const eventSource = {};
+  installLabOpenCommandReceiver(eventSource, handleLabOpenRequest);
+
+  const fromURL = labOpenRequestFromURL(`?labRun=${OLD_RUN_ID}&labScenario=requested&labTime=4.75`);
+  assert.deepEqual(fromURL, { runID: OLD_RUN_ID, scenarioID: "requested", timestamp: 4.75 });
+  assert.equal(await handleLabOpenRequest(fromURL), true);
+  assert.deepEqual({ runID: selected.runID, scenarioID: selected.scenarioID, playhead: selected.playhead },
+    { runID: OLD_RUN_ID, scenarioID: "requested", playhead: 4.75 });
+  assert.deepEqual(operations, ["activate", `load:${OLD_RUN_ID}`, "select:requested", "seek:4.75"]);
+
+  selected.activeView = "recordings";
+  selected.runID = null;
+  selected.scenarioID = null;
+  selected.playhead = 0;
+  selected.scrubberReady = false;
+  operations.length = 0;
+  await eventSource.onmessage({ data: JSON.stringify({ type: "command", command: "lab-open", runID: OLD_RUN_ID,
+    scenarioID: "requested", timestamp: 4.75 }) });
+  assert.deepEqual({ runID: selected.runID, scenarioID: selected.scenarioID, playhead: selected.playhead },
+    { runID: OLD_RUN_ID, scenarioID: "requested", playhead: 4.75 });
+  assert.deepEqual(operations, ["activate", `load:${OLD_RUN_ID}`, "select:requested", "seek:4.75"]);
+  await eventSource.onmessage({ data: JSON.stringify({ type: "command", command: "seek", runID: OLD_RUN_ID }) });
+  assert.equal(operations.length, 4, "recording seek commands stay in the recording viewer");
 });
 
 test("read-only lab API routes retain Host and POST guards and tolerate a missing root", async () => {

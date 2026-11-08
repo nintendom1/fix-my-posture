@@ -60,7 +60,8 @@ test("initializes and lists the tools", async () => {
     assert.match(init.result.instructions, /never paste them into commits/);
     const tools = (await request("tools/list")).result.tools.map((tool) => tool.name);
     assert.deepEqual(tools, ["fmp_pull_device", "fmp_list_sessions", "fmp_session_overview", "fmp_query", "fmp_events",
-      "fmp_viewer_selection", "fmp_viewer_seek", "fmp_add_note", "fmp_open_viewer"]);
+      "fmp_viewer_selection", "fmp_viewer_seek", "fmp_add_note", "fmp_open_viewer", "fmp_lab_manifest", "fmp_lab_run",
+      "fmp_lab_inspect", "fmp_lab_open"]);
     assert.equal((await request("nope")).error.code, -32601);
     assert.deepEqual((await request("ping")).result, {});
   } finally {
@@ -145,7 +146,7 @@ test("arguments are validated against each tool's schema, and only real tools ru
     assert.match((await call("fmp_query", { from: 1, to: 2, preset: "everything" })).message, /preset must be one of/);
     assert.match((await call("fmp_query", { from: 1, to: 2, include: { video: true } })).message, /include: unknown argument video/);
     assert.match((await call("fmp_list_sessions", { limit: 0 })).message, /at least 1/);
-    assert.match((await call("fmp_events", { kinds: ["rep", "secrets"] })).message, /kinds may contain only/);
+    assert.match((await call("fmp_events", { kinds: ["rep", "secrets"] })).message, /kinds(\[\d+\])? may contain only/);
     for (const name of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
       assert.equal((await call(name, {})).code, -32602, name);
     }

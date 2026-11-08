@@ -8,11 +8,18 @@
 
 import { spawn, execFile } from "node:child_process";
 import { realpathSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createStore, StoreError } from "./lib/store.mjs";
 import { PRESETS, renderExcerpt, sampleFrames, clock, estimateTokens, shortJoint } from "./lib/session.mjs";
+import { createFreshRunDirectory, emitPresetManifest, runPlan } from "./lib/lab/runner.mjs";
+import { inspectRun } from "./lib/lab/inspect.mjs";
+import { createLabStore } from "./lib/lab/store.mjs";
+import { MCP_FULL_TRACE_BYTE_CAP, MCP_MAX_PLAN_BYTES, assertBoundedInspection, formatAgentManifest,
+  formatAgentRun, openLabDashboard, prepareAgentPlan } from "./lib/lab/agent.mjs";
+import { MUTATION_BOUNDS, SCENARIO_CATEGORIES, SWIFT_LANDMARK_NAMES } from "./lib/lab/plan.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = process.env.FMP_REPLAY_ROOT ?? path.resolve(here, "../..");
@@ -20,15 +27,70 @@ const PORT = Number(process.env.FMP_REPLAY_PORT ?? 4317);
 const BASE = `http://127.0.0.1:${PORT}/`;
 const MAX_ROWS = Number(process.env.FMP_REPLAY_MAX_ROWS ?? 300);
 const MAX_CHARS = 60_000;
+const MAX_MCP_MESSAGE_BYTES = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT = 2000;
 const SUPPORTED_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 const store = createStore(ROOT);
+const labStore = createLabStore(ROOT);
 const canonicalRoot = (() => { try { return realpathSync(ROOT); } catch { return ROOT; } })();
 
 // MARK: - Tools
 
 const session = { type: "string", description: "Recording id, its first 8 characters, or \"latest\" (the default)." };
 const time = { type: ["number", "string"], description: "Seconds from the start of the recording, or \"m:ss.s\"." };
+const rangeSchema = (limits) => ({ type: "number", minimum: limits[0], maximum: limits[1] });
+const repetitionSelector = { type: "array", maxItems: 120, items: { type: "integer", minimum: 1, maximum: 120 } };
+const jointsSchema = { type: "array", minItems: 1, items: { type: "string", enum: SWIFT_LANDMARK_NAMES } };
+const mutationInputSchema = {
+  type: "object", required: ["kind"], additionalProperties: false,
+  properties: {
+    kind: { type: "string", enum: Object.keys(MUTATION_BOUNDS) }, joints: jointsSchema,
+    dx: rangeSchema(MUTATION_BOUNDS.jointOffset.dx), dy: rangeSchema(MUTATION_BOUNDS.jointOffset.dy),
+    peak: rangeSchema(MUTATION_BOUNDS.jointOffset.peak), rise: rangeSchema(MUTATION_BOUNDS.jointOffset.rise),
+    fall: rangeSchema(MUTATION_BOUNDS.jointOffset.fall), strength: rangeSchema(MUTATION_BOUNDS.jointOffset.strength),
+    scale: rangeSchema(MUTATION_BOUNDS.depthScale.scale), reps: repetitionSelector,
+    side: { type: "string", enum: MUTATION_BOUNDS.asymmetry.side }, amount: rangeSchema(MUTATION_BOUNDS.asymmetry.amount),
+    at: rangeSchema(MUTATION_BOUNDS.pause.at), duration: rangeSchema(MUTATION_BOUNDS.pause.duration),
+    from: rangeSchema(MUTATION_BOUNDS.dropout.from), to: rangeSchema(MUTATION_BOUNDS.dropout.to),
+    value: rangeSchema(MUTATION_BOUNDS.confidence.value), offsetX: rangeSchema(MUTATION_BOUNDS.framing.offsetX),
+    offsetY: rangeSchema(MUTATION_BOUNDS.framing.offsetY),
+  },
+};
+const assertionInputSchema = {
+  type: "object", required: ["kind"], additionalProperties: false,
+  properties: {
+    kind: { type: "string", enum: ["repCount", "rejection", "formSignal", "framing", "spokenCue"] },
+    equals: { type: "integer", minimum: 0 }, min: { type: "integer", minimum: 0 }, max: { type: "integer", minimum: 0 },
+    reasonContains: { type: "string", maxLength: 1000 }, countMin: { type: "integer", minimum: 0 },
+    id: { type: "string", maxLength: 128 }, present: { type: "boolean" }, state: { type: "string", maxLength: 128 },
+    reached: { type: "boolean" }, textContains: { type: "string", maxLength: 1000 },
+  },
+};
+const scenarioInputSchema = {
+  type: "object", additionalProperties: false,
+  required: ["id", "exercise", "category", "purpose", "canonicalRevision", "seed", "reps", "mode", "mutations", "assertions", "revision"],
+  properties: {
+    id: { type: "string", maxLength: 64, pattern: "^[a-z0-9_-]{1,64}$" }, exercise: { type: "string", minLength: 1, maxLength: 64 },
+    category: { type: "string", enum: SCENARIO_CATEGORIES }, purpose: { type: "string", minLength: 1, maxLength: 2000 },
+    canonicalRevision: { type: "string", minLength: 1, maxLength: 128 }, seed: { type: "string", minLength: 1, maxLength: 20, pattern: "^\\d+$" },
+    reps: { type: "integer", minimum: 1, maximum: 120 }, mode: { type: "string", enum: ["constrained", "raw"] },
+    mutations: { type: "array", items: mutationInputSchema }, assertions: { type: "array", items: assertionInputSchema },
+    revision: { type: "integer", minimum: 1 }, parentRevision: { type: "integer", minimum: 1 },
+    author: { type: "string", enum: ["agent", "developer"] }, intent: { type: "string", minLength: 1, maxLength: 1000 },
+    editNote: { type: "string", maxLength: 300 }, assertionChangeReason: { type: "string", maxLength: 300 },
+    editedBy: { type: "string", enum: ["agent", "developer"] },
+  },
+};
+const planInputSchema = {
+  type: "object", additionalProperties: false,
+  required: ["schemaVersion", "id", "title", "purpose", "author", "createdAt", "scenarios"],
+  properties: {
+    schemaVersion: { type: "integer", enum: [1] }, id: { type: "string", maxLength: 64, pattern: "^[a-z0-9_-]{1,64}$" },
+    title: { type: "string", minLength: 1, maxLength: 500 }, purpose: { type: "string", minLength: 1, maxLength: 2000 },
+    author: { type: "string", enum: ["agent", "developer"] }, createdAt: { type: "string", minLength: 1, maxLength: 64 },
+    scenarios: { type: "array", maxItems: 200, items: scenarioInputSchema },
+  },
+};
 
 const TOOLS = [
   {
@@ -93,6 +155,59 @@ const TOOLS = [
     name: "fmp_open_viewer",
     description: "Open the replay viewer in the user's browser, starting its local server if needed, optionally at a recording, time, and range, with the export open.",
     inputSchema: { type: "object", properties: { session, t: time, from: time, to: time, export: { type: "boolean" } } },
+  },
+  {
+    name: "fmp_lab_manifest",
+    description: "Return the compact Movement Lab exercise, category, mutation-bound, and preset manifest.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "fmp_lab_run",
+    description: "Validate and run one synthetic Movement Lab plan or preset through the shared Swift runner. Each scenario is recorded as agent-authored with an intent note.",
+    inputSchema: {
+      type: "object", required: ["mode"], additionalProperties: false,
+      oneOf: [
+        { required: ["plan"], not: { required: ["preset"] } },
+        { required: ["preset"], not: { required: ["plan"] } },
+      ],
+      allOf: [{ oneOf: [
+        { required: ["parentRunID", "followUpReason"] },
+        { not: { anyOf: [{ required: ["parentRunID"] }, { required: ["followUpReason"] }] } },
+      ] }],
+      properties: {
+        plan: { ...planInputSchema, description: `Movement Lab plan JSON, maximum ${MCP_MAX_PLAN_BYTES} UTF-8 bytes.` },
+        preset: { type: "string", minLength: 1, maxLength: 64, pattern: "^[a-z0-9_-]{1,64}$" },
+        mode: { type: "string", enum: ["pipeline", "coach"] },
+        parentRunID: { type: "string", pattern: "^\\d{8}-\\d{6}-[a-zA-Z0-9]{4,12}$" },
+        followUpReason: { type: "string", minLength: 1, maxLength: 500 },
+      },
+    },
+  },
+  {
+    name: "fmp_lab_inspect",
+    description: "Inspect one stored Movement Lab scenario. Ordinary output is at most 60 lines; full traces require full=true and fit within a hard byte cap.",
+    inputSchema: {
+      type: "object", required: ["runID"], additionalProperties: false,
+      properties: {
+        runID: { type: "string", pattern: "^\\d{8}-\\d{6}-[a-zA-Z0-9]{4,12}$" },
+        scenarioID: { type: "string", pattern: "^[a-z0-9_-]{1,64}$" },
+        window: { type: "object", additionalProperties: false, required: ["from", "to"], properties: {
+          from: { type: "number", minimum: 0, maximum: 120 }, to: { type: "number", minimum: 0, maximum: 120 },
+        } },
+        full: { type: "boolean" },
+      },
+    },
+  },
+  {
+    name: "fmp_lab_open",
+    description: "Open the local Movement Lab dashboard at a run or a scenario's stored keyframe using the viewer command channel.",
+    inputSchema: {
+      type: "object", required: ["runID"], additionalProperties: false,
+      properties: {
+        runID: { type: "string", pattern: "^\\d{8}-\\d{6}-[a-zA-Z0-9]{4,12}$" },
+        scenarioID: { type: "string", pattern: "^[a-z0-9_-]{1,64}$" },
+      },
+    },
   },
 ];
 
@@ -328,6 +443,84 @@ async function openViewer(args) {
   return `${started ? "Started the viewer's server and opened" : "Opened"} ${url}`;
 }
 
+let presetManifestPromise = null;
+let labQueue = Promise.resolve();
+
+function enqueueLab(operation) {
+  const pending = labQueue.then(operation, operation);
+  labQueue = pending.then(() => undefined, () => undefined);
+  return pending;
+}
+
+async function presetManifest() {
+  if (!presetManifestPromise) {
+    presetManifestPromise = (async () => {
+      const runDir = await createFreshRunDirectory(ROOT);
+      try { return await emitPresetManifest({ root: ROOT, runDir }); }
+      finally { await rm(runDir, { recursive: true, force: true }); }
+    })();
+  }
+  try { return await presetManifestPromise; }
+  catch (error) { presetManifestPromise = null; throw error; }
+}
+
+async function labManifest() {
+  return enqueueLab(async () => formatAgentManifest(await presetManifest(), {
+    categories: SCENARIO_CATEGORIES, mutationBounds: MUTATION_BOUNDS,
+  }));
+}
+
+async function labRun(args) {
+  return enqueueLab(async () => {
+    const hasPlan = Object.hasOwn(args, "plan");
+    const hasPreset = Object.hasOwn(args, "preset");
+    if (hasPlan === hasPreset) throw new ToolError("Supply exactly one of plan or preset.");
+    let sourcePlan = args.plan;
+    if (hasPreset) {
+      const manifest = await presetManifest();
+      const entry = manifest.presets.find((item) => item?.id === args.preset);
+      if (!entry?.plan) throw new ToolError(`Unknown built-in preset '${args.preset}'.`);
+      sourcePlan = entry.plan;
+    }
+    if (args.parentRunID !== undefined) {
+      try { await labStore.readRun(args.parentRunID); }
+      catch (error) { throw new ToolError(`Follow-up parent run is unavailable: ${error.message}`); }
+    }
+    let plan;
+    try { plan = prepareAgentPlan(sourcePlan, args); }
+    catch (error) { throw new ToolError(error.message); }
+    const result = await runPlan({ root: ROOT, inputPlan: plan, mode: args.mode });
+    return formatAgentRun(result);
+  });
+}
+
+async function labInspect(args) {
+  if (args.window && args.window.from > args.window.to) throw new ToolError("window.from must not exceed window.to.");
+  const output = await inspectRun({ root: ROOT, runID: args.runID, scenarioID: args.scenarioID,
+    window: args.window ?? null, full: args.full === true });
+  try { return assertBoundedInspection(output, { full: args.full === true, byteCap: MCP_FULL_TRACE_BYTE_CAP }); }
+  catch (error) { throw new ToolError(error.message); }
+}
+
+function openURL(url) {
+  return new Promise((resolve, reject) => {
+    const child = spawn("open", [url], { detached: true, stdio: "ignore" });
+    child.once("error", reject);
+    child.once("spawn", () => { child.unref(); resolve(); });
+  });
+}
+
+async function labOpen(args) {
+  let result;
+  try {
+    result = await openLabDashboard({ store: labStore, runID: args.runID, scenarioID: args.scenarioID,
+      baseURL: BASE, ensureViewer: ensureViewerServer, openURL,
+      sendCommand: (command) => viewer("api/viewer/command", { method: "POST", body: JSON.stringify(command) }) });
+  } catch (error) { throw new ToolError(error.message); }
+  const target = args.scenarioID ? `scenario ${args.scenarioID} at ${clock(result.timestamp)}` : `run ${args.runID}`;
+  return `Opened the Movement Lab dashboard for ${target}; sent the viewer command to ${result.delivered} connected viewer(s).`;
+}
+
 // Calls while a pull runs share it; separate pulls (another session, or `make diagnostics`) are refused by the script.
 let pulling = null;
 function pull() {
@@ -360,6 +553,10 @@ const HANDLERS = {
   fmp_viewer_seek: seek,
   fmp_add_note: addNote,
   fmp_open_viewer: openViewer,
+  fmp_lab_manifest: labManifest,
+  fmp_lab_run: labRun,
+  fmp_lab_inspect: labInspect,
+  fmp_lab_open: labOpen,
 };
 
 // MARK: - Arguments
@@ -380,13 +577,31 @@ function invalidArguments(schema, args) {
     if (!matches) return `${key} must be ${types.join(" or ")}`;
     if (property.enum && !property.enum.includes(value)) return `${key} must be one of ${property.enum.join(", ")}`;
     if (property.maxLength != null && typeof value === "string" && value.length > property.maxLength) return `${key} is longer than ${property.maxLength} characters`;
+    if (property.minLength != null && typeof value === "string" && value.length < property.minLength) return `${key} is shorter than ${property.minLength} characters`;
+    if (property.pattern != null && typeof value === "string" && !(new RegExp(property.pattern).test(value))) return `${key} has an invalid format`;
     if (property.minimum != null && typeof value === "number" && value < property.minimum) return `${key} must be at least ${property.minimum}`;
     if (property.maximum != null && typeof value === "number" && value > property.maximum) return `${key} must be at most ${property.maximum}`;
-    if (property.items?.enum && Array.isArray(value) && value.some((item) => !property.items.enum.includes(item))) {
-      return `${key} may contain only ${property.items.enum.join(", ")}`;
+    if (property.minItems != null && Array.isArray(value) && value.length < property.minItems) return `${key} must contain at least ${property.minItems} items`;
+    if (property.maxItems != null && Array.isArray(value) && value.length > property.maxItems) return `${key} must contain at most ${property.maxItems} items`;
+    if (property.type === "array" && property.items && Array.isArray(value)) {
+      for (let index = 0; index < value.length; index += 1) {
+        const item = value[index];
+        const itemType = [property.items.type].flat();
+        if (itemType.length && !itemType.some((type) => (type === "integer" ? Number.isInteger(item) : type === "number" ? typeof item === "number" && Number.isFinite(item)
+          : type === "object" ? item !== null && typeof item === "object" && !Array.isArray(item) : typeof item === type))) {
+          return `${key}[${index}] must be ${itemType.join(" or ")}`;
+        }
+        if (property.items.enum && !property.items.enum.includes(item)) {
+          return `${key}[${index}] may contain only ${property.items.enum.join(", ")}`;
+        }
+        if (property.items.type === "object" && property.items.properties) {
+          const inner = invalidArguments(property.items, item);
+          if (inner) return `${key}[${index}]: ${inner}`;
+        }
+      }
     }
     if (property.type === "object" && property.properties) {
-      const inner = invalidArguments({ properties: property.properties }, value);
+      const inner = invalidArguments(property, value);
       if (inner) return `${key}: ${inner}`;
     }
   }
@@ -409,7 +624,7 @@ async function handle(message) {
         protocolVersion: SUPPORTED_VERSIONS.includes(params?.protocolVersion) ? params.protocolVersion : SUPPORTED_VERSIONS[0],
         capabilities: { tools: {} },
         serverInfo: { name: "fmp-replay", version: "1.0.0" },
-        instructions: "FMP workout recordings from the user's iPhone. Start with fmp_session_overview, then fmp_query short windows. Recordings are a real person's body data: never paste them into commits, issues, or PRs unless the developer asks.",
+        instructions: "FMP workout recordings from the user's iPhone. Start with fmp_session_overview, then fmp_query short windows. For synthetic Movement Lab work, start with fmp_lab_manifest, batch via fmp_lab_run, and inspect only non-passing or inconclusive cases. Recordings are a real person's body data: never paste them into commits, issues, or PRs unless the developer asks.",
       });
     case "notifications/initialized":
     case "notifications/cancelled":
@@ -440,6 +655,10 @@ async function handle(message) {
 const input = createInterface({ input: process.stdin });
 input.on("line", (line) => {
   if (!line.trim()) return;
+  if (Buffer.byteLength(line, "utf8") > MAX_MCP_MESSAGE_BYTES) {
+    reply({ jsonrpc: "2.0", id: null, error: { code: -32600, message: `Request exceeds ${MAX_MCP_MESSAGE_BYTES} bytes.` } });
+    return;
+  }
   let message;
   try {
     message = JSON.parse(line);

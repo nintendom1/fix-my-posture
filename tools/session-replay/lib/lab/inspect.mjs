@@ -1,11 +1,8 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { isSafeRunID } from "./runner.mjs";
+import { createLabStore } from "./store.mjs";
 
 const DEFAULT_LINE_LIMIT = 58; // inspectRun adds one run-summary line.
 const DEFAULT_CHAR_LIMIT = 11_800;
-const FULL_LINE_LIMIT = 4_000;
-const FULL_CHAR_LIMIT = 1_000_000;
 
 export function parseWindow(value) {
   if (value === undefined) return null;
@@ -63,7 +60,12 @@ export function renderInspection({ scenario, result, records, window = null, ful
   lines.push(`Events${window ? ` in ${window.from}–${window.to}s` : ""} (${selected.length} records):`);
   const formatted = compactRecords(selected, full).filter(Boolean);
   lines.push(...(formatted.length ? formatted : ["  (none)"]));
-  return boundOutput(lines, full);
+  if (full) return lines.map(escapeNewlines).join("\n");
+  return boundOutput(lines);
+}
+
+function escapeNewlines(line) {
+  return String(line).replace(/\r\n|[\r\n\u2028\u2029]/g, "\\n");
 }
 
 function evaluationStatus(result) {
@@ -138,11 +140,11 @@ function recordTime(record) {
   return Number.isFinite(record?.t) ? `${record.t.toFixed(2)}s` : "?s";
 }
 
-function boundOutput(lines, full) {
-  const maxLines = full ? FULL_LINE_LIMIT : DEFAULT_LINE_LIMIT;
-  const maxChars = full ? FULL_CHAR_LIMIT : DEFAULT_CHAR_LIMIT;
-  const maxLineChars = full ? 4_000 : 240;
-  const renderedLines = lines.map((line) => String(line).replace(/\r\n|[\r\n\u2028\u2029]/g, "\\n"));
+function boundOutput(lines) {
+  const maxLines = DEFAULT_LINE_LIMIT;
+  const maxChars = DEFAULT_CHAR_LIMIT;
+  const maxLineChars = 240;
+  const renderedLines = lines.map(escapeNewlines);
   const output = [];
   let characterCount = 0;
   let omitted = 0;
@@ -169,20 +171,15 @@ function boundOutput(lines, full) {
 
 export async function inspectRun({ root, runID, scenarioID, window = null, full = false }) {
   if (!isSafeRunID(runID)) throw new Error("Run id must be YYYYMMDD-HHMMSS-<safe suffix>; paths and traversal are rejected.");
-  const runDir = path.join(root, "diagnostics", "movement-lab", "runs", runID);
-  const [plan, results, summary] = await Promise.all([
-    readFile(path.join(runDir, "plan.json"), "utf8").then(JSON.parse),
-    readFile(path.join(runDir, "results.json"), "utf8").then(JSON.parse),
-    readFile(path.join(runDir, "summary.json"), "utf8").then(JSON.parse),
-  ]);
+  const store = createLabStore(root);
+  const { plan, results, summary } = await store.readRun(runID);
   const selectedID = scenarioID ?? results.find((result) => result.outcome !== "passed")?.scenarioID ?? plan.scenarios[0]?.id;
   if (!selectedID) throw new Error("Run has no scenarios to inspect.");
   if (!/^[a-z0-9_-]{1,64}$/.test(selectedID)) throw new Error("Scenario id contains unsafe characters.");
   const scenario = plan.scenarios.find((item) => item.id === selectedID);
   const result = results.find((item) => item.scenarioID === selectedID);
   if (!scenario || !result) throw new Error(`Scenario '${selectedID}' is not in run ${runID}.`);
-  const records = await readFile(path.join(runDir, "scenarios", `${selectedID}.json`), "utf8").then(JSON.parse);
-  if (!Array.isArray(records)) throw new Error(`Scenario artifact ${selectedID}.json is not a recording array.`);
+  const records = await store.readScenarioArtifact(runID, selectedID, "recording");
   const header = `Run ${runID} · ${summary.outcomes?.passed ?? 0}/${results.length} passed`;
   return `${header}\n${renderInspection({ scenario, result, records, window, full })}`;
 }
