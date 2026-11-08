@@ -1,4 +1,4 @@
-.PHONY: ios ios-devices diagnostics viewer replay-sessions design-reference design-snapshots design-diff design-check notification-character notification-character-check adaptive-replay
+.PHONY: ios ios-devices diagnostics viewer replay-sessions lab design-reference design-snapshots design-diff design-check notification-character notification-character-check adaptive-replay
 
 DESIGN_BUNDLE := fix-my-posture-mobile-app-design/project/Fix My Posture Redesign.dc.html
 DESIGN_DESTINATION ?= platform=iOS Simulator,name=iPhone 15 Pro
@@ -35,6 +35,12 @@ replay-sessions:
 		> build/replay-sessions.log 2>&1 || status=$$?; \
 		grep -E "error:|Executed .* tests|TEST (SUCCEEDED|FAILED)" build/replay-sessions.log | sort -u; \
 		cat build/replay-report.txt 2>/dev/null; exit $$status
+
+# Runs a local synthetic Movement Lab plan; PLAN defaults to the built-in Air Squat preset.
+PLAN ?=
+SIM ?=
+lab:
+	@node tools/session-replay/lab.mjs run $(if $(PLAN),"$(PLAN)",--preset air_squat) $(if $(SIM),--sim "$(SIM)")
 
 design-reference:
 	@if [ ! -f "$(DESIGN_BUNDLE)" ]; then \

@@ -33,6 +33,21 @@ final class MovementScenarioTests: XCTestCase {
         XCTAssertEqual(canonical["seed"] as? String, "133")
     }
 
+    func testCorrectedPresetScenariosRecordTheirRevisionLineage() throws {
+        let plan = MovementPresets.airSquat(createdAt: createdAt)
+        for (id, purposeDetail) in [
+            ("shallow-depth", "partialEnd"),
+            ("too-close-framing", "required knees and ankles")
+        ] {
+            guard let scenario = plan.scenarios.first(where: { $0.id == id }) else {
+                return XCTFail("Expected corrected preset scenario '\(id)'.")
+            }
+            XCTAssertEqual(scenario.revision, 2, "\(id) must create a new scenario revision after its failed run.")
+            XCTAssertEqual(scenario.parentRevision, 1, "\(id) must retain its previous revision as its parent.")
+            XCTAssertTrue(scenario.purpose.contains(purposeDetail), "\(id) must explain the revision change.")
+        }
+    }
+
     func testSeedUsesLosslessDecimalStringForUInt64Values() throws {
         let basePlan = MovementPresets.airSquat(createdAt: createdAt)
         let template = try XCTUnwrap(basePlan.scenarios.first { $0.id == "canonical" })
@@ -894,10 +909,15 @@ final class MovementScenarioTests: XCTestCase {
         for sample in materialization.frames {
             XCTAssertEqual(Set(sample.referenceFrame.pose.landmarks.keys), expectedLandmarks,
                            file: file, line: line)
+            XCTAssertEqual(Set(sample.constraintReferenceFrame.pose.landmarks.keys), expectedLandmarks,
+                           file: file, line: line)
             XCTAssertEqual(Set(sample.frame.pose.landmarks.keys), expectedLandmarks, file: file, line: line)
             for joint in expectedLandmarks {
                 _ = try XCTUnwrap(sample.referenceFrame.pose[joint],
                                   "Missing guide landmark \(joint.rawValue) at \(sample.elapsed)",
+                                  file: file, line: line)
+                _ = try XCTUnwrap(sample.constraintReferenceFrame.pose[joint],
+                                  "Missing constraint guide landmark \(joint.rawValue) at \(sample.elapsed)",
                                   file: file, line: line)
                 _ = try XCTUnwrap(sample.frame.pose[joint],
                                   "Missing output landmark \(joint.rawValue) at \(sample.elapsed)",
@@ -905,9 +925,9 @@ final class MovementScenarioTests: XCTestCase {
             }
             for (first, second) in BodyPose.connections {
                 guard expectedLandmarks.contains(first), expectedLandmarks.contains(second) else { continue }
-                let referenceFirst = try XCTUnwrap(sample.referenceFrame.pose[first]?.imageLocation,
+                let referenceFirst = try XCTUnwrap(sample.constraintReferenceFrame.pose[first]?.imageLocation,
                                                    file: file, line: line)
-                let referenceSecond = try XCTUnwrap(sample.referenceFrame.pose[second]?.imageLocation,
+                let referenceSecond = try XCTUnwrap(sample.constraintReferenceFrame.pose[second]?.imageLocation,
                                                     file: file, line: line)
                 let actualFirst = try XCTUnwrap(sample.frame.pose[first]?.imageLocation, file: file, line: line)
                 let actualSecond = try XCTUnwrap(sample.frame.pose[second]?.imageLocation, file: file, line: line)

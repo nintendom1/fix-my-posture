@@ -491,6 +491,8 @@
 		A10000012B00000000000501 /* MovementInfluence.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000501 /* MovementInfluence.swift */; };
 		A10000012B00000000000502 /* MovementPresets.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000502 /* MovementPresets.swift */; };
 		A10000012B00000000000503 /* MovementScenario.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000503 /* MovementScenario.swift */; };
+		A10000012B00000000000504 /* MovementLabTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000504 /* MovementLabTests.swift */; };
+		A10000012B00000000000505 /* MovementLabRunner.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000505 /* MovementLabRunner.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -990,6 +992,8 @@
 		B10000012B00000000000501 /* MovementInfluence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementInfluence.swift; sourceTree = "<group>"; };
 		B10000012B00000000000502 /* MovementPresets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementPresets.swift; sourceTree = "<group>"; };
 		B10000012B00000000000503 /* MovementScenario.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementScenario.swift; sourceTree = "<group>"; };
+		B10000012B00000000000504 /* MovementLabTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementLabTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000505 /* MovementLabRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementLabRunner.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1287,6 +1291,7 @@
 				B10000012B00000000000497 /* SpeechCoachQueueTests.swift */,
 				B10000012B00000000000498 /* AudioCoordinatorTests.swift */,
 				B10000012B00000000000499 /* MovementScenarioTests.swift */,
+				B10000012B00000000000504 /* MovementLabTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -2083,6 +2088,7 @@
 				B10000012B00000000000501 /* MovementInfluence.swift */,
 				B10000012B00000000000502 /* MovementPresets.swift */,
 				B10000012B00000000000503 /* MovementScenario.swift */,
+				B10000012B00000000000505 /* MovementLabRunner.swift */,
 			);
 			path = MovementLab;
 			sourceTree = "<group>";
@@ -2670,6 +2676,8 @@
 				A10000012B00000000000501 /* MovementInfluence.swift in TestSources */,
 				A10000012B00000000000502 /* MovementPresets.swift in TestSources */,
 				A10000012B00000000000503 /* MovementScenario.swift in TestSources */,
+				A10000012B00000000000504 /* MovementLabTests.swift in TestSources */,
+				A10000012B00000000000505 /* MovementLabRunner.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

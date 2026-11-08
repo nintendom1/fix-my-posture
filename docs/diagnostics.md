@@ -81,6 +81,22 @@ Recordings are measurements of a real person's body, and this repository is publ
 
 Movement Lab plans use `schemaVersion: 1`. Plans and scenarios each have an `id` of 1–64 lowercase ASCII letters, digits, `_`, or `-`; a plan holds at most 200 scenarios. A scenario names a registered exercise, category (`canonical`, `depth_rom`, `alignment`, `timing`, `tracking`, or `session_framing`), purpose, canonical guide revision, seed, repetition count, mode (`constrained` or `raw`), mutations, assertions, and revision lineage. Plan authors are `agent` or `developer`. A plan is rejected during decoding if its schema version or a mutation/assertion kind is unknown. Validation collects field-specific issues before materialization. Scenario repetitions are 1–120, and the generated timeline may not exceed 120 seconds.
 
+### Local command-line runs
+
+```sh
+node tools/session-replay/lab.mjs presets
+node tools/session-replay/lab.mjs run --preset air_squat
+node tools/session-replay/lab.mjs run /path/to/plan.json --mode pipeline --sim <simulator-id>
+node tools/session-replay/lab.mjs inspect <run-id> --scenario canonical --window 1-6
+make lab PLAN=/path/to/plan.json SIM=<simulator-id>
+```
+
+The preset list comes from a manifest emitted by the Swift `MovementLabTests` target, so it follows the built-in plans. The CLI checks a plan's JSON shape and field paths before running the batch test. It uses a fixed `xcodebuild` argument list and a 20-minute timeout. `pipeline` sends every synthetic frame through `WorkoutFramePipeline`; `coach` sends frames through `WorkoutCoachHarness` and also captures spoken cues. A `spokenCue` assertion in pipeline mode is `inconclusive` because that mode does not run the coach. Other outcomes are `passed` when all assertions pass, `failed` when an evaluated assertion fails, `invalid` when generation rejects the scenario, and `notRun` when a result has not been produced.
+
+Each run is stored locally at `diagnostics/movement-lab/runs/<run-id>/`. `plan.json` preserves the plan input. `scenarios/<id>.json` is a workout-session recording array with processed pipeline fields, including `out`, `fr`, `rd`, `sig`, `rej`, and `cnt`, so the existing replay viewer can open it. `results.json` contains scenario outcomes and assertion details. `summary.json` contains outcome totals, elapsed time, and revisions. `counting-changes.json` records counting transitions by scenario. The inspector prints one scenario by default, filters event records to a requested time window, and limits ordinary output to about 60 lines; `--full` prints the complete selected trace.
+
+All generated poses and plans in these runs are synthetic. They test analyzer behavior for supplied coordinates and do not validate Apple Vision estimates from a camera. Exploratory plans and artifacts stay in the gitignored `diagnostics/` folder; do not commit them or share real workout recordings as substitutes.
+
 ### JSON contract
 
 This schema-complete plan shows the required envelope and a representative scenario. Replace the abbreviated `canonicalRevision` value with the current guide hash before materializing it. Fields not shown in this scenario are documented in the tables below.
@@ -154,7 +170,7 @@ Assertion objects also use `kind` as their discriminator:
 | `framing` | `state`, `reached` | — |
 | `spokenCue` | `textContains`, `present` | — |
 
-The reserved result object has `scenarioID`, `revision`, `outcome` (`passed`, `failed`, `inconclusive`, `invalid`, or `notRun`), `observed`, `assertionResults`, and `invalidReasons`. `observed` has optional `reps` and arrays `rejections`, `signals`, `framingChanges`, and `cues`. Each assertion result has its zero-based `assertionIndex`, `passed`, and `detail`. Result evaluation is for the next runner milestone; the scenario schema already freezes assertions before generation.
+The reserved result object has `scenarioID`, `revision`, `outcome` (`passed`, `failed`, `inconclusive`, `invalid`, or `notRun`), `observed`, `assertionResults`, and `invalidReasons`. `observed` has optional `reps` and arrays `rejections`, `signals`, `framingChanges`, and `cues`. Each assertion result has its zero-based `assertionIndex`, `passed`, and `detail`. The runner evaluates frozen assertions against pipeline or coach observations. Generation failures are `invalid`; spoken-cue assertions in pipeline mode are `inconclusive`.
 
 ### Timeline, units, and generation order
 
@@ -166,9 +182,9 @@ Composite tempo factors apply in mutation-array order. Each scaled repetition du
 
 Frames are sampled at `n / 30` seconds from zero through the first sample at or after sequence end, `ceil(duration × 30) / 30`. The frame timestamp is `startingTimestamp + elapsed`.
 
-One body-height is the vertical pixel span (`maxY - minY`) of all available joints in that frame's canonical guide pose, before jitter and other mutations. Offset, asymmetry, and framing translations use this measure. Supported mutation numeric limits are inclusive: offsets `dx/dy` ±0.5 body-heights, influence durations 0–10 seconds, strength 0–1, depth and tempo scales 0.3–2, asymmetry and framing translations ±0.5 body-heights, framing scale 0.3–2, confidence 0–1, and dropout/confidence interval length at most 10 seconds. Constrained joint offsets whose requested vector exceeds 0.3 body-heights are invalid.
+One body-height is the vertical pixel span (`maxY - minY`) of all available joints in that frame's rendered guide pose after depth scaling, before pixel jitter and other mutations. Offset, asymmetry, and framing translations use this measure. Supported mutation numeric limits are inclusive: offsets `dx/dy` ±0.5 body-heights, influence durations 0–10 seconds, strength 0–1, depth and tempo scales 0.3–2, composite depth scale per repetition 1/16–16, asymmetry and framing translations ±0.5 body-heights, framing scale 0.3–2, confidence 0–1, and dropout/confidence interval length at most 10 seconds. Constrained joint offsets whose requested vector exceeds 0.3 body-heights are invalid.
 
-At 30 frames per second, samples are timestamped at `n / 30` seconds from zero through the first sample at or after sequence end (`ceil(duration × 30) / 30`). The generator applies stages in this fixed order: seeded jitter; depth scaling; asymmetry; local joint offsets; constrained projection; framing; confidence overrides and landmark dropout; frame-gap omission. Mutations within a stage are read in their JSON array order. Constrained mode projects toward canonical guide bone lengths, keeps both Air Squat ankles planted, and rejects a local joint offset if projection cannot retain at least half of its nonzero requested displacement while keeping each available connected bone within 3% of its guide length. A requested offset on a planted ankle is invalid. Raw mode preserves requested landmark displacements without projection. Higher-level depth and asymmetry edits retain lower mobility during projection so surrounding joints can compensate. The caller supplies creation and starting-frame timestamps; jitter uses the decimal `UInt64` seed. Identical inputs reproduce identical output frames and recording lines.
+At 30 frames per second, samples are timestamped at `n / 30` seconds from zero through the first sample at or after sequence end (`ceil(duration × 30) / 30`). For each selected repetition, composite depth scaling changes `LegPose.hipDrop` before the guide figure is rendered. The generator then applies stages in this fixed order: seeded pixel jitter; asymmetry; local joint offsets; constrained projection; framing; confidence overrides and landmark dropout; frame-gap omission. Mutations within a stage are read in their JSON array order. Constrained mode projects toward bone lengths from the depth-mutated rendered guide pose, keeps both Air Squat ankles planted, and rejects a local joint offset if projection cannot retain at least half of its nonzero requested displacement while keeping each available connected bone within 3% of its reference length. A requested offset on a planted ankle is invalid. Asymmetry-modified hips resist projection movement; unaffected joints can compensate. Raw mode preserves requested landmark displacements without projection. The caller supplies creation and starting-frame timestamps; jitter uses the decimal `UInt64` seed. Identical inputs reproduce identical output frames and recording lines.
 
 Movement Lab landmarks are synthetic inputs. They can test analyzer behavior given those coordinates, but they never establish the accuracy of Apple Vision's camera-to-landmark estimates.
 
