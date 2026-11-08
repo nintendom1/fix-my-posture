@@ -64,6 +64,13 @@ struct ArmMotionSample: Equatable {
     var shape: FigureShape = FigureShape(torsoPitch: 0)
     /// Uses the planted-hand wall layout instead of the generic standing side figure.
     var wallPushUp = false
+    /// Uses the planted-hand bench layout instead of the generic standing side figure.
+    var inclinePushUp = false
+
+    /// The planted-hand layout this sample draws, if it is a push-up against a fixed surface.
+    var plantedLayout: PlantedBodyLayout? {
+        PlantedBodyLayout.layout(wallPushUp: wallPushUp, inclinePushUp: inclinePushUp)
+    }
 }
 
 /// The plane a forearm moves in, as seen by a front-facing camera.
@@ -85,6 +92,13 @@ struct ArmMotion {
     var torsoPitch: Double = 0
     /// Draw a side-view wall push-up with fixed wrists and a straight body line.
     var wallPushUp = false
+    /// Draw a side-view incline push-up with fixed wrists on a bench and a straight body line.
+    var inclinePushUp = false
+
+    /// The planted-hand layout this motion draws, if it is a push-up against a fixed surface.
+    var plantedLayout: PlantedBodyLayout? {
+        PlantedBodyLayout.layout(wallPushUp: wallPushUp, inclinePushUp: inclinePushUp)
+    }
 
     var duration: TimeInterval {
         keyframes.reduce(0) { $0 + $1.moveDuration + $1.holdDuration }
@@ -97,7 +111,8 @@ struct ArmMotion {
     var startSample: ArmMotionSample {
         guard let first = keyframes.first else {
             return ArmMotionSample(angles: startAngles, stepIndex: 0, legs: startLegs,
-                                   shape: FigureShape(torsoPitch: torsoPitch), wallPushUp: wallPushUp)
+                                   shape: FigureShape(torsoPitch: torsoPitch), wallPushUp: wallPushUp,
+                                   inclinePushUp: inclinePushUp)
         }
         return sample(of: first)
     }
@@ -150,7 +165,7 @@ struct ArmMotion {
     func sample(of keyframe: ArmKeyframe) -> ArmMotionSample {
         ArmMotionSample(angles: keyframe.angles, stepIndex: keyframe.stepIndex, legs: keyframe.legs,
                        shape: Self.resolvedShape(keyframe.shape, torsoPitch: torsoPitch),
-                       wallPushUp: wallPushUp)
+                       wallPushUp: wallPushUp, inclinePushUp: inclinePushUp)
     }
 
     func sample(at time: TimeInterval) -> ArmMotionSample {
@@ -169,7 +184,7 @@ struct ArmMotion {
                                        stepIndex: keyframe.stepIndex,
                                        legs: Self.interpolate(previous.legs, keyframe.legs, progress),
                                        shape: Self.interpolate(previousSample.shape, targetSample.shape, progress),
-                                       wallPushUp: wallPushUp)
+                                       wallPushUp: wallPushUp, inclinePushUp: inclinePushUp)
             }
             elapsed -= keyframe.moveDuration
             if elapsed < keyframe.holdDuration {

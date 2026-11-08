@@ -7,10 +7,10 @@ final class ExerciseFilterTests: XCTestCase {
 
     func testEachChipMatchesItsCatalogFilterGroups() {
         let expected: [(ExerciseFilterChip, [ExerciseID])] = [
-            (.all, [.shoulderPress, .lateralRaise, .hammerCurl, .tricepsExtension, .airSquat, .stiffLegDeadlift, .rearLunge, .gluteBridge, .dumbbellRow, .dumbbellShrug, .pushUp, .wallPushUp]),
-            (.upper, [.shoulderPress, .lateralRaise, .hammerCurl, .tricepsExtension, .dumbbellRow, .dumbbellShrug, .pushUp, .wallPushUp]),
+            (.all, [.shoulderPress, .lateralRaise, .hammerCurl, .tricepsExtension, .airSquat, .stiffLegDeadlift, .rearLunge, .gluteBridge, .dumbbellRow, .dumbbellShrug, .pushUp, .wallPushUp, .inclinePushUp]),
+            (.upper, [.shoulderPress, .lateralRaise, .hammerCurl, .tricepsExtension, .dumbbellRow, .dumbbellShrug, .pushUp, .wallPushUp, .inclinePushUp]),
             (.lower, [.airSquat, .stiffLegDeadlift, .rearLunge, .gluteBridge]),
-            (.bodyweight, [.airSquat, .gluteBridge, .pushUp, .wallPushUp]),
+            (.bodyweight, [.airSquat, .gluteBridge, .pushUp, .wallPushUp, .inclinePushUp]),
             (.dumbbells, [.shoulderPress, .lateralRaise, .hammerCurl, .stiffLegDeadlift, .rearLunge, .dumbbellRow, .dumbbellShrug])
         ]
 
@@ -25,12 +25,12 @@ final class ExerciseFilterTests: XCTestCase {
     }
 
     func testQueryMatchesMusclesAndEquipment() {
-        XCTAssertEqual(ids(matching: "triceps"), [.shoulderPress, .tricepsExtension, .pushUp, .wallPushUp])
+        XCTAssertEqual(ids(matching: "triceps"), [.shoulderPress, .tricepsExtension, .pushUp, .wallPushUp, .inclinePushUp])
         XCTAssertEqual(ids(matching: "band"), [.tricepsExtension])
     }
 
     func testQueryMatchingIgnoresCaseAndDiacritics() {
-        XCTAssertEqual(ids(matching: "TRICEPS"), [.shoulderPress, .tricepsExtension, .pushUp, .wallPushUp])
+        XCTAssertEqual(ids(matching: "TRICEPS"), [.shoulderPress, .tricepsExtension, .pushUp, .wallPushUp, .inclinePushUp])
         XCTAssertEqual(ids(matching: "Dumbbéll"), [.shoulderPress, .lateralRaise, .hammerCurl, .stiffLegDeadlift, .rearLunge, .dumbbellRow, .dumbbellShrug])
     }
 

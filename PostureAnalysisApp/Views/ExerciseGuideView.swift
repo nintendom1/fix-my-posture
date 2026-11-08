@@ -84,8 +84,8 @@ struct ExerciseGuideView: View {
         VStack(spacing: 6) {
             ExerciseDemoFigureView(angles: sample.angles, forearmPlane: guide.motion.forearmPlane, cameraView: exercise.cameraView,
                                    holdsDumbbells: guide.motion.holdsDumbbells, legs: sample.legs,
-                                  torsoPitch: guide.motion.torsoPitch, shape: sample.shape,
-                                  wallPushUp: guide.motion.wallPushUp,
+                                   torsoPitch: guide.motion.torsoPitch, shape: sample.shape,
+                                   wallPushUp: guide.motion.wallPushUp, inclinePushUp: guide.motion.inclinePushUp,
                                    figureBounds: ExerciseDemoFigureView.bounds(for: guide.motion,
                                                                                cameraView: exercise.cameraView))
                 .frame(maxWidth: .infinity)
@@ -117,8 +117,8 @@ struct ExerciseGuideView: View {
         VStack(spacing: 4) {
             ExerciseDemoFigureView(angles: sample.angles, forearmPlane: guide.motion.forearmPlane, cameraView: exercise.cameraView,
                                    holdsDumbbells: guide.motion.holdsDumbbells, legs: sample.legs,
-                                  torsoPitch: guide.motion.torsoPitch, shape: sample.shape,
-                                  wallPushUp: guide.motion.wallPushUp,
+                                   torsoPitch: guide.motion.torsoPitch, shape: sample.shape,
+                                   wallPushUp: guide.motion.wallPushUp, inclinePushUp: guide.motion.inclinePushUp,
                                    figureBounds: ExerciseDemoFigureView.bounds(for: guide.motion, cameraView: exercise.cameraView))
                 .frame(height: 200)
             Text(title)

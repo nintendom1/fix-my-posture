@@ -97,9 +97,9 @@ struct WorkoutGhostGeometry: Equatable {
               fitOverlay.imageSize.width > 0, fitOverlay.imageSize.height > 0,
               containerSize.width > 0, containerSize.height > 0 else { return nil }
 
-        if cameraView == .side, motion.wallPushUp {
-            guard let result = wallPushUpBody(overlay: fitOverlay, motion: motion,
-                                              containerSize: containerSize, sample: sample) else { return nil }
+        if cameraView == .side, let layout = motion.plantedLayout {
+            guard let result = plantedPushUpBody(overlay: fitOverlay, motion: motion, layout: layout,
+                                                 containerSize: containerSize, sample: sample) else { return nil }
             return Figure(joints: result.joints, bodyScale: result.bodyScale,
                           dumbbells: result.dumbbells, forearmLength: result.forearmLength,
                           isCalibrated: true)
@@ -295,9 +295,9 @@ struct WorkoutGhostGeometry: Equatable {
         guard fit.width > 0 else { return WorkoutGhostGeometry() }
         let scale = fit.width / imageSize.width
 
-        if cameraView == .side, motion.wallPushUp {
-            return wallPushUpBody(overlay: overlay, motion: motion, containerSize: containerSize,
-                                  sample: sample)?.geometry ?? WorkoutGhostGeometry()
+        if cameraView == .side, let layout = motion.plantedLayout {
+            return plantedPushUpBody(overlay: overlay, motion: motion, layout: layout,
+                                     containerSize: containerSize, sample: sample)?.geometry ?? WorkoutGhostGeometry()
         }
         if cameraView == .side, motion.movesSideBody {
             return sideBody(overlay: overlay, motion: motion, containerSize: containerSize,
@@ -520,14 +520,14 @@ struct WorkoutGhostGeometry: Equatable {
                               dumbbells: dumbbells, forearmLength: armLengths.1)
     }
 
-    /// Fits the wall figure from Ready's guaranteed arm and hip joints. An ankle, when visible, anchors the
+    /// Fits the wall or bench figure from Ready's guaranteed arm and hip joints. An ankle, when visible, anchors the
     /// lower body; otherwise the guide's leg proportions provide the fallback. The tracked wrist stays on the
-    /// wall while the ideal shoulder and body line move through the rep.
-    private static func wallPushUpBody(overlay: WorkoutOverlayState, motion: ArmMotion,
-                                       containerSize: CGSize, sample: ArmMotionSample) -> SideBodyResult? {
+    /// surface while the ideal shoulder and body line move through the rep.
+    private static func plantedPushUpBody(overlay: WorkoutOverlayState, motion: ArmMotion, layout: PlantedBodyLayout,
+                                          containerSize: CGSize, sample: ArmMotionSample) -> SideBodyResult? {
         guard overlay.imageSize.width > 0, overlay.imageSize.height > 0,
               containerSize.width > 0, containerSize.height > 0,
-              let side = wallPushUpSide(in: overlay),
+              let side = plantedPushUpSide(in: overlay),
               let observedShoulder = point(side.shoulder, in: overlay, containerSize: containerSize),
               let observedElbow = point(side.elbow, in: overlay, containerSize: containerSize),
               let observedWrist = point(side.wrist, in: overlay, containerSize: containerSize),
@@ -546,7 +546,8 @@ struct WorkoutGhostGeometry: Equatable {
             facing = observedWrist.x >= observedShoulder.x ? 1 : -1
         }
 
-        let guideStart = ExerciseDemoFigureView.wallPushUpPose(for: motion.startAngles).jointLocations
+        let guideStart = ExerciseDemoFigureView.plantedPushUpPose(for: motion.startAngles,
+                                                                  layout: layout).jointLocations
         let guideSample = ExerciseDemoFigureView.pose(for: sample, forearmPlane: motion.forearmPlane,
                                                       cameraView: .side).jointLocations
         guard let guideStartShoulder = guideStart[.leftShoulder],
@@ -758,7 +759,7 @@ struct WorkoutGhostGeometry: Equatable {
         }
     }
 
-    private static func wallPushUpSide(in overlay: WorkoutOverlayState) -> BodySide? {
+    private static func plantedPushUpSide(in overlay: WorkoutOverlayState) -> BodySide? {
         func tracked(_ joint: LandmarkType) -> Bool { overlay.joints[joint].map { !$0.isStale } ?? false }
         let candidates = BodySide.allCases.filter { side in
             [side.shoulder, side.elbow, side.wrist, side.hip].allSatisfy(tracked)

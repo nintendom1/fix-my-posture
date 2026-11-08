@@ -443,6 +443,9 @@
 		A10000012B00000000000453 /* WallPushUpExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000453 /* WallPushUpExercise.swift */; };
 		A10000012B00000000000454 /* WallPushUpAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000454 /* WallPushUpAnalyzer.swift */; };
 		A10000012B00000000000455 /* WallPushUpAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000455 /* WallPushUpAnalyzerTests.swift */; };
+		A10000012B00000000000456 /* InclinePushUpExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000456 /* InclinePushUpExercise.swift */; };
+		A10000012B00000000000457 /* InclinePushUpAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000457 /* InclinePushUpAnalyzer.swift */; };
+		A10000012B00000000000458 /* InclinePushUpAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000458 /* InclinePushUpAnalyzerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -894,6 +897,9 @@
 		B10000012B00000000000453 /* WallPushUpExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WallPushUpExercise.swift; sourceTree = "<group>"; };
 		B10000012B00000000000454 /* WallPushUpAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WallPushUpAnalyzer.swift; sourceTree = "<group>"; };
 		B10000012B00000000000455 /* WallPushUpAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WallPushUpAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000456 /* InclinePushUpExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InclinePushUpExercise.swift; sourceTree = "<group>"; };
+		B10000012B00000000000457 /* InclinePushUpAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InclinePushUpAnalyzer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000458 /* InclinePushUpAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InclinePushUpAnalyzerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1170,6 +1176,7 @@
 				B10000012B00000000000450 /* AdaptiveDebugScreenTests.swift */,
 				B10000012B00000000000452 /* WorkoutSelfReportedTests.swift */,
 				B10000012B00000000000455 /* WallPushUpAnalyzerTests.swift */,
+				B10000012B00000000000458 /* InclinePushUpAnalyzerTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1220,6 +1227,7 @@
 				H10000012B00000000000065 /* GluteBridge */,
 				B10000012B00000000000451 /* ExerciseTracking.swift */,
 				H10000012B00000000000070 /* WallPushUp */,
+				H10000012B00000000000071 /* InclinePushUp */,
 			);
 			path = Exercises;
 			sourceTree = "<group>";
@@ -1911,6 +1919,15 @@
 			path = WallPushUp;
 			sourceTree = "<group>";
 		};
+		H10000012B00000000000071 /* InclinePushUp */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000456 /* InclinePushUpExercise.swift */,
+				B10000012B00000000000457 /* InclinePushUpAnalyzer.swift */,
+			);
+			path = InclinePushUp;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -2298,6 +2315,8 @@
 				A10000012B00000000000451 /* ExerciseTracking.swift in Sources */,
 				A10000012B00000000000453 /* WallPushUpExercise.swift in Sources */,
 				A10000012B00000000000454 /* WallPushUpAnalyzer.swift in Sources */,
+				A10000012B00000000000456 /* InclinePushUpExercise.swift in Sources */,
+				A10000012B00000000000457 /* InclinePushUpAnalyzer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2446,6 +2465,7 @@
 				A10000012B00000000000450 /* AdaptiveDebugScreenTests.swift in TestSources */,
 				A10000012B00000000000452 /* WorkoutSelfReportedTests.swift in TestSources */,
 				A10000012B00000000000455 /* WallPushUpAnalyzerTests.swift in TestSources */,
+				A10000012B00000000000458 /* InclinePushUpAnalyzerTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
