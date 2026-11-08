@@ -7,10 +7,13 @@ description: Use when managing Herdr agents or long-running scripts, assigning w
 
 Use `scripts/orchestrate/agent.py` from a Herdr pane with `HERDR_ENV=1`. It finds the current checkout and stores shared metadata at `<git-common-dir>/build/orchestrate/state.json`, keyed by `HERDR_WORKSPACE_ID`.
 
+Notes: `<git-common-dir>/build/orchestrate/notes/<workspace-key>/`. Starts grant this folder as writable via `--add-dir` to Codex `workspace-write` and Claude `acceptEdits`; `note get` skips the state lock.
+
 ## Start and message agents
 
 ```sh
-scripts/orchestrate/agent.py start posture --kind codex --model gpt-6-luna --effort max --role implementer --purpose "Posture change"
+scripts/orchestrate/agent.py start posture --kind codex --model gpt-6-luna --effort max --role implementer --purpose "Posture change" \
+  --owns 'PostureAnalysisApp/Workout/**/*.swift,PostureAnalysisApp/Tests/Fakes/*.swift'
 scripts/orchestrate/agent.py prompt posture --brief build/briefs/posture.md --wait --timeout 5400
 scripts/orchestrate/agent.py status
 ```
@@ -31,7 +34,7 @@ Use these model roles: Opus orchestrator; Codex Luna at max effort implementer; 
 
 The orchestrator owns shared contracts, compiling stubs, fixtures, project registration, integration, review, validation, git, and PRs. Agents own complete files within their briefs, not regions of shared files. Keep composition roots, coordinators, settings screens, and the Xcode project with the orchestrator.
 
-Put shared rules in `build/briefs/_rules.md` and one brief per agent in `build/briefs/<name>.md`. State owned files, contracts, behavior, thresholds, tests, compile command, forbidden actions, and the report path `build/briefs/<name>.report.md`. Register new Swift files before implementation and validate stubs before assigning work.
+Put shared rules in `build/briefs/_rules.md` and one brief per agent in `build/briefs/<name>.md`. State owned files, contracts, behavior, thresholds, tests, compile command, forbidden actions, and report path. Tell agents to check relevant notes before exploring and add reusable notes after, with file:line refs. Check `note get --topic TOPIC` before rereading shared code; absent notes mean continue exploring. Add or replace a file note with `note add --topic TOPIC --file PATH --summary 'Finding (PATH:LINE-LINE).'`. Notes are workspace-scoped and marked stale when a referenced file changes. Start agents with `--owns 'glob,glob'`; overlapping active leases are refused until the owner is closed. Do deterministic steps directly instead of starting another agent. Register new Swift files before implementation and validate stubs before assigning work.
 
 Only start work explicitly assigned by the user or orchestrator. Keep a ledger for unattended multi-package runs and resume from its first unfinished item. Keep agents idle while validation runs; builds and focused tests share a lock.
 

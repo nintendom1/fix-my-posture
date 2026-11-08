@@ -23,6 +23,7 @@ SKILL_ROOTS = (ROOT / ".agents" / "skills", ROOT / ".claude" / "skills")
 # Baseline AGENTS.md size before this change. The budget includes each client's
 # skill frontmatter because names and descriptions are exposed at session start.
 ALWAYS_LOADED_BUDGET_BYTES = 13_986
+SKILL_DOCUMENTATION_BUDGET_CHARS = 22_371
 
 CRITICAL_RULES = (
     "1. **Aspect-Correct Geometry**: Compute angles and deviations with pixel coordinates or aspect-fit normalized coordinates (`CoordinateConverter`) to avoid distortion on non-square images.",
@@ -198,7 +199,33 @@ class AgentInstructionTests(unittest.TestCase):
             with self.subTest(root=skill_root.relative_to(ROOT)):
                 self.assertIn("`<git-common-dir>/build/orchestrate/state.json`", text)
                 self.assertIn("`HERDR_WORKSPACE_ID`", text)
+                self.assertIn("`<git-common-dir>/build/orchestrate/notes/<workspace-key>/`", text)
+                self.assertIn("writable via `--add-dir`", text)
+                self.assertIn("`note get` skips the state lock", text)
                 self.assertNotIn("pane IDs recorded in `build/orchestrate/state.json`", text)
+
+    def test_agent_skills_document_notes_ownership_and_check_handoffs(self) -> None:
+        for skill_root in SKILL_ROOTS:
+            herdr = (skill_root / "herdr-orchestration" / "SKILL.md").read_text(encoding="utf-8")
+            implementer = (skill_root / "implementer-workflow" / "SKILL.md").read_text(encoding="utf-8")
+            reviewer = (skill_root / "review-workflow" / "SKILL.md").read_text(encoding="utf-8")
+            with self.subTest(root=skill_root.relative_to(ROOT)):
+                self.assertIn("note get --topic TOPIC", herdr)
+                self.assertIn("note add --topic TOPIC --file PATH", herdr)
+                self.assertIn("--owns 'glob,glob'", herdr)
+                self.assertIn("Do deterministic steps directly", herdr)
+                self.assertIn("note get --topic TOPIC", implementer)
+                self.assertIn("## Checks run", implementer)
+                self.assertIn("`<exact command>` — PASS/FAIL", implementer)
+                self.assertIn("note get --topic TOPIC", reviewer)
+                self.assertIn("verify every claim independently", reviewer)
+
+    def test_full_skill_documentation_stays_within_budget(self) -> None:
+        character_count = sum(
+            len(path.read_text(encoding="utf-8"))
+            for root in SKILL_ROOTS for path in root.rglob("SKILL.md")
+        )
+        self.assertLessEqual(character_count, SKILL_DOCUMENTATION_BUDGET_CHARS)
 
     def test_always_loaded_instruction_budget_does_not_grow(self) -> None:
         agents_bytes = AGENTS.read_bytes()

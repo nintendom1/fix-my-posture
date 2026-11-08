@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import fcntl
+import hashlib
 import json
 import math
 import os
@@ -16,19 +17,24 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Any
 
 
 NAME_RE = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
+NOTE_TOPIC_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 OVERFLOW_RE = re.compile(r"^Agent(?: (\d+))?$")
 SCRIPT_TAB_RE = re.compile(r"^Scripts(?: (\d+))?$")
 IMPLEMENTER_TOOLS = (
     "Bash(scripts/agent-build.sh:*) Bash(scripts/orchestrate/test.sh:*) Bash(swift test:*) Bash(swift build:*) "
     "Bash(xcodebuild:*) Bash(git diff:*) Bash(git status:*) Bash(git log:*) "
-    "Bash(node --test:*) Bash(python3 -m unittest:*) Read Edit Write Glob Grep"
+    "Bash(node --test:*) Bash(python3 -m unittest:*) "
+    "Bash(scripts/orchestrate/agent.py note get:*) Bash(scripts/orchestrate/agent.py note add:*) "
+    "Read Edit Write Glob Grep"
 )
 REVIEWER_TOOLS = (
     "Bash(git diff:*) Bash(git log:*) Bash(git show:*) Bash(git status:*) "
+    "Bash(scripts/orchestrate/agent.py note get:*) "
     "Read Glob Grep Write(build/reviews/**) Edit(build/reviews/**)"
 )
 RPC_TIMEOUT_SECONDS = 20.0
@@ -161,10 +167,11 @@ def _next_start_order(state: dict[str, Any]) -> int:
 
 
 class StateFileLock:
-    """A process-wide kernel lock for shared orchestration state."""
+    """A kernel lock for one shared orchestration artifact."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, purpose: str = "shared agent state") -> None:
         self.path = path
+        self.purpose = purpose
         self._stream = None
 
     def __enter__(self) -> StateFileLock:
@@ -176,7 +183,7 @@ class StateFileLock:
             if self._stream:
                 self._stream.close()
                 self._stream = None
-            raise OrchestrationError(f"cannot lock shared agent state {self.path}: {exc}") from exc
+            raise OrchestrationError(f"cannot lock {self.purpose} {self.path}: {exc}") from exc
         return self
 
     def release(self) -> None:
@@ -190,6 +197,235 @@ class StateFileLock:
 
     def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
         self.release()
+
+
+_PATH_CHAR_RANGES = ((1, 46), (48, 0x10FFFF))
+_GlobToken = tuple[tuple[int, int], ...] | None
+
+
+def _merge_ranges(ranges: list[tuple[int, int]]) -> tuple[tuple[int, int], ...]:
+    merged: list[list[int]] = []
+    for low, high in sorted(ranges):
+        if not merged or low > merged[-1][1] + 1:
+            merged.append([low, high])
+        else:
+            merged[-1][1] = max(merged[-1][1], high)
+    return tuple((low, high) for low, high in merged)
+
+
+def _complement_ranges(ranges: tuple[tuple[int, int], ...]) -> tuple[tuple[int, int], ...]:
+    result: list[tuple[int, int]] = []
+    for allowed_low, allowed_high in _PATH_CHAR_RANGES:
+        cursor = allowed_low
+        for low, high in ranges:
+            if high < cursor or low > allowed_high:
+                continue
+            if low > cursor:
+                result.append((cursor, min(allowed_high, low - 1)))
+            cursor = max(cursor, high + 1)
+            if cursor > allowed_high:
+                break
+        if cursor <= allowed_high:
+            result.append((cursor, allowed_high))
+    return tuple(result)
+
+
+def _class_token(pattern: str, start: int) -> tuple[_GlobToken, int] | None:
+    body_start = start + 1
+    if body_start < len(pattern) and pattern[body_start] == "!":
+        body_start += 1
+    if body_start < len(pattern) and pattern[body_start] == "]":
+        body_start += 1
+    close = body_start
+    while close < len(pattern) and pattern[close] != "]":
+        close += 1
+    if close == len(pattern):
+        return None
+    body = pattern[start + 1:close]
+    negate = body.startswith("!")
+    if negate:
+        body = body[1:]
+    ranges: list[tuple[int, int]] = []
+    index = 0
+    if body.startswith("]"):
+        ranges.append((ord("]"), ord("]")))
+        index = 1
+    while index < len(body):
+        low = ord(body[index])
+        if index + 2 < len(body) and body[index + 1] == "-":
+            high = ord(body[index + 2])
+            if low <= high:
+                ranges.append((low, high))
+            else:
+                ranges.extend(((low, low), (ord("-"), ord("-")), (high, high)))
+            index += 3
+        else:
+            ranges.append((low, low))
+            index += 1
+    included = _merge_ranges(ranges)
+    token = _complement_ranges(included) if negate else tuple(
+        (max(low, allowed_low), min(high, allowed_high))
+        for low, high in included
+        for allowed_low, allowed_high in _PATH_CHAR_RANGES
+        if max(low, allowed_low) <= min(high, allowed_high)
+    )
+    return token, close + 1
+
+
+def _glob_tokens(pattern: str) -> tuple[_GlobToken, ...]:
+    tokens: list[_GlobToken] = []
+    index = 0
+    while index < len(pattern):
+        char = pattern[index]
+        if char == "*":
+            if not tokens or tokens[-1] is not None:
+                tokens.append(None)
+            index += 1
+        elif char == "?":
+            tokens.append(_PATH_CHAR_RANGES)
+            index += 1
+        elif char == "[" and (parsed := _class_token(pattern, index)) is not None:
+            token, index = parsed
+            tokens.append(token)
+        else:
+            codepoint = ord(char)
+            if char not in {"/", "\x00"}:
+                tokens.append(((codepoint, codepoint),))
+            else:
+                tokens.append(())
+            index += 1
+    return tuple(tokens)
+
+
+def _ranges_overlap(first: tuple[tuple[int, int], ...], second: tuple[tuple[int, int], ...]) -> bool:
+    return any(max(a, c) <= min(b, d) for a, b in first for c, d in second)
+
+
+def _segment_globs_overlap(first: str, second: str) -> bool:
+    first_tokens, second_tokens = _glob_tokens(first), _glob_tokens(second)
+
+    def closure(tokens: tuple[_GlobToken, ...], positions: set[int]) -> frozenset[int]:
+        result, pending = set(positions), list(positions)
+        while pending:
+            position = pending.pop()
+            if position < len(tokens) and tokens[position] is None and position + 1 not in result:
+                result.add(position + 1)
+                pending.append(position + 1)
+        return frozenset(result)
+
+    initial = (closure(first_tokens, {0}), closure(second_tokens, {0}))
+    pending_states, visited = [initial], {initial}
+    while pending_states:
+        first_state, second_state = pending_states.pop()
+        if len(first_tokens) in first_state and len(second_tokens) in second_state:
+            return True
+        first_moves: list[tuple[int, tuple[tuple[int, int], ...]]] = []
+        second_moves: list[tuple[int, tuple[tuple[int, int], ...]]] = []
+        for position in first_state:
+            if position < len(first_tokens):
+                token = first_tokens[position]
+                first_moves.append((position if token is None else position + 1,
+                                    _PATH_CHAR_RANGES if token is None else token))
+        for position in second_state:
+            if position < len(second_tokens):
+                token = second_tokens[position]
+                second_moves.append((position if token is None else position + 1,
+                                     _PATH_CHAR_RANGES if token is None else token))
+        for next_first, first_range in first_moves:
+            for next_second, second_range in second_moves:
+                if not _ranges_overlap(first_range, second_range):
+                    continue
+                next_state = (
+                    closure(first_tokens, {next_first}), closure(second_tokens, {next_second})
+                )
+                if next_state not in visited:
+                    visited.add(next_state)
+                    pending_states.append(next_state)
+    return False
+
+
+def _ownership_patterns(values: list[str] | None) -> list[str]:
+    patterns: list[str] = []
+    for value in values or []:
+        for part in value.split(","):
+            raw = part.strip()
+            if not raw:
+                raise OrchestrationError("--owns contains an empty file glob")
+            path = PurePosixPath(raw)
+            if path.is_absolute() or ".." in path.parts or "\\" in raw:
+                raise OrchestrationError(f"--owns glob must stay inside the repository: {raw!r}")
+            normalized = path.as_posix()
+            if normalized == ".":
+                raise OrchestrationError("--owns must name one or more repository file globs")
+            if normalized not in patterns:
+                patterns.append(normalized)
+    return patterns
+
+
+def _path_globs_overlap(first: str, second: str) -> bool:
+    first_parts, second_parts = PurePosixPath(first).parts, PurePosixPath(second).parts
+    def closure(parts: tuple[str, ...], positions: set[int]) -> frozenset[int]:
+        result, pending = set(positions), list(positions)
+        while pending:
+            position = pending.pop()
+            if position < len(parts) and parts[position] == "**" and position + 1 not in result:
+                result.add(position + 1)
+                pending.append(position + 1)
+        return frozenset(result)
+
+    initial = (closure(first_parts, {0}), closure(second_parts, {0}))
+    pending_states, visited = [initial], {initial}
+    while pending_states:
+        first_state, second_state = pending_states.pop()
+        if len(first_parts) in first_state and len(second_parts) in second_state:
+            return True
+        first_moves: list[tuple[int, str | None]] = []
+        second_moves: list[tuple[int, str | None]] = []
+        for position in first_state:
+            if position < len(first_parts):
+                part = first_parts[position]
+                first_moves.append((position if part == "**" else position + 1,
+                                    None if part == "**" else part))
+        for position in second_state:
+            if position < len(second_parts):
+                part = second_parts[position]
+                second_moves.append((position if part == "**" else position + 1,
+                                     None if part == "**" else part))
+        for next_first, first_part in first_moves:
+            for next_second, second_part in second_moves:
+                if first_part is None and second_part is None:
+                    compatible = True
+                elif first_part is None:
+                    compatible = _segment_globs_overlap(str(second_part), "?*")
+                elif second_part is None:
+                    compatible = _segment_globs_overlap(first_part, "?*")
+                else:
+                    compatible = _segment_globs_overlap(first_part, second_part)
+                if not compatible:
+                    continue
+                next_state = (
+                    closure(first_parts, {next_first}), closure(second_parts, {next_second})
+                )
+                if next_state not in visited:
+                    visited.add(next_state)
+                    pending_states.append(next_state)
+    return False
+
+
+def _assert_ownership_available(ctx: Context, patterns: list[str], *, except_name: str | None = None) -> None:
+    for existing_name, metadata in ctx.state["agents"].items():
+        if existing_name == except_name or not isinstance(metadata, dict):
+            continue
+        existing = metadata.get("owns", [])
+        if not isinstance(existing, list):
+            continue
+        for requested_glob in patterns:
+            for existing_glob in existing:
+                if isinstance(existing_glob, str) and _path_globs_overlap(requested_glob, existing_glob):
+                    raise OrchestrationError(
+                        f"refusing start: ownership conflict with agent {existing_name} "
+                        f"({existing_glob} overlaps {requested_glob})"
+                    )
 
 
 def _empty_workspace_state() -> dict[str, Any]:
@@ -400,11 +636,7 @@ def _save_state(path: Path, state: dict[str, Any]) -> None:
 
 class Context:
     def __init__(self, root: Path, common_dir: Path, state_lock: StateFileLock) -> None:
-        if os.environ.get("HERDR_ENV") != "1":
-            raise OrchestrationError("run this command inside a Herdr-managed pane (HERDR_ENV=1)")
-        workspace = os.environ.get("HERDR_WORKSPACE_ID")
-        if not workspace:
-            raise OrchestrationError("HERDR_WORKSPACE_ID is not set")
+        workspace = _workspace_from_environment()
         self.root = root
         self.workspace = workspace
         self.state_path = common_dir / STATE_RELATIVE_PATH
@@ -436,6 +668,148 @@ class Context:
         self._snapshot = {"panes": panes, "tabs": tabs, "agents": agents}
         self._snapshot_epoch = _MUTATION_EPOCH
         return self._snapshot
+
+
+def _workspace_from_environment() -> str:
+    if os.environ.get("HERDR_ENV") != "1":
+        raise OrchestrationError("run this command inside a Herdr-managed pane (HERDR_ENV=1)")
+    workspace = os.environ.get("HERDR_WORKSPACE_ID")
+    if not workspace:
+        raise OrchestrationError("HERDR_WORKSPACE_ID is not set")
+    return workspace
+
+
+def _workspace_notes_directory(common_dir: Path, workspace: str) -> Path:
+    workspace_key = hashlib.sha256(workspace.encode("utf-8")).hexdigest()[:24]
+    return common_dir / "notes" / workspace_key
+
+
+def _note_path(common_dir: Path, workspace: str, topic: str) -> Path:
+    if not NOTE_TOPIC_RE.fullmatch(topic):
+        raise OrchestrationError("note topic must contain only letters, digits, '.', '_' or '-' and be at most 64 characters")
+    return _workspace_notes_directory(common_dir, workspace) / f"{topic}.json"
+
+
+def _note_file_path(root: Path, value: str, *, must_exist: bool) -> Path:
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = root / path
+    try:
+        resolved = path.resolve(strict=must_exist)
+    except OSError as exc:
+        raise OrchestrationError(f"note file does not exist: {value}") from exc
+    try:
+        resolved.relative_to(root.resolve())
+    except ValueError as exc:
+        raise OrchestrationError(f"note file must be inside the repository: {value}") from exc
+    if must_exist and not resolved.is_file():
+        raise OrchestrationError(f"note file is not a regular file: {value}")
+    return resolved
+
+
+def _head_commit(root: Path) -> str:
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--verify", "HEAD^{commit}"], cwd=root,
+            capture_output=True, text=True, check=False, timeout=RPC_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise OrchestrationError(f"could not determine note commit: {exc}") from exc
+    if proc.returncode:
+        detail = proc.stderr.strip() or proc.stdout.strip()
+        raise OrchestrationError(detail or "could not determine note commit")
+    return proc.stdout.strip()
+
+
+def _save_note(path: Path, note: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_name = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent, prefix=".note-", delete=False
+        ) as stream:
+            temp_name = stream.name
+            json.dump(note, stream, indent=2, sort_keys=True)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temp_name, path)
+    except OSError as exc:
+        if temp_name:
+            try:
+                os.unlink(temp_name)
+            except OSError:
+                pass
+        raise OrchestrationError(f"cannot write investigation note {path}: {exc}") from exc
+
+
+def _note_add(args: argparse.Namespace, root: Path, common_dir: Path, workspace: str) -> None:
+    path = _note_path(common_dir, workspace, args.topic)
+    source = _note_file_path(root, args.file, must_exist=True)
+    relative = source.relative_to(root.resolve()).as_posix()
+    summary = args.summary
+    if summary is None:
+        if sys.stdin.isatty():
+            raise OrchestrationError("note add requires --summary or summary text on stdin")
+        summary = sys.stdin.read()
+    summary = summary.strip()
+    if not summary:
+        raise OrchestrationError("note summary cannot be empty")
+    if len(summary.encode("utf-8")) > 4096:
+        raise OrchestrationError("note summary must be 4096 bytes or fewer")
+    line_refs = re.findall(r"(?<![A-Za-z0-9_])([\w./-]+):\d+(?:-\d+)?\b", summary)
+    file_name = PurePosixPath(relative).name
+    if not any(reference == relative or reference.endswith("/" + relative) or reference == file_name for reference in line_refs):
+        raise OrchestrationError(f"note summary must include a {relative}:line reference")
+    with StateFileLock(path.parent / ".notes.lock", purpose="investigation notes"):
+        try:
+            current = json.loads(path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            current = {"version": 1, "topic": args.topic, "workspace_id": workspace, "entries": {}}
+        except (OSError, json.JSONDecodeError) as exc:
+            raise OrchestrationError(f"cannot read investigation note {path}: {exc}") from exc
+        if (not isinstance(current, dict) or current.get("version") != 1
+                or current.get("workspace_id") != workspace or not isinstance(current.get("entries"), dict)):
+            raise OrchestrationError(f"invalid investigation note {path}")
+        commit = _head_commit(root)
+        current["entries"][relative] = {
+            "file": relative,
+            "commit": commit,
+            "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+            "summary": summary,
+        }
+        _save_note(path, current)
+    print(f"note added topic={args.topic} file={relative} commit={commit}")
+
+
+def _note_get(args: argparse.Namespace, root: Path, common_dir: Path, workspace: str) -> None:
+    path = _note_path(common_dir, workspace, args.topic)
+    try:
+        note = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        print(f"no notes for topic={args.topic}")
+        return
+    except (OSError, json.JSONDecodeError) as exc:
+        raise OrchestrationError(f"cannot read investigation note {path}: {exc}") from exc
+    if (not isinstance(note, dict) or note.get("version") != 1
+            or note.get("workspace_id") != workspace or not isinstance(note.get("entries"), dict)):
+        raise OrchestrationError(f"invalid investigation note {path}")
+    entries = note["entries"]
+    if not entries:
+        print(f"no notes for topic={args.topic}")
+        return
+    for file, entry in sorted(entries.items()):
+        if not isinstance(entry, dict):
+            raise OrchestrationError(f"invalid file note for topic {args.topic}")
+        target = _note_file_path(root, str(file), must_exist=False)
+        try:
+            digest = hashlib.sha256(target.read_bytes()).hexdigest()
+            stale = digest != str(entry.get("sha256", ""))
+        except OSError:
+            stale = True
+        marker = "stale" if stale else "current"
+        print(f"topic={args.topic} file={file} commit={entry.get('commit', '-')} state={marker}")
+        print(str(entry.get("summary", "")))
 
 
 def _tab_panes(snapshot: dict[str, Any], tab_id: str) -> list[dict[str, Any]]:
@@ -1280,11 +1654,13 @@ def _start(args: argparse.Namespace, ctx: Context) -> None:
         raise OrchestrationError("pane purpose must be 20 characters or fewer")
     if purpose.casefold() == "orchestrator":
         raise OrchestrationError("pane purpose 'Orchestrator' is reserved")
+    owns = _ownership_patterns(args.owns)
     snapshot = ctx.snapshot(refresh=True)
     _reconcile_agent_records(ctx, snapshot)
     if name in ctx.state["agents"]:
         raise OrchestrationError(f"agent {name} is already managed")
     _assert_unique_purpose(ctx, snapshot, purpose)
+    _assert_ownership_available(ctx, owns)
     if any(agent.get("name") == name for agent in snapshot["agents"]):
         raise OrchestrationError(f"agent {name} is already running")
     touched: set[str] = set()
@@ -1295,6 +1671,11 @@ def _start(args: argparse.Namespace, ctx: Context) -> None:
         cwd = cwd.resolve()
         if not cwd.is_dir():
             raise OrchestrationError(f"working directory does not exist: {cwd}")
+    notes_dir = _workspace_notes_directory(ctx.state_path.parent, ctx.workspace)
+    try:
+        notes_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise OrchestrationError(f"cannot prepare shared investigation notes {notes_dir}: {exc}") from exc
     _layout(ctx)
     tab, pane = _place_start_pane(ctx, touched, cwd)
     pane_id = str(pane["pane_id"])
@@ -1305,6 +1686,7 @@ def _start(args: argparse.Namespace, ctx: Context) -> None:
             "role": args.role,
             "purpose": purpose,
             "pane_id": pane_id,
+            "owns": owns,
             "started_at": _now(),
             "start_order": _next_start_order(ctx.state),
         }
@@ -1316,13 +1698,15 @@ def _start(args: argparse.Namespace, ctx: Context) -> None:
             herdr_args = [
                 "agent", "start", name, "--kind", "codex", "--pane", pane_id,
                 "--", "-m", args.model, "-c", f"model_reasoning_effort={effort}",
-                "-s", "workspace-write", "-a", "on-request"
+                "-s", "workspace-write", "--add-dir", str(notes_dir),
+                "-a", "on-request"
             ]
         else:
             tool_list = IMPLEMENTER_TOOLS if args.role == "implementer" else REVIEWER_TOOLS
             herdr_args = [
                 "agent", "start", name, "--kind", "claude", "--pane", pane_id,
                 "--", "--model", args.model, "--permission-mode", "acceptEdits",
+                "--add-dir", str(notes_dir),
                 "--allowedTools", tool_list
             ]
         _herdr_json(*herdr_args)
@@ -1462,16 +1846,19 @@ def _status(ctx: Context, name: str | None) -> None:
         pane_id = str(meta.get("pane_id", "")) if isinstance(meta, dict) else ""
         pane = pane_lookup.get(pane_id, {})
         tab = tab_lookup.get(pane.get("tab_id"), {})
+        owns = meta.get("owns", []) if isinstance(meta, dict) else []
+        owns_text = ",".join(str(value) for value in owns) if isinstance(owns, list) else ""
+        owns_field = f" owns={owns_text or '-'}"
         if isinstance(meta, dict) and meta.get("cleanup_pending"):
             print(
                 f"{agent_name} state=cleanup-pending pane={pane_id or '-'} tab={tab.get('label', '-')} "
-                f"kind={meta.get('kind', '-')} model={meta.get('model', '-')}"
+                f"kind={meta.get('kind', '-')} model={meta.get('model', '-')}{owns_field}"
             )
             continue
         if not agent:
             print(
                 f"{agent_name} state=not-running pane={pane_id or '-'} tab={tab.get('label', '-')} "
-                f"kind={meta.get('kind', '-')} model={meta.get('model', '-')}"
+                f"kind={meta.get('kind', '-')} model={meta.get('model', '-')}{owns_field}"
             )
             continue
         pane = pane_lookup.get(agent.get("pane_id"), {})
@@ -1479,14 +1866,17 @@ def _status(ctx: Context, name: str | None) -> None:
         print(
             f"{agent_name} state={agent.get('agent_status', 'unknown')} "
             f"pane={agent.get('pane_id', '-')} tab={tab.get('label', '-')} "
-            f"kind={meta.get('kind', agent.get('agent', '-'))} model={meta.get('model', '-')}"
+            f"kind={meta.get('kind', agent.get('agent', '-'))} model={meta.get('model', '-')}{owns_field}"
         )
     for pane_id, meta in selected_orphans:
         pane = pane_lookup.get(pane_id, {})
         tab = tab_lookup.get(pane.get("tab_id"), {})
+        owns = meta.get("owns", [])
+        owns_text = ",".join(str(value) for value in owns) if isinstance(owns, list) else ""
         print(
             f"{meta.get('name', 'orphan')} state=not-running pane={pane_id} tab={tab.get('label', '-')} "
-            f"kind={meta.get('kind', '-')} model={meta.get('model', '-')} owner=pane"
+            f"kind={meta.get('kind', '-')} model={meta.get('model', '-')} "
+            f"owns={owns_text or '-'} owner=pane"
         )
 
 
@@ -1646,6 +2036,7 @@ def _parser() -> argparse.ArgumentParser:
     start.add_argument("--effort")
     start.add_argument("--purpose", required=True)
     start.add_argument("--cwd")
+    start.add_argument("--owns", action="append", default=[], metavar="GLOB[,GLOB]")
     start.add_argument("--role", choices=("implementer", "reviewer"), default="implementer")
     start.add_argument("--allow-terra", action="store_true")
 
@@ -1670,6 +2061,15 @@ def _parser() -> argparse.ArgumentParser:
     close_script = sub.add_parser("close-script", help="close a managed script pane")
     close_script.add_argument("purpose")
 
+    note = sub.add_parser("note", help="share workspace-scoped investigation notes")
+    note_sub = note.add_subparsers(dest="note_command", required=True)
+    note_add = note_sub.add_parser("add", help="add or replace a note for one file")
+    note_add.add_argument("--topic", required=True)
+    note_add.add_argument("--file", required=True)
+    note_add.add_argument("--summary", help="short summary with file:line references; stdin is used when omitted")
+    note_get = note_sub.add_parser("get", help="read notes for a topic")
+    note_get.add_argument("--topic", required=True)
+
     sub.add_parser("layout", help="re-apply placement and pane widths")
     return parser
 
@@ -1682,6 +2082,15 @@ def main(argv: list[str] | None = None) -> int:
         ):
             raise OrchestrationError("--timeout must be finite and between 0 and 86400 seconds")
         root = _repo_root()
+        if args.command == "note":
+            workspace = _workspace_from_environment()
+            common_dir = _git_common_dir(root)
+            notes_parent = common_dir / STATE_RELATIVE_PATH.parent
+            if args.note_command == "add":
+                _note_add(args, root, notes_parent, workspace)
+            else:
+                _note_get(args, root, notes_parent, workspace)
+            return 0
         common_dir = _git_common_dir(root)
         lock_path = common_dir / STATE_LOCK_RELATIVE_PATH
         with StateFileLock(lock_path) as state_lock:

@@ -6,6 +6,7 @@ description: Use when implementing a scoped repository brief and reporting its b
 # Implementer Workflow
 
 Follow the assigned brief and `AGENTS.md`. Change only owned files. If a required file is outside scope, record it under `Requests` in the report. Never commit, push, stash, reset, checkout, rebase, or run `git add`.
+Before exploring shared seams, check `agent.py note get --topic TOPIC`; verify current notes and add a concise reusable note with file:line refs after exploring. Do deterministic steps directly instead of assigning another agent.
 
 ## Compile and verify
 
@@ -19,4 +20,9 @@ Follow the assigned brief and `AGENTS.md`. Change only owned files. If a require
 
 ## Report
 
-Write `build/briefs/<agent-name>.report.md` inside this checkout. Include what changed; ambiguous decisions; deviations and anything incomplete; `Requests`; tests run with counts and failures; revert checks; and the exact changed-file list. Keep personal workout recordings out of the report. Reply `DONE` or `BLOCKED: <reason>` after writing it.
+Write `build/briefs/<agent-name>.report.md` inside this checkout. Include what changed; ambiguous decisions; deviations and anything incomplete; `Requests`; revert checks; and the exact changed-file list. Include this section for checks the orchestrator can trust without repeating:
+
+## Checks run
+- `<exact command>` — PASS/FAIL; include test counts and failures.
+
+List only commands actually run and state their results. Keep personal workout recordings out of the report. Reply `DONE` or `BLOCKED: <reason>` after writing it.
