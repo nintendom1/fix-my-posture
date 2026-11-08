@@ -95,11 +95,14 @@ Use `make notification-character-check` when content or art changed.
 
 ## Review gate
 
-Before pushing each PR branch, commit locally and write `build/reviews/<branch>.request.md` with scope, claimed
-acceptance criteria, tests, and deviations. Start a read-only Codex Sol or Claude Opus reviewer; never use Fable or
-Codex Astra. Use unique purposes in the `Review: area` form, with `Orchestrator` reserved. Ask for severity-ranked
-findings in `build/reviews/<branch>.findings.md`; fix blocking and major findings, re-validate, amend, then request one
-confirm-only pass. If review cannot run, record that in the PR body.
+Before pushing a branch, run `scripts/orchestrate/review.sh <base>..<head> --name <branch> --brief <brief>`.
+Use `WORKTREE` as head for uncommitted changes. The command writes the request and findings template; `--criteria`
+overrides criteria extracted from the brief's Goal and Done sections, and `--notes` supplies test and deviation notes.
+To start a read-only reviewer, add `--start sol` or `--start opus` and a unique `--purpose "Review: area"`. The
+command uses the sibling `agent.py`, checks the visible model footer against the requested model, and warns on a
+mismatch or unavailable footer. Reviewers are Codex Sol or Claude Opus only; never use Fable or Codex Astra. Collect
+the blocking and major findings with `scripts/orchestrate/review.sh --collect <branch>`. Fix blocking and major
+findings, re-validate, amend, then request one confirm-only pass. If review cannot run, record that in the PR body.
 
 ## Unattended runs
 
@@ -108,3 +111,10 @@ a package after two failed fix attempts, then continue independent packages. Sch
 30–45 minutes that reads the ledger and resumes at the first unfinished item; delete it when the run
 completes. Use stacked PRs into main, validate each branch on its own, and note “Device validation pending” when no
 device is connected. Never merge.
+
+## Tool cheat sheet
+
+- Agents and scripts: `scripts/orchestrate/agent.py start|prompt|status|layout ...`
+- Focused XCTest: `scripts/orchestrate/test.sh --sim <id> --name <agent> <class>[/method]`
+- Mutations: `scripts/orchestrate/mutate.sh --file <path> --replace <old> <new> --tests <selector>` or `--batch <json>`
+- Reviews: `scripts/orchestrate/review.sh <base>..<head> --name <branch> --brief <path>`; collect with `--collect <branch>`
