@@ -216,12 +216,12 @@ final class AppEnvironment {
                                       openCalibration: openCalibration)
     }
 
-    /// The first calibration's screen state, or nil when persistence is unavailable. It saves nothing until the screen
-    /// appears; leaving the screen closes the route.
-    func makeCalibrationViewModel() -> CalibrationViewModel? {
+    /// The requested calibration's screen state, or nil when persistence is unavailable. It saves nothing until the
+    /// screen appears; leaving the screen runs `onFinish`.
+    func makeCalibrationViewModel(kind: CalibrationKind,
+                                  onFinish: @escaping @MainActor () -> Void) -> CalibrationViewModel? {
         guard let adaptiveCoordinator else { return nil }
-        let router = router
-        return CalibrationViewModel(coordinator: adaptiveCoordinator, onFinish: { router.dismissFullScreen() })
+        return CalibrationViewModel(coordinator: adaptiveCoordinator, kind: kind, onFinish: onFinish)
     }
 
     func makeWorkoutRecordingsViewModel() -> WorkoutRecordingsViewModel? {

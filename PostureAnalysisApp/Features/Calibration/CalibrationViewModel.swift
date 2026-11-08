@@ -55,14 +55,62 @@ enum CalibrationCopy {
     static let couldNotStart = "We couldn't start this just now."
     static let unavailable = "Finding a starting point isn't available right now."
 
+    static let recalibrationTitle = "Recalibrate"
+    static let recalibrationIntro = "Let's check your starting points. A few tiny samples, no tests."
+    static let recalibrationAreasTitle = "Which areas would you like to check?"
+    static let recalibrationAreasDetail = "Your current areas are selected."
+    static let addFamilyTitle = "Add an area"
+    static let addFamilyIntro = "Let's find a comfortable starting point for a new area. A few tiny samples, no tests."
+    static let addFamilyAreasTitle = "Which area would you like to add?"
+    static let addFamilyAreasDetail = "Pick one or more."
+    static let continuedSummaryDetail = "Today's Session continues from these."
+
     /// Every fixed string above, for the copy scan.
     static let all: [String] = [
         title, intro, close, continueButton, equipmentTitle, equipmentDetail, dumbbells, band, areasTitle, areasDetail,
         areasNeedOne, closenessTitle, closenessNote, notSure, notSureDetail, skipArea, sampleTitle, sampleDetail,
         startSample, harderTitle, harderDetail, tryHarder, stayHere, noRating, sampleUnavailable, saveFailed,
         summaryTitle, summaryDetail, summaryEmpty, useThese, leaveWithoutSaving, doneTitle, doneDetail, done,
-        leaveTitle, leaveDetail, leave, keepGoing, couldNotStart, unavailable
+        leaveTitle, leaveDetail, leave, keepGoing, couldNotStart, unavailable, recalibrationTitle,
+        recalibrationIntro, recalibrationAreasTitle, recalibrationAreasDetail, addFamilyTitle, addFamilyIntro,
+        addFamilyAreasTitle, addFamilyAreasDetail, continuedSummaryDetail
     ]
+
+    static func title(for kind: CalibrationKind) -> String {
+        switch kind {
+        case .initial: return title
+        case .recalibration: return recalibrationTitle
+        case .addFamily: return addFamilyTitle
+        }
+    }
+
+    static func intro(for kind: CalibrationKind) -> String {
+        switch kind {
+        case .initial: return intro
+        case .recalibration: return recalibrationIntro
+        case .addFamily: return addFamilyIntro
+        }
+    }
+
+    static func areasTitle(for kind: CalibrationKind) -> String {
+        switch kind {
+        case .initial: return areasTitle
+        case .recalibration: return recalibrationAreasTitle
+        case .addFamily: return addFamilyAreasTitle
+        }
+    }
+
+    static func areasDetail(for kind: CalibrationKind) -> String {
+        switch kind {
+        case .initial: return areasDetail
+        case .recalibration: return recalibrationAreasDetail
+        case .addFamily: return addFamilyAreasDetail
+        }
+    }
+
+    static func summaryDetail(for kind: CalibrationKind) -> String {
+        kind == .initial ? summaryDetail : continuedSummaryDetail
+    }
 
     static func equipmentName(_ equipment: TrainingEquipment) -> String {
         switch equipment {
@@ -159,14 +207,17 @@ final class CalibrationViewModel {
     private(set) var selectedFamilies: Set<MovementFamilyID> = []
     /// A sample has been started, so leaving asks first.
     private(set) var hasStartedSample = false
+    let kind: CalibrationKind
 
     @ObservationIgnored private let coordinator: any CalibrationCoordinating
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let onFinish: @MainActor () -> Void
 
-    init(coordinator: any CalibrationCoordinating, now: @escaping () -> Date = Date.init,
+    init(coordinator: any CalibrationCoordinating, kind: CalibrationKind = .initial,
+         now: @escaping () -> Date = Date.init,
          onFinish: @escaping @MainActor () -> Void = {}) {
         self.coordinator = coordinator
+        self.kind = kind
         self.now = now
         self.onFinish = onFinish
     }
@@ -174,6 +225,11 @@ final class CalibrationViewModel {
     // MARK: - Reading
 
     var step: CalibrationStep? { flow?.step }
+    var title: String { CalibrationCopy.title(for: kind) }
+    var intro: String { CalibrationCopy.intro(for: kind) }
+    var areasTitle: String { CalibrationCopy.areasTitle(for: kind) }
+    var areasDetail: String { CalibrationCopy.areasDetail(for: kind) }
+    var summaryDetail: String { CalibrationCopy.summaryDetail(for: kind) }
 
     /// Samples were started or rated, so leaving asks before it abandons the attempt.
     var hasDoneSamples: Bool { hasStartedSample || (flow?.probeCount ?? 0) > 0 }
@@ -216,7 +272,7 @@ final class CalibrationViewModel {
     /// Starts the attempt and saves it as in progress. Does nothing once started or ended.
     func begin() {
         guard flow == nil, outcome == nil, !couldNotStart else { return }
-        guard let started = coordinator.startCalibration(asOf: now()) else {
+        guard let started = coordinator.startCalibration(kind: kind, asOf: now()) else {
             couldNotStart = true
             return
         }

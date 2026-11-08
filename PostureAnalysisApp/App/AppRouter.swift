@@ -7,7 +7,12 @@ import Observation
 final class AppRouter {
     var selectedTab: AppTab
     private(set) var paths: [AppTab: [AppRoute]]
-    private(set) var presentedFullScreenRoute: AppRoute?
+    private(set) var presentedFullScreenRoute: AppRoute? {
+        // Leaving Settings, by dismissal or by another full-screen route replacing it, ends its calibration.
+        didSet { if presentedFullScreenRoute != .settings { isCalibratingInSettings = false } }
+    }
+    /// True while Settings owns a pushed calibration, so reminder taps leave that flow in place.
+    var isCalibratingInSettings = false
 
     init(selectedTab: AppTab = .train) {
         self.selectedTab = selectedTab

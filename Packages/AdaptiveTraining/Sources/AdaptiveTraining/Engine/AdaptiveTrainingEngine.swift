@@ -6,6 +6,10 @@ public enum AdaptiveTrainingEngineError: Error, Equatable, Sendable {
     case easierSwapOutsideFamily(MovementFamilyID)
     /// A calibration can be committed only from its summary, with at least one starting point.
     case calibrationNotAtSummary(UUID)
+    /// A family outside the active Today's Session rotation can't be removed.
+    case familyNotActive(MovementFamilyID)
+    /// The rotation must keep at least one active family.
+    case lastActiveFamily(MovementFamilyID)
 }
 
 /// The only way app code reaches adaptive training: record facts, read the interpretation, and ask for Today's
@@ -49,6 +53,42 @@ public final class AdaptiveTrainingEngine {
     /// The current interpretation, from memory, then the stored cache, then a full replay.
     public func profile() throws -> AdaptiveProfile {
         try profile(for: try store.loadFacts())
+    }
+
+    /// The current settings for Adaptive Training, derived from the profile in catalog order.
+    public func overview() throws -> AdaptiveTrainingOverview {
+        let profile = try profile()
+        let active = Set(profile.activeFamilies)
+        let areas = catalog.families.compactMap { family -> AdaptiveTrainingOverview.Area? in
+            guard active.contains(family.id), let state = profile.state(family.id) else { return nil }
+            return AdaptiveTrainingOverview.Area(family: family.id, current: state.current)
+        }
+        let availability = Availability(builtExerciseIDs: builtExerciseIDs, equipment: Set(profile.equipment))
+        let addable = catalog.offerableFamilies(availability: availability).filter { !active.contains($0) }
+        return AdaptiveTrainingOverview(needsCalibration: profile.needsCalibration, areas: areas,
+                                        addableFamilies: addable, equipment: profile.equipment.sorted())
+    }
+
+    /// Removes an active family from Today's Session while retaining its history and evidence.
+    @discardableResult
+    public func removeFamily(_ family: MovementFamilyID, id: UUID, at now: Date) throws -> [AdaptiveEvent] {
+        let profile = try profile()
+        guard profile.activeFamilies.contains(family) else {
+            throw AdaptiveTrainingEngineError.familyNotActive(family)
+        }
+        guard profile.activeFamilies.count > 1 else {
+            throw AdaptiveTrainingEngineError.lastActiveFamily(family)
+        }
+        return try record(SettingsFact(id: id, recordedAt: now, kind: .familyRemoved, family: family))
+    }
+
+    /// Records a changed equipment set. An unchanged set adds no fact.
+    @discardableResult
+    public func changeEquipment(_ equipment: Set<TrainingEquipment>, id: UUID, at now: Date) throws -> [AdaptiveEvent] {
+        let profile = try profile()
+        guard equipment != Set(profile.equipment) else { return [] }
+        return try record(SettingsFact(id: id, recordedAt: now, kind: .equipmentChanged,
+                                       equipment: equipment.sorted()))
     }
 
     public func todaySession(asOf now: Date, context: SessionContext = .normal) throws -> TodaySessionStatus {

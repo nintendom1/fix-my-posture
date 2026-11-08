@@ -109,6 +109,41 @@ final class CalibrationViewModelTests: XCTestCase {
 
     // MARK: - The whole flow
 
+    func testKindReachesCoordinatorAndUsesItsOwnCopy() {
+        let expected: [(CalibrationKind, String, String, String, String)] = [
+            (.initial, CalibrationCopy.title, CalibrationCopy.intro,
+             CalibrationCopy.areasTitle, CalibrationCopy.areasDetail),
+            (.recalibration, CalibrationCopy.recalibrationTitle, CalibrationCopy.recalibrationIntro,
+             CalibrationCopy.recalibrationAreasTitle, CalibrationCopy.recalibrationAreasDetail),
+            (.addFamily, CalibrationCopy.addFamilyTitle, CalibrationCopy.addFamilyIntro,
+             CalibrationCopy.addFamilyAreasTitle, CalibrationCopy.addFamilyAreasDetail)
+        ]
+
+        for (kind, title, intro, areasTitle, areasDetail) in expected {
+            let rig = makeRig()
+            let model = CalibrationViewModel(coordinator: rig.coordinator, kind: kind, now: { self.now })
+            model.begin()
+
+            XCTAssertEqual(model.flow?.kind, kind)
+            XCTAssertEqual(model.title, title)
+            XCTAssertEqual(model.intro, intro)
+            XCTAssertEqual(model.areasTitle, areasTitle)
+            XCTAssertEqual(model.areasDetail, areasDetail)
+            XCTAssertEqual(model.summaryDetail, kind == .initial ? CalibrationCopy.summaryDetail : CalibrationCopy.continuedSummaryDetail)
+        }
+    }
+
+    func testWordingScanIncludesEveryNewKindString() {
+        let newStrings = [CalibrationCopy.recalibrationTitle, CalibrationCopy.recalibrationIntro,
+                          CalibrationCopy.recalibrationAreasTitle, CalibrationCopy.recalibrationAreasDetail,
+                          CalibrationCopy.addFamilyTitle, CalibrationCopy.addFamilyIntro,
+                          CalibrationCopy.addFamilyAreasTitle, CalibrationCopy.addFamilyAreasDetail,
+                          CalibrationCopy.continuedSummaryDetail]
+        for value in newStrings {
+            XCTAssertTrue(CalibrationCopy.all.contains(value), "Missing from wording scan: \(value)")
+        }
+    }
+
     func testNothingIsSavedUntilTheScreenBegins() {
         let rig = makeRig()
 
@@ -664,7 +699,7 @@ final class CalibrationViewModelTests: XCTestCase {
     }
 
     func testNoCopyUsesAScoringOrMedicalWord() throws {
-        var strings = CalibrationCopy.all
+        var strings = CalibrationCopy.all + AdaptiveTrainingSettingsCopy.all
         let catalogFamilies = ProgressionCatalog.v1.families.map(\.id)
         strings += catalogFamilies.flatMap { [CalibrationCopy.areaName($0), CalibrationCopy.areaDetail($0)] }
         strings += catalogFamilies.map {
@@ -686,8 +721,14 @@ final class CalibrationViewModelTests: XCTestCase {
         XCTAssertGreaterThan(strings.count, 60)
 
         // The words in the screen and view model sources are scanned too, so copy can't slip in inline.
-        for name in ["CalibrationScreen.swift", "CalibrationViewModel.swift"] {
-            let literals = try Self.stringLiterals(inSource: name)
+        let sources = [
+            ("Features/Calibration", "CalibrationScreen.swift"),
+            ("Features/Calibration", "CalibrationViewModel.swift"),
+            ("Features/Settings", "AdaptiveTrainingSettingsPage.swift"),
+            ("Features/Settings", "AdaptiveTrainingSettingsViewModel.swift")
+        ]
+        for (directory, name) in sources {
+            let literals = try Self.stringLiterals(inSource: name, directory: directory)
             XCTAssertFalse(literals.isEmpty, name)
             for literal in literals {
                 XCTAssertEqual(Self.forbiddenWords(in: literal), [], "\(name): \"\(literal)\"")
@@ -716,10 +757,11 @@ final class CalibrationViewModelTests: XCTestCase {
         return words.filter { forbidden.contains($0) }
     }
 
-    /// The text of every string literal in one of the calibration sources, ignoring comment lines.
-    private static func stringLiterals(inSource name: String, filePath: String = #filePath) throws -> [String] {
+    /// The text of every string literal in a source file, ignoring comment lines.
+    private static func stringLiterals(inSource name: String, directory: String,
+                                       filePath: String = #filePath) throws -> [String] {
         let tests = URL(fileURLWithPath: filePath).deletingLastPathComponent()
-        let url = tests.deletingLastPathComponent().appendingPathComponent("Features/Calibration/\(name)")
+        let url = tests.deletingLastPathComponent().appendingPathComponent(directory).appendingPathComponent(name)
         let source = try String(contentsOf: url, encoding: .utf8)
         let code = source.split(separator: "\n", omittingEmptySubsequences: false)
             .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
@@ -763,10 +805,13 @@ final class CalibrationViewModelTests: XCTestCase {
         private(set) var abandoned: [CalibrationFlow] = []
         private(set) var stored: [AdaptiveEvidence] = []
 
-        func startCalibration(asOf now: Date) -> CalibrationFlow? {
+        private(set) var startedKinds: [CalibrationKind] = []
+
+        func startCalibration(kind: CalibrationKind, asOf now: Date) -> CalibrationFlow? {
+            startedKinds.append(kind)
             guard !failsToStart else { return nil }
             let built = Set(ProgressionCatalog.v1.families.flatMap { $0.rungs.map(\.exerciseID) })
-            return CalibrationFlow(id: UUID(), kind: .initial, startedAt: now, catalog: .v1,
+            return CalibrationFlow(id: UUID(), kind: kind, startedAt: now, catalog: .v1,
                                    availability: Availability(builtExerciseIDs: built))
         }
 

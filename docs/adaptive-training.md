@@ -467,6 +467,16 @@ No rung that needs dumbbells is asked about or offered without them.
 - **Limit.** A family gets at most 3 samples. After the third it settles at its last comfortable sample, or the floor's
   minimum if none was.
 - **Starting dose.** The starting dose is the settled sample's dose.
+- **Recalibration.** The active areas are preselected and the user can add or drop areas. When a chosen area's current
+  rung is still available, the flow skips closeness and samples that rung at its first-sample dose. A new area has no
+  current rung, so it gets the closeness question. Equipment is already known and is not asked again.
+- **Keep the current dose.** In recalibration, an Okay or Easy sample of the current rung with confirmed work settles
+  at the greater of the sample dose and the current dose. Okay therefore keeps the prescription. Easy can offer the next
+  rung; declining keeps the current dose. Too Hard steps down one available rung at its minimum. Other rungs settle at
+  their sample dose. These rules do not change the initial calibration.
+- **Add an area.** The flow offers only inactive families and preselects none. An already active family is dropped from
+  the choice. The new family gets the usual closeness and sample steps; commit adds it to the rotation and leaves the
+  existing families unchanged.
 
 ### Facts
 
@@ -484,8 +494,10 @@ ignores an uncommitted attempt's, so abandoning changes nothing (invariant 7). A
 ### In the app
 
 - **Entry.** Settings › Developer diagnostics › Adaptive training has **Find my starting point**
-  (`adaptiveDebugStartCalibrationButton`), which opens `AppRoute.calibration` full screen. The Train hero arrives in PR 14.
-  A reminder tap never replaces the open screen.
+  (`adaptiveDebugStartCalibrationButton`), which opens `AppRoute.calibration` full screen for the initial calibration.
+  Settings › Adaptive Training also offers the initial, recalibration, and add-an-area flows; these are pushed inside
+  Settings' navigation stack and return to the Adaptive Training page when they finish. The developer button stays as
+  it is. The Train hero arrives in PR 14. A reminder tap never replaces the open screen, including Settings while a calibration is active.
 - **Screen.** `CalibrationViewModel` holds the flow and sends each answer to it. `CalibrationScreen` draws the step. All
   copy lives in `CalibrationCopy`, and a test scans every string for scoring and medical words. Every control has an
   accessibility identifier that starts with `calibration`.
@@ -503,6 +515,16 @@ ignores an uncommitted attempt's, so abandoning changes nothing (invariant 7). A
 - **Leaving.** The close button leaves at once at the quiz and asks first once a sample was started. Leaving, or
   **Leave without saving** at the summary, records an abandoned attempt and changes nothing. **Use these** commits, and
   only then do the starting points change recommendations.
+
+## Settings
+
+When the coordinator is available, Settings shows an Adaptive Training group above Coach. Its row says **Not set up**
+until a starting point is saved, then lists active area names. The page shows a short introduction and **Find your
+starting point** when setup is needed. After setup it lists each area's current exercise and dose, offers **Add an area**
+when another family can be built, and provides **Recalibrate** and equipment choices. A removal requires confirmation;
+the history remains, and the last active area cannot be removed. Dumbbells and a resistance band can be changed, which
+updates availability and moves an active prescription to an available easier rung when needed. If the overview cannot be
+read, the page says Adaptive Training is unavailable and shows no settings controls.
 
 ## Debug view and export
 

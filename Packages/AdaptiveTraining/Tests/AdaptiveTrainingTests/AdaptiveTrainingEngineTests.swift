@@ -17,6 +17,159 @@ final class AdaptiveTrainingEngineTests: XCTestCase {
         XCTAssertEqual(events.first?.factID, evidence.id)
     }
 
+    func testOverviewTracksCalibrationRemovalAndEquipmentChanges() throws {
+        let store = InMemoryAdaptiveTrainingStore()
+        let engine = makeEngine(store: store)
+        let before = try engine.overview()
+        XCTAssertTrue(before.needsCalibration)
+        XCTAssertTrue(before.areas.isEmpty)
+        XCTAssertEqual(before.addableFamilies, Fixtures.catalog.offerableFamilies(
+            availability: Availability(builtExerciseIDs: Fixtures.allBuiltExerciseIDs)))
+
+        _ = try engine.save(Fixtures.calibration(id: 290, family: .push, variant: Fixtures.wall, dose: .reps(4)))
+        _ = try engine.save(Fixtures.calibration(id: 291, day: 1, family: .squat,
+                                                 variant: VariantID(rawValue: "squat.air_squat"), dose: .reps(3)))
+        let calibrated = try engine.overview()
+        XCTAssertFalse(calibrated.needsCalibration)
+        XCTAssertEqual(calibrated.areas.map(\.family), [.push, .squat])
+        XCTAssertTrue(calibrated.canRemoveAreas)
+        XCTAssertFalse(calibrated.addableFamilies.contains(.push))
+
+        _ = try engine.removeFamily(.push, id: Fixtures.id(292), at: Fixtures.date(day: 2))
+        let removed = try engine.overview()
+        XCTAssertEqual(removed.areas.map(\.family), [.squat])
+        XCTAssertFalse(removed.canRemoveAreas)
+        XCTAssertTrue(removed.addableFamilies.contains(.push))
+
+        let equipmentStore = InMemoryAdaptiveTrainingStore(facts: AdaptiveFacts(calibrations: [
+            Fixtures.calibration(id: 293, family: .overhead, variant: VariantID(rawValue: "overhead.shoulder_press"),
+                                 dose: .reps(4), equipment: [.dumbbells])
+        ]))
+        let equipmentEngine = makeEngine(store: equipmentStore)
+        XCTAssertEqual(try equipmentEngine.overview().areas.first?.current.variant,
+                       VariantID(rawValue: "overhead.shoulder_press"))
+        _ = try equipmentEngine.changeEquipment([], id: Fixtures.id(294), at: Fixtures.date(day: 2))
+        let withoutDumbbells = try equipmentEngine.overview()
+        XCTAssertEqual(withoutDumbbells.equipment, [])
+        XCTAssertEqual(withoutDumbbells.areas.first?.current.variant, VariantID(rawValue: "overhead.wall_slide"))
+    }
+
+    func testRemoveFamilyRecordsFactKeepsEvidenceAndRefusesLastOrInactiveFamily() throws {
+        let evidence = Fixtures.evidence(id: 295, day: 1, effort: .okay)
+        let facts = AdaptiveFacts(evidence: [evidence], calibrations: [
+            Fixtures.calibration(id: 296, family: .push, variant: Fixtures.wall, dose: .reps(4)),
+            Fixtures.calibration(id: 297, day: 1, family: .squat,
+                                 variant: VariantID(rawValue: "squat.air_squat"), dose: .reps(3))
+        ])
+        let store = InMemoryAdaptiveTrainingStore(facts: facts)
+        let engine = makeEngine(store: store)
+
+        _ = try engine.removeFamily(.push, id: Fixtures.id(298), at: Fixtures.date(day: 2))
+        let after = try store.loadFacts()
+        XCTAssertEqual(after.evidence, [evidence])
+        XCTAssertEqual(after.settings.last?.family, .push)
+        let profile = try engine.profile()
+        XCTAssertFalse(profile.activeFamilies.contains(.push))
+        XCTAssertNotNil(profile.state(.push), "The removed family's state and history remain available.")
+
+        let beforeFailure = try store.loadFacts()
+        XCTAssertThrowsError(try engine.removeFamily(.squat, id: Fixtures.id(299), at: Fixtures.date(day: 3))) {
+            XCTAssertEqual($0 as? AdaptiveTrainingEngineError, .lastActiveFamily(.squat))
+        }
+        XCTAssertThrowsError(try engine.removeFamily(.push, id: Fixtures.id(300), at: Fixtures.date(day: 3))) {
+            XCTAssertEqual($0 as? AdaptiveTrainingEngineError, .familyNotActive(.push))
+        }
+        XCTAssertEqual(try store.loadFacts(), beforeFailure, "A refused removal saves no fact.")
+    }
+
+    func testChangingEquipmentToTheSameSetIsANoop() throws {
+        let store = InMemoryAdaptiveTrainingStore(facts: Fixtures.seededFacts())
+        let engine = makeEngine(store: store)
+
+        XCTAssertEqual(try engine.changeEquipment([], id: Fixtures.id(301), at: Fixtures.date(day: 1)), [])
+        XCTAssertTrue(try store.loadFacts().settings.isEmpty)
+    }
+
+    func testAddFamilyOffersOnlyInactiveFamiliesAndKeepsExistingStateOnCommit() throws {
+        let store = InMemoryAdaptiveTrainingStore(facts: Fixtures.seededFacts(dose: .reps(6)))
+        let engine = makeEngine(store: store)
+        let original = try engine.profile()
+        var flow = try engine.startCalibration(kind: .addFamily, id: Fixtures.id(302), at: Fixtures.date(day: 1))
+
+        XCTAssertEqual(flow.suggestedFamilies, [])
+        XCTAssertFalse(flow.offeredFamilies.contains(.push))
+        XCTAssertTrue(flow.offeredFamilies.contains(.squat))
+        flow.setFamilies([.push, .squat])
+        XCTAssertEqual(flow.families, [.squat], "An already active area is dropped from the choice.")
+        XCTAssertEqual(flow.step, .closeness(.squat, options: [VariantID(rawValue: "squat.sit_to_stand.partial"),
+                                                                VariantID(rawValue: "squat.sit_to_stand"),
+                                                                VariantID(rawValue: "squat.air_squat")]))
+        flow.answerCloseness(family: .squat, variant: nil)
+        flow.probeResult(family: .squat, effort: .okay, confirmed: .reps(2))
+        _ = try engine.commit(flow, at: Fixtures.date(day: 2))
+
+        let after = try engine.profile()
+        XCTAssertEqual(after.activeFamilies, [.push, .squat])
+        XCTAssertEqual(after.state(.push), original.state(.push))
+        XCTAssertEqual(after.state(.squat)?.current, RungDose(variant: VariantID(rawValue: "squat.sit_to_stand.partial"),
+                                                              dose: .reps(2)))
+    }
+
+    func testRecalibrationReplacesCurrentKeepsComfortableEvidenceAndAbandoningChangesNothing() throws {
+        let evidence = Fixtures.evidence(id: 303, day: 1, variant: Fixtures.wall, prescribed: .reps(4),
+                                         confirmed: .reps(4), effort: .okay)
+        let store = InMemoryAdaptiveTrainingStore(facts: AdaptiveFacts(evidence: [evidence], calibrations: [
+            Fixtures.calibration(id: 304, family: .push, variant: Fixtures.wall, dose: .reps(6))
+        ]))
+        let engine = makeEngine(store: store)
+        let before = try engine.profile()
+        var flow = try engine.startCalibration(kind: .recalibration, id: Fixtures.id(305), at: Fixtures.date(day: 2))
+        flow.setFamilies([.push])
+        flow.probeResult(family: .push, effort: .tooHard, confirmed: .reps(2))
+        flow.probeResult(family: .push, effort: .okay, confirmed: .reps(1))
+        XCTAssertEqual(flow.startingPoints.first?.start,
+                       RungDose(variant: Fixtures.shallowWall, dose: .reps(1)))
+        _ = try engine.commit(flow, at: Fixtures.date(day: 3))
+
+        let after = try engine.profile()
+        XCTAssertEqual(after.state(.push)?.current, RungDose(variant: Fixtures.shallowWall, dose: .reps(1)))
+        XCTAssertEqual(after.state(.push)?.comfortableDoses, before.state(.push)?.comfortableDoses)
+        XCTAssertEqual(try store.loadFacts().evidence, [evidence])
+
+        let profileBeforeAbandon = try engine.profile()
+        var abandoned = try engine.startCalibration(kind: .recalibration, id: Fixtures.id(306), at: Fixtures.date(day: 4))
+        abandoned.setFamilies([.push])
+        abandoned.probeResult(family: .push, effort: .okay, confirmed: .reps(2))
+        _ = try engine.abandon(abandoned, at: Fixtures.date(day: 5))
+        let afterAbandon = try engine.profile()
+        XCTAssertEqual(afterAbandon.state(.push), profileBeforeAbandon.state(.push))
+        XCTAssertEqual(afterAbandon.activeFamilies, profileBeforeAbandon.activeFamilies)
+        XCTAssertEqual(afterAbandon.equipment, profileBeforeAbandon.equipment)
+    }
+
+    func testSettingsFactsReplayToTheSameProfile() throws {
+        let store = InMemoryAdaptiveTrainingStore(facts: AdaptiveFacts(calibrations: [
+            Fixtures.calibration(id: 307, family: .push, variant: Fixtures.wall, dose: .reps(5)),
+            Fixtures.calibration(id: 308, day: 1, family: .overhead,
+                                 variant: VariantID(rawValue: "overhead.shoulder_press"), dose: .reps(4),
+                                 equipment: [.dumbbells])
+        ]))
+        let engine = makeEngine(store: store)
+        _ = try engine.removeFamily(.push, id: Fixtures.id(309), at: Fixtures.date(day: 2))
+        _ = try engine.changeEquipment([], id: Fixtures.id(310), at: Fixtures.date(day: 3))
+
+        let facts = try store.loadFacts()
+        let replayed = AdaptiveReplay.profile(facts: facts, catalog: engine.catalog,
+                                              builtExerciseIDs: Fixtures.allBuiltExerciseIDs,
+                                              parameters: engine.parameters, calendar: Fixtures.calendar)
+        XCTAssertEqual(try engine.profile(), replayed)
+    }
+
+    private func makeEngine(store: InMemoryAdaptiveTrainingStore) -> AdaptiveTrainingEngine {
+        AdaptiveTrainingEngine(store: store, builtExerciseIDs: Fixtures.allBuiltExerciseIDs,
+                               calendar: Fixtures.calendar)
+    }
+
     func testIssueStoresPrescriptionAndCallerProvidedIDs() throws {
         let store = InMemoryAdaptiveTrainingStore()
         let engine = AdaptiveTrainingEngine(store: store, builtExerciseIDs: Fixtures.allBuiltExerciseIDs,
