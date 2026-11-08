@@ -66,6 +66,7 @@ PostureAnalysisApp/
     ├── Fakes/                   # Test fakes
     └── Design/                  # Metrics, anchors, frame coverage, and pending frames
 Packages/AdaptiveTraining/       # Foundation-only Swift package: progression ladders and the adaptive engine (`swift test`)
+Packages/Narrative/              # Dormant Foundation-only script model, validator, and pure narrative runtime (`swift test`)
 scripts/design/                  # Reference extraction/rendering, anchors, masks, and pixel diff
 scripts/diagnostics/             # `make diagnostics`: pull workout recordings from the iPhone
 tools/session-replay/            # `make viewer` replay viewer + server; mcp.mjs is the `fmp-replay` MCP server in .mcp.json (Node, no deps)
@@ -144,6 +145,7 @@ pane changes, and give monitored scripts a dedicated pane.
 - Workout session recordings (recorder, file format, `make diagnostics`, data rule): `docs/diagnostics.md`
 - Workout Coach (Beta): `docs/workout.md`
 - Adaptive training (package boundary, progression ladders, evidence, policy): `docs/adaptive-training.md`
+- Narrative foundation (dormant script model, validation, runtime, and companion contract): `docs/narrative.md`
 - Design snapshot and layout gate: `docs/design.md`
 - Realtime posture: `docs/realtime.md`
 - Workout reminders: `docs/reminders.md`

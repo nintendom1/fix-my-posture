@@ -13,6 +13,7 @@ node --test tools/session-replay/test/*.test.mjs || fail "Session replay viewer 
 python3 scripts/pbxproj.py check || fail "Xcode project Swift registration check failed."
 command -v swift >/dev/null 2>&1 || fail "The Swift toolchain is required for the AdaptiveTraining package tests."
 swift test --package-path "$REPO_ROOT/Packages/AdaptiveTraining" --quiet || fail "AdaptiveTraining package tests failed."
+swift test --package-path "$REPO_ROOT/Packages/Narrative" --quiet || fail "Narrative package tests failed."
 xcodebuild -version >/dev/null 2>&1 || fail "Install full Xcode and select it with xcode-select before running validation."
 xcrun --find simctl >/dev/null 2>&1 || fail "The selected Xcode installation does not provide simctl."
 
