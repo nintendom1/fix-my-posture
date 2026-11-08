@@ -433,6 +433,11 @@
 		A10000012B00000000000443 /* AdaptiveTrainingRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000443 /* AdaptiveTrainingRepository.swift */; };
 		A10000012B00000000000444 /* AdaptiveTrainingRepositoryTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000444 /* AdaptiveTrainingRepositoryTests.swift */; };
 		A10000012B00000000000445 /* SchemaMigrationTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000445 /* SchemaMigrationTests.swift */; };
+		A10000012B00000000000446 /* AdaptiveDebugProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000446 /* AdaptiveDebugProviding.swift */; };
+		A10000012B00000000000447 /* AdaptiveDebugViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000447 /* AdaptiveDebugViewModel.swift */; };
+		A10000012B00000000000448 /* AdaptiveDebugScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000448 /* AdaptiveDebugScreen.swift */; };
+		A10000012B00000000000449 /* AdaptiveDebugViewModelTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000449 /* AdaptiveDebugViewModelTests.swift */; };
+		A10000012B00000000000450 /* AdaptiveDebugScreenTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000450 /* AdaptiveDebugScreenTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -874,6 +879,11 @@
 		B10000012B00000000000443 /* AdaptiveTrainingRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveTrainingRepository.swift; sourceTree = "<group>"; };
 		B10000012B00000000000444 /* AdaptiveTrainingRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveTrainingRepositoryTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000445 /* SchemaMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaMigrationTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000446 /* AdaptiveDebugProviding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveDebugProviding.swift; sourceTree = "<group>"; };
+		B10000012B00000000000447 /* AdaptiveDebugViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveDebugViewModel.swift; sourceTree = "<group>"; };
+		B10000012B00000000000448 /* AdaptiveDebugScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveDebugScreen.swift; sourceTree = "<group>"; };
+		B10000012B00000000000449 /* AdaptiveDebugViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveDebugViewModelTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000450 /* AdaptiveDebugScreenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveDebugScreenTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1146,6 +1156,8 @@
 				B10000012B00000000000441 /* ExerciseVariantBridgeTests.swift */,
 				B10000012B00000000000444 /* AdaptiveTrainingRepositoryTests.swift */,
 				B10000012B00000000000445 /* SchemaMigrationTests.swift */,
+				B10000012B00000000000449 /* AdaptiveDebugViewModelTests.swift */,
+				B10000012B00000000000450 /* AdaptiveDebugScreenTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1516,6 +1528,7 @@
 				H10000012B00000000000058 /* NotificationPreview */,
 				H10000012B00000000000059 /* PersonaDebug */,
 				H10000012B00000000000067 /* WorkoutRecordings */,
+				H10000012B00000000000069 /* AdaptiveDebug */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -1861,8 +1874,18 @@
 			isa = PBXGroup;
 			children = (
 				B10000012B00000000000440 /* ExerciseVariantBridge.swift */,
+				B10000012B00000000000446 /* AdaptiveDebugProviding.swift */,
 			);
 			path = AdaptiveTraining;
+			sourceTree = "<group>";
+		};
+		H10000012B00000000000069 /* AdaptiveDebug */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012B00000000000447 /* AdaptiveDebugViewModel.swift */,
+				B10000012B00000000000448 /* AdaptiveDebugScreen.swift */,
+			);
+			path = AdaptiveDebug;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -2246,6 +2269,9 @@
 				A10000012B00000000000440 /* ExerciseVariantBridge.swift in Sources */,
 				A10000012B00000000000442 /* SchemaV2.swift in Sources */,
 				A10000012B00000000000443 /* AdaptiveTrainingRepository.swift in Sources */,
+				A10000012B00000000000446 /* AdaptiveDebugProviding.swift in Sources */,
+				A10000012B00000000000447 /* AdaptiveDebugViewModel.swift in Sources */,
+				A10000012B00000000000448 /* AdaptiveDebugScreen.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2390,6 +2416,8 @@
 				A10000012B00000000000441 /* ExerciseVariantBridgeTests.swift in TestSources */,
 				A10000012B00000000000444 /* AdaptiveTrainingRepositoryTests.swift in TestSources */,
 				A10000012B00000000000445 /* SchemaMigrationTests.swift in TestSources */,
+				A10000012B00000000000449 /* AdaptiveDebugViewModelTests.swift in TestSources */,
+				A10000012B00000000000450 /* AdaptiveDebugScreenTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

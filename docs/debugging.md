@@ -10,3 +10,5 @@
 ## Workout session recordings
 
 Workout Coach sessions can be recorded frame by frame for review and replay: Settings › About › Developer diagnostics › Workout recordings. See [Workout Session Recordings](diagnostics.md) for the recording page, markers, `make diagnostics`, the file format, and the rule that real recordings are never committed.
+
+Adaptive training recommendations can be inspected and exported from Settings › Developer diagnostics › Adaptive training; replay an export with `make adaptive-replay`. See [Adaptive Training](adaptive-training.md#debug-view-and-export).

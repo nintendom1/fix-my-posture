@@ -1,3 +1,4 @@
+import AdaptiveTraining
 import Observation
 import SwiftData
 import SwiftUI
@@ -13,6 +14,7 @@ final class AppEnvironment {
     let exerciseCatalog: any ExerciseCatalogProviding
     let workoutCoachFactory: WorkoutCoachFactory
     let workoutReminderCoordinator: WorkoutReminderCoordinator
+    let adaptiveTraining: AdaptiveTrainingEngine?
     let trainHomeViewModel: TrainHomeViewModel
     let routinesViewModel: RoutinesViewModel
     let libraryViewModel: LibraryViewModel
@@ -74,6 +76,11 @@ final class AppEnvironment {
             )
             modelContainer = container
             self.repositories = repositories
+            adaptiveTraining = AdaptiveTrainingEngine(
+                store: repositories.adaptiveTraining,
+                builtExerciseIDs: ExerciseVariantBridge().availability(equipment: []).builtExerciseIDs,
+                calendar: .current
+            )
             workoutReminderCoordinator = reminderCoordinator
             workoutCoachFactory = WorkoutCoachFactory(
                 preferences: preferences,
@@ -118,6 +125,7 @@ final class AppEnvironment {
         } catch {
             modelContainer = nil
             repositories = nil
+            adaptiveTraining = nil
             let reminderCoordinator = WorkoutReminderCoordinator(
                 preferences: preferences,
                 routines: nil,
@@ -190,6 +198,10 @@ final class AppEnvironment {
             scheduler: UserNotificationPreviewScheduler(),
             preferences: preferences
         )
+    }
+
+    func makeAdaptiveDebugViewModel() -> AdaptiveDebugViewModel {
+        AdaptiveDebugViewModel(provider: adaptiveTraining)
     }
 
     func makeWorkoutRecordingsViewModel() -> WorkoutRecordingsViewModel? {

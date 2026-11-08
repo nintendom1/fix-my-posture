@@ -206,6 +206,15 @@ struct SettingsDeveloperDiagnosticsPage: View {
                     .accessibilityIdentifier("settingsPersonaDebugButton")
             }
 
+            if viewModel.adaptiveDebug != nil {
+                Button("Adaptive training") { viewModel.navigate(to: .adaptiveDebug) }
+                    .font(.system(size: 16, weight: .heavy, design: .rounded))
+                    .foregroundStyle(ColorTokens.palette().tabActive)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .background(ColorTokens.palette().backgroundCard, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .accessibilityIdentifier("settingsAdaptiveDebugButton")
+            }
+
             if viewModel.workoutRecordings != nil {
                 Button("Workout recordings") { viewModel.navigate(to: .workoutRecordings) }
                     .font(.system(size: 16, weight: .heavy, design: .rounded))

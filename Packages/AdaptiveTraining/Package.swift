@@ -7,10 +7,13 @@ let package = Package(
     name: "AdaptiveTraining",
     platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
-        .library(name: "AdaptiveTraining", targets: ["AdaptiveTraining"])
+        .library(name: "AdaptiveTraining", targets: ["AdaptiveTraining"]),
+        // Replays a developer export under its own or candidate parameters and prints the decisions that change.
+        .executable(name: "adaptive-replay", targets: ["adaptive-replay"])
     ],
     targets: [
         .target(name: "AdaptiveTraining"),
+        .executableTarget(name: "adaptive-replay", dependencies: ["AdaptiveTraining"]),
         .testTarget(name: "AdaptiveTrainingTests", dependencies: ["AdaptiveTraining"])
     ]
 )
