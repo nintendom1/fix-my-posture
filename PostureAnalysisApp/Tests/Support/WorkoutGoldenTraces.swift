@@ -2,6 +2,151 @@ import Foundation
 
 /// Frozen expected traces for `WorkoutGoldenTraceTests`. Change one only for an intentional, reviewed behaviour change.
 enum WorkoutGoldenTraces {
+    static let perSideRows = """
+        t=10.00 state framing dumbbell_row set=1 reps=0 side=left counting=false
+        t=10.00 camera idle
+        t=10.00 mic off
+        t=10.00 mute coach=false mic=false
+        > appear (app active)
+        t=10.00 audio configureBaseCategory
+        t=10.00 camera starting
+        t=10.00 control resetTracking
+        t=10.00 listen enable
+        > camera running
+        t=10.00 camera running
+        t=10.00 input opened
+        t=10.00 control exercise dumbbell_row epoch=1
+        t=10.00 speak "Workout coach ready. One-arm dumbbell rows, two sets of 8 to 10 each arm. Stand side-on to the phone with your left arm nearer it, bend forward, and rest your other hand on a bench."
+        > voice status listening
+        t=10.00 mic listening
+        t=10.00 input voiceControl true
+        t=10.00 speak "Say “what can I say” anytime to see voice commands." (status)
+        > frames still dumbbell_row 10 frames @0.1 (1.0s)
+        t=10.10 input framing lost
+        t=10.20 input startPosition true
+        t=10.70 input framing reliable
+        t=10.70 state ready dumbbell_row set=1 reps=0 side=left counting=false
+        t=10.70 speak "Looks good. Say start when you're ready."
+        t=10.80 control sessionPhase ready
+        > send .start
+        t=11.00 command start (touch)
+        t=11.00 state exercising dumbbell_row set=1 reps=0 side=left counting=true
+        t=11.00 control exercise dumbbell_row epoch=2
+        t=11.00 clearFeedback
+        t=11.00 control counting true
+        t=11.00 speak "Set 1 of 2. Go."
+        t=11.00 tip show row.reminder.squeeze "Squeeze your shoulder blade." (reminder)
+        > frames demo dumbbell_row 34 frames @0.1 (3.4s)
+        t=11.10 control sessionPhase exercising
+        t=11.10 input startPosition false
+        t=11.20 input startPosition true
+        t=12.90 input startPosition false
+        t=14.00 tip clear
+        t=14.40 input startPosition true
+        t=14.40 input rep epoch=2 sides=left,right
+        t=14.40 state ready dumbbell_row set=1 reps=0 side=right counting=false
+        t=14.40 control counting false
+        t=14.40 control exercise dumbbell_row epoch=3
+        t=14.40 clearFeedback
+        t=14.40 speak "Left arm done, 1 rep. Switch to your right arm. Say start when you're ready."
+        > frames still dumbbell_row 5 frames @0.1 (0.5s)
+        t=14.50 control sessionPhase ready
+        t=14.50 input startPosition false
+        t=14.60 input startPosition true
+        > send .start
+        t=14.90 command start (touch)
+        t=14.90 state exercising dumbbell_row set=1 reps=0 side=right counting=true
+        t=14.90 control exercise dumbbell_row epoch=4
+        t=14.90 clearFeedback
+        t=14.90 control counting true
+        t=14.90 speak "Set 1 of 2. Go."
+        t=14.90 tip show row.reminder.neck "Keep your neck neutral." (reminder)
+        > frames demo dumbbell_row 34 frames @0.1 (3.4s)
+        t=15.00 control sessionPhase exercising
+        t=15.00 input startPosition false
+        t=15.10 input startPosition true
+        t=16.80 input startPosition false
+        t=17.90 tip clear
+        t=18.30 input startPosition true
+        t=18.30 input rep epoch=4 sides=left,right
+        t=18.30 state resting dumbbell_row set=2 reps=0 side=left counting=false
+        t=18.30 control counting false
+        t=18.30 control exercise dumbbell_row epoch=5
+        t=18.30 clearFeedback
+        t=18.30 speak "Right arm done, 1 rep. Set 1 done. Rest up. I'll tell you when it's time for set 2."
+        > frames still dumbbell_row 610 frames @0.1 (61.0s)
+        t=18.40 control sessionPhase resting
+        t=18.40 input startPosition false
+        t=18.50 input startPosition true
+        t=78.50 speak "Rest is up. Say start for set 2."
+        > send .start
+        t=79.30 command start (touch)
+        t=79.30 state exercising dumbbell_row set=2 reps=0 side=left counting=true
+        t=79.30 control exercise dumbbell_row epoch=6
+        t=79.30 clearFeedback
+        t=79.30 control counting true
+        t=79.30 speak "Set 2 of 2. Go."
+        t=79.30 tip show row.reminder.brace "Brace your core." (reminder)
+        > frames demo dumbbell_row 34 frames @0.1 (3.4s)
+        t=79.40 control sessionPhase exercising
+        t=79.40 input startPosition false
+        t=79.50 input startPosition true
+        t=81.20 input startPosition false
+        t=82.30 tip clear
+        t=82.70 input startPosition true
+        t=82.70 input rep epoch=6 sides=left,right
+        t=82.70 state ready dumbbell_row set=2 reps=0 side=right counting=false
+        t=82.70 control counting false
+        t=82.70 control exercise dumbbell_row epoch=7
+        t=82.70 clearFeedback
+        t=82.70 speak "Left arm done, 1 rep. Switch to your right arm. Say start when you're ready."
+        > frames still dumbbell_row 5 frames @0.1 (0.5s)
+        t=82.80 control sessionPhase ready
+        t=82.80 input startPosition false
+        t=82.90 input startPosition true
+        > send .start
+        t=83.20 command start (touch)
+        t=83.20 state exercising dumbbell_row set=2 reps=0 side=right counting=true
+        t=83.20 control exercise dumbbell_row epoch=8
+        t=83.20 clearFeedback
+        t=83.20 control counting true
+        t=83.20 speak "Set 2 of 2. Go."
+        t=83.20 tip show row.reminder.squeeze "Squeeze your shoulder blade." (reminder)
+        > frames demo dumbbell_row 34 frames @0.1 (3.4s)
+        t=83.30 control sessionPhase exercising
+        t=83.30 input startPosition false
+        t=83.40 input startPosition true
+        t=85.10 input startPosition false
+        t=86.20 tip clear
+        t=86.60 input startPosition true
+        t=86.60 input rep epoch=8 sides=left,right
+        t=86.60 state exerciseComplete dumbbell_row set=2 reps=0 side=left counting=false
+        t=86.60 control counting false
+        t=86.60 control exercise dumbbell_row epoch=9
+        t=86.60 clearFeedback
+        t=86.60 speak "Right arm done, 1 rep. One-Arm Dumbbell Row complete. Say another round or end workout."
+        > send .endWorkout
+        t=86.60 command endWorkout (touch)
+        t=86.60 state ended dumbbell_row set=2 reps=0 side=left counting=false
+        t=86.60 clearFeedback
+        t=86.60 speak "Workout ended. Nice work." (interrupts)
+        t=86.60 listen disable paused
+        t=86.60 camera idle
+        t=86.60 control resetTracking
+        t=86.60 input startPosition false
+        t=86.60 input framing lost
+        > view saves history (phase ended)
+        t=86.60 history save record plan=none planID=none id=workout entries=1
+        t=86.60 history save entry dumbbell_row "One-Arm Dumbbell Row" outcome=none sets=[1 rep L, 1 rep R, 1 rep L, 1 rep R]
+        t=86.60 reminders workoutSaved
+        > view close
+        t=86.60 listen disable paused
+        t=86.60 control resetTracking
+        t=86.60 input framing lost
+        t=86.60 speech stopAll
+        t=86.60 audio deactivate
+        """
+
     static let airSquatTwoSets = """
         t=10.00 state framing air_squat set=1 reps=0 counting=false
         t=10.00 camera idle

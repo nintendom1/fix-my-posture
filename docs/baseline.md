@@ -57,9 +57,9 @@ shows `PersistenceUnavailableView` instead of the tabs.
 
 **Protected by:** `AppRouteTests`, `AppShellSmokeTests`, `TrainHomeViewModelTests`, `RoutinesViewModelTests`,
 `RoutineDetailViewModelTests`, `LibraryViewModelTests`, `ExerciseDetailViewModelTests`, `PostureHomeViewModelTests`,
-`SettingsViewModelTests`, `WorkoutRemindersTests` (reminder-tap routing), and `DesignMetricsTests` (21 frames).
+`SettingsViewModelTests`, `RouteParityTests`, `WorkoutRemindersTests` (reminder-tap routing), and `DesignMetricsTests` (21 frames).
 **Gaps:** the route-to-screen mapping in `AppShellView.destination(for:)` and `fullScreenDestination(for:)` is tested
-only by rendering the tab roots. No test presents or dismisses a real cover, or opens the app without a store.
+only by rendering the tab roots. No test renders a presented cover or opens the app without a store.
 
 ### Workouts
 
@@ -76,10 +76,9 @@ end with an effort card; an Easy answer can offer a bonus set; "Too hard?" offer
 demonstration recorded and replayed), `SavedExerciseSetTests`, `BuiltInRoutinesTests`, `RoutineEstimatorTests`,
 `RoutineRotationTests`, `WorkoutHistoryTests`, `WorkoutCompletionStatsTests`, `WorkoutCompleteViewModelTests`,
 `TodaySessionFlowTests`, `BonusRepsTests`, `TooHardOfferTests`, `CalibrationViewModelTests`, `CalibrationScreenTests`,
-and `ExerciseCatalogTests`.
-**Gaps:** no ordered golden trace of utterances and effects across a full workout. Effect order inside
-`WorkoutCoachModel.apply` is untested. The view's once-only `saveHistory` guard is untested; only
-`WorkoutCoachHistory.save` itself is exercised (by `CalibrationViewModelTests`).
+`ExerciseCatalogTests`, and `WorkoutGoldenTraceTests` (including per-side arm changes, rest, and the next set).
+**Gaps:** effect order inside `WorkoutCoachModel.apply` is untested. The view's once-only `saveHistory` guard is
+untested; only `WorkoutCoachHistory.save` itself is exercised (by `CalibrationViewModelTests`).
 
 ### Camera overlays
 
@@ -112,9 +111,11 @@ notifications use the default sound; passive persona notifications are silent wh
 no other sound or haptic.
 
 **Protected by:** `WorkoutSessionTests` (utterance text per event), `WorkoutCoachModelTests` and `WorkoutIntentTests`
-(what the model asks a `FakeSpeechCoach` to say), `WorkoutCoachModelRecordingTests` (recorded `speak` events), and
-`AudioWorkTimingTests`.
-**Gaps:** the real `SpeechCoach` queue (max 2 queued, interrupt, watchdog, repeat) is untested. Voice selection and
+(what the model asks a `FakeSpeechCoach` to say), `WorkoutCoachModelRecordingTests` (recorded `speak` events),
+`SpeechActivityTraceTests` (fake coach activity and the model's listening response), and `AudioWorkTimingTests`.
+**Gaps:** the real `SpeechCoach` queue (max 2 queued, interrupt, watchdog, repeat) is untested. The real
+`SpeechCoach.speakNext` activity callback and ducking order is unpinned until phase 2 provides a synthesizer seam.
+The audio-facade PR must add a production trace through that seam before changing this behavior. Voice selection and
 speech timing are device checklist only.
 
 ### Listening
@@ -128,10 +129,11 @@ offer is open, then to `VoiceCommandParser`. A match that could still grow waits
 reconfigure input, a media-services reset rebuilds the recognizer, and a late reactivation restarts listening.
 
 **Protected by:** `VoiceCommandParserTests`, `EffortPhraseParserTests` (including controller routing),
-`BonusRepsTests` and `TooHardOfferTests` (controller routing), and `WorkoutCoachModelTests` with
-`FakeVoiceController`.
-**Gaps:** half-duplex pause and resume is untested, as are the controller's audio-event handling and the recognizer's
-restart and back-off. Recognition accuracy and permission prompts are device checklist only.
+`BonusRepsTests` and `TooHardOfferTests` (controller routing), `WorkoutCoachModelTests` with `FakeVoiceController`,
+`VoiceListeningParityTests`, and `SpeechActivityTraceTests` (model audio-event routing and controller response to
+supplied coach-speaking state).
+**Gaps:** the real recognizer's automatic error back-off uses non-injected timers and remains untested. Recognition
+accuracy and actual OS permission prompts are device checklist only.
 
 ### Audio session
 
@@ -144,10 +146,14 @@ system says so, capture can run, and the microphone is unmuted. Only new or remo
 Backgrounding pauses the set, stops capture and speech, and flushes the recorder; leaving the screen also deactivates
 the session.
 
-**Protected by:** `WorkoutCoachModelRecordingTests` (listen-then-duck category and activation sequence, notification
-translation, observers on the shared session) and `WorkoutCoachModelTests` (an interruption pauses the session).
-**Gaps:** ducking order relative to speech is untested, as are the restore retry, `deactivate`, and media-services
-reset. Real routes (Bluetooth, AirPlay, calls, Siri) are device checklist only.
+**Protected by:** `WorkoutCoachModelRecordingTests` (notification translation and observers on the shared session),
+`AudioSessionParityTests` (category, option bits, activation, ducking, deactivation, notification events, and failure
+paths), `SpeechActivityTraceTests` (model event routing and controller/audio-session response to supplied
+coach-speaking state), and `WorkoutCoachModelTests` (an interruption pauses the session).
+**Gaps:** the ordering between the real `SpeechCoach.speakNext` activity callback and ducking, and `finishActivity`
+restore and callback, is unpinned until phase 2 provides a synthesizer seam. The audio-facade PR must add a production
+trace through that seam before changing this behavior. Completion of the restore retry sequence is untested because
+its dispatch timer is not injectable. Real routes (Bluetooth, AirPlay, calls, Siri) are device checklist only.
 
 ### Reminders and character notifications
 
@@ -158,7 +164,7 @@ observations behind `settings.extraPersonable`, with cooling and traces in `pers
 routes to its still-valid workout, and is ignored during an active workout. See [reminders.md](reminders.md),
 [notifications.md](notifications.md), and [persona.md](persona.md).
 
-**Protected by:** `WorkoutRemindersTests`, `CharacterReminderCoordinatorTests`, `WorkoutRemindersSettingsPageTests`,
+**Protected by:** `WorkoutRemindersTests`, `RouteParityTests`, `CharacterReminderCoordinatorTests`, `WorkoutRemindersSettingsPageTests`,
 the `Notification*Tests`, the `Persona*Tests`, and `make notification-character-check`.
 **Gaps:** foreground presentation options, dismissal registration and translation, and persona presentation options
 are pinned by `NotificationContentBuilderTests` and `PersonaCoordinatorTests`; actual OS banner rendering, OS delivery

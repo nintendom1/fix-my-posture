@@ -473,6 +473,11 @@
 		A10000012B00000000000483 /* WorkoutTraceRecorder.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000483 /* WorkoutTraceRecorder.swift */; };
 		A10000012B00000000000484 /* WorkoutGoldenTraces.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000484 /* WorkoutGoldenTraces.swift */; };
 		A10000012B00000000000485 /* WorkoutGoldenTraceTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000485 /* WorkoutGoldenTraceTests.swift */; };
+		A10000012B00000000000486 /* VoiceListeningParityTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000486 /* VoiceListeningParityTests.swift */; };
+		A10000012B00000000000487 /* AudioSessionParityTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000487 /* AudioSessionParityTests.swift */; };
+		A10000012B00000000000488 /* RouteParityTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000488 /* RouteParityTests.swift */; };
+		A10000012B00000000000489 /* SpeechActivityTraceTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000489 /* SpeechActivityTraceTests.swift */; };
+		A10000012B00000000000490 /* SpeechActivityGoldenTraces.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000490 /* SpeechActivityGoldenTraces.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -954,6 +959,11 @@
 		B10000012B00000000000483 /* WorkoutTraceRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutTraceRecorder.swift; sourceTree = "<group>"; };
 		B10000012B00000000000484 /* WorkoutGoldenTraces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutGoldenTraces.swift; sourceTree = "<group>"; };
 		B10000012B00000000000485 /* WorkoutGoldenTraceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutGoldenTraceTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000486 /* VoiceListeningParityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceListeningParityTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000487 /* AudioSessionParityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionParityTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000488 /* RouteParityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteParityTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000489 /* SpeechActivityTraceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechActivityTraceTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000490 /* SpeechActivityGoldenTraces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechActivityGoldenTraces.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1243,6 +1253,10 @@
 				B10000012B00000000000481 /* AdaptiveTrainingSettingsViewModelTests.swift */,
 				B10000012B00000000000482 /* AdaptiveTrainingSettingsPageTests.swift */,
 				B10000012B00000000000485 /* WorkoutGoldenTraceTests.swift */,
+				B10000012B00000000000486 /* VoiceListeningParityTests.swift */,
+				B10000012B00000000000487 /* AudioSessionParityTests.swift */,
+				B10000012B00000000000488 /* RouteParityTests.swift */,
+				B10000012B00000000000489 /* SpeechActivityTraceTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1487,6 +1501,7 @@
 				B10000012B00000000000437 /* WorkoutSessionReplay.swift */,
 				B10000012B00000000000483 /* WorkoutTraceRecorder.swift */,
 				B10000012B00000000000484 /* WorkoutGoldenTraces.swift */,
+				B10000012B00000000000490 /* SpeechActivityGoldenTraces.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -2590,6 +2605,11 @@
 				A10000012B00000000000483 /* WorkoutTraceRecorder.swift in TestSources */,
 				A10000012B00000000000484 /* WorkoutGoldenTraces.swift in TestSources */,
 				A10000012B00000000000485 /* WorkoutGoldenTraceTests.swift in TestSources */,
+				A10000012B00000000000486 /* VoiceListeningParityTests.swift in TestSources */,
+				A10000012B00000000000487 /* AudioSessionParityTests.swift in TestSources */,
+				A10000012B00000000000488 /* RouteParityTests.swift in TestSources */,
+				A10000012B00000000000489 /* SpeechActivityTraceTests.swift in TestSources */,
+				A10000012B00000000000490 /* SpeechActivityGoldenTraces.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
