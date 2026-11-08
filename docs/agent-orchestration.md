@@ -47,9 +47,9 @@ left|right --amount FLOAT`, and `pane move` into existing or new tabs. Move live
 closing and restarting them:
 
 ```bash
-herdr pane move "$P" --new-tab --label Agent --no-focus
-herdr pane move "$P" --new-tab --label Scripts --no-focus
-herdr pane move "$P" --tab "$TAB_ID" --split right --target-pane "$TARGET_PANE" --no-focus
+herdr pane move "$AGENT_PANE" --new-tab --label Agent --no-focus
+herdr pane move "$SCRIPT_PANE" --new-tab --label Scripts --no-focus
+herdr pane move "$PANE" --tab "$TAB_ID" --split right --target-pane "$TARGET_PANE" --no-focus
 herdr pane run "$SCRIPT_PANE" './scripts/validate.sh'
 ```
 
