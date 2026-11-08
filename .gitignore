@@ -1,6 +1,9 @@
 # Build output and DerivedData
 build/
 DerivedData/
+# Swift Package Manager output for local packages
+.build/
+.swiftpm/
 *.pbxuser
 !default.pbxuser
 *.mode1v3
