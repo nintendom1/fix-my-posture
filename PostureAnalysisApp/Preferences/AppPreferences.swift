@@ -50,6 +50,8 @@ enum PreferenceKey {
     /// New workout flow choices use the train. namespace.
     static let startByHolding = "train.startByHolding"
     static let upNextOverride = "train.upNextOverride"
+    static let adaptiveInvitationSnoozedUntil = "adaptive.invitation.snoozedUntil"
+    static let adaptiveInvitationDismissCount = "adaptive.invitation.dismissCount"
 
     /// Developer tools use the dev. namespace.
     static let notificationPreviewDelay = "dev.notificationPreviewDelay"
@@ -96,6 +98,8 @@ protocol AppPreferencesStoring: AnyObject {
     var weightUnit: PreferredWeightUnit { get set }
     var startByHolding: Bool { get set }
     var upNextOverride: UUID? { get set }
+    var adaptiveInvitationSnoozedUntil: Date? { get set }
+    var adaptiveInvitationDismissCount: Int { get set }
     var tiltWarningsEnabled: Bool { get set }
     var workoutReminderSettings: WorkoutReminderSettings { get set }
     var characterNotificationIntroDate: Date? { get set }
@@ -286,6 +290,27 @@ final class UserDefaultsPreferences: AppPreferencesStoring {
             }
         }
     }
+
+    var adaptiveInvitationSnoozedUntil: Date? {
+        get {
+            guard let timestamp = defaults.object(forKey: PreferenceKey.adaptiveInvitationSnoozedUntil) as? Double else {
+                return nil
+            }
+            return Date(timeIntervalSince1970: timestamp)
+        }
+        set {
+            guard let newValue else {
+                defaults.removeObject(forKey: PreferenceKey.adaptiveInvitationSnoozedUntil)
+                return
+            }
+            defaults.set(newValue.timeIntervalSince1970, forKey: PreferenceKey.adaptiveInvitationSnoozedUntil)
+        }
+    }
+
+    var adaptiveInvitationDismissCount: Int {
+        get { defaults.object(forKey: PreferenceKey.adaptiveInvitationDismissCount) as? Int ?? 0 }
+        set { defaults.set(newValue, forKey: PreferenceKey.adaptiveInvitationDismissCount) }
+    }
 }
 
 /// Isolated in-memory preferences for tests, previews, and deterministic model construction.
@@ -311,6 +336,8 @@ final class InMemoryPreferences: AppPreferencesStoring {
     var weightUnit: PreferredWeightUnit = .lb
     var startByHolding = true
     var upNextOverride: UUID?
+    var adaptiveInvitationSnoozedUntil: Date?
+    var adaptiveInvitationDismissCount = 0
     var tiltWarningsEnabled = true
     var workoutReminderSettings = WorkoutReminderSettings()
     var characterNotificationIntroDate: Date?
