@@ -2,6 +2,7 @@ import AdaptiveTraining
 import AVFoundation
 import Foundation
 import Observation
+import OSLog
 
 /// Main-actor orchestrator: feeds camera frames, commands, and lifecycle changes through the pure
 /// `WorkoutSession` reducer and carries out the effects it returns.
@@ -108,6 +109,8 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     @ObservationIgnored private let recorder: (any WorkoutSessionRecording)?
     /// Nil in workouts with no adaptive engine, which then never ask for effort.
     @ObservationIgnored private let adaptive: (any AdaptiveEvidenceRecording)?
+    /// Nil in production; tests may attach a downstream, read-only observer.
+    @ObservationIgnored private let observer: (any WorkoutObserving)?
     /// Set when this workout is Today's Session; its plan items carry the prescription they came from.
     @ObservationIgnored private let todayLaunch: TodaySessionLaunch?
     @ObservationIgnored private let evidenceDate: () -> Date
@@ -147,6 +150,11 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     @ObservationIgnored private var analysisStart = -TimeInterval.infinity
     /// The reducer time of the input whose effects are being applied.
     @ObservationIgnored private var dispatchTime: TimeInterval?
+#if DEBUG
+    @ObservationIgnored private(set) var droppedObserverReentrantSends = 0
+    @ObservationIgnored private var isNotifyingObserver = false
+    private static let observationLogger = Logger(subsystem: "PostureAnalysisApp", category: "WorkoutObservation")
+#endif
 
     nonisolated static let tickInterval: TimeInterval = 0.5
     static let heardChipDuration: TimeInterval = 1.5
@@ -163,7 +171,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
          settings: WorkoutSettings = WorkoutSettings(), recorder: (any WorkoutSessionRecording)? = nil,
          audioTiming: AudioWorkTiming? = nil, adaptive: (any AdaptiveEvidenceRecording)? = nil,
          todayLaunch: TodaySessionLaunch? = nil, evidenceDate: @escaping () -> Date = Date.init,
-         makeEvidenceID: @escaping () -> UUID = UUID.init) {
+         makeEvidenceID: @escaping () -> UUID = UUID.init, observer: (any WorkoutObserving)? = nil) {
         self.camera = camera
         self.previewProvider = previewProvider
         self.permission = permission
@@ -176,6 +184,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         self.scheduler = scheduler
         self.recorder = recorder
         self.adaptive = adaptive
+        self.observer = observer
         self.todayLaunch = todayLaunch
         self.evidenceDate = evidenceDate
         self.makeEvidenceID = makeEvidenceID
@@ -299,6 +308,13 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     }
 
     func send(_ intent: WorkoutIntent) {
+#if DEBUG
+        if observer != nil, isNotifyingObserver {
+            droppedObserverReentrantSends += 1
+            Self.observationLogger.warning("Dropping re-entrant WorkoutCoachModel.send during observer notification.")
+            return
+        }
+#endif
         if let command = intent.command {
             handleVoiceCommand(command)
             return
@@ -621,11 +637,13 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         dispatchTime = now
         defer { dispatchTime = outer }
         let before = adaptive != nil && mayChangeFinishedItems(event) ? session : nil
-        apply(session.handle(event, at: now))
+        let effects = session.handle(event, at: now)
+        apply(effects)
         recordState()
         // The offer is about the set under way, so it goes when the set does.
         if tooHardOffer != nil, !Self.isSetActive(session.phase) { closeTooHardOffer() }
         if let before { observeEffort(since: before, at: now) }
+        notifyObserver { $0.workoutDidHandle(event, effects: effects, at: now) }
     }
 
     /// Only commands, counted reps, and ticks (a hold's timer, an automatic start) can finish an item or start a set,
@@ -663,6 +681,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
             case .repeatLastInstruction:
                 recorder?.recordEvent(.repeatLastInstruction(muted: isCoachMuted), at: clock.now)
                 if !isCoachMuted { speech.repeatLastInstruction() }
+                notifyObserver { $0.coachDidRepeatLastInstruction(muted: isCoachMuted) }
             case .resetAnalyzer(let epoch):
                 analysisStart = max(analysisStart, dispatchTime ?? clock.now)
                 guard let exercise = session.exercise else {
@@ -783,6 +802,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
                                      amount: finished.counted, preselected: preselected)
         pendingEffort = PendingEffort(identity: identity, item: finished, choice: choice)
         voice?.acceptsEffortFeedback = true
+        notifyObserver { $0.coachDidOffer(.effort) }
     }
 
     /// Today's Session items carry their prescription; any other exercise is manual work, and counts only when it is
@@ -838,6 +858,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
                                         answer: answer, offered: offered, stage: .offered)
             bonusOffer = BonusOfferState(id: card.id, offered: offered)
             voice?.acceptsBonusAnswer = true
+            notifyObserver { $0.coachDidOffer(.bonus) }
             return
         }
         recordEvidence(id: card.id, identity: pending.identity, item: pending.item, answer: answer,
@@ -872,6 +893,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         let easier = easierVersionToOffer()
         pendingSwap = easier?.swap
         tooHardOffer = TooHardOfferState(id: makeEvidenceID(), easierVersion: easier?.version)
+        notifyObserver { $0.coachDidOffer(.tooHard) }
     }
 
     /// The easier version of the item under way, only for a Today's Session main item and only when the engine has
@@ -989,6 +1011,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
                                      amount: finished.counted, isBonus: true,
                                      preselected: choice == .stoppedHere ? .tooHard : nil)
         voice?.acceptsEffortFeedback = true
+        notifyObserver { $0.coachDidOffer(.effort) }
     }
 
     /// The workout ended or its screen closed: an open offer is declined, and a bonus under way is kept with whatever
@@ -1079,6 +1102,25 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     private func say(_ utterance: Utterance, muted: Bool) {
         recorder?.recordEvent(.speak(utterance, muted: muted), at: clock.now)
         if !muted { speech.speak(utterance) }
+        notifyObserver { $0.coachDidSay(utterance, muted: muted) }
+    }
+
+    /// Reports the view's successful history commit after persistence and reminder reconciliation.
+    func historyDidCommit(_ record: WorkoutRecord) {
+        notifyObserver { $0.workoutDidSave(record) }
+    }
+
+    /// Observer callbacks are downstream and run only after their production action has completed.
+    private func notifyObserver(_ notification: (any WorkoutObserving) -> Void) {
+        guard let observer else { return }
+#if DEBUG
+        let wasNotifying = isNotifyingObserver
+        isNotifyingObserver = true
+        defer { isNotifyingObserver = wasNotifying }
+        notification(observer)
+#else
+        notification(observer)
+#endif
     }
 
     /// Records a marker and confirms it on the REC chip and, unless the coach is muted, out loud.
@@ -1193,6 +1235,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
 
     /// Shows a tip for `tipDuration`; a newer tip or a cleared one cancels the pending hide.
     private func setActiveTip(_ tip: CoachingTip?) {
+        let didChangeTip = tip != nil || activeTip != nil
         tipExpiry?.cancel()
         tipExpiry = nil
         if let recorder {
@@ -1203,12 +1246,16 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         recordState()
         framePipeline.setEmphasizedJoints(emphasizedJoints)
         overlay?.emphasizedJoints = emphasizedJoints
-        guard let id = tip?.id else { return }
+        guard let id = tip?.id else {
+            if didChangeTip { notifyObserver { $0.coachDidShowTip(nil) } }
+            return
+        }
         tipExpiry = scheduler.schedule(after: Self.tipDuration) { [weak self] in
             guard let self, self.activeTip?.id == id else { return }
             self.tipExpiry = nil
             self.setActiveTip(nil)
         }
+        if didChangeTip { notifyObserver { $0.coachDidShowTip(tip) } }
     }
 
     private func showHeard(_ phrase: String) {

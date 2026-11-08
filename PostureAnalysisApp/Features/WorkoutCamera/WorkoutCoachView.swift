@@ -12,7 +12,8 @@ enum WorkoutCoachHistory {
     @discardableResult
     static func save(session: WorkoutSession, startedAt: Date, endedAt: Date, workoutID: UUID, savesHistory: Bool,
                      history: (any WorkoutHistoryRepository)?, preferences: any AppPreferencesStoring,
-                     reminders: (any WorkoutReminderReconciliation)?) -> WorkoutRecord? {
+                     reminders: (any WorkoutReminderReconciliation)?,
+                     onCommitted: (@MainActor (WorkoutRecord) -> Void)? = nil) -> WorkoutRecord? {
         guard let record = WorkoutRecord(session: session, startedAt: startedAt, endedAt: endedAt, id: workoutID) else {
             return nil
         }
@@ -20,10 +21,22 @@ enum WorkoutCoachHistory {
         do {
             try WorkoutHistorySaver.save(record, using: history, preferences: preferences)
             reminders?.workoutSaved(record)
+            onCommitted?(record)
         } catch {
             // A failed history save is retried only through the existing workout flow.
         }
         return record
+    }
+
+    /// Saves through the same commit path as the view and forwards a successful commit to its concrete model.
+    @discardableResult
+    static func save(session: WorkoutSession, startedAt: Date, endedAt: Date, workoutID: UUID, savesHistory: Bool,
+                     history: (any WorkoutHistoryRepository)?, preferences: any AppPreferencesStoring,
+                     reminders: (any WorkoutReminderReconciliation)?, notifying model: any WorkoutCoachViewModeling)
+        -> WorkoutRecord? {
+        save(session: session, startedAt: startedAt, endedAt: endedAt, workoutID: workoutID,
+             savesHistory: savesHistory, history: history, preferences: preferences, reminders: reminders,
+             onCommitted: { record in (model as? WorkoutCoachModel)?.historyDidCommit(record) })
     }
 }
 
@@ -291,7 +304,7 @@ struct WorkoutCoachView: View {
         finishedRecord = WorkoutCoachHistory.save(
             session: model.session, startedAt: startedAt, endedAt: Date(), workoutID: model.workoutID,
             savesHistory: savesHistory, history: appRepositories?.workoutHistory, preferences: preferences,
-            reminders: workoutReminderReconciliation)
+            reminders: workoutReminderReconciliation, notifying: model)
     }
 
     private func displayCompletionRecord() -> WorkoutRecord {

@@ -66,6 +66,6 @@ final class WorkoutCoachFactory {
                                  clock: SystemClock(), scheduler: MainScheduler(), preferences: preferences,
                                  exercises: exercises, initialExercise: exerciseID ?? exercises.first?.id,
                                  plan: plan, settings: settings, recorder: recorder, audioTiming: audioTiming,
-                                 adaptive: adaptive ?? self.adaptive, todayLaunch: launch)
+                                 adaptive: adaptive ?? self.adaptive, todayLaunch: launch, observer: nil)
     }
 }
