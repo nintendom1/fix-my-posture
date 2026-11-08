@@ -494,6 +494,11 @@
 		A10000012B00000000000504 /* MovementLabTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000504 /* MovementLabTests.swift */; };
 		A10000012B00000000000505 /* MovementLabRunner.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000505 /* MovementLabRunner.swift */; };
 		A10000012B00000000000506 /* MovementLabRegressionTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000506 /* MovementLabRegressionTests.swift */; };
+		A10000012B00000000000507 /* AdaptiveInvitationPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000507 /* AdaptiveInvitationPolicy.swift */; };
+		A10000012B00000000000508 /* TodaySessionHeroProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000508 /* TodaySessionHeroProviding.swift */; };
+		A10000012B00000000000509 /* AdaptiveInvitationSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000509 /* AdaptiveInvitationSheet.swift */; };
+		A10000012B00000000000510 /* AdaptiveInvitationPolicyTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000510 /* AdaptiveInvitationPolicyTests.swift */; };
+		A10000012B00000000000511 /* TrainTodayHeroTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000511 /* TrainTodayHeroTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -996,6 +1001,11 @@
 		B10000012B00000000000504 /* MovementLabTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementLabTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000505 /* MovementLabRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementLabRunner.swift; sourceTree = "<group>"; };
 		B10000012B00000000000506 /* MovementLabRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementLabRegressionTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000507 /* AdaptiveInvitationPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveInvitationPolicy.swift; sourceTree = "<group>"; };
+		B10000012B00000000000508 /* TodaySessionHeroProviding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodaySessionHeroProviding.swift; sourceTree = "<group>"; };
+		B10000012B00000000000509 /* AdaptiveInvitationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveInvitationSheet.swift; sourceTree = "<group>"; };
+		B10000012B00000000000510 /* AdaptiveInvitationPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveInvitationPolicyTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000511 /* TrainTodayHeroTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainTodayHeroTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1295,6 +1305,8 @@
 				B10000012B00000000000499 /* MovementScenarioTests.swift */,
 				B10000012B00000000000504 /* MovementLabTests.swift */,
 				B10000012B00000000000506 /* MovementLabRegressionTests.swift */,
+				B10000012B00000000000510 /* AdaptiveInvitationPolicyTests.swift */,
+				B10000012B00000000000511 /* TrainTodayHeroTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1691,6 +1703,7 @@
 				B10000012B00000000000217 /* TrainHomeState.swift */,
 				B10000012B00000000000218 /* TrainHomeViewModel.swift */,
 				B10000012B00000000000219 /* TrainHomeScreen.swift */,
+				B10000012B00000000000509 /* AdaptiveInvitationSheet.swift */,
 			);
 			path = Train;
 			sourceTree = "<group>";
@@ -2035,6 +2048,8 @@
 				B10000012B00000000000462 /* AdaptiveTrainingCoordinator.swift */,
 				B10000012B00000000000463 /* WorkoutOutcomeAdapter.swift */,
 				B10000012B00000000000478 /* AdaptiveTrainingSettingsProviding.swift */,
+				B10000012B00000000000507 /* AdaptiveInvitationPolicy.swift */,
+				B10000012B00000000000508 /* TodaySessionHeroProviding.swift */,
 			);
 			path = AdaptiveTraining;
 			sourceTree = "<group>";
@@ -2503,6 +2518,9 @@
 				A10000012B00000000000494 /* SpeechSynthesizing.swift in Sources */,
 				A10000012B00000000000495 /* AudioCoordinating.swift in Sources */,
 				A10000012B00000000000496 /* SoundCue.swift in Sources */,
+				A10000012B00000000000507 /* AdaptiveInvitationPolicy.swift in Sources */,
+				A10000012B00000000000508 /* TodaySessionHeroProviding.swift in Sources */,
+				A10000012B00000000000509 /* AdaptiveInvitationSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2682,6 +2700,8 @@
 				A10000012B00000000000504 /* MovementLabTests.swift in TestSources */,
 				A10000012B00000000000505 /* MovementLabRunner.swift in TestSources */,
 				A10000012B00000000000506 /* MovementLabRegressionTests.swift in TestSources */,
+				A10000012B00000000000510 /* AdaptiveInvitationPolicyTests.swift in TestSources */,
+				A10000012B00000000000511 /* TrainTodayHeroTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

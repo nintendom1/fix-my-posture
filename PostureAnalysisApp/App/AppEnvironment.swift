@@ -17,6 +17,7 @@ final class AppEnvironment {
     let adaptiveTraining: AdaptiveTrainingEngine?
     /// Prepares Today's Session and records effort evidence; nil when persistence is unavailable.
     let adaptiveCoordinator: AdaptiveTrainingCoordinator?
+    let adaptiveInvitation: AdaptiveInvitationModel
     let trainHomeViewModel: TrainHomeViewModel
     let routinesViewModel: RoutinesViewModel
     let libraryViewModel: LibraryViewModel
@@ -86,6 +87,11 @@ final class AppEnvironment {
             let coordinator = AdaptiveTrainingCoordinator(engine: adaptiveEngine)
             adaptiveTraining = adaptiveEngine
             adaptiveCoordinator = coordinator
+            adaptiveInvitation = AdaptiveInvitationModel(
+                preferences: preferences,
+                provider: coordinator,
+                router: router
+            )
             workoutReminderCoordinator = reminderCoordinator
             workoutCoachFactory = WorkoutCoachFactory(
                 preferences: preferences,
@@ -100,6 +106,7 @@ final class AppEnvironment {
                 exerciseCatalog: exerciseCatalog,
                 preferences: preferences,
                 router: router,
+                todaySession: coordinator,
                 reminderReconciliation: reminderCoordinator
             )
             routinesViewModel = RoutinesViewModel(
@@ -133,6 +140,11 @@ final class AppEnvironment {
             repositories = nil
             adaptiveTraining = nil
             adaptiveCoordinator = nil
+            adaptiveInvitation = AdaptiveInvitationModel(
+                preferences: preferences,
+                provider: nil,
+                router: router
+            )
             let reminderCoordinator = WorkoutReminderCoordinator(
                 preferences: preferences,
                 routines: nil,
@@ -276,6 +288,73 @@ final class AppEnvironment {
         HistoryViewModel(repository: repositories?.workoutHistory,
                          exerciseCatalog: exerciseCatalog,
                          preferences: preferences)
+    }
+}
+
+/// Controls the launch invitation independently of SwiftUI so its snooze and route rules can be tested.
+@MainActor
+@Observable
+final class AdaptiveInvitationModel {
+    private(set) var isPresented = false
+
+    private let preferences: any AppPreferencesStoring
+    private let provider: (any TodaySessionHeroProviding)?
+    private let router: AppRouter
+    private let now: () -> Date
+    private var opensCalibrationAfterDismissal = false
+
+    init(preferences: any AppPreferencesStoring, provider: (any TodaySessionHeroProviding)?, router: AppRouter,
+         now: @escaping () -> Date = Date.init) {
+        self.preferences = preferences
+        self.provider = provider
+        self.router = router
+        self.now = now
+    }
+
+    func evaluate(now date: Date) {
+        let status = provider?.status(asOf: date) ?? .nothingOffered
+        isPresented = AdaptiveInvitationPolicy.shouldShow(
+            status: status,
+            snoozedUntil: preferences.adaptiveInvitationSnoozedUntil,
+            dismissCount: preferences.adaptiveInvitationDismissCount,
+            isPresentingFullScreen: router.presentedFullScreenRoute != nil,
+            now: date
+        )
+        if !isPresented { opensCalibrationAfterDismissal = false }
+    }
+
+    /// Hides an open invitation when a full-screen flow starts without scheduling another evaluation when it closes.
+    func fullScreenRouteDidChange(to route: AppRoute?) {
+        guard route != nil else { return }
+        isPresented = false
+        opensCalibrationAfterDismissal = false
+    }
+
+    /// Closes the invitation. The shell opens calibration from the sheet's on-dismiss callback.
+    func accept() {
+        guard isPresented else { return }
+        isPresented = false
+        opensCalibrationAfterDismissal = true
+    }
+
+    /// A button tap or interactive dismissal snoozes the invitation for seven days.
+    func notNow() {
+        guard isPresented else { return }
+        let currentDate = now()
+        preferences.adaptiveInvitationSnoozedUntil = currentDate.addingTimeInterval(
+            TimeInterval(AdaptiveInvitationPolicy.snoozeDays * 24 * 60 * 60)
+        )
+        if preferences.adaptiveInvitationDismissCount < Int.max {
+            preferences.adaptiveInvitationDismissCount += 1
+        }
+        isPresented = false
+        opensCalibrationAfterDismissal = false
+    }
+
+    func sheetDidDismiss() {
+        guard opensCalibrationAfterDismissal else { return }
+        opensCalibrationAfterDismissal = false
+        router.open(.calibration)
     }
 }
 

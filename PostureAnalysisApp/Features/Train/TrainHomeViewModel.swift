@@ -1,3 +1,4 @@
+import AdaptiveTraining
 import Foundation
 import Observation
 
@@ -17,6 +18,7 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
     private let exerciseCatalog: any ExerciseCatalogProviding
     private let preferences: any AppPreferencesStoring
     private let router: AppRouter
+    private let todaySession: (any TodaySessionHeroProviding)?
     private let reminderReconciliation: (any WorkoutReminderReconciliation)?
     private let now: () -> Date
     private let calendar: Calendar
@@ -31,6 +33,7 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
         exerciseCatalog: any ExerciseCatalogProviding,
         preferences: any AppPreferencesStoring,
         router: AppRouter,
+        todaySession: (any TodaySessionHeroProviding)? = nil,
         reminderReconciliation: (any WorkoutReminderReconciliation)? = nil,
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .current
@@ -40,6 +43,7 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
         self.exerciseCatalog = exerciseCatalog
         self.preferences = preferences
         self.router = router
+        self.todaySession = todaySession
         self.reminderReconciliation = reminderReconciliation
         self.now = now
         self.calendar = calendar
@@ -61,6 +65,17 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
         case .startRoutine:
             guard let routine = state.heroRoutine, routine.canStart else { return }
             router.open(.workout(exerciseID: nil, routineID: routine.id))
+        case .startTodaySession:
+            guard let todaySession else { return }
+            guard todaySession.start(asOf: now()) != nil else {
+                var hero = state.todayHero
+                hero?.startProblem = todaySession.lastStartProblem ?? "Today's Session couldn't start."
+                state.todayHero = hero
+                return
+            }
+            router.open(.todaySession)
+        case .findStartingPoint:
+            router.open(.calibration)
         case .pickAnother:
             state.isRoutinePickerPresented = true
         case .selectRoutine(let id):
@@ -91,6 +106,7 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
     }
 
     private func refresh() {
+        let currentDate = now()
         let savedRoutines = (try? routines?.listWithUpdateDates()) ?? []
         let history: [WorkoutRecord]
         if let workoutHistory {
@@ -109,14 +125,59 @@ final class TrainHomeViewModel: TrainHomeViewModeling {
         )
         let heroSet = upNext ?? savedRoutines.first(where: { !$0.set.plan(in: exerciseCatalog.all).items.isEmpty })?.set
         state = TrainHomeState(
-            dateLabel: TrainHomeDateFormatter.label(now()),
+            dateLabel: TrainHomeDateFormatter.label(currentDate),
             heroRoutine: heroSet.map { makeHero(for: $0, records: history) },
             routineChoices: choices,
             isRoutinePickerPresented: state.isRoutinePickerPresented,
             exercises: makeExerciseTiles(),
             lastWorkout: history.first.map(makeLastWorkout),
-            showsPersonaIntro: shouldShowPersonaIntro
+            showsPersonaIntro: shouldShowPersonaIntro,
+            todayHero: todaySession.flatMap { makeTodayHero(from: $0.status(asOf: currentDate)) }
         )
+    }
+
+    private func makeTodayHero(from status: TodaySessionStatus) -> TrainTodayHeroPresentation? {
+        switch status {
+        case .ready(let session):
+            let amount = session.main.dose
+            let doseText = amount.kind == .reps ? "× \(amount.amount)" : "for \(amount.amount) s"
+            let minutes = Self.roundedMinutes(session.estimatedSeconds)
+            return TrainTodayHeroPresentation(
+                kind: .ready,
+                eyebrow: "TODAY'S SESSION",
+                title: CalibrationCopy.areaName(session.family),
+                subtitle: "\(todaySession?.displayName(of: session.main.variant) ?? session.main.variant.rawValue) \(doseText) · about \(minutes) min",
+                action: .startTodaySession,
+                actionTitle: "Start"
+            )
+        case .completedToday(_, let next):
+            let subtitle = next.map { "Next time: \(CalibrationCopy.areaName($0.family))" } ?? "Nice work."
+            return TrainTodayHeroPresentation(
+                kind: .completed,
+                eyebrow: "TODAY'S SESSION",
+                title: "Done for today",
+                subtitle: subtitle,
+                action: nil,
+                actionTitle: nil
+            )
+        case .needsCalibration:
+            return TrainTodayHeroPresentation(
+                kind: .needsCalibration,
+                eyebrow: "ADAPTIVE TRAINING",
+                title: "Find your starting point",
+                subtitle: "A few tiny samples, then a short session each day.",
+                action: .findStartingPoint,
+                actionTitle: "Find your starting point"
+            )
+        case .nothingOffered:
+            return nil
+        }
+    }
+
+    private static func roundedMinutes(_ seconds: Int) -> Int {
+        let nonnegativeSeconds = max(0, seconds)
+        let rounded = nonnegativeSeconds / 60 + (nonnegativeSeconds % 60 >= 30 ? 1 : 0)
+        return max(1, rounded)
     }
 
     private var shouldShowPersonaIntro: Bool {

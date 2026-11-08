@@ -160,7 +160,7 @@ protocol CalibrationCoordinating: AnyObject {
 @MainActor
 @Observable
 final class AdaptiveTrainingCoordinator: AdaptiveEvidenceRecording, TodaySessionStarting, CalibrationCoordinating,
-    AdaptiveTrainingSettingsProviding {
+    AdaptiveTrainingSettingsProviding, TodaySessionHeroProviding {
     /// The plan id of every Today's Session workout. It matches no routine, so routine rotation and the Up Next
     /// override never see it.
     nonisolated static let todaySessionPlanID = UUID(uuid: (0x70, 0xDA, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00,

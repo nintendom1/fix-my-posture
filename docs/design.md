@@ -12,7 +12,7 @@ Run `make design-reference` to regenerate the committed metrics and local refere
 
 | Screen | Design frame IDs | Feature folder |
 |---|---|---|
-| Train home | `train` | `Features/Train/` |
+| Train home | `train` (Today hero has no design frame) | `Features/Train/` |
 | Routines list and detail | `routines`, `routine` | `Features/Routines/` |
 | Routine editor | `editor`, `editor-picker`, `editor-new` | `Features/RoutineEditor/` |
 | Exercise library | `library` | `Features/Library/` |
@@ -24,6 +24,10 @@ Run `make design-reference` to regenerate the committed metrics and local refere
 | Posture home | `posture` | `Features/PostureHome/` |
 | Saved posture assessment | `assessment` | `Features/Assessment/` |
 | Settings | `settings` | `Features/Settings/` |
+
+Train can show Today's Session in the existing hero slot when adaptive training has an offer. It keeps the routine hero's
+height, gradient, and radius, with only the `train.hero` container anchor. The design fixture has no adaptive coordinator,
+so it has no Today hero design frame; the routine hero and its anchors remain the design reference.
 
 These fixtures cover all 21 frames. Realtime posture, photo import, and voice-command help are additional routes without a frame in the current bundle.
 

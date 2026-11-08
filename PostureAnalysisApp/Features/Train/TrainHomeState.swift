@@ -35,6 +35,27 @@ struct TrainLastWorkoutPresentation: Equatable {
     let summary: String
 }
 
+enum TrainTodayHeroKind: Equatable {
+    case ready
+    case completed
+    case needsCalibration
+}
+
+enum TrainTodayHeroAction: Equatable {
+    case startTodaySession
+    case findStartingPoint
+}
+
+struct TrainTodayHeroPresentation: Equatable {
+    let kind: TrainTodayHeroKind
+    let eyebrow: String
+    let title: String
+    let subtitle: String
+    let action: TrainTodayHeroAction?
+    let actionTitle: String?
+    var startProblem: String? = nil
+}
+
 struct TrainHomeState: Equatable {
     let dateLabel: String
     let heroRoutine: TrainHomeRoutinePresentation?
@@ -43,6 +64,7 @@ struct TrainHomeState: Equatable {
     let exercises: [TrainExerciseTile]
     let lastWorkout: TrainLastWorkoutPresentation?
     var showsPersonaIntro = false
+    var todayHero: TrainTodayHeroPresentation? = nil
 
     var showsCreateRoutineEmptyState: Bool { !routineChoices.contains { $0.canStart } }
 }
@@ -60,6 +82,8 @@ enum TrainHomeIntent: Equatable {
     case openPersonaSettings
     case openLibrary
     case openHistory
+    case startTodaySession
+    case findStartingPoint
 }
 
 enum TrainHomeDateFormatter {
