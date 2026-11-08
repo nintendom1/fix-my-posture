@@ -11,22 +11,25 @@
 `WorkoutSession` emits value-only `Utterance` effects. `WorkoutCoachModel` sends those lines to `SpeechCoach`, which
 keeps at most two pending lines, remembers the last instruction, and stops listening before ducking other audio.
 When playback drains, the coach asks the same `WorkoutAudioSession` owner to restore other audio and resume listening
-when needed. Queue, interruption, repeat, watchdog, activity, ducking, and restoration order are pinned by
+when needed. Queue, utterance interruption, repeat, watchdog, activity, ducking, and restoration order are pinned by
 `SpeechCoachQueueTests` using a fake synthesizer with the real `SpeechCoach`.
 
 `SpeechSynthesizing` is the narrow speech backend seam. `SystemSpeechSynthesizer` forwards speech, stop, speaking
-state, and start/finish/cancel callbacks to `AVSpeechSynthesizer`. `SpeechCoach` uses it by default. The injected
-watchdog scheduler is test-only in purpose and defaults to the existing Foundation timer behavior.
+state, and start/finish/cancel callbacks to `AVSpeechSynthesizer`; callbacks are delivered asynchronously on the main
+queue. `SpeechCoach` uses it by default. `SpeechCoachQueueTests` pins the wrapper callback timing and lifetime as well
+as the real coach queue. The injected watchdog scheduler is test-only in purpose and defaults to the existing
+Foundation timer behavior.
 
-## Dormant phase-2 contracts
+## Dormant and internal audio contracts
 
-`WorkoutAudioCoordinator` delegates every `AudioSessionControlling` method and event to its supplied owner. It is not
-wired into production. `WorkoutAudioSession` remains the sole system session owner.
+**Dormant and internal:** `AudioCoordinating` and `WorkoutAudioCoordinator` delegate every `AudioSessionControlling`
+method and event to the supplied owner. They are not wired into production. `WorkoutAudioSession` remains the sole
+system session owner.
 
-`SoundCueID` names future semantic events with stable values. `AudioPriority` orders speech above sound effects above
-background music. Its policy labels say that recognition pauses music and sound effects, and speech ducks lower
-priority playback. `BackgroundMusicPlaying` and `SoundEffectPlaying` are contracts only; this phase adds no players,
-callers, mixing changes, or sounds.
+**Dormant and internal:** `SoundCueID` names future semantic events with stable values. `AudioPriority` orders speech
+above sound effects above background music. Its policy labels say that recognition pauses music and sound effects,
+and speech ducks lower-priority playback. `BackgroundMusicPlaying` and `SoundEffectPlaying` are contracts only; this
+phase adds no players, callers, mixing changes, or sounds.
 
 ## Future prerecorded speech
 

@@ -51,12 +51,12 @@ PostureAnalysisApp/
 ├── Workout/                     # Workout Coach domain and camera infrastructure
 │   ├── Exercises/               # Catalog, definitions, guidance, analyzers, and per-exercise folders
 │   ├── Analysis/                # Pose frames, geometry, tracking, smoothing, and framing
-│   ├── Session/                 # Pure reducer, plan, model, intents, and factory
-│   ├── Presentation/            # Foundation-only workout state and presenters
+│   ├── Session/                 # Pure reducer, plan, model, intents, and factory; WorkoutObserving.swift is Dormant and internal
+│   ├── Presentation/            # Foundation-only workout state and presenters; WorkoutPresentationEvent.swift is Dormant and internal
 │   ├── Coaching/                # Cue scheduling and tip layout
 │   ├── Diagnostics/             # Developer session recorder, line format, file writer, and store
 │   └── Camera/                  # Camera source/controller, permissions, and phone tilt
-├── Voice/                       # Speech, audio session, command parsing, and microphone services
+├── Voice/                       # Speech, audio session, command parsing, and microphone services; includes SpeechSynthesizing.swift, AudioCoordinating.swift, and SoundCue.swift
 ├── LandmarkEditing/             # Manual posture landmark adjustment
 ├── Utilities/                   # Coordinate conversion, camera setup, image normalization, geometry
 ├── Views/                       # Shared, still-used views reused across feature folders
@@ -66,7 +66,7 @@ PostureAnalysisApp/
     ├── Fakes/                   # Test fakes
     └── Design/                  # Metrics, anchors, frame coverage, and pending frames
 Packages/AdaptiveTraining/       # Foundation-only Swift package: progression ladders and the adaptive engine (`swift test`)
-Packages/Narrative/              # Dormant Foundation-only script model, validator, and pure narrative runtime (`swift test`)
+Packages/Narrative/              # Dormant and internal Foundation-only script model, validator, and pure runtime (`swift test`)
 scripts/design/                  # Reference extraction/rendering, anchors, masks, and pixel diff
 scripts/diagnostics/             # `make diagnostics`: pull workout recordings from the iPhone
 tools/session-replay/            # `make viewer` replay viewer + server; mcp.mjs is the `fmp-replay` MCP server in .mcp.json (Node, no deps)
@@ -138,7 +138,7 @@ pane changes, and give monitored scripts a dedicated pane.
 
 ## Documentation Reference
 - Behaviour baseline, test environment, invisible-PR parity checklist, and docs update matrix (#132, behaviour-preserving foundations): `docs/baseline.md`
-- Audio ownership, speech backend seam, dormant coordinator, and future playback policy: `docs/audio.md`
+- Audio ownership, speech backend seam, Dormant and internal coordinator, and future playback policy: `docs/audio.md`
 - Geometry & Coordinate Math: `docs/geometry.md`
 - Persistence & Baseline Comparison: `docs/persistence.md`
 - Photo Validation: `docs/validation.md`
@@ -146,7 +146,7 @@ pane changes, and give monitored scripts a dedicated pane.
 - Workout session recordings (recorder, file format, `make diagnostics`, data rule): `docs/diagnostics.md`
 - Workout Coach (Beta): `docs/workout.md`
 - Adaptive training (package boundary, progression ladders, evidence, policy): `docs/adaptive-training.md`
-- Narrative foundation (dormant script model, validation, runtime, and companion contract): `docs/narrative.md`
+- Narrative foundation (Dormant and internal script model, validation, runtime, and companion contract): `docs/narrative.md`
 - Design snapshot and layout gate: `docs/design.md`
 - Realtime posture: `docs/realtime.md`
 - Workout reminders: `docs/reminders.md`

@@ -22,7 +22,7 @@ Warnings are `unknownFact`, `unreachableNode`, and, when a manifest is provided,
 
 ## Runtime semantics
 
-`NarrativeRuntime` is a pure value type. `start(scene:)`, `advance(from:)`, and `choose(_:from:)` take explicit input and return a `NarrativeStep` with the new state. Choices show only options whose conditions evaluate true. Selecting a hidden or unknown option returns `failed` and preserves the input state. Lines advance in scene order; branches, choices, and jumps select their declared targets. Automatic control flow is bounded by a configurable step limit.
+`NarrativeRuntime` is a pure value type. `start(scene:)`, `advance(from:)`, and `choose(_:from:)` take explicit input and return a `NarrativeRuntimeResult` containing the `NarrativeStep`, optional new state, and optional checkpoint. Choices show only options whose conditions evaluate true. Selecting a hidden or unknown option returns `failed` and preserves the input state. Lines advance in scene order; branches, choices, and jumps select their declared targets. Automatic control flow is bounded by a configurable step limit.
 
 Conditions treat absent flags as false. A fact is compared only if the host marks its ID as known and supplies an integer value; otherwise the condition evaluates false. Unknown fact names are reported by validation as warnings.
 
@@ -30,15 +30,15 @@ Crossing a checkpoint node returns an in-memory `NarrativeCheckpoint` containing
 
 ## Asset fallbacks
 
-When a line's expression asset is unavailable, the presentation uses the character's default semantic expression and its available asset. When an audio asset is unavailable, the presentation omits its audio reference. Both decisions are recorded in that step's `fallbacks`.
+When a line's expression asset is unavailable, the runtime returns the character's default semantic expression and its available asset. When an audio asset is unavailable in the supplied manifest, the runtime omits its audio reference. Both decisions are recorded in that step's `fallbacks`.
 
 ## Companion presentation contract
 
-`CompanionPresentation` is shared by scene lines and future coaching callouts. It carries a character, semantic expression, optional text and audio reference, kind, blocking behavior, and dismissal policy. Callouts must be non-blocking. `CompanionCallout.make(...)` creates one from a semantic cue ID and text without app-specific types or playback behavior.
+**Dormant and internal:** `CompanionPresentation` is the value contract for scene lines and future coaching callouts. It carries a character, semantic expression, optional text and audio reference, kind, blocking behavior, and dismissal policy. Callouts must be non-blocking. `CompanionCallout.make(character:expression:cueID:text:)` creates a non-blocking value from the character, expression, cue ID, and text without app-specific types or playback behavior.
 
 ## Memory scopes
 
-`.player` flags are durable player/meta-history. `.loop` flags represent future loop-local companion memory that a later weekly reset may clear. `NarrativeState.resettingLoopMemory(in:)` is an in-memory helper that preserves player flags and removes loop flags. A story reset never touches workout history, adaptive training data, or notifications. No narrative state is stored by this package.
+`.player` flags are reserved for host-managed player/meta-history, and `.loop` flags represent loop-local companion memory that a host may clear on a weekly reset. The package itself persists neither scope. `NarrativeState.resettingLoopMemory(in:)` is an in-memory helper that preserves player flags and removes loop flags. A future story reset must not touch workout history, adaptive training data, or notifications.
 
 ## Tests and activation
 

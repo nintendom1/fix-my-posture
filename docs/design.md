@@ -1,6 +1,6 @@
 # Design system and screen layout reference
 
-The local, read-only design bundle is the reference for the redesigned screens. `make design-reference` extracts its 21 `#t2` frames, renders them in Playwright WebKit, and writes updated `Design/Metrics/design-metrics.json`. Reference PNGs and the Google Fonts cache go under ignored `build/design/`. The bundle must be present at `fix-my-posture-mobile-app-design/project/Fix My Posture Redesign.dc.html`; these commands do not modify it.
+The local, read-only design bundle records the current app screens. `make design-reference` extracts its 21 `#t2` frames, renders them in Playwright WebKit, and writes updated `Design/Metrics/design-metrics.json`. Reference PNGs and the Google Fonts cache go under ignored `build/design/`. The bundle must be present at `fix-my-posture-mobile-app-design/project/Fix My Posture Redesign.dc.html`; these commands do not modify it. #132 leaves the current visual references and screens unchanged; game-style screen work belongs to a later feature phase.
 
 `scripts/design/anchors.mjs` maps each stable frame ID to text or structural locators. Anchor names use `<screen>.<element>` (for example, `train.hero.cta` and `camera.repCount`). `box` anchors tolerate 1 pt and `text` anchors tolerate 2 pt. Every design frame currently has a fixture; `PendingFrames.ids` is empty.
 
@@ -29,7 +29,7 @@ These fixtures cover all 21 frames. Realtime posture, photo import, and voice-co
 
 ## SwiftUI design system
 
-`PostureAnalysisApp/DesignSystem/` is the dark-first design system used by the redesigned screens. Feature screens use its semantic tokens, motion policy, anchors, and reusable components.
+`PostureAnalysisApp/DesignSystem/` is the dark-first design system used by the current screens. Feature screens use its semantic tokens, motion policy, anchors, and reusable components.
 
 ### Colors
 
@@ -143,7 +143,7 @@ The current design coverage defers richer progress charts, exercise favourites, 
 
 `PostureAnalysisApp/App/` owns the composition root and the app shell. `AppEnvironment` constructs the router, preferences, SwiftData container and repositories, exercise catalog, and workout factory once, then provides them through SwiftUI's environment. `PostureAnalysisApp` starts at `AppShellView`.
 
-The native `TabView` order is Train, Routines, Progress, Posture. Each tab owns a `NavigationStack` and an `[AppRoute]` path managed by the Foundation-only `AppRouter`. Selecting a different tab preserves its path; selecting the active tab again returns it to its root. `AppRoute` is Codable and Hashable so route state can be tested without rendering SwiftUI. Settings and the workout camera use a full-screen presentation over the tabs; the remaining routes push into their owning stack.
+The native `TabView` order is Train, Routines, Progress, Posture. Each tab owns a `NavigationStack` and an `[AppRoute]` path managed by the Foundation-only `AppRouter`. Selecting a different tab preserves its path; selecting the active tab again returns it to its root. `AppRoute` is Codable and Hashable so route state can be tested without rendering SwiftUI. `AppRoute.isPresentedFullScreen` and `AppShellView.fullScreenDestination(for:)` cover `settings`, `workout`, `todaySession`, `calibration`, and `livePostureCheck`. All other routes use their owning tab's stack destination.
 
 | Route | Tab or presentation | Current entry point |
 |---|---|---|
@@ -151,9 +151,13 @@ The native `TabView` order is Train, Routines, Progress, Posture. Each tab owns 
 | `routines`, `routine(id)`, `routineEditor(id?)` | Routines stack | Saved Sets tab and its create/edit controls |
 | `progress`, `history` | Progress stack | Progress opens Workout History; Train's History control opens the same route |
 | `posture`, `postureHistory`, `assessment(id)` | Posture stack | Posture home and saved assessment history/details |
-| `livePostureCheck`, `photoAssessment(view)` | Posture flow | Live-check card and photo actions on the Posture home |
+| `photoAssessment(view)`, `capturePosturePhoto(view)`, `importPosturePhoto(view)` | Posture stack | Photo actions on the Posture home |
+| `livePostureCheck` | Full-screen over Posture | Live-check card on the Posture home |
 | `settings` | Full-screen over Train | Train gear; SettingsScreen adds an Adaptive Training group when its provider is available (no design frame yet), followed by coach, workout, camera and posture, and about preferences. Done dismisses the cover. |
-| `workout(exerciseID?, routineID?)`, `workoutComplete` | Full-screen workout flow | Train quick-start, exercise detail, or routine; completion appears within the workout flow |
+| `todaySession` | Full-screen over Train | Settings › Developer diagnostics › Adaptive training; Today's Session remains a developer entry point |
+| `calibration` | Full-screen over Train | Settings › Developer diagnostics › Adaptive training shortcut. The regular Settings › Adaptive Training page separately pushes initial calibration, add-area, and recalibration flows inside Settings. |
+| `workout(exerciseID?, routineID?)` | Full-screen over Train | Train quick-start, exercise detail, or routine |
+| `workoutComplete` | Train stack placeholder | No normal entry point; the completion summary appears inside the workout flow |
 
 Workout history and posture assessment history are distinct: `.history` is workout history with weight editing under Progress, while `.postureHistory` is the saved assessment list with baseline selection under Posture. The report's Developer Diagnostics button and assessment landmark editor remain in the Posture assessment flow.
 
