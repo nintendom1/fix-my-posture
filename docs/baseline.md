@@ -117,12 +117,11 @@ no other sound or haptic.
 
 **Protected by:** `WorkoutSessionTests` (utterance text per event), `WorkoutCoachModelTests` and `WorkoutIntentTests`
 (what the model asks a `FakeSpeechCoach` to say), `WorkoutCoachModelRecordingTests` (recorded `speak` events),
-`SpeechActivityTraceTests` (fake coach activity and the model's listening response), `WorkoutObservationTests`, and
+`SpeechActivityTraceTests` (fake coach activity and the model's listening response), `WorkoutObservationTests`,
+`SpeechCoachQueueTests` (real queue, repeat, interrupt, watchdog, activity, ducking and restoration order), and
 `AudioWorkTimingTests`.
-**Gaps:** the real `SpeechCoach` queue (max 2 queued, interrupt, watchdog, repeat) is untested. The real
-`SpeechCoach.speakNext` activity callback and ducking order is unpinned until phase 2 provides a synthesizer seam.
-The audio-facade PR must add a production trace through that seam before changing this behavior. Voice selection and
-speech timing are device checklist only.
+**Gaps:** voice selection and real speech timing are device checklist only. The watchdog deadline is tested with an
+injected scheduler; wall-clock firing of Foundation's default timer is not a simulator timing assertion.
 
 ### Listening
 
@@ -156,10 +155,9 @@ the session.
 `AudioSessionParityTests` (category, option bits, activation, ducking, deactivation, notification events, and failure
 paths), `SpeechActivityTraceTests` (model event routing and controller/audio-session response to supplied
 coach-speaking state), and `WorkoutCoachModelTests` (an interruption pauses the session).
-**Gaps:** the ordering between the real `SpeechCoach.speakNext` activity callback and ducking, and `finishActivity`
-restore and callback, is unpinned until phase 2 provides a synthesizer seam. The audio-facade PR must add a production
-trace through that seam before changing this behavior. Completion of the restore retry sequence is untested because
-its dispatch timer is not injectable. Real routes (Bluetooth, AirPlay, calls, Siri) are device checklist only.
+**Gaps:** completion of the restore retry sequence is untested because its dispatch timer is not injectable. Real
+routes (Bluetooth, AirPlay, calls, Siri) are device checklist only. `SpeechCoachQueueTests` pins the real
+`speakNext` activity/ducking order and `finishActivity` restore/callback order through the synthesizer seam.
 
 ### Reminders and character notifications
 
@@ -217,6 +215,7 @@ Status comes from a keyword and section review on 2026-11-07, not a line-by-line
 | `AGENTS.md` | Structure map, architecture, invariants, commands | Current |
 | `docs/adaptive-training.md` | Package boundary, ladders, facts, policy, Today's Session, effort, bonus, Too Hard, calibration, debug | Current; "The Train hero arrives in PR 14" (Today's Session flow, Calibration › In the app) is planned |
 | `docs/agent-orchestration.md` | Agent roles, panes, briefs, build lock, review | Current (process) |
+| `docs/audio.md` | Audio ownership, speech backend seam, dormant coordinator, future cue policy | Current and future contracts labeled |
 | `docs/baseline.md` | This inventory | Current |
 | `docs/commit-and-pr.md` | Gitleaks gate, commit and PR format | Current |
 | `docs/debugging.md` | Developer diagnostics view and links | Current |
@@ -254,7 +253,7 @@ it does not apply:
 |---|---|
 | Workout, coach, or workout event | `docs/workout.md` |
 | Adaptive training | `docs/adaptive-training.md` |
-| Voice or audio | `docs/workout.md` (Speech and audio, Voice control); add `docs/audio.md` only when a real audio boundary is implemented |
+| Voice or audio | `docs/workout.md` (Speech and audio, Voice control), `docs/audio.md` |
 | Navigation or design | `docs/design.md` (frame and fixture map, routes), `Design/Metrics`, anchors |
 | Persistence | `docs/persistence.md`, including migration and recovery guidance |
 | Persona or notifications | `docs/persona.md`, `docs/persona-content.md`, `docs/notifications.md`, `docs/notification-scenarios.md`, `docs/reminders.md` as relevant |

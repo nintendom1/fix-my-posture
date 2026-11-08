@@ -481,6 +481,11 @@
 		A10000012B00000000000491 /* WorkoutObserving.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000491 /* WorkoutObserving.swift */; };
 		A10000012B00000000000492 /* WorkoutPresentationEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000492 /* WorkoutPresentationEvent.swift */; };
 		A10000012B00000000000493 /* WorkoutObservationTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000493 /* WorkoutObservationTests.swift */; };
+		A10000012B00000000000494 /* SpeechSynthesizing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000494 /* SpeechSynthesizing.swift */; };
+		A10000012B00000000000495 /* AudioCoordinating.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000495 /* AudioCoordinating.swift */; };
+		A10000012B00000000000496 /* SoundCue.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000496 /* SoundCue.swift */; };
+		A10000012B00000000000497 /* SpeechCoachQueueTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000497 /* SpeechCoachQueueTests.swift */; };
+		A10000012B00000000000498 /* AudioCoordinatorTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000498 /* AudioCoordinatorTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -970,6 +975,11 @@
 		B10000012B00000000000491 /* WorkoutObserving.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutObserving.swift; sourceTree = "<group>"; };
 		B10000012B00000000000492 /* WorkoutPresentationEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutPresentationEvent.swift; sourceTree = "<group>"; };
 		B10000012B00000000000493 /* WorkoutObservationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutObservationTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000494 /* SpeechSynthesizing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechSynthesizing.swift; sourceTree = "<group>"; };
+		B10000012B00000000000495 /* AudioCoordinating.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCoordinating.swift; sourceTree = "<group>"; };
+		B10000012B00000000000496 /* SoundCue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundCue.swift; sourceTree = "<group>"; };
+		B10000012B00000000000497 /* SpeechCoachQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechCoachQueueTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000498 /* AudioCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCoordinatorTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1264,6 +1274,8 @@
 				B10000012B00000000000488 /* RouteParityTests.swift */,
 				B10000012B00000000000489 /* SpeechActivityTraceTests.swift */,
 				B10000012B00000000000493 /* WorkoutObservationTests.swift */,
+				B10000012B00000000000497 /* SpeechCoachQueueTests.swift */,
+				B10000012B00000000000498 /* AudioCoordinatorTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1391,6 +1403,9 @@
 				B10000012B00000000000163 /* VoiceControlling.swift */,
 				B10000012B00000000000434 /* AudioWorkTiming.swift */,
 				B10000012B00000000000464 /* EffortPhraseParser.swift */,
+				B10000012B00000000000494 /* SpeechSynthesizing.swift */,
+				B10000012B00000000000495 /* AudioCoordinating.swift */,
+				B10000012B00000000000496 /* SoundCue.swift */,
 			);
 			path = Voice;
 			sourceTree = "<group>";
@@ -2453,6 +2468,9 @@
 				A10000012B00000000000480 /* AdaptiveTrainingSettingsPage.swift in Sources */,
 				A10000012B00000000000491 /* WorkoutObserving.swift in Sources */,
 				A10000012B00000000000492 /* WorkoutPresentationEvent.swift in Sources */,
+				A10000012B00000000000494 /* SpeechSynthesizing.swift in Sources */,
+				A10000012B00000000000495 /* AudioCoordinating.swift in Sources */,
+				A10000012B00000000000496 /* SoundCue.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2622,6 +2640,8 @@
 				A10000012B00000000000489 /* SpeechActivityTraceTests.swift in TestSources */,
 				A10000012B00000000000490 /* SpeechActivityGoldenTraces.swift in TestSources */,
 				A10000012B00000000000493 /* WorkoutObservationTests.swift in TestSources */,
+				A10000012B00000000000497 /* SpeechCoachQueueTests.swift in TestSources */,
+				A10000012B00000000000498 /* AudioCoordinatorTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
