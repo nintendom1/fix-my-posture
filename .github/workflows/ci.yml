@@ -4,8 +4,20 @@ on:
   push:
     # Feature branch pushes are covered by pull_request, including stacked PRs.
     branches: [ main ]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.mdx'
+      - '**/*.txt'
   pull_request:
     # Run for every base branch so stacked PRs are validated too.
+    # Skip only when ALL changed files are Markdown or text files.
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.mdx'
+      - '**/*.txt'
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
