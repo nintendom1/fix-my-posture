@@ -5,7 +5,8 @@ An iPhone 15 Pro native Swift/SwiftUI application for analyzing standing body po
 ## Key Features
 
 - **Four-tab app**: Train, Routines, Progress, and Posture, with settings for workout, camera, and posture preferences.
-- **Workouts and routines**: Quick-start six guided exercises, save and reorder routines, and review rep and weight history.
+- **Workouts and routines**: Quick-start 14 camera-guided exercises, save and reorder routines, and review rep and weight history.
+- **Workout reminders**: Optional on-device reminders, plain or from a notification character, set up in Settings.
 - **Exercise library**: Search and filter exercises, review movement guidance, and adjust set and rep targets.
 - **Progress and history**: See weekly workout stats and trends, open completed workouts, and edit logged weights.
 - **On-device posture checks**: Analyze photos or use the live camera for geometric measurements, baseline comparisons, and manual landmark adjustment. Photos and frames stay on the device.

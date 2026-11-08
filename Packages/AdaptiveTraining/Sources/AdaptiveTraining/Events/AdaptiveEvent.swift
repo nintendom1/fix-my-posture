@@ -1,7 +1,8 @@
 import Foundation
 
-/// Semantic adaptive-training events for persona and notification copy. They flow one way: copy can react to an
-/// event, but nothing a reaction says or does can change the engine's state.
+/// Semantic adaptive-training events, intended for persona and notification copy (planned in #112, Persona Reactions
+/// for Adaptive Training Events). Nothing in the app reacts to them yet; they appear only in the developer snapshot.
+/// They flow one way: copy can react to an event, but nothing a reaction says or does can change the engine's state.
 public enum AdaptiveEventKind: String, Codable, CaseIterable, Sendable {
     case tinySessionPrescribed
     case sessionCompleted

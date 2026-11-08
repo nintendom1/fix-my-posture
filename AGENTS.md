@@ -136,6 +136,7 @@ pane changes, and give monitored scripts a dedicated pane.
   executable is unavailable.
 
 ## Documentation Reference
+- Behaviour baseline, test environment, invisible-PR parity checklist, and docs update matrix (#132, behaviour-preserving foundations): `docs/baseline.md`
 - Geometry & Coordinate Math: `docs/geometry.md`
 - Persistence & Baseline Comparison: `docs/persistence.md`
 - Photo Validation: `docs/validation.md`

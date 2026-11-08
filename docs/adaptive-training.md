@@ -212,12 +212,18 @@ is offered. The rationale is the family's latest non-record-only transition, or 
 ### Semantic events
 
 `AdaptiveEventDeriver` derives events from facts and transitions, oldest first. Ties use the fact UUID and then
-`AdaptiveEventKind.allCases` order. Starts from an initial or add-family calibration produce one
-`calibrationCompleted`; recalibration produces one `recalibrationCompleted`. Increases and harder samples produce
-`progressed`; decreases and easier variants produce `regressed`. Rated evidence produces an effort event unless it is
-a calibration probe. Completed adaptive main items produce `sessionCompleted`. Bonus facts produce `bonusOffered` and
+`AdaptiveEventKind.allCases` order. Starts from a committed initial or add-family calibration produce one
+`calibrationCompleted`; a committed recalibration produces one `recalibrationCompleted`. Increases and harder samples
+produce `progressed`; decreases and easier variants produce `regressed`. Rated evidence produces an effort event unless
+it is a calibration probe. A Today's Session main item that was completed, stopped early, or switched to an easier
+version produces `sessionCompleted`. Bonus facts produce `bonusOffered` and
 either `bonusAccepted` or `bonusDeclined`. A transition after absence produces `returnedAfterAbsence`.
-`tinySessionPrescribed` is raised by the app from `TodaySession.isTiny`, not from replay.
+`tinySessionPrescribed` is defined but not derived from replay, and the app does not emit it yet.
+
+The engine's `record`, `save`, `commit`, `abandon`, `removeFamily`, and `changeEquipment` return the events derived for
+their fact. `AdaptiveTrainingCoordinator` discards them, so nothing in the app reacts to an event yet; they appear only
+in the developer snapshot and export (see [Debug view and export](#debug-view-and-export)). Persona and notification
+reactions are planned in #112 (Persona Reactions for Adaptive Training Events).
 
 ### Cache
 
