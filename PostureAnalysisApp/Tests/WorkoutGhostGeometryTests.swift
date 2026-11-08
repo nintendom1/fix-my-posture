@@ -241,12 +241,12 @@ final class WorkoutGhostGeometryTests: XCTestCase {
 
     func testRightSideReadyPosesBlendWithoutExtraIdealLimbs() throws {
         let exercises = [StiffLegDeadliftExercise.definition(), RearLungeExercise.definition(),
-                         GluteBridgeExercise.definition()]
+                         GluteBridgeExercise.definition(), WallPushUpExercise.definition()]
         for exercise in exercises {
             let variant = try XCTUnwrap(ReadyPoseFixtures.variants(for: exercise).first { $0.name == "minimal right" })
             let readyFrame = ReadyPoseFixtures.frame(variant, at: 0)
             let overlay = overlay(from: readyFrame)
-            let samples = exercise.id == .rearLunge || exercise.id == .gluteBridge
+            let samples = exercise.id == .rearLunge || exercise.id == .gluteBridge || exercise.id == .wallPushUp
                 ? [exercise.guide.motion.startSample, exercise.guide.motion.topSample]
                 : [exercise.guide.motion.startSample]
 
@@ -590,6 +590,13 @@ final class WorkoutGhostGeometryTests: XCTestCase {
                     case .side where exercise.guide.motion.movesSideBody:
                         missingOverlay.joints[.leftHip] = nil
                         missingOverlay.joints[.rightHip] = nil
+                    case .side where exercise.guide.motion.wallPushUp:
+                        for side in BodySide.allCases {
+                            missingOverlay.joints[side.shoulder] = nil
+                            missingOverlay.joints[side.elbow] = nil
+                            missingOverlay.joints[side.wrist] = nil
+                            missingOverlay.joints[side.hip] = nil
+                        }
                     case .side:
                         XCTAssertFalse(GhostCalibration.canFit(overlay: overlay, metrics: nil,
                                                                motion: exercise.guide.motion,

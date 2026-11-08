@@ -56,6 +56,18 @@ struct WorkoutGhostOverlayView: View {
         if !figure.isEmpty, imageSize.width > 0, imageSize.height > 0 {
             let fit = CoordinateConverter.aspectFitRect(for: imageSize, in: size)
             ZStack {
+                if motion.wallPushUp,
+                   let shoulder = figure.joints[.leftShoulder],
+                   let wrist = figure.joints[.leftWrist] {
+                    Canvas { context, _ in
+                        let facing: CGFloat = wrist.x >= shoulder.x ? 1 : -1
+                        let wallX = wrist.x + facing * 3
+                        var wall = Path()
+                        wall.move(to: CGPoint(x: wallX, y: fit.minY))
+                        wall.addLine(to: CGPoint(x: wallX, y: fit.maxY))
+                        context.stroke(wall, with: .color(Self.ghostColor.opacity(0.75)), lineWidth: 2)
+                    }
+                }
                 AlignmentReferenceOverlayView(
                     referencePose: ReferencePose(jointLocations: imagePixelJoints(figure.joints,
                                                                                    imageSize: imageSize,

@@ -1,6 +1,6 @@
 # Workout Coach (Beta)
 
-Start **Workout Coach (Beta)** from a Train quick-start tile, an exercise detail page, or a routine. The first time an exercise opens, a short guide shows before the camera starts. Then prop the phone up in portrait, step back so the camera can see the required joints with room to move, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10), lateral raises (2 sets of 10), hammer curls (2 sets of 10), an overhead band triceps extension filmed side-on (2 sets of 10), air squats with the whole body in view (2 sets of 15), stiff-legged dumbbell deadlifts filmed side-on (2 sets of 8–10), dumbbell rear lunges filmed side-on (2 sets of 8 each leg), one-arm dumbbell rows filmed side-on (2 sets of 8–10 each arm), dumbbell shrugs (2 sets of 12), push-ups with the phone on the floor (2 sets of 10), and glute bridges with the upright phone at floor level (2 sets of 12). It announces a target range when one applies and set completion, gives occasional form tips, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
+Start **Workout Coach (Beta)** from a Train quick-start tile, an exercise detail page, or a routine. The first time an exercise opens, a short guide shows before the camera starts. Then prop the phone up in portrait, step back so the camera can see the required joints with room to move, and follow the spoken setup. The coach counts reps for a standing dumbbell shoulder press (2 sets of 8–10), lateral raises (2 sets of 10), hammer curls (2 sets of 10), an overhead band triceps extension filmed side-on (2 sets of 10), air squats with the whole body in view (2 sets of 15), stiff-legged dumbbell deadlifts filmed side-on (2 sets of 8–10), dumbbell rear lunges filmed side-on (2 sets of 8 each leg), one-arm dumbbell rows filmed side-on (2 sets of 8–10 each arm), dumbbell shrugs (2 sets of 12), push-ups with the phone on the floor (2 sets of 10), wall push-ups filmed side-on (2 sets of 6–10), and glute bridges with the upright phone at floor level (2 sets of 12). It announces a target range when one applies and set completion, gives occasional form tips, and keeps the screen awake while it is open. After the permission prompts, the whole workout can run by voice: say "start", "pause", "next set", and so on.
 
 Rep counts, framing checks, and form tips are geometric heuristics from a 2D camera. They are not medical, injury, or performance assessments.
 
@@ -292,6 +292,18 @@ Push-ups are filmed by a phone lying on the floor a long step in front of the ha
   - The tilt warning is off (`ExerciseDefinition.warnsAboutTilt = false`), since the phone leans back on purpose.
   - Holding the plank with straight arms for a second starts the set.
 
+## Wall push-up rep rule
+
+Stand about an arm's length from a wall with your feet hip-width apart, side-on to the phone. Place both hands on the wall at shoulder height. The phone tracks the more-confident complete arm when it first appears and holds that choice through brief occlusions. If that arm is gone for longer than a tracking gap (0.28 s), for example because you turned around, tracking resets and the visible arm takes over; a half-finished rep is not carried over, so the next rep starts from a fresh Up. Framing accepts either side's shoulder, elbow, wrist, and hip; the ankle is optional for the body-line cue. Both hands stay planted, and the exercise credits both sides for each rep.
+
+- Signals: `e` is the 2D elbow angle. `h` is the horizontal shoulder-to-wrist distance divided by upper-arm plus forearm length. The arm ruler is the longest measured length over the last second and locks at Up. It first locks on a confirmed Up, then refreshes only at a settled, straighter return (`h ≥ 0.9`, `e ≥ 160°`); a return just inside the Up line cannot ratchet it.
+- Up (the start) is `e ≥ 150°` and `h ≥ 0.75`. Down is `e ≤ 115°` and `h ≤ 0.6`. The shallow variant uses `e ≤ 135°` and `h ≤ 0.72`. Each zone needs 2 consecutive samples. Up → Down → Up counts after at least 0.8 s. A gap over 0.28 s clears the cycle, ruler, and reference.
+- Form: an attempt starts after two samples away from Up and ends on the first sample back at Up, one frame before the rep counts, so the last rep's cue still reaches the set. "Deeper" needs the tracker's confirmed Down, so one noisy sample doesn't satisfy it, and a lockout needs a return at least halfway toward Up before the next Down, so holding near the Down line never flags it.
+- Threshold segments mark the shoulder's wall-side positions implied by the locked `h` values. A rep credits both sides so the session's displayed count advances.
+- The floor rung is **Shallow Wall Push-Up**, a reduced-range variant with the same `wall_push_up` id. Its guide says to bend a little, and its Down segment is labeled **Bend a little ↓**. A full-depth wall push-up also counts for this variant.
+- Validation: the demo reads Up `e = 180°`, `h = 1.000`, and full Down `e = 88°`, `h = 0.514`; the shallow Down reads `e = 105°`, `h = 0.652`. It counts exactly one rep per loop at ½× and 2×, facing either way, and with upper arm or forearm ±15%. The shallow demo counts for the shallow definition. These are prototype values to tune on device.
+- The guide shows standing side-on with hands fixed at the wall and the body in one straight line. It starts when straight arms are held for 1 s. The set is 2 × 6–10 with 45 s rest, and completes at 10. Its Library thumbnail uses the `figure.strengthtraining.functional` placeholder until a photo is approved.
+
 ## Glute bridge rep rule
 
 Set the phone upright at floor level, side-on to you, far enough back to show your shoulders through your feet in portrait. Lie on your back with your knees bent and feet flat. Framing accepts either complete side (shoulder, hip, knee, and ankle), and asks you to lie side-on with your whole body in view. The phone tilt warning stays on because the phone is upright.
@@ -326,6 +338,16 @@ While counting, the coach watches how each rep is done and offers a short tip no
 | "Press both arms evenly." (10) | The wrists cross the Top line more than 0.3 s apart, or differ in height by more than 0.25 on the way up. | 0 s / 0 |
 
 Reminders, visual only: "Brace your core.", "Breathe out as you press.", "Keep your ribs down."
+
+Wall push-ups (`WallPushUpFormMonitor`) judge a single side-view arm while counting uses only the Up and Down checkpoints. The ankle is optional; when visible, body-line bend is saved at the deepest sample.
+
+| Cue (priority) | Raised when | Guide demo |
+|---|---|---|
+| "Bend your elbows a little more." `wallpush.deeper` (50) | The attempt returns to Up without reaching the Down line (or the shallow line for the reduced-range variant). | never |
+| "Keep your body in a straight line." `wallpush.body_line` (40) | At the deepest sample, the shoulder–hip–ankle angle bends by more than 20°. Needs the ankle. | 0° bend |
+| "Press all the way back." `wallpush.lockout` (30) | After Down, another Down is confirmed before Up is reached. | never |
+
+Reminders, visual only: "Hands at shoulder height." and "Breathe out as you press."
 
 Hammer curls (`HammerCurlFormMonitor`) judge each arm's attempts separately. An attempt begins once an arm settles hanging straight and its wrist rises 0.5 above where it hung.
 
@@ -501,6 +523,7 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
   - continuous scale changes to 0.75× and 1.33× between reps produce no false events, return relaxed lift to within 0.02 of zero, and still count the next shrug;
   - estimated arm joints suppress form flags and signals while counting continues; straight arms below horizontal or forward do not satisfy the hanging start; the definition, voice aliases, and photo record match the issue.
 - `PushUpAnalyzerTests` run the floor-view demonstration at ½×/2×, mirrored, and with either segment ±15%. They also check that a shallow push-up asks to go lower, a fast lowering asks for control, and going back down without straightening asks to push all the way up.
+- `WallPushUpAnalyzerTests` run the side-view demo facing either way at ½×/2×, with either arm segment ±15%, and count the shallow and full-range variants. They verify the measured `e`/`h` values, two-sample zones, both-side rep credit, an eight-rep run with near-threshold returns, fresh references after a translated/scaled gap reacquisition, and the deeper, body-line, and lockout cues. An estimated elbow suppresses form while counting continues. `WorkoutSessionTests` feed one-side guide frames through the analyzer and check that both counters reach the 10-rep target. `ReadyGhostInvariantTests` check the wall figure at the minimal shoulder, elbow, wrist, and hip pose; the ankle remains optional.
 - `GluteBridgeAnalyzerTests` run the supine guide at ½×/2×, facing either way, and with thigh or shin ±15%. They verify its 134.4° Down and 180° Up demo angles, exact Down/Up ruler geometry, two-sample thresholds, Down → Up → Down counting, the 1.0 s minimum with idle Down excluded, and the 0.28 s gap. They check one form observation per attempt, including clean attempts and multiple accumulated faults, and pass a bad/clean/clean/bad sequence through `CoachingCueScheduler`. The bridge event credits both sides. `WorkoutSessionTests` check target completion and that the final target rep's peak fault reaches the session before completion. Framing and the floor-level side setup have dedicated checks. `WorkoutGhostGeometryTests` cover varied torso, thigh, and shin proportions and foot distances facing either way, a ≥175° solved top (including the review example), preserved segment lengths, exact start anchors, and unreachable-length clamping. The lying head oval opts into rotation; `ReferenceGeometryTests` check that a standing reference with a nonvertical nose-to-neck vector stays vertical. `WorkoutFramePipelineTests` check that the bridge uses its supine guide leg proportions when it estimates arm metrics.
 - `SavedExerciseSetTests` check that order, ids, and repeated exercises survive storage; that unavailable exercises need attention without being removed; that duplicates get fresh ids; and that remembered targets apply without changing the defaults.
 - `BuiltInRoutinesTests` check fixed and unique routine/item ids, exercise order and targets, catalog membership, one-set limits, and the under-seven-minute starter cap. The Shoulders & Arms estimate is 344 seconds, and the two-exercise Back & Posture estimate is 285 seconds.
@@ -661,7 +684,14 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Ten push-ups to the Down line count exactly 10. Shallow ones get "Go a little lower."
     - With your hands at the bottom edge of the frame, reps still count.
     - Dropping fast gets "Lower with control."
-- [ ] **35.** Stiff-legged dumbbell deadlift, side-on:
+- [ ] **35.** Wall Push-Up, side-on:
+    - Stand an arm's length from a wall with your feet hip-width apart, hands on the wall at shoulder height, and turn side-on to the phone. Framing accepts either side's shoulder, elbow, wrist, and hip; the ankle is optional.
+    - The ghost shows a standing side figure leaning into a wall. Its hands stay on the wall line, and the shoulder, hip, knee, and ankle stay in one straight line through the bend.
+    - Holding straight arms against the wall fills the Hold ring and starts the set. The Up and Down segments sit at the shoulder positions implied by `h`; 10 complete reps finish the set, with 45 seconds of rest.
+    - Turn to face the other way before a set and confirm it still counts. With Show Measurements, check Up at `e ≥ 150°`, `h ≥ 0.75` and Down at `e ≤ 115°`, `h ≤ 0.6`.
+    - A short bend gets "Bend your elbows a little more." Letting the hips sag or pike with the ankle visible gets "Keep your body in a straight line." Bending again before returning to Up gets "Press all the way back."
+    - The shallow variant labels its Down segment "Bend a little ↓" and counts its own shallower demo; a full-depth rep also counts. Its thumbnail remains a symbol placeholder until a photo is approved.
+- [ ] **36.** Stiff-legged dumbbell deadlift, side-on:
     - Stand side-on with your whole body in view. Framing asks for both until one side's shoulder, hip, knee, and ankle are visible.
     - The guide and ghost show standing → hip hinge → standing, with soft knees and the dumbbells close to the legs at shin level.
     - Standing still does not start the set; the status says to say "start" or tap Start.
@@ -669,7 +699,7 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Turn to face the other way: tracking and the ghost follow the visible side.
     - A shallow hinge gets "Hinge a little deeper." Squatting gets "Push your hips back, knees soft." Re-hinging before standing gets "Stand all the way up."
     - Let the weights drift away from the shin: "Keep the weights close to your legs." When the wrist is out of view, this cue stays off.
-- [ ] **36.** Dumbbell rear lunge, side-on:
+- [ ] **37.** Dumbbell rear lunge, side-on:
     - Stand side-on with your whole body in view. Framing asks for one side's shoulder, hip, knee, and ankle.
     - The guide and ghost show standing → rear step and lowered lunge → standing. The front foot stays planted, both knees bend, the torso stays upright, and the dumbbells hang at your sides.
     - Standing still does not start the set; the status says to say "start" or tap Start.
@@ -677,22 +707,22 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Start with the left leg stepping back. After its set, the coach says "Left leg done, N reps. Switch: step back with your right leg." The HUD names each leg, the two sets switch without rest, and you do not turn around between legs.
     - Face the other way between workouts: the ghost follows you, and the analyzer still counts a rear lunge without inferring the stepping leg from Vision's left/right labels.
     - A shallow lunge gets "Lower a little deeper." A short step gets "Step back a little farther." Re-lowering before standing gets "Stand all the way up." Leaning forward gets "Keep your chest up."
-- [ ] **37.** Lateral Raise, front-on:
+- [ ] **38.** Lateral Raise, front-on:
     - Stand tall with one dumbbell in each hand at your sides. The guide and ghost show the arms down → out to shoulder height → down, and the whole arm span stays inside the figure bounds.
     - Start requires `h ≤ −0.75`; Top requires `h ≥ −0.2` and `o ≥ 0.75`. Show Measurements should be stable close to and far from the phone. A front raise and a half raise do not count.
     - Ten lateral raises count exactly 10. Try one arm late, a low or bent arm, a shrug, and a sideways torso drift; verify each cue and that the shrug cue needs the nose and torso cue needs the hips.
-- [ ] **38.** Dumbbell Shrug, front-on:
+- [ ] **39.** Dumbbell Shrug, front-on:
     - Stand tall facing the phone with a dumbbell in each hand at your sides and your head in view. The guide and ghost show the shoulders rising toward the ears and lowering, with straight arms and the head and hips still. Over your relaxed shoulders, the ghost's shoulders and arms rise above yours.
     - Holding the start with straight arms fills the Hold ring. Twelve shrugs count exactly 12, and the set completes at 12.
     - With Show Measurements on, `lift` reads near 0 relaxed and above 0.10 at the top, both close to and far from the phone. Record the values for tuning the 0.04 Rest and 0.10 Top thresholds.
     - Rising onto your toes, bending your elbows, or curling without lifting the shoulders does not count.
     - Half shrugs get "Lift your shoulders higher." One shoulder lower than the other gets "Lift both shoulders evenly." Bent elbows while lifting get "Keep your arms straight." With hips in view, a sideways drift gets "Keep your torso still"; with hips out of view, it never appears.
-- [ ] **39.** Glute Bridge, supine side-on:
+- [ ] **40.** Glute Bridge, supine side-on:
     - Stand the phone upright at floor level, side-on, and far enough back to frame your shoulders through your feet. The guide shows your head and shoulder on the floor, feet planted, arms reaching toward your feet, and a straight shoulder–hip–knee line at the top. The upright-phone tilt warning remains available.
     - Lie on your back with bent knees and flat feet. Framing accepts either full side and asks for your whole body. The ghost matches the starting shoulder, hip, knee, and ankle, then follows the bridge using the measured torso, thigh, and shin to reach a straight top while keeping its near-side labels aligned.
     - Show Measurements: Down and Up rulers stay fixed through the rep and read **Down ↓** and **Up ↑**. Compare `φ` at a close and far distance and facing either direction. Do not expect lying still to auto-start; tap Start or say "start".
     - Complete 12 reps in each set. Count each rep on the confirmed Down return; wait at Down for two seconds before a quick lift and confirm it does not count. A half bridge gets "Lift your hips higher." An over-arched peak gets "Stop at a straight line." Feet too far away get "Bring your feet a little closer." Re-lifting before returning to Down gets "Lower all the way down." Clean reps get no corrective cues, and visual reminders appear during the set.
-- [ ] **40.** Saved Sets:
+- [ ] **41.** Saved Sets:
     - Create "Upper Body" with shoulder press 2 × 8–10, hammer curl 2 × 10, and shoulder press again 1 × 12. Reorder by dragging, save, quit the app, and reopen: it's still there in order. Duplicate it and delete the copy.
     - Start it: the HUD shows "Exercise 1 of 3".
     - After the last press set, rest begins with "Up next: Hammer Curl"; when rest ends, curls are set up, and nothing counts until you start.
@@ -707,12 +737,12 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Start **Shoulders & Arms** and confirm it runs Shoulder Press 8 → Lateral Raise 8 → Hammer Curl 10. The estimate is 344 seconds and it finishes in under seven minutes.
     - Start **Back & Posture** and confirm it runs Dumbbell Row 10 each arm → Dumbbell Shrug 15, two exercises with one set each. The estimate is 285 seconds and it finishes in under seven minutes.
     - Start **Legs & Glutes** and confirm it runs Air Squat 10 → Stiff-Legged Dumbbell Deadlift 8 → Glute Bridge 10, one set each. The estimate is 322 seconds and it finishes in under seven minutes.
-- [ ] **41.** History:
+- [ ] **42.** History:
     - Finish two press sets and end the workout. Workout History from Progress shows it, newest first.
     - Open it, add 17.5 lb to set 1 with "Also for the later sets", and set 2 shows 17.5 lb too. Change set 2 to 8 kg and remove it again.
     - Band triceps take a band name, and push-ups and squats show no weight control.
     - Closing the coach after a finished set (without ending) still saves it. Opening and closing without a set saves nothing. Swipe to delete a workout.
-- [ ] **42.** Weights by voice:
+- [ ] **43.** Weights by voice:
     - Mid-set, say "my weights are seventeen point five pounds". The coach says "17.5 pounds.", the Heard chip shows it, and the HUD shows 17.5 lb.
     - The next set keeps 17.5 lb. Say "weight 8 kilograms" mid-set, and the history shows 17.5 lb for set 1 and 8 kg for set 2.
     - With band triceps, say "using the red band".

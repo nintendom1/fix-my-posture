@@ -38,6 +38,20 @@ final class ExerciseVariantBridgeTests: XCTestCase {
         }
     }
 
+    func testEveryBuiltRungResolvesAndShallowWallPushUpUsesItsReducedRange() throws {
+        for rung in rungs where !ExerciseVariantBridge.notYetBuilt.contains(rung.exerciseID) {
+            XCTAssertNotNil(bridge.exercise(for: rung), "\(rung.id) must resolve to a runnable definition")
+        }
+
+        let shallowRung = try XCTUnwrap(bridge.ladders.rung(VariantID(rawValue: "push.wall_push_up.shallow")))
+        let shallow = try XCTUnwrap(bridge.exercise(for: shallowRung))
+        XCTAssertEqual(shallow.id, .wallPushUp)
+        XCTAssertEqual(shallow.displayName, "Shallow Wall Push-Up")
+        XCTAssertEqual(shallow.spokenName, "shallow wall push-up")
+        let baseRung = try XCTUnwrap(bridge.ladders.rung(VariantID(rawValue: "push.wall_push_up")))
+        XCTAssertEqual(bridge.exercise(for: baseRung)?.displayName, "Wall Push-Up")
+    }
+
     func testAvailabilityOffersBuiltExercisesWithinTheUsersEquipment() throws {
         let withoutDumbbells = bridge.availability(equipment: [])
         let pushUp = try XCTUnwrap(bridge.ladders.rung(VariantID(rawValue: "push.push_up")))

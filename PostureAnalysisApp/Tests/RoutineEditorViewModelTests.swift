@@ -227,8 +227,9 @@ final class RoutineEditorViewModelTests: XCTestCase {
         viewModel.send(.sortPicker(.fewestReps))
         let minimums = viewModel.state.pickerExercises.map { catalog.exercise($0.exerciseID)!.targetReps.lowerBound }
         XCTAssertEqual(minimums, minimums.sorted())
+        viewModel.send(.sortPicker(.inRoutine))
         XCTAssertEqual(viewModel.state.pickerExercises.first?.inRoutineCount, 2)
-        XCTAssertEqual(viewModel.state.pickerSort, .fewestReps)
+        XCTAssertEqual(viewModel.state.pickerSort, .inRoutine)
     }
 
     func testPickerSearchUsesExerciseFilterForEquipmentAndMultipleTokens() {

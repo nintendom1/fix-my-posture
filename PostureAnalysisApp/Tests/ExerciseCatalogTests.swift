@@ -96,6 +96,17 @@ final class ExerciseCatalogTests: XCTestCase {
         XCTAssertEqual(bridge.presentation.filterGroups, [.lower, .bodyweight])
     }
 
+    func testWallPushUpIsRegisteredAfterPushUpWithAPlaceholder() throws {
+        let pushUpIndex = try XCTUnwrap(ExerciseCatalog.all.firstIndex { $0.id == .pushUp })
+        let wallPushUpIndex = try XCTUnwrap(ExerciseCatalog.all.firstIndex { $0.id == .wallPushUp })
+        XCTAssertEqual(wallPushUpIndex, pushUpIndex + 1)
+        let wallPushUp = try XCTUnwrap(ExerciseCatalog.definition(for: .wallPushUp))
+        XCTAssertEqual(wallPushUp.presentation.filterGroups, [.upper, .bodyweight])
+        XCTAssertEqual(wallPushUp.presentation.symbolName, "figure.strengthtraining.functional")
+        XCTAssertEqual(ExercisePhotography.placeholders[.wallPushUp], "figure.strengthtraining.functional")
+        XCTAssertNil(ExercisePhotography.photograph(for: .wallPushUp))
+    }
+
     func testEveryPresentationSymbolResolves() {
         for exercise in ExerciseCatalog.all {
             XCTAssertNotNil(UIImage(systemName: exercise.presentation.symbolName),

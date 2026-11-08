@@ -90,6 +90,7 @@ struct ExerciseDemoFigureView: View {
     var legs: LegPose = .standing
     var torsoPitch: Double = 0
     var shape: FigureShape = .neutral
+    var wallPushUp = false
     /// Bounds from `bounds(for:cameraView:)`; the default keeps the original canvas framing.
     var figureBounds: CGRect = CGRect(x: 0, y: 0, width: 300, height: 470)
     var tint: Color = Color(red: 0.62, green: 0.42, blue: 0.95)
@@ -125,6 +126,9 @@ struct ExerciseDemoFigureView: View {
     static let lyingSideThigh: CGFloat = 75
     static let lyingSideShin: CGFloat = 75
     static let lyingSideFloorY: CGFloat = 430
+    static let wallPushUpWallX: CGFloat = 270
+    static let wallPushUpWristY: CGFloat = 170
+    static let wallPushUpAnkle = CGPoint(x: 50, y: 460)
 
     /// Seen from a phone on the floor facing the head: hands planted, shoulders above them by the arm
     /// pose, head above the shoulders, and the hips just beyond them as the body recedes.
@@ -162,6 +166,9 @@ struct ExerciseDemoFigureView: View {
         if cameraView == .floor { return floorPose(for: angles) }
         if cameraView == .lyingSide { return lyingSidePose(for: sample) }
         if cameraView == .side {
+            if sample.wallPushUp {
+                return wallPushUpPose(for: angles)
+            }
             var joints = sidePose(shape: sample.shape)
             if let shoulder = joints[.leftShoulder] {
                 // Outward is the direction the figure faces.
@@ -182,6 +189,39 @@ struct ExerciseDemoFigureView: View {
             joints[side.wrist] = arm.wrist
         }
         return ReferencePose(jointLocations: joints)
+    }
+
+    /// Profile figure leaning into a fixed wall. The shoulder, hip, knee, and ankle stay on one line;
+    /// translating the shoulder from the fixed wrist makes the body lean farther as the elbows bend.
+    static func wallPushUpPose(for angles: ArmAngles,
+                               upperArm: CGFloat = ExerciseDemoFigureView.upperArm,
+                               forearm: CGFloat = ExerciseDemoFigureView.forearm) -> ReferencePose {
+        let wrist = CGPoint(x: wallPushUpWallX, y: wallPushUpWristY)
+        let arm = ArmMotion.place(shoulder: .zero, outward: 1, upperArm: upperArm, forearm: forearm,
+                                  angles: angles)
+        let shoulder = CGPoint(x: wrist.x - arm.wrist.x, y: wrist.y - arm.wrist.y)
+        let elbow = CGPoint(x: shoulder.x + arm.elbow.x, y: shoulder.y + arm.elbow.y)
+        let ankle = wallPushUpAnkle
+        let axis = CGVector(dx: shoulder.x - ankle.x, dy: shoulder.y - ankle.y)
+        let length = max(hypot(axis.dx, axis.dy), 1)
+        let unit = CGVector(dx: axis.dx / length, dy: axis.dy / length)
+        func bodyPoint(_ fraction: CGFloat) -> CGPoint {
+            CGPoint(x: ankle.x + axis.dx * fraction, y: ankle.y + axis.dy * fraction)
+        }
+        let hip = bodyPoint(0.55)
+        let knee = bodyPoint(0.27)
+        let neck = CGPoint(x: shoulder.x + unit.dx * 24, y: shoulder.y + unit.dy * 24)
+        let nose = CGPoint(x: neck.x + 16, y: neck.y - 6)
+        return ReferencePose(jointLocations: [
+            .nose: nose,
+            .neck: neck,
+            .leftShoulder: shoulder,
+            .leftElbow: elbow,
+            .leftWrist: wrist,
+            .leftHip: hip,
+            .leftKnee: knee,
+            .leftAnkle: ankle
+        ])
     }
 
     /// An independent supine profile layout. At hipLift 1, the shoulder, hip, and solved knee are collinear.
@@ -333,9 +373,16 @@ struct ExerciseDemoFigureView: View {
         return resolved
     }
 
+    private static func map(_ point: CGPoint, fit: CGRect, bounds: CGRect) -> CGPoint {
+        let scale = fit.width / bounds.width
+        return CGPoint(x: fit.minX + (point.x - bounds.minX) * scale,
+                       y: fit.minY + (point.y - bounds.minY) * scale)
+    }
+
     /// The same resolved sample and pose used by the guide and detail figure renderers.
     var displayedPose: ReferencePose {
-        let sample = ArmMotionSample(angles: angles, stepIndex: 0, legs: legs, shape: resolvedShape)
+        let sample = ArmMotionSample(angles: angles, stepIndex: 0, legs: legs, shape: resolvedShape,
+                                     wallPushUp: wallPushUp)
         return Self.pose(for: sample, forearmPlane: forearmPlane, cameraView: cameraView)
     }
 
@@ -351,6 +398,14 @@ struct ExerciseDemoFigureView: View {
             let fit = CoordinateConverter.aspectFitRect(for: bounds.size, in: size)
             let scale = fit.width / bounds.width
             ZStack {
+                if wallPushUp, let wrist = pose.jointLocations[.leftWrist] {
+                    Canvas { context, _ in
+                        var wall = Path()
+                        wall.move(to: Self.map(CGPoint(x: wrist.x + 3, y: bounds.minY), fit: fit, bounds: bounds))
+                        wall.addLine(to: Self.map(CGPoint(x: wrist.x + 3, y: bounds.maxY), fit: fit, bounds: bounds))
+                        context.stroke(wall, with: .color(tint.opacity(0.65)), lineWidth: 2)
+                    }
+                }
                 AlignmentReferenceOverlayView(referencePose: localPose,
                                               imageSize: bounds.size, containerSize: size,
                                               style: .silhouette,
@@ -359,20 +414,18 @@ struct ExerciseDemoFigureView: View {
                                               proportionWidth: Self.canvasSize.width * scale)
                 Canvas { context, _ in
                     guard fit.width > 0 else { return }
-                    func map(_ point: CGPoint) -> CGPoint {
-                        CGPoint(x: fit.minX + (point.x - bounds.minX) * scale,
-                                y: fit.minY + (point.y - bounds.minY) * scale)
-                    }
                     if cameraView == .floor {
                         var floorLine = Path()
-                        floorLine.move(to: map(CGPoint(x: 20, y: 436)))
-                        floorLine.addLine(to: map(CGPoint(x: 280, y: 436)))
+                        floorLine.move(to: Self.map(CGPoint(x: 20, y: 436), fit: fit, bounds: bounds))
+                        floorLine.addLine(to: Self.map(CGPoint(x: 280, y: 436), fit: fit, bounds: bounds))
                         context.stroke(floorLine, with: .color(tint.opacity(0.6)), lineWidth: 2)
                     }
                     for side in BodySide.allCases {
                         guard let elbow = pose.jointLocations[side.elbow],
                               let wrist = pose.jointLocations[side.wrist], holdsDumbbells else { continue }
-                        DumbbellDrawing.draw(in: context, elbow: map(elbow), wrist: map(wrist),
+                        DumbbellDrawing.draw(in: context,
+                                             elbow: Self.map(elbow, fit: fit, bounds: bounds),
+                                             wrist: Self.map(wrist, fit: fit, bounds: bounds),
                                              forearmLength: Self.forearm * scale)
                     }
                 }
