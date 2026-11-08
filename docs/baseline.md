@@ -3,8 +3,8 @@
 ## Status
 
 This is the current-state inventory for #132 (Refactor: behaviour-preserving foundations, phases 0–3). It records
-what the app does today, which tests pin it, and the gates every invisible PR for it must pass. It describes only code
-on `main` as of 2026-11-07. Plans for game-style UI, audio, companion, and narrative features (phases 4–6) belong to
+what the app does today, which tests pin it, and the gates every invisible PR for it must pass. This revision includes
+the internal observation seams added on 2026-11-07. Plans for game-style UI, audio, companion, and narrative features (phases 4–6) belong to
 #138 (Feature: game-style UI, audio, companion and narrative integration), not here. Update this file in the same PR whenever a baseline fact changes.
 
 ## Test environment
@@ -69,16 +69,21 @@ today only test fixtures use them. `WorkoutSession` phases are `choosingExercise
 `paused(reason)`, `resting`, `changingExercise(previous)`, `exerciseComplete`, and `ended`. A `WorkoutPlan` comes from a
 Saved Set (user or `BuiltInRoutines`), Today's Session, or a calibration sample (`savesHistory: false`). Adaptive items
 end with an effort card; an Easy answer can offer a bonus set; "Too hard?" offers an easier version mid-set.
-`WorkoutCoachView.saveHistory()` saves once per presentation on End or Close, then tells reminders.
+`WorkoutCoachView.saveHistory()` saves once per presentation on End or Close, then tells reminders. `WorkoutObserving`
+provides optional value-only callbacks after reducer handling, speech, tips, newly opened offers, successful history
+commits, and successful adaptive operations. Production attaches no observer; `WorkoutPresentationMapper` is used only
+by tests.
 
 **Protected by:** `WorkoutSessionTests`, `WorkoutCoachModelTests`, `WorkoutIntentTests`, `WorkoutCameraIntentTests`,
 `WorkoutSelfReportedTests`, the 14 `*AnalyzerTests`, `RepRejectionTests`, `WorkoutSessionReplayTests` (each catalog
 demonstration recorded and replayed), `SavedExerciseSetTests`, `BuiltInRoutinesTests`, `RoutineEstimatorTests`,
 `RoutineRotationTests`, `WorkoutHistoryTests`, `WorkoutCompletionStatsTests`, `WorkoutCompleteViewModelTests`,
 `TodaySessionFlowTests`, `BonusRepsTests`, `TooHardOfferTests`, `CalibrationViewModelTests`, `CalibrationScreenTests`,
-`ExerciseCatalogTests`, and `WorkoutGoldenTraceTests` (including per-side arm changes, rest, and the next set).
-**Gaps:** effect order inside `WorkoutCoachModel.apply` is untested. The view's once-only `saveHistory` guard is
-untested; only `WorkoutCoachHistory.save` itself is exercised (by `CalibrationViewModelTests`).
+`ExerciseCatalogTests`, `WorkoutGoldenTraceTests` (including per-side arm changes, rest, and the next set), and
+`WorkoutObservationTests` (observer order, save delivery, and semantic mapping).
+**Gaps:** effect order inside `WorkoutCoachModel.apply` is not exhaustively tested. The view's once-only `saveHistory`
+guard is untested; the non-View helper used by the view pins successful-save delivery, failed-save, and calibration-probe
+observer behavior.
 
 ### Camera overlays
 
@@ -112,7 +117,8 @@ no other sound or haptic.
 
 **Protected by:** `WorkoutSessionTests` (utterance text per event), `WorkoutCoachModelTests` and `WorkoutIntentTests`
 (what the model asks a `FakeSpeechCoach` to say), `WorkoutCoachModelRecordingTests` (recorded `speak` events),
-`SpeechActivityTraceTests` (fake coach activity and the model's listening response), and `AudioWorkTimingTests`.
+`SpeechActivityTraceTests` (fake coach activity and the model's listening response), `WorkoutObservationTests`, and
+`AudioWorkTimingTests`.
 **Gaps:** the real `SpeechCoach` queue (max 2 queued, interrupt, watchdog, repeat) is untested. The real
 `SpeechCoach.speakNext` activity callback and ducking order is unpinned until phase 2 provides a synthesizer seam.
 The audio-facade PR must add a production trace through that seam before changing this behavior. Voice selection and
@@ -131,7 +137,7 @@ reconfigure input, a media-services reset rebuilds the recognizer, and a late re
 **Protected by:** `VoiceCommandParserTests`, `EffortPhraseParserTests` (including controller routing),
 `BonusRepsTests` and `TooHardOfferTests` (controller routing), `WorkoutCoachModelTests` with `FakeVoiceController`,
 `VoiceListeningParityTests`, and `SpeechActivityTraceTests` (model audio-event routing and controller response to
-supplied coach-speaking state).
+supplied coach-speaking state), plus the model observer parity checks in `WorkoutGoldenTraceTests`.
 **Gaps:** the real recognizer's automatic error back-off uses non-injected timers and remains untested. Recognition
 accuracy and actual OS permission prompts are device checklist only.
 
@@ -190,14 +196,16 @@ concern outside the behaviour-preserving refactor. The `PersistenceUnavailableVi
 `Packages/AdaptiveTraining` decides every prescription, imports only Foundation, and names exercises by stable string
 IDs. App code reaches it only through `PostureAnalysisApp/AdaptiveTraining/`; `AdaptiveTrainingCoordinator` is the one
 app caller besides the debug provider. The engine's `record`, `save`, `commit`, `abandon`, `removeFamily`, and
-`changeEquipment` return `[AdaptiveEvent]` from `AdaptiveEventDeriver`. The coordinator discards them; events appear
-only in the developer snapshot and export. `tinySessionPrescribed` is defined but never derived or emitted.
+`changeEquipment` return `[AdaptiveEvent]` from `AdaptiveEventDeriver`. `AdaptiveTrainingCoordinator` forwards
+successful nonempty results, in engine order, to its optional observer; production attaches none. Events also appear in
+the developer snapshot and export. `tinySessionPrescribed` is defined but never derived or emitted.
 
 **Protected by:** the package tests (including `AdaptiveEventTests`, `PackageBoundaryTests`, `ReplayInvariantTests`,
 and `TodaySessionPlannerTests`), `AdaptiveTrainingCoordinatorTests`, `AdaptiveTrainingRepositoryTests`,
 `WorkoutOutcomeAdapterTests`, `ExerciseVariantBridgeTests`, `TodaySessionFlowTests`, the `AdaptiveDebug*Tests`, and
 the `AdaptiveTrainingSettings*Tests`.
-**Gaps:** events are derived but no app code consumes them, and no test pins that nothing reacts to them.
+**Gaps:** no production component reacts to adaptive observer events; `WorkoutObservationTests` pins forwarding order
+with a Today's Session evidence scenario.
 
 ## Docs inventory
 

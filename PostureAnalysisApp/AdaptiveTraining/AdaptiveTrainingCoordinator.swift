@@ -182,12 +182,14 @@ final class AdaptiveTrainingCoordinator: AdaptiveEvidenceRecording, TodaySession
     @ObservationIgnored private let engine: AdaptiveTrainingEngine
     @ObservationIgnored private let bridge: ExerciseVariantBridge
     @ObservationIgnored private let makeID: () -> UUID
+    @ObservationIgnored private let observer: (any WorkoutObserving)?
 
     init(engine: AdaptiveTrainingEngine, bridge: ExerciseVariantBridge = ExerciseVariantBridge(),
-         makeID: @escaping () -> UUID = UUID.init) {
+         makeID: @escaping () -> UUID = UUID.init, observer: (any WorkoutObserving)? = nil) {
         self.engine = engine
         self.bridge = bridge
         self.makeID = makeID
+        self.observer = observer
     }
 
     /// The engine's answer for Today's Session; an engine error reads as nothing offered.
@@ -263,7 +265,8 @@ final class AdaptiveTrainingCoordinator: AdaptiveEvidenceRecording, TodaySession
 
     func record(_ evidence: AdaptiveEvidence) {
         do {
-            try engine.record(evidence)
+            let events = try engine.record(evidence)
+            forward(events)
         } catch {
             PersistenceRepositoryLogging.failed("Record adaptive evidence", error: error)
         }
@@ -321,7 +324,8 @@ final class AdaptiveTrainingCoordinator: AdaptiveEvidenceRecording, TodaySession
 
     func removeArea(_ family: MovementFamilyID, asOf now: Date) -> Bool {
         do {
-            try engine.removeFamily(family, id: makeID(), at: now)
+            let events = try engine.removeFamily(family, id: makeID(), at: now)
+            forward(events)
             return true
         } catch {
             PersistenceRepositoryLogging.failed("Remove Adaptive Training area", error: error)
@@ -331,7 +335,8 @@ final class AdaptiveTrainingCoordinator: AdaptiveEvidenceRecording, TodaySession
 
     func setEquipment(_ equipment: Set<TrainingEquipment>, asOf now: Date) -> Bool {
         do {
-            try engine.changeEquipment(equipment, id: makeID(), at: now)
+            let events = try engine.changeEquipment(equipment, id: makeID(), at: now)
+            forward(events)
             return true
         } catch {
             PersistenceRepositoryLogging.failed("Save Adaptive Training equipment", error: error)
@@ -349,7 +354,8 @@ final class AdaptiveTrainingCoordinator: AdaptiveEvidenceRecording, TodaySession
 
     func commitCalibration(_ flow: CalibrationFlow, asOf now: Date) -> Bool {
         do {
-            try engine.commit(flow, at: now)
+            let events = try engine.commit(flow, at: now)
+            forward(events)
             return true
         } catch {
             PersistenceRepositoryLogging.failed("Commit calibration", error: error)
@@ -359,10 +365,16 @@ final class AdaptiveTrainingCoordinator: AdaptiveEvidenceRecording, TodaySession
 
     func abandonCalibration(_ flow: CalibrationFlow, asOf now: Date) {
         do {
-            try engine.abandon(flow, at: now)
+            let events = try engine.abandon(flow, at: now)
+            forward(events)
         } catch {
             PersistenceRepositoryLogging.failed("Abandon calibration", error: error)
         }
+    }
+
+    private func forward(_ events: [AdaptiveEvent]) {
+        guard !events.isEmpty, let observer else { return }
+        observer.adaptiveEventsDidOccur(events)
     }
 
     func prepareProbe(for flow: CalibrationFlow, asOf now: Date,

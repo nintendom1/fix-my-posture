@@ -5,7 +5,8 @@ import XCTest
 /// Pins what a workout says and does, in order, for representative flows.
 ///
 /// Each scenario drives the real `WorkoutCoachModel` on the harness's fakes, runs twice and must produce the same trace
-/// both times, then must match its golden in `WorkoutGoldenTraces` line for line. A mismatch reports the first
+/// both times, then repeats with recording and heavy observers before matching its golden line for line. A mismatch
+/// reports the first
 /// differing line with context. To re-record after a reviewed behaviour change, run with
 /// `FMP_GOLDEN_PRINT=1` (or `TEST_RUNNER_FMP_GOLDEN_PRINT=1` through xcodebuild): each actual trace is printed and attached, and the test still
 /// fails until the golden is updated.
@@ -14,7 +15,10 @@ final class WorkoutGoldenTraceTests: XCTestCase {
     // MARK: - Camera-tracked workouts
 
     func testAirSquatTwoFullSetsWithRest() {
-        check(WorkoutGoldenTraces.airSquatTwoSets, "airSquatTwoSets") {
+        check(WorkoutGoldenTraces.airSquatTwoSets, "airSquatTwoSets", verifyPresentation: { events in
+            XCTAssertTrue(events.contains(.repCounted(total: 15)), "A set-ending camera rep must preserve its final count.")
+            XCTAssertTrue(events.contains(.setCompleted(set: 1, reps: 15)))
+        }) {
             let run = GoldenRun(initialExercise: .airSquat)
             run.open()
             run.voiceStatus(.listening)
@@ -31,7 +35,13 @@ final class WorkoutGoldenTraceTests: XCTestCase {
     }
 
     func testPerSideDumbbellRowsFinishBothArmsRestAndStartNextSet() {
-        check(WorkoutGoldenTraces.perSideRows, "perSideRows") {
+        check(WorkoutGoldenTraces.perSideRows, "perSideRows", verifyPresentation: { events in
+            let completed = events.compactMap { event -> WorkoutPresentationEvent? in
+                guard case .setCompleted = event else { return nil }
+                return event
+            }
+            XCTAssertEqual(completed, [.setCompleted(set: 1, reps: 1), .setCompleted(set: 2, reps: 1)])
+        }) {
             var row = DumbbellRowExercise.definition()
             row.sets = 2
             row.targetReps = 1...1
@@ -201,7 +211,11 @@ final class WorkoutGoldenTraceTests: XCTestCase {
     // MARK: - Today's Session
 
     func testTodaySessionEasyEarnsABonusThatIsTaken() {
-        check(WorkoutGoldenTraces.todayBonusTaken, "todayBonusTaken") {
+        check(WorkoutGoldenTraces.todayBonusTaken, "todayBonusTaken", verifyPresentation: { events in
+            XCTAssertTrue(events.contains(.effortRequested))
+            XCTAssertTrue(events.contains(.bonusOffered))
+            XCTAssertEqual(events.filter { $0 == .effortRequested }.count, 2)
+        }) {
             let wallPushUp = WallPushUpExercise.definition()
             let trace = WorkoutTraceRecorder()
             let launch = Self.todayLaunch(exercise: wallPushUp, dose: .reps(2), offersBonus: true)
@@ -224,7 +238,10 @@ final class WorkoutGoldenTraceTests: XCTestCase {
     }
 
     func testTodaySessionBonusDeclined() {
-        check(WorkoutGoldenTraces.todayBonusDeclined, "todayBonusDeclined") {
+        check(WorkoutGoldenTraces.todayBonusDeclined, "todayBonusDeclined", verifyPresentation: { events in
+            XCTAssertTrue(events.contains(.effortRequested))
+            XCTAssertTrue(events.contains(.bonusOffered))
+        }) {
             let wallPushUp = WallPushUpExercise.definition()
             let trace = WorkoutTraceRecorder()
             let launch = Self.todayLaunch(exercise: wallPushUp, dose: .reps(2), offersBonus: true)
@@ -243,7 +260,10 @@ final class WorkoutGoldenTraceTests: XCTestCase {
     }
 
     func testTodaySessionTooHardTakesTheEasierVersion() {
-        check(WorkoutGoldenTraces.todayTooHard, "todayTooHard") {
+        check(WorkoutGoldenTraces.todayTooHard, "todayTooHard", verifyPresentation: { events in
+            XCTAssertTrue(events.contains(.tooHardOffered))
+            XCTAssertTrue(events.contains(.effortRequested))
+        }) {
             let wallPushUp = WallPushUpExercise.definition()
             let trace = WorkoutTraceRecorder()
             let option = EasierSwapOption(target: RungDose(variant: Self.shallow, dose: .reps(2)),
@@ -313,15 +333,28 @@ final class WorkoutGoldenTraceTests: XCTestCase {
 
     // MARK: - Checking
 
-    /// Runs `scenario` twice, requires identical traces, then compares the trace with `golden`.
+    /// Runs `scenario` twice without an observer and once with each observer mode, then compares all traces to `golden`.
     private func check(_ golden: String, _ name: String, file: StaticString = #filePath, line: UInt = #line,
+                       verifyPresentation: (([WorkoutPresentationEvent]) -> Void)? = nil,
                        _ scenario: () -> [String]) {
-        let actual = scenario()
-        let again = scenario()
+        let actual = run(scenario, with: nil)
+        let again = run(scenario, with: nil)
         if let index = Self.firstDifference(actual, again) {
             XCTFail("\(name) is not deterministic: run 2 differs at line \(index + 1).\n"
                     + Self.comparison(expected: actual, actual: again, at: index), file: file, line: line)
         }
+        let recording = WorkoutObservationRecorder()
+        let recordingTrace = run(scenario, with: recording)
+        XCTAssertEqual(recordingTrace, actual, "\(name) changed with a recording observer.", file: file, line: line)
+        XCTAssertFalse(recording.calls.isEmpty, "\(name) did not notify its recording observer.", file: file, line: line)
+        XCTAssertFalse(recording.presentationEvents.isEmpty, "\(name) did not map its observed stream.", file: file, line: line)
+        let heavy = WorkoutObservationRecorder(doesHeavyWork: true)
+        let heavyTrace = run(scenario, with: heavy)
+        XCTAssertEqual(heavyTrace, actual, "\(name) changed with a heavy observer.", file: file, line: line)
+        XCTAssertFalse(heavy.calls.isEmpty, "\(name) did not notify its heavy observer.", file: file, line: line)
+        XCTAssertEqual(heavy.presentationEvents, recording.presentationEvents,
+                       "\(name) semantic output changed with a heavy observer.", file: file, line: line)
+        verifyPresentation?(recording.presentationEvents)
         let environment = ProcessInfo.processInfo.environment
         if environment["FMP_GOLDEN_PRINT"] == "1" || environment["TEST_RUNNER_FMP_GOLDEN_PRINT"] == "1" {
             let literal = Self.literal(name, actual)
@@ -341,6 +374,13 @@ final class WorkoutGoldenTraceTests: XCTestCase {
                 + "\(actual.count)).\n" + Self.comparison(expected: expected, actual: actual, at: index)
                 + "\nRe-record with FMP_GOLDEN_PRINT=1 (or TEST_RUNNER_FMP_GOLDEN_PRINT=1 through xcodebuild) only for a reviewed behaviour change.",
                 file: file, line: line)
+    }
+
+    private func run(_ scenario: () -> [String], with observer: WorkoutObservationRecorder?) -> [String] {
+        let previous = WorkoutObservationTestContext.observer
+        WorkoutObservationTestContext.observer = observer
+        defer { WorkoutObservationTestContext.observer = previous }
+        return scenario()
     }
 
     private static func firstDifference(_ expected: [String], _ actual: [String]) -> Int? {
@@ -507,8 +547,12 @@ private final class GoldenRun {
         }
         history = TraceHistory(trace: trace)
         reminders = TraceReminders(trace: trace)
+        let observer = WorkoutObservationTestContext.observer
         harness = WorkoutCoachHarness.make(preferences: preferences, exercises: exercises, initialExercise: initialExercise,
-                                           plan: plan, adaptive: adaptive, todayLaunch: todayLaunch, trace: trace)
+                                           plan: plan, adaptive: adaptive, todayLaunch: todayLaunch, trace: trace,
+                                           observer: observer)
+        (observer as? WorkoutObservationRecorder)?.beginPresentationMapping(from: harness.model.session)
+        (observer as? WorkoutObservationRecorder)?.attachReentrantSend(to: harness.model)
     }
 
     // MARK: Inputs
@@ -698,10 +742,12 @@ private final class GoldenRun {
     private func saveHistory() {
         guard !historySaved else { return }
         historySaved = true
+        let observedModel = model
         let record = WorkoutCoachHistory.save(session: model.session, startedAt: Date(timeIntervalSince1970: 0),
                                               endedAt: Date(timeIntervalSince1970: 600), workoutID: model.workoutID,
                                               savesHistory: savesHistory, history: history, preferences: preferences,
-                                              reminders: reminders)
+                                              reminders: reminders,
+                                              onCommitted: { record in observedModel.historyDidCommit(record) })
         guard let record else {
             trace.record("history nothing to save")
             return

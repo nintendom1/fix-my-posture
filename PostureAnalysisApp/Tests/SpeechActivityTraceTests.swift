@@ -113,11 +113,15 @@ final class SpeechActivityTraceTests: XCTestCase {
         XCTAssertEqual(subject.audio.calls.last, .deactivate)
     }
 
-    private func assertTrace(_ golden: String, _ makeTrace: () -> [String], file: StaticString = #filePath,
+    private func assertTrace(_ golden: String, _ makeTrace: ((any WorkoutObserving)?) -> [String], file: StaticString = #filePath,
                              line: UInt = #line) {
-        let actual = makeTrace()
-        let repeated = makeTrace()
+        let actual = makeTrace(nil)
+        let repeated = makeTrace(nil)
         XCTAssertEqual(repeated, actual, "The activity trace must be deterministic.", file: file, line: line)
+        let recordingTrace = makeTrace(WorkoutObservationRecorder())
+        XCTAssertEqual(recordingTrace, actual, "A recording observer changed the activity trace.", file: file, line: line)
+        let heavyTrace = makeTrace(WorkoutObservationRecorder(doesHeavyWork: true))
+        XCTAssertEqual(heavyTrace, actual, "A heavy observer changed the activity trace.", file: file, line: line)
 
         let environment = ProcessInfo.processInfo.environment
         if environment["TEST_RUNNER_FMP_GOLDEN_PRINT"] == "1" || environment["FMP_GOLDEN_PRINT"] == "1" {
@@ -129,7 +133,7 @@ final class SpeechActivityTraceTests: XCTestCase {
         XCTAssertEqual(actual, expected, "Speech activity trace differs from its golden.", file: file, line: line)
     }
 
-    private func makeShortTimedHoldTrace() -> [String] {
+    private func makeShortTimedHoldTrace(observer: (any WorkoutObserving)?) -> [String] {
         let trace = WorkoutTraceRecorder()
         var exercise = ShoulderPressExercise.definition()
         exercise.tracking = .selfReported
@@ -143,7 +147,7 @@ final class SpeechActivityTraceTests: XCTestCase {
         preferences.workoutCoachCoachMuted = false
         preferences.workoutCoachMicMuted = false
         let harness = WorkoutCoachHarness.make(preferences: preferences, exercises: [exercise],
-                                               initialExercise: .shoulderPress, trace: trace)
+                                               initialExercise: .shoulderPress, trace: trace, observer: observer)
         harness.speech.reportsActivity = true
 
         trace.input("appear (app active)")
@@ -169,7 +173,7 @@ final class SpeechActivityTraceTests: XCTestCase {
         return trace.finish()
     }
 
-    private func makeControllerAudioResponseTrace() -> [String] {
+    private func makeControllerAudioResponseTrace(observer _: (any WorkoutObserving)?) -> [String] {
         let trace = WorkoutTraceRecorder()
         let clock = ManualClock()
         let scheduler = ManualScheduler(clock: clock)

@@ -496,6 +496,28 @@ The tip is measured on one line (up to 320 pt) and as a compact, wrapped tip (up
 - Ducking only takes effect when the session activates, and other audio only returns when it deactivates. So before speaking, listening stops, the session is cycled with `.duckOthers`, and the coach speaks. When the queue drains, `endDucking()` deactivates with `.notifyOthersOnDeactivation`, restores the non-ducking category, and re-activates for listening. It retries briefly if deactivation reports busy.
 - `endDucking()` is idempotent and runs on every exit path: speech finished or cancelled, the watchdog, activation errors, interruptions, backgrounding, leaving the screen, and ending the workout. If the app crashes, iOS releases its audio session, which restores other audio.
 
+## Observation (internal)
+
+`WorkoutObserving` is a read-only, nonthrowing seam for downstream presentation. Its callbacks receive value types only,
+including a value identifying a newly opened Too Hard, effort, or bonus offer.
+`WorkoutCoachFactory` explicitly passes no observer, and production attaches none. The test-only
+`WorkoutPresentationMapper` maps the same values to semantic events; production has no mapper consumer.
+
+Callbacks run after their production action. Speech and repeat callbacks follow the speech call. Tip callbacks follow
+the tip state update and expiry scheduling; offer callbacks follow opening the offer and updating voice routing.
+`workoutDidHandle` follows all effects and the model's existing follow-up bookkeeping. A synchronous speech-activity
+callback can dispatch a nested reducer event while a speech effect is still running; that nested
+`workoutDidHandle` callback completes before the speech callback and the outer `workoutDidHandle` callback. Adaptive
+events follow the successful engine operation in the engine's order. The history callback follows the repository commit
+and reminder update, and does not run for calibration probes or failed saves. An observer must not call back into the
+model synchronously. In DEBUG, only a model currently notifying its own observer drops that model's re-entrant
+`send` and logs a warning. A model with no observer does not check or drop sends.
+
+`WorkoutGoldenTraceTests` and the model speech activity trace compare traces with no observer, a recording observer,
+and a CPU-heavy observer. The trace must remain byte-for-byte identical in all three modes. `WorkoutObservationTests`
+pins callback/action order, save delivery through the non-View helper called by the view, adaptive forwarding, semantic
+mapping from observed transitions, and the DEBUG per-model re-entrancy guard.
+
 ## Voice control
 
 The microphone and speech-recognition prompts follow the camera prompt, in that order. Without voice, the touch controls keep working and prompts say "Tap" instead of "Say".
@@ -608,7 +630,7 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
 - `>` lines are what the scenario did: appearing, camera and voice status, intents, voice commands, card taps, speech activity, and each batch of frames as one line, such as `> frames demo air_squat 553 frames @0.1 (55.3s)`.
 - `t=` lines are what happened, on the coach's clock: recorded reducer inputs and commands, effective pipeline controls, tips, every spoken line with its exact text (muted or not, status or interrupting), repeats, model-issued audio-session calls, calls received by the fake voice controller, adaptive evidence, saved history records, and a `state` line whenever the phase, set, reps, camera, microphone, mutes, effort card, or offers change.
 
-The scenarios are two full air-squat sets with rest, a two-item routine, pause and resume mid-set and Pause/Resume commands during rest, a muted coach, voice repeat, framing lost and regained, a corrective tip and its cooldown, a self-reported timed hold, Today's Session (bonus taken, bonus declined, Too Hard with the easier version), a calibration sample, and saving once. During rest, Pause produces the resting status hint and Resume produces the Start prompt; the rest timer continues and reaches its normal end. Each scenario runs twice and must give the same trace. The expected traces are string literals in `Tests/Support/WorkoutGoldenTraces.swift`.
+The scenarios are two full air-squat sets with rest, a two-item routine, pause and resume mid-set and Pause/Resume commands during rest, a muted coach, voice repeat, framing lost and regained, a corrective tip and its cooldown, a self-reported timed hold, Today's Session (bonus taken, bonus declined, Too Hard with the easier version), a calibration sample, and saving once. During rest, Pause produces the resting status hint and Resume produces the Start prompt; the rest timer continues and reaches its normal end. Each scenario runs twice without an observer and again with recording and CPU-heavy observers; all traces must match. The expected traces are string literals in `Tests/Support/WorkoutGoldenTraces.swift`.
 
 The model sends `.sessionPhase` to the frame pipeline before processing a frame. The trace logs that control when it changes the pipeline's control state, along with other effective controls. It does not record repeated no-op controls or every raw reducer effect, including redundant effects. State sampling may also miss a transient change that reverts before the next trace call.
 

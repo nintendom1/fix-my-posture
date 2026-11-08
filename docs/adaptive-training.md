@@ -221,9 +221,10 @@ either `bonusAccepted` or `bonusDeclined`. A transition after absence produces `
 `tinySessionPrescribed` is defined but not derived from replay, and the app does not emit it yet.
 
 The engine's `record`, `save`, `commit`, `abandon`, `removeFamily`, and `changeEquipment` return the events derived for
-their fact. `AdaptiveTrainingCoordinator` discards them, so nothing in the app reacts to an event yet; they appear only
-in the developer snapshot and export (see [Debug view and export](#debug-view-and-export)). Persona and notification
-reactions are planned in #112 (Persona Reactions for Adaptive Training Events).
+their fact. `AdaptiveTrainingCoordinator` forwards each nonempty result, in engine order, to its optional
+`WorkoutObserving` observer after the successful operation. Production attaches none, so nothing in the app reacts to
+an event yet; they also appear in the developer snapshot and export (see [Debug view and export](#debug-view-and-export)).
+Persona and notification reactions are planned in #112 (Persona Reactions for Adaptive Training Events).
 
 ### Cache
 

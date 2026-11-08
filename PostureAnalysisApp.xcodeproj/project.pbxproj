@@ -478,6 +478,9 @@
 		A10000012B00000000000488 /* RouteParityTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000488 /* RouteParityTests.swift */; };
 		A10000012B00000000000489 /* SpeechActivityTraceTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000489 /* SpeechActivityTraceTests.swift */; };
 		A10000012B00000000000490 /* SpeechActivityGoldenTraces.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000490 /* SpeechActivityGoldenTraces.swift */; };
+		A10000012B00000000000491 /* WorkoutObserving.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000491 /* WorkoutObserving.swift */; };
+		A10000012B00000000000492 /* WorkoutPresentationEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000492 /* WorkoutPresentationEvent.swift */; };
+		A10000012B00000000000493 /* WorkoutObservationTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000493 /* WorkoutObservationTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -964,6 +967,9 @@
 		B10000012B00000000000488 /* RouteParityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteParityTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000489 /* SpeechActivityTraceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechActivityTraceTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000490 /* SpeechActivityGoldenTraces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechActivityGoldenTraces.swift; sourceTree = "<group>"; };
+		B10000012B00000000000491 /* WorkoutObserving.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutObserving.swift; sourceTree = "<group>"; };
+		B10000012B00000000000492 /* WorkoutPresentationEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutPresentationEvent.swift; sourceTree = "<group>"; };
+		B10000012B00000000000493 /* WorkoutObservationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutObservationTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1257,6 +1263,7 @@
 				B10000012B00000000000487 /* AudioSessionParityTests.swift */,
 				B10000012B00000000000488 /* RouteParityTests.swift */,
 				B10000012B00000000000489 /* SpeechActivityTraceTests.swift */,
+				B10000012B00000000000493 /* WorkoutObservationTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1350,6 +1357,7 @@
 				B10000012B00000000000170 /* WorkoutCoachViewModeling.swift */,
 				B10000012B00000000000171 /* WorkoutCoachFactory.swift */,
 				B10000012B00000000000395 /* BuiltInRoutines.swift */,
+				B10000012B00000000000491 /* WorkoutObserving.swift */,
 			);
 			path = Session;
 			sourceTree = "<group>";
@@ -1521,6 +1529,7 @@
 				B10000012B00000000000307 /* LastDoneFormatter.swift */,
 				B10000012B00000000000310 /* WorkoutReminderSettings.swift */,
 				B10000012B00000000000391 /* GhostCalibration.swift */,
+				B10000012B00000000000492 /* WorkoutPresentationEvent.swift */,
 			);
 			path = Presentation;
 			sourceTree = "<group>";
@@ -2442,6 +2451,8 @@
 				A10000012B00000000000478 /* AdaptiveTrainingSettingsProviding.swift in Sources */,
 				A10000012B00000000000479 /* AdaptiveTrainingSettingsViewModel.swift in Sources */,
 				A10000012B00000000000480 /* AdaptiveTrainingSettingsPage.swift in Sources */,
+				A10000012B00000000000491 /* WorkoutObserving.swift in Sources */,
+				A10000012B00000000000492 /* WorkoutPresentationEvent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2610,6 +2621,7 @@
 				A10000012B00000000000488 /* RouteParityTests.swift in TestSources */,
 				A10000012B00000000000489 /* SpeechActivityTraceTests.swift in TestSources */,
 				A10000012B00000000000490 /* SpeechActivityGoldenTraces.swift in TestSources */,
+				A10000012B00000000000493 /* WorkoutObservationTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
