@@ -102,6 +102,15 @@ Exercise thumbnails use vetted real photography. Never replace them with an unve
 
 Whenever an exercise thumbnail is added, replaced, removed, renamed, or materially changed, update as applicable: its asset-catalog entry, `PostureAnalysisApp/Assets.xcassets/ExerciseThumbnails/SOURCES.md`, `THIRD_PARTY_NOTICES.md`, and the in-app Exercise Photography acknowledgements (backed by `ExercisePhotography`). Keep exercise IDs, asset names, exact original-source links, photographer credits, license/status, and processing notes synchronized. Keep only final cropped/resized derivatives in the repository. If a source, provenance, or usable crop cannot be verified, stop and report the problem rather than substituting another image.
 
+## Herdr layout policy
+
+When orchestrating agents with Herdr, follow `docs/agent-orchestration.md` for tab and pane placement.
+Keep the orchestrator in Main; allocate Main's remaining columns to agents before long-running scripts.
+Each managed tab has at most three equal-width side-by-side panes (100%, 50%, or approximately 33.3%);
+never create a column narrower than 33%. Move overflow agents to `Agent` tabs and overflow
+long-running scripts to `Scripts` tabs without restarting active processes. Rebalance after
+pane changes, and give monitored scripts a dedicated pane.
+
 ## Useful Validation & Build Commands
 
 - **Build App Target**:
