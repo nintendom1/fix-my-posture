@@ -7,13 +7,80 @@ on:
   pull_request:
     # Run for every base branch so stacked PRs are validated too.
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  classify:
+    name: Determine Validation Scope
+    runs-on: ubuntu-latest
+    outputs:
+      full: ${{ steps.diff.outputs.full }}
+    steps:
+      - name: Checkout Full History
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect Non-Documentation Changes
+        id: diff
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_HEAD: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            # Three-dot diff captures the complete PR against its merge base,
+            # rather than just the latest commit or the temporary merge commit.
+            range="$PR_BASE...$PR_HEAD"
+          elif [[ "$EVENT_NAME" == "push" ]]; then
+            # Cover every commit in the push to main, including merges.
+            range="$PUSH_BEFORE..$PUSH_HEAD"
+          else
+            echo "Unsupported event: $EVENT_NAME" >&2
+            exit 1
+          fi
+
+          # A failed diff must fail classification, not silently skip tests.
+          # --no-renames counts both sides of a rename (including removed code).
+          changed_files="$RUNNER_TEMP/ci-changed-files"
+          git diff --no-renames --name-only -z "$range" > "$changed_files"
+
+          count=0
+          full=false
+          while IFS= read -r -d '' path; do
+            count=$((count + 1))
+            printf 'Changed: %s\n' "$path"
+            # Only Markdown content is exempt. Everything else, including
+            # workflows, build files, scripts, assets, and tests, runs full CI.
+            case "$path" in
+              *.md|*.mdx) ;;
+              *) full=true ;;
+            esac
+          done < "$changed_files"
+
+          # An empty or unexpected change set should not bypass validation.
+          if (( count == 0 )); then
+            full=true
+          fi
+
+          echo "full=$full" >> "$GITHUB_OUTPUT"
+          echo "Changed files: $count; full validation required: $full"
+
   validate:
     name: Build & Test
+    needs: classify
+    if: ${{ needs.classify.outputs.full == 'true' }}
     # The same toolchain that builds the app for the phone (`make ios`).
     runs-on: macos-15
     steps:
@@ -26,3 +93,30 @@ jobs:
       # SIMULATOR_DESTINATION is unset, so validate.sh picks the newest installed iPhone simulator.
       - name: Run Validation Script
         run: ./scripts/validate.sh
+
+  gate:
+    name: Required CI Gate
+    needs: [classify, validate]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Applicable Checks
+        shell: bash
+        env:
+          CLASSIFY_RESULT: ${{ needs.classify.result }}
+          FULL: ${{ needs.classify.outputs.full }}
+          VALIDATE_RESULT: ${{ needs.validate.result }}
+        run: |
+          set -euo pipefail
+          if [[ "$CLASSIFY_RESULT" != "success" ]]; then
+            echo "Change detection failed: $CLASSIFY_RESULT" >&2
+            exit 1
+          fi
+          if [[ "$FULL" == "false" && "$VALIDATE_RESULT" == "skipped" ]]; then
+            echo "Documentation-only change: full validation correctly skipped."
+          elif [[ "$FULL" == "true" && "$VALIDATE_RESULT" == "success" ]]; then
+            echo "Full validation passed."
+          else
+            echo "Unexpected validation state: full=$FULL; result=$VALIDATE_RESULT" >&2
+            exit 1
+          fi
