@@ -15,14 +15,55 @@ tree. Written from the #64 Extra Personable run. Read this only when you are orc
 The user's standing preference is Codex subagents, with Claude subagents only when Codex is unavailable (the #64 run
 moved copy from a planned Opus pane to Codex Sol for that reason). Never start Codex Astra; always pass an explicit `-m`.
 
-## Panes
+## Pane layout and tab maintenance
 
-- Confirm `HERDR_ENV=1`. Split right from the orchestrator pane for the first agent, then split the newest right-hand pane
-  down so columns stay readable. At most three agent panes at once. Keep focus in the orchestrator pane (`--no-focus`).
-- Name every pane immediately: `herdr pane rename <id> "<purpose>"`, at most 20 characters, named by purpose, without the
-  model or phase (for example "History detectors", "Persona copy", "Review: engine"). The orchestrator pane is
-  "Orchestrator".
-- Close a pane once its package is reviewed.
+Keep the orchestrator in the `Main` tab. Manage agent and long-running-script panes in the same Herdr workspace,
+with **at most three side-by-side columns per tab and no vertical stacking**. Divide each tab evenly: one pane
+gets 100% width, two get 50% each, and three get approximately 33.3% each (terminal-cell rounding is fine).
+Never squeeze a column below 33% to make another pane fit. If the terminal is too narrow for three readable
+columns, move overflow into another tab instead of forcing an unreadable layout.
+
+**Placement priority (including existing running panes):**
+
+1. `Main` always contains the orchestrator. Fill its other two slots with active **agents first**, then
+   **long-running scripts** if slots remain. A new agent displaces a Main script to `Scripts` before occupying
+   the freed slot; an agent waiting in `Agent` takes priority over any script in Main.
+2. Put agents that cannot fit in Main into the `Agent` tab, retaining at most three evenly sized columns
+   there. If `Agent` fills, create `Agent 2`, `Agent 3`, etc., with the same three-column limit.
+3. Give every long-running script its own named pane. Examples include `./scripts/validate.sh`, build commands,
+   diagnostics collection, watchers, and local servers. Put a script in an unused Main slot only when all
+   higher-priority agents have been placed. Put remaining scripts in `Scripts`; when it fills, use
+   `Scripts 2`, `Scripts 3`, etc. Do not bury long-running output in the orchestrator or an agent pane.
+4. When a Main agent is reviewed and its pane closes, promote the earliest waiting agent from `Agent` to
+   Main, then fill any remaining Main slots with scripts from `Scripts`. Preserve existing running processes
+   during moves. Close a completed script pane only after its result/log is captured or reviewed.
+5. Re-check and equalize column widths after creating, closing, or moving panes, and after a detected terminal
+   resize (or at the next layout check). Preserve the orchestrator's focus and avoid unnecessary pane moves.
+   Do not assume Herdr automatically maintains these proportions.
+
+Use `herdr pane list`, `herdr tab list`, and `herdr pane layout --current` to inspect before changing
+the layout. Herdr supports `pane split --direction right [--ratio FLOAT]`, `pane resize --direction
+left|right --amount FLOAT`, and `pane move` into existing or new tabs. Move live panes, rather than
+closing and restarting them:
+
+```bash
+herdr pane move "$P" --new-tab --label Agent --no-focus
+herdr pane move "$P" --new-tab --label Scripts --no-focus
+herdr pane move "$P" --tab "$TAB_ID" --split right --target-pane "$TARGET_PANE" --no-focus
+herdr pane run "$SCRIPT_PANE" './scripts/validate.sh'
+```
+
+The first `--new-tab` command is for creating the first overflow tab of that kind; after that, target
+the existing tab rather than creating duplicates. Capture pane/tab IDs from Herdr's JSON responses.
+Check geometry after moving or splitting, and adjust widths to the applicable equal-share target.
+Avoid changing focus: use `--no-focus`. The orchestrator pane is named `Orchestrator`; rename agent
+panes immediately with `herdr pane rename <id> "<purpose>"`, at most 20 characters, named by purpose
+rather than model/phase (for example `History detectors`, `Persona copy`, `Review: engine`).
+Name script panes by the command's purpose (for example `Validation` or `Build`).
+
+**Orchestration:** Confirm `HERDR_ENV=1` before using Herdr. Preserve the existing rule that agent
+panes are closed only after their package is reviewed. Run only one `./scripts/validate.sh` at a
+time, with agents idle; dedicating a pane does not authorize overlapping validations.
 
 ```bash
 P=$(herdr pane split --current --direction right --cwd "$PWD" --no-focus | python3 -c 'import json,sys;print(json.load(sys.stdin)["result"]["pane"]["pane_id"])')
@@ -32,8 +73,11 @@ herdr agent send-keys detectors esc        # dismisses Codex's update prompt if 
 herdr agent prompt detectors "Read build/briefs/detectors.md and do exactly what it says. Reply DONE or BLOCKED." --wait --timeout 5400000
 ```
 
-Run the `--wait` prompt as a background command so the orchestrator is notified when the agent settles. A `blocked`
-state means an approval dialog; read it with `herdr agent read <name> --source visible` before answering.
+Choose the initial split location only after applying the placement rules. For a new agent, move an
+existing Main script to `Scripts` first when Main is full; otherwise create the agent in Main or
+in the designated `Agent` overflow tab. Run the `--wait` prompt as a background command so the
+orchestrator is notified when the agent settles. A `blocked` state means an approval dialog; read
+it with `herdr agent read <name> --source visible` before answering.
 
 ## Contracts first
 
