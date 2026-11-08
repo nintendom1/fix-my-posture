@@ -1,0 +1,55 @@
+{
+  "testPlanConfigurations": [],
+  "devices": [],
+  "testNodes": [
+    {
+      "nodeType": "Unit test bundle",
+      "name": "PostureAnalysisAppTests.xctest",
+      "result": "Failed",
+      "children": [
+        {
+          "nodeType": "Test Suite",
+          "name": "WorkoutSessionTests",
+          "result": "Failed",
+          "children": [
+            {
+              "nodeType": "Test Case",
+              "name": "testRepCount()",
+              "nodeIdentifier": "PostureAnalysisAppTests/WorkoutSessionTests/testRepCount()",
+              "result": "Failed",
+              "details": "Test Case failed",
+              "children": [
+                {
+                  "nodeType": "Failure Message",
+                  "name": "XCTAssertEqual failed",
+                  "details": "XCTAssertEqual failed: count was 0",
+                  "children": []
+                },
+                {
+                  "nodeType": "Source Code Reference",
+                  "name": "WorkoutSessionTests.swift",
+                  "details": "file:///REPO/PostureAnalysisApp/Tests/Workout/WorkoutSessionTests.swift#EndingLineNumber=47&StartingLineNumber=47",
+                  "location": {"url": "file:///REPO/PostureAnalysisApp/Tests/Workout/WorkoutSessionTests.swift#EndingLineNumber=47&StartingLineNumber=47", "lineNumber": 47},
+                  "children": []
+                },
+                {
+                  "nodeType": "Failure Message",
+                  "name": "XCTAssertFalse failed",
+                  "details": "XCTAssertFalse failed at a different assertion",
+                  "children": []
+                },
+                {
+                  "nodeType": "Source Code Reference",
+                  "name": "WorkoutSessionTests.swift",
+                  "details": "file:///REPO/PostureAnalysisApp/Tests/Workout/WorkoutSessionTests.swift#EndingLineNumber=99&StartingLineNumber=99",
+                  "location": {"url": "file:///REPO/PostureAnalysisApp/Tests/Workout/WorkoutSessionTests.swift#EndingLineNumber=99&StartingLineNumber=99", "lineNumber": 99},
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

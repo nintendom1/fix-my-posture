@@ -1,0 +1,18 @@
+{
+  "title": "PostureAnalysisAppTests",
+  "result": "Failed",
+  "totalTestCount": 2,
+  "passedTests": 1,
+  "failedTests": 1,
+  "skippedTests": 0,
+  "startTime": 2000,
+  "finishTime": 2007.4,
+  "testFailures": [
+    {
+      "testName": "testRepCount()",
+      "targetName": "PostureAnalysisAppTests",
+      "failureText": "XCTAssertEqual failed: count was 0",
+      "testIdentifierString": "PostureAnalysisAppTests/WorkoutSessionTests/testRepCount()"
+    }
+  ]
+}

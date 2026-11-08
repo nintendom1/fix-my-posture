@@ -1,0 +1,21 @@
+{
+  "testPlanConfigurations": [],
+  "devices": [],
+  "testNodes": [
+    {
+      "nodeType": "Unit test bundle",
+      "name": "PostureAnalysisAppTests.xctest",
+      "result": "Passed",
+      "children": [
+        {
+          "nodeType": "Test Suite",
+          "name": "SampleTests",
+          "result": "Passed",
+          "children": [
+            {"nodeType": "Test Case", "name": "testWorks()", "result": "Passed", "children": []}
+          ]
+        }
+      ]
+    }
+  ]
+}

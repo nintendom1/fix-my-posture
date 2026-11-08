@@ -37,7 +37,7 @@ scripts/orchestrate/agent.py start detectors --kind codex --model gpt-6-luna --p
 scripts/orchestrate/agent.py start review --kind claude --model claude-opus-5-5 --role reviewer --purpose "Review: engine"
 scripts/orchestrate/agent.py prompt detectors --brief build/briefs/detectors.md --wait --timeout 5400
 scripts/orchestrate/agent.py status
-scripts/orchestrate/agent.py script Validation -- ./scripts/validate.sh
+scripts/orchestrate/agent.py script Validation -- scripts/orchestrate/validate-both.sh
 scripts/orchestrate/agent.py layout
 scripts/orchestrate/agent.py close detectors # after reviewing its package
 ```
@@ -63,13 +63,17 @@ log is captured. Do not close an agent before its package is reviewed.
 Compile with `scripts/agent-build.sh <agent-name> --tests` until it prints `BUILD SUCCEEDED`. The orchestrator builds
 after each agent report. The script serializes builds and uses separate derived data. Its asset-catalog step can fail
 in the Codex sandbox when CoreSimulator is unavailable; leave that compile to the orchestrator if needed.
+`agent-build.sh` and `test.sh` share `build/agents/build.lock`; `with-lock.py` holds a kernel `flock`. The lock file
+stays empty on disk after a run and has no PID-based stale state.
 
-Agents never commit, push, stash, or reset. They run focused tests only on their assigned simulator; never run the full
-suite or `./scripts/validate.sh`. Package, Node, and Python tests use the commands in `build/briefs/_rules.md`. The
-orchestrator reads each package against its brief, checks that only owned files changed, runs the required tests and
-one mutation check per package, then fixes problems directly. Run one `./scripts/validate.sh` at a time with agents
-idle. Before pushing, run
-`TEST_RUNNER_TZ=UTC ./scripts/validate.sh` and `make notification-character-check` when content or art changed.
+Agents never commit, push, stash, or reset. Keep agents idle while validation runs. They run focused XCTest on their
+assigned simulator with `scripts/orchestrate/test.sh --sim <assigned-id> --name <agent>`, summarize a result bundle
+or derived-data folder with `scripts/orchestrate/test-summary.py`. Derived-data lookup skips bundles without
+`Info.plist`; a directly named incomplete bundle is an error. Agents never run `scripts/validate.sh`. Package, Node,
+and Python tests use the commands in `build/briefs/_rules.md`. The orchestrator reads each package against its brief,
+checks that only owned files changed, runs the required tests and one mutation check per package, then fixes problems
+directly. The orchestrator runs `scripts/orchestrate/validate-both.sh` for sequential local-time and UTC validation.
+Use `make notification-character-check` when content or art changed.
 
 ## Review gate
 

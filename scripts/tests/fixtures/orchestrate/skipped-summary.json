@@ -1,0 +1,11 @@
+{
+  "title": "PostureAnalysisAppTests",
+  "result": "Passed",
+  "totalTestCount": 5,
+  "passedTests": 3,
+  "failedTests": 0,
+  "skippedTests": 2,
+  "startTime": 4000,
+  "finishTime": 4010,
+  "testFailures": []
+}

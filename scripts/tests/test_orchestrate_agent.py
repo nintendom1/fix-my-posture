@@ -110,7 +110,7 @@ elif group == "tab" and command == "list":
 elif group == "agent" and command == "list":
     agents = []
     for pane in state["panes"]:
-        if pane.get("name"):
+        if pane.get("name") and not pane.get("hide_from_agent_list"):
             tab = next(t for t in state["tabs"] if t["tab_id"] == pane["tab_id"])
             agents.append({
                 "name": pane["name"], "agent": pane.get("kind", "codex"),
@@ -237,6 +237,19 @@ elif group == "agent" and command == "prompt":
 elif group == "agent" and command == "wait":
     name = args[2]
     pane = next(p for p in state["panes"] if p.get("name") == name)
+    pane["wait_calls"] = pane.get("wait_calls", 0) + 1
+    if pane.get("hide_on_wait"):
+        pane["hide_from_agent_list"] = True
+    if pane.get("always_working"):
+        pane["agent_status"] = "working"
+    elif pane.get("unknown_on_wait"):
+        pane["agent_status"] = "unknown"
+    elif pane.get("settle_after_first_wait") and pane["wait_calls"] > 1:
+        pane["agent_status"] = "idle"
+    save()
+    if pane.get("hide_from_agent_list") and os.environ.get("FAKE_HERDR_FAIL_HIDDEN_WAIT") == "1":
+        print(json.dumps({"error": {"message": "agent pane disappeared"}}), file=sys.stderr)
+        sys.exit(1)
     output({"agent": {"name": name, "agent_status": pane.get("agent_status", "idle")}})
 elif group == "agent" and command == "read":
     name = args[2]
@@ -375,10 +388,10 @@ class OrchestrateAgentTests(unittest.TestCase):
             "managed_tabs": sorted(managed_tabs),
         }), encoding="utf-8")
 
-    def run_tool(self, *args: str) -> subprocess.CompletedProcess[str]:
+    def run_tool(self, *args: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [sys.executable, str(ENTRY_POINT), *args],
-            cwd=self.repo, env=self.env, text=True, capture_output=True, check=False,
+            cwd=self.repo, env=env or self.env, text=True, capture_output=True, check=False,
         )
 
     def calls(self) -> list[list[str]]:
@@ -659,7 +672,7 @@ class OrchestrateAgentTests(unittest.TestCase):
         prompt = next(call for call in self.calls() if call[:2] == ["agent", "prompt"])
         self.assertEqual(prompt[-1], "Orchestrator: Read build/briefs/worker.md and do exactly what it says. Reply DONE or BLOCKED.")
         wait = next(call for call in self.calls() if call[:2] == ["agent", "wait"])
-        self.assertEqual(wait[wait.index("--timeout") + 1], "2000")
+        self.assertIn(wait[wait.index("--timeout") + 1], {"1999", "2000"})
 
     def test_blocked_wait_prints_last_five_visible_lines(self) -> None:
         self.add_pane(name="blocked", tab="w1:t1")
@@ -675,6 +688,53 @@ class OrchestrateAgentTests(unittest.TestCase):
         self.assertIn("blocked state=blocked", lines[0])
         self.assertEqual(lines[1:], ["line two", "line three", "line four", "line five", "line six"])
 
+    def test_wait_rechecks_status_and_waits_again_while_working(self) -> None:
+        pane = self.add_pane(name="moving", tab="w1:t1", status="working")
+        pane["settle_after_first_wait"] = True
+        self.write_state()
+        self.write_metadata(agents={
+            "moving": {"kind": "codex", "model": "gpt-6-luna", "pane_id": pane["pane_id"]},
+        })
+
+        result = self.run_tool("prompt", "moving", "--text", "finish", "--wait", "--timeout", "2")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "moving state=idle")
+        calls = self.calls()
+        wait_positions = [i for i, call in enumerate(calls) if call[:2] == ["agent", "wait"]]
+        self.assertEqual(len(wait_positions), 2)
+        for wait_position in wait_positions:
+            self.assertIn(["agent", "list"], [call[:2] for call in calls[wait_position + 1:]])
+        self.assertLess(wait_positions[0], wait_positions[1])
+        self.assertGreaterEqual(self.read_state()["panes"][-1]["wait_calls"], 2)
+
+    def test_wait_timeout_while_working_exits_nonzero(self) -> None:
+        pane = self.add_pane(name="slow", tab="w1:t1", status="working")
+        pane["always_working"] = True
+        self.write_state()
+        self.write_metadata(agents={"slow": {"kind": "codex", "model": "gpt-6-luna", "pane_id": pane["pane_id"]}})
+
+        result = self.run_tool("prompt", "slow", "--text", "wait", "--wait", "--timeout", "0.2")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout.splitlines()[0], "slow state=working")
+        self.assertIn("timed out waiting for agent slow (state=working)", result.stderr)
+
+    def test_wait_timeout_for_unknown_and_vanished_agents_exits_nonzero(self) -> None:
+        for name, marker in (("unknown", "unknown_on_wait"), ("vanished", "hide_on_wait")):
+            with self.subTest(state=name):
+                self.log_path.unlink(missing_ok=True)
+                self.read_state()
+                pane = self.add_pane(name=name, tab="w1:t1", status="working")
+                pane[marker] = True
+                self.write_state()
+                self.write_metadata(agents={name: {"kind": "codex", "model": "gpt-6-luna", "pane_id": pane["pane_id"]}})
+                env = self.env.copy()
+                if marker == "hide_on_wait":
+                    env["FAKE_HERDR_FAIL_HIDDEN_WAIT"] = "1"
+                result = self.run_tool("prompt", name, "--text", "wait", "--wait", "--timeout", "0.2", env=env)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout.splitlines()[0], f"{name} state=unknown")
+                self.assertIn(f"timed out waiting for agent {name} (state=unknown)", result.stderr)
+
     def test_codex_claude_flags_and_role_tool_lists(self) -> None:
         codex = self.start("codexer", model="gpt-6-luna")
         claude_impl = self.start("claudeimpl", kind="claude", model="claude-sonnet-4-5", purpose="Implement")
@@ -688,7 +748,7 @@ class OrchestrateAgentTests(unittest.TestCase):
         reviewer_call = next(call for call in starts if call[2] == "reviewer")
         for call in (impl_call, reviewer_call):
             self.assertEqual(call[call.index("--") + 1:call.index("--") + 5], ["--model", call[call.index("--") + 2], "--permission-mode", "acceptEdits"])
-        self.assertEqual(impl_call[impl_call.index("--allowedTools") + 1], "Bash(scripts/agent-build.sh:*) Bash(swift test:*) Bash(swift build:*) Bash(xcodebuild:*) Bash(git diff:*) Bash(git status:*) Bash(git log:*) Bash(node --test:*) Bash(python3 -m unittest:*) Read Edit Write Glob Grep")
+        self.assertEqual(impl_call[impl_call.index("--allowedTools") + 1], "Bash(scripts/agent-build.sh:*) Bash(scripts/orchestrate/test.sh:*) Bash(swift test:*) Bash(swift build:*) Bash(xcodebuild:*) Bash(git diff:*) Bash(git status:*) Bash(git log:*) Bash(node --test:*) Bash(python3 -m unittest:*) Read Edit Write Glob Grep")
         self.assertEqual(reviewer_call[reviewer_call.index("--allowedTools") + 1], "Bash(git diff:*) Bash(git log:*) Bash(git show:*) Bash(git status:*) Read Glob Grep Write(build/reviews/**) Edit(build/reviews/**)")
 
     def test_script_uses_main_when_available_and_scripts_tab_when_busy(self) -> None:
