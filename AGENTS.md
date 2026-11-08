@@ -105,12 +105,12 @@ Whenever an exercise thumbnail is added, replaced, removed, renamed, or material
 
 ## Herdr layout policy
 
-When orchestrating agents with Herdr, follow `docs/agent-orchestration.md` for tab and pane placement.
-Keep the orchestrator in Main; allocate Main's remaining columns to agents before long-running scripts.
-Each managed tab has at most three equal-width side-by-side panes (100%, 50%, or approximately 33.3%);
-never create a column narrower than 33%. Move overflow agents to `Agent` tabs and overflow
-long-running scripts to `Scripts` tabs without restarting active processes. Rebalance after
-pane changes, and give monitored scripts a dedicated pane.
+Use `scripts/orchestrate/agent.py` for managed agents and long-running scripts; see `docs/agent-orchestration.md`.
+Keep the Orchestrator pane (identified by pane ID) and up to two agents in `Main`, placing agents before scripts.
+Purposes are unique; `Orchestrator` is reserved.
+Only recorded pane IDs and the Orchestrator's Main geometry are in scope; ignore user tabs and unmanaged agents for placement.
+Each tab has at most three equal-width side-by-side columns; put overflow agents in `Agent` tabs and scripts in
+`Scripts` tabs. Preserve running processes and focus while moving panes.
 
 ## Useful Validation & Build Commands
 
