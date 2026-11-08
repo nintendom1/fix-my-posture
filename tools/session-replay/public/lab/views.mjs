@@ -233,7 +233,7 @@ function parseSession(records) {
   catch { return null; }
 }
 
-export function renderScenarioDetail({ plan, scenario, result = null, recording = [], reference = [] }) {
+export function renderScenarioDetail({ plan, scenario, result = null, recording = [], reference = [], runID = scenario.sourceRunID ?? plan.sourceRunID ?? "" }) {
   const status = statusForScenario(scenario, result);
   const session = parseSession(recording);
   const referenceSession = parseSession(reference);
@@ -246,7 +246,8 @@ export function renderScenarioDetail({ plan, scenario, result = null, recording 
   return `<article class="lab-selected-scenario" data-lab-scenario-id="${replay.esc(scenario.id)}" data-lab-status="${replay.esc(status)}">
     <header class="lab-scenario-heading"><div><p class="lab-eyebrow">${replay.esc(scenario.category ?? "scenario")} · revision ${replay.num(scenario.revision)}</p>
       <h3>${replay.esc(scenario.name ?? scenario.title ?? scenario.id)}</h3><p>${replay.esc(scenario.purpose ?? "No stated purpose.")}</p></div>
-      <div class="lab-status-group">${statusBadges(status)}</div></header>
+      <div class="lab-scenario-actions"><div class="lab-status-group">${statusBadges(status)}</div>
+        ${runID ? `<button type="button" class="button ghost" data-lab-edit-run="${replay.esc(runID)}" data-lab-edit-scenario="${replay.esc(scenario.id)}">Edit movement</button>` : ""}</div></header>
     <div class="lab-intent"><span><b>Intended mutation</b>${replay.esc(mutation)}</span><span><b>Expected behavior</b>${replay.esc((scenario.assertions ?? []).map(assertionDescription).join("; ") || "No frozen assertions")}</span>
       <span><b>Provenance</b>${replay.esc(authorship)}${scenario.parentRevision != null ? ` · follows revision ${replay.num(scenario.parentRevision)}` : ""}</span></div>
     <section class="lab-playback" data-lab-duration="${replay.num(session?.duration)}">

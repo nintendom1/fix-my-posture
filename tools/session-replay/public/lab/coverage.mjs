@@ -85,7 +85,8 @@ export function renderCoverageScenarioRow(scenario, { thumbnailHTML = "" } = {})
   const domKey = esc(scenarioDOMKey(scenario));
   return `<article class="coverage-scenario" data-coverage-row="${domKey}">
     <div class="coverage-scenario-info"><div class="coverage-scenario-heading"><h4>${esc(scenario.id)} <span>rev ${num(scenario.revision)}</span></h4><span class="lab-status ${statusClass(scenario.status)}">${esc(scenario.status)}</span></div>
-      <p>${esc(scenario.purpose ?? "No stated purpose.")}</p><div class="coverage-scenario-meta"><span>${esc(mutationSummary(scenario))}</span><span>scenario coverage · ${esc(scenario.exercise)}</span></div></div>
+      <p>${esc(scenario.purpose ?? "No stated purpose.")}</p><div class="coverage-scenario-meta"><span>${esc(mutationSummary(scenario))}</span><span>scenario coverage · ${esc(scenario.exercise)}</span></div>
+      ${scenario.sourceRunID ? `<button type="button" class="button ghost coverage-edit-button" data-lab-edit-run="${esc(scenario.sourceRunID)}" data-lab-edit-scenario="${esc(scenario.id)}">Edit movement</button>` : ""}</div>
     <div class="coverage-thumb-slot" data-coverage-scenario="${domKey}">${thumbnailHTML || `<div class="coverage-thumb-loading">Loading stored keyframe…</div>`}</div>
   </article>`;
 }
