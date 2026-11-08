@@ -22,7 +22,8 @@ struct WorkoutCoachHarness {
                      audioTiming: AudioWorkTiming? = nil,
                      plan: WorkoutPlan? = nil,
                      adaptive: (any AdaptiveEvidenceRecording)? = nil,
-                     todayLaunch: TodaySessionLaunch? = nil) -> WorkoutCoachHarness {
+                     todayLaunch: TodaySessionLaunch? = nil,
+                     trace: WorkoutTraceRecorder? = nil) -> WorkoutCoachHarness {
         let clock = ManualClock(now: 10)
         let scheduler = ManualScheduler(clock: clock)
         let camera = FakePoseFrameSource()
@@ -31,6 +32,11 @@ struct WorkoutCoachHarness {
         let audio = FakeAudioSession()
         let tilt = FakeTiltMonitor()
         let voice = FakeVoiceController()
+        // A golden trace hears the fakes and, unless another recorder is given, is the model's session recorder too.
+        speech.trace = trace
+        audio.trace = trace
+        voice.trace = trace
+        trace?.now = { clock.now }
         let model = WorkoutCoachModel(
             camera: camera,
             previewProvider: nil,
@@ -45,12 +51,13 @@ struct WorkoutCoachHarness {
             exercises: exercises,
             initialExercise: initialExercise,
             plan: plan,
-            recorder: recorder,
+            recorder: recorder ?? trace,
             audioTiming: audioTiming,
             adaptive: adaptive,
             todayLaunch: todayLaunch,
             evidenceDate: { Date(timeIntervalSince1970: 1_000) }
         )
+        trace?.state = { [weak model] in model.map(WorkoutTraceRecorder.state(of:)) ?? [] }
         return WorkoutCoachHarness(model: model, camera: camera, permission: permission, speech: speech,
                                    audio: audio, tilt: tilt, voice: voice, clock: clock, scheduler: scheduler)
     }

@@ -50,17 +50,25 @@ final class FakeCameraPermission: CameraPermissionProviding {
 final class FakeSpeechCoach: SpeechCoaching {
     private(set) var utterances: [Utterance] = []
     private(set) var stopCount = 0
+    private(set) var repeatCount = 0
     var isSpeaking = false
     var onActivityChanged: ((Bool) -> Void)?
+    /// Golden traces only: every call is also written here.
+    var trace: WorkoutTraceRecorder?
 
     func speak(_ utterance: Utterance) {
         utterances.append(utterance)
+        trace?.speechSpoke(utterance)
     }
 
-    func repeatLastInstruction() {}
+    func repeatLastInstruction() {
+        repeatCount += 1
+        trace?.speechRepeated(lastInstruction: utterances.last(where: \.isInstruction))
+    }
 
     func stopAll() {
         stopCount += 1
+        trace?.record("speech stopAll")
     }
 }
 
@@ -79,17 +87,38 @@ final class FakeAudioSession: AudioSessionControlling {
     var onEvent: ((AudioSessionEvent) -> Void)?
     private(set) var calls: [Call] = []
     var listeningActivationSucceeds = true
+    /// Golden traces only: every call is also written here.
+    var trace: WorkoutTraceRecorder?
 
-    func configureBaseCategory() { calls.append(.configureBaseCategory) }
-    func setRecordingEnabled(_ enabled: Bool) { calls.append(.recordingEnabled(enabled)) }
+    func configureBaseCategory() {
+        calls.append(.configureBaseCategory)
+        trace?.record("audio configureBaseCategory")
+    }
+    func setRecordingEnabled(_ enabled: Bool) {
+        calls.append(.recordingEnabled(enabled))
+        trace?.record("audio recordingEnabled \(enabled)")
+    }
     func activateForListening() -> Bool {
         calls.append(.activateForListening)
+        trace?.record("audio activateForListening -> \(listeningActivationSucceeds)")
         return listeningActivationSucceeds
     }
-    func stopListening() { calls.append(.stopListening) }
-    func beginDucking() { calls.append(.beginDucking) }
-    func endDucking() { calls.append(.endDucking) }
-    func deactivate() { calls.append(.deactivate) }
+    func stopListening() {
+        calls.append(.stopListening)
+        trace?.record("audio stopListening")
+    }
+    func beginDucking() {
+        calls.append(.beginDucking)
+        trace?.record("audio beginDucking")
+    }
+    func endDucking() {
+        calls.append(.endDucking)
+        trace?.record("audio endDucking")
+    }
+    func deactivate() {
+        calls.append(.deactivate)
+        trace?.record("audio deactivate")
+    }
 
     func emit(_ event: AudioSessionEvent) {
         onEvent?(event)
@@ -114,9 +143,13 @@ final class FakeVoiceController: VoiceControlling {
     var onStatusChanged: ((VoiceStatus) -> Void)?
     var onCommand: ((WorkoutCommand) -> Void)?
     var onHeard: ((String) -> Void)?
-    var acceptsEffortFeedback = false
+    var acceptsEffortFeedback = false {
+        didSet { trace?.record("listen acceptsEffort \(acceptsEffortFeedback)") }
+    }
     var onEffort: ((EffortFeedback) -> Void)?
-    var acceptsBonusAnswer = false
+    var acceptsBonusAnswer = false {
+        didSet { trace?.record("listen acceptsBonus \(acceptsBonusAnswer)") }
+    }
     var onBonus: ((BonusAnswer) -> Void)?
     private(set) var mutedValues: [Bool] = []
     private(set) var enabledCount = 0
@@ -124,13 +157,33 @@ final class FakeVoiceController: VoiceControlling {
     private(set) var disabledStatuses: [VoiceStatus] = []
     private(set) var coachSpeakingValues: [Bool] = []
     private(set) var audioEvents: [AudioSessionEvent] = []
+    /// Golden traces only: every call is also written here.
+    var trace: WorkoutTraceRecorder?
 
-    func enable() { enabledCount += 1 }
-    func disable(status: VoiceStatus) { disabledStatuses.append(status) }
-    func setMuted(_ muted: Bool) { mutedValues.append(muted) }
-    func retry() { retryCount += 1 }
-    func setCoachSpeaking(_ speaking: Bool) { coachSpeakingValues.append(speaking) }
-    func handleAudioEvent(_ event: AudioSessionEvent) { audioEvents.append(event) }
+    func enable() {
+        enabledCount += 1
+        trace?.record("listen enable")
+    }
+    func disable(status: VoiceStatus) {
+        disabledStatuses.append(status)
+        trace?.record("listen disable \(WorkoutTraceRecorder.describe(status))")
+    }
+    func setMuted(_ muted: Bool) {
+        mutedValues.append(muted)
+        trace?.record("listen muted \(muted)")
+    }
+    func retry() {
+        retryCount += 1
+        trace?.record("listen retry")
+    }
+    func setCoachSpeaking(_ speaking: Bool) {
+        coachSpeakingValues.append(speaking)
+        trace?.record("listen coachSpeaking \(speaking)")
+    }
+    func handleAudioEvent(_ event: AudioSessionEvent) {
+        audioEvents.append(event)
+        trace?.record("listen audioEvent \(WorkoutTraceRecorder.describe(event))")
+    }
 
     func emit(_ command: WorkoutCommand) { onCommand?(command) }
     func emitHeard(_ phrase: String) { onHeard?(phrase) }
