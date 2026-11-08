@@ -11,16 +11,21 @@ struct EffortCardState: Equatable, Identifiable {
     /// The amount the card opened with: counted reps, the recorded amount, or 0 for a skipped item.
     let defaultAmount: Int
     var amount: Int
+    /// The card asks about the optional bonus set the user took, not about a prescribed item.
+    let isBonus: Bool
 
     static let maximumAmount = 999
 
-    init(id: UUID, unit: DoseKind, setCount: Int, amount: Int) {
+    init(id: UUID, unit: DoseKind, setCount: Int, amount: Int, isBonus: Bool = false) {
         self.id = id
         self.unit = unit
         self.setCount = max(1, setCount)
         defaultAmount = max(0, amount)
         self.amount = max(0, amount)
+        self.isBonus = isBonus
     }
+
+    var title: String { isBonus ? "How was the bonus?" : "How was that?" }
 
     /// Reps change by 1, seconds by 5.
     var step: Int { unit == .seconds ? 5 : 1 }
@@ -62,7 +67,7 @@ struct EffortCardView: View {
 
     private var card: some View {
         VStack(spacing: 14) {
-            Text("How was that?")
+            Text(state.title)
                 .font(.system(size: 24, weight: .black, design: .rounded))
                 .foregroundStyle(palette.textPrimary)
                 .accessibilityAddTraits(.isHeader)
@@ -104,7 +109,7 @@ struct EffortCardView: View {
         .padding(.horizontal, 24)
         .environment(\.colorScheme, .dark)
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("effortCard")
+        .accessibilityIdentifier(state.isBonus ? "bonusRatingCard" : "effortCard")
     }
 
     private var amountRow: some View {

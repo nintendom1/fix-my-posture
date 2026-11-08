@@ -56,3 +56,60 @@ enum EffortPhraseParser {
         return EffortPhraseMatch(effort: match.effort, phrase: match.phrase)
     }
 }
+
+/// The user's answer to "Want one more?".
+enum BonusAnswer: Equatable {
+    case accept
+    case decline
+}
+
+/// A bonus answer found in a spoken transcript.
+struct BonusPhraseMatch: Equatable {
+    let answer: BonusAnswer
+    /// The alias that matched, as displayed, for the "Heard" chip.
+    let phrase: String
+}
+
+/// Reads "one more", "yes", "I'm done", "no thanks", and a few variants while the bonus offer is open. Like
+/// `EffortPhraseParser`, it runs on the raw transcript before `VoiceCommandParser` and accepts only the phrase plus
+/// polite filler words, so "okay start" or "yes end workout" is not an answer and reaches the command parser. A
+/// transcript with both an accept and a decline ("yes no") is not an answer either.
+enum BonusPhraseParser {
+    static let aliases: [(phrase: String, answer: BonusAnswer)] = [
+        ("one more", .accept), ("one more rep", .accept), ("sure", .accept), ("yes", .accept),
+        ("I'm done", .decline), ("I am done", .decline), ("no thanks", .decline), ("no", .decline),
+        ("done", .decline)
+    ]
+
+    /// The only other words an answer may carry; no verb, noun, or other answer is polite.
+    static let politeWords: Set<String> = [
+        "please", "um", "uh", "so", "well", "hey", "coach", "thanks", "thank", "you", "okay", "ok"
+    ]
+
+    private static let entries: [(phrase: String, answer: BonusAnswer, tokens: [String])] = aliases.map {
+        ($0.phrase, $0.answer, VoiceCommandParser.normalize($0.phrase))
+    }
+
+    static func parse(_ transcript: String) -> BonusPhraseMatch? {
+        let words = VoiceCommandParser.normalize(transcript)
+        guard !words.isEmpty else { return nil }
+
+        var best: (phrase: String, answer: BonusAnswer, range: Range<Int>)?
+        for entry in entries where entry.tokens.count <= words.count {
+            for start in 0...(words.count - entry.tokens.count) where Array(words[start..<(start + entry.tokens.count)]) == entry.tokens {
+                let range = start..<(start + entry.tokens.count)
+                // Longest phrase wins; among equals, the most recent words win.
+                if let current = best,
+                   current.range.count > range.count
+                    || (current.range.count == range.count && current.range.upperBound >= range.upperBound) {
+                    continue
+                }
+                best = (entry.phrase, entry.answer, range)
+            }
+        }
+        guard let match = best else { return nil }
+        let others = words[..<match.range.lowerBound] + words[match.range.upperBound...]
+        guard others.allSatisfy(politeWords.contains) else { return nil }
+        return BonusPhraseMatch(answer: match.answer, phrase: match.phrase)
+    }
+}

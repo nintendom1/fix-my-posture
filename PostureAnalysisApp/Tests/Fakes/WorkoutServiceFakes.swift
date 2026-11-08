@@ -116,6 +116,8 @@ final class FakeVoiceController: VoiceControlling {
     var onHeard: ((String) -> Void)?
     var acceptsEffortFeedback = false
     var onEffort: ((EffortFeedback) -> Void)?
+    var acceptsBonusAnswer = false
+    var onBonus: ((BonusAnswer) -> Void)?
     private(set) var mutedValues: [Bool] = []
     private(set) var enabledCount = 0
     private(set) var retryCount = 0
@@ -133,6 +135,7 @@ final class FakeVoiceController: VoiceControlling {
     func emit(_ command: WorkoutCommand) { onCommand?(command) }
     func emitHeard(_ phrase: String) { onHeard?(phrase) }
     func emitEffort(_ effort: EffortFeedback) { onEffort?(effort) }
+    func emitBonus(_ answer: BonusAnswer) { onBonus?(answer) }
 }
 
 final class ManualClock: Clock {

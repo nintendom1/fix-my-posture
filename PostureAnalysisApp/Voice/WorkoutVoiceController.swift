@@ -26,6 +26,11 @@ final class WorkoutVoiceController: VoiceControlling {
         didSet { if !acceptsEffortFeedback { pendingEffort = nil } }
     }
     var onEffort: ((EffortFeedback) -> Void)?
+    /// While true, "one more" and "I'm done" answer the bonus offer before the command parser sees the transcript.
+    var acceptsBonusAnswer = false {
+        didSet { if !acceptsBonusAnswer { pendingBonus = nil } }
+    }
+    var onBonus: ((BonusAnswer) -> Void)?
 
     private(set) var status: Status = .off {
         didSet { if status != oldValue { onStatusChanged?(status) } }
@@ -46,6 +51,8 @@ final class WorkoutVoiceController: VoiceControlling {
     /// An effort answer heard in a transcript that may still grow ("okay" could become "okay start"); it answers once
     /// the transcript is final or has settled.
     private var pendingEffort: EffortPhraseMatch?
+    /// The same for a bonus answer ("yes" could become "yes end workout").
+    private var pendingBonus: BonusPhraseMatch?
     private var checkTimer: Cancellable?
 
     init(recognizer: SpeechRecognizing, parser: VoiceCommandParsing, permissions: VoicePermissionProviding,
@@ -219,6 +226,17 @@ final class WorkoutVoiceController: VoiceControlling {
             return
         }
         pendingEffort = nil
+        // The same for the bonus offer. Only one of the two is ever open.
+        if acceptsBonusAnswer, let answer = BonusPhraseParser.parse(text) {
+            if isFinal {
+                executeBonus(answer)
+            } else {
+                pendingBonus = answer
+                pending = nil
+            }
+            return
+        }
+        pendingBonus = nil
         guard let match = parser.parse(text) else {
             pending = nil
             if isFinal { resetTranscript() }
@@ -236,9 +254,11 @@ final class WorkoutVoiceController: VoiceControlling {
         let settled = clock() - transcriptChangedAt
         if let pendingEffort, settled >= Self.ambiguousSettleTime {
             executeEffort(pendingEffort)
+        } else if let pendingBonus, settled >= Self.ambiguousSettleTime {
+            executeBonus(pendingBonus)
         } else if let pending, settled >= pending.settleTime ?? Self.ambiguousSettleTime {
             execute(pending)
-        } else if pending == nil, pendingEffort == nil, settled >= Self.utteranceEndTime {
+        } else if pending == nil, pendingEffort == nil, pendingBonus == nil, settled >= Self.utteranceEndTime {
             // End of utterance without a command: start fresh so old words can't combine with new ones.
             resetTranscript()
             recognizer.restartTask()
@@ -259,9 +279,17 @@ final class WorkoutVoiceController: VoiceControlling {
         onEffort?(match.effort)
     }
 
+    private func executeBonus(_ match: BonusPhraseMatch) {
+        resetTranscript()
+        recognizer.restartTask()
+        onHeard?(match.phrase)
+        onBonus?(match.answer)
+    }
+
     private func resetTranscript() {
         transcript = ""
         pending = nil
         pendingEffort = nil
+        pendingBonus = nil
     }
 }

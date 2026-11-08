@@ -85,6 +85,9 @@ enum WorkoutEvent: Equatable {
     /// A camera frame was analyzed, at its capture moment. A start hold counts only up to the latest one, so a
     /// stall can't complete it on stale pose evidence.
     case poseObserved
+    /// The user took the optional extra set after an item: one more set of the same exercise is inserted right after
+    /// it and set up, without a rest.
+    case startBonus(BonusRequest)
 }
 
 enum WorkoutEffect: Equatable {
@@ -169,8 +172,8 @@ struct WorkoutSession {
     private(set) var endedAfterCompletion = false
     /// The weight in use for each exercise; it carries to later sets until changed.
     private(set) var currentWeights: [ExerciseID: WorkoutWeight] = [:]
-    /// Exercises run in order, such as a Saved Set; nil for a single exercise.
-    let plan: WorkoutPlan?
+    /// Exercises run in order, such as a Saved Set; nil for a single exercise. A bonus set is inserted while it runs.
+    private(set) var plan: WorkoutPlan?
     private(set) var planIndex = 0
     /// What happened to each plan occurrence, by item id.
     private(set) var planRecords: [UUID: PlanItemRecord] = [:]
@@ -272,10 +275,12 @@ struct WorkoutSession {
         return plan.items[planIndex]
     }
 
-    /// "Exercise 2 of 5" while following a plan.
+    /// "Exercise 2 of 5" while following a plan; a bonus set isn't one of the exercises and reads "Bonus".
     var planPositionLabel: String? {
         guard let plan, isFollowingPlan else { return nil }
-        return "Exercise \(planIndex + 1) of \(plan.items.count)"
+        if currentPlanItem?.isBonus == true { return "Bonus" }
+        let position = plan.items.prefix(planIndex).filter { !$0.isBonus }.count + 1
+        return "Exercise \(position) of \(plan.items.filter { !$0.isBonus }.count)"
     }
 
     /// Reps both sides have completed in the current set.
@@ -369,6 +374,8 @@ struct WorkoutSession {
         case .poseObserved:
             lastPoseObservedAt = max(lastPoseObservedAt ?? now, now)
             return []
+        case .startBonus(let bonus):
+            return startBonus(bonus, at: now)
         }
     }
 
@@ -457,7 +464,7 @@ struct WorkoutSession {
                 guard case .changingExercise = phase else {
                     return hint("You're in \(plan.name). \(prompt("next exercise")) to skip ahead, or \(prompt("change exercise").lowercased()) to leave it.")
                 }
-                leavePlan()
+                leavePlan(at: now)
             }
             return switchExercise(to: id, at: now)
         case .cancel:
@@ -513,6 +520,27 @@ struct WorkoutSession {
             readySince = now
         } else {
             phase = .framing
+        }
+    }
+
+    /// What the set under way has observed so far, for work that leaves it unfinished: counted reps for a camera
+    /// exercise, seconds held for a timed hold, and nothing for a self-reported rep set, whose reps nobody has said
+    /// were done. Zero when no set is under way.
+    func observedSetAmount(at now: TimeInterval) -> Int {
+        guard Self.isSetInProgress(phase), let exercise else { return 0 }
+        if exercise.doseUnit == .seconds {
+            let remaining = holdRemaining(at: now) ?? TimeInterval(exercise.autoCompleteReps)
+            return max(0, exercise.autoCompleteReps - Int(remaining.rounded(.up)))
+        }
+        return exercise.isSelfReported ? 0 : repCount
+    }
+
+    /// A set is under way while exercising or paused, including when the exercise chooser was opened over it.
+    private static func isSetInProgress(_ phase: WorkoutPhase) -> Bool {
+        switch phase {
+        case .exercising, .paused: return true
+        case .changingExercise(let previous): return isSetInProgress(previous)
+        default: return false
         }
     }
 
@@ -714,6 +742,35 @@ struct WorkoutSession {
         return [.speak(Utterance(text: "\(lead) \(next.setupLine)\(begin)"))]
     }
 
+    /// Inserts a one-set bonus right after the finished occurrence `bonus.after` and sets it up, without a rest. The
+    /// bonus runs the same exercise and variant. It is accepted only while that occurrence is completed and nothing
+    /// after it has started (it may still be resting before the next occurrence), and only once; otherwise nothing
+    /// changes.
+    private mutating func startBonus(_ bonus: BonusRequest, at now: TimeInterval) -> [WorkoutEffect] {
+        guard var plan, isFollowingPlan, bonus.amount >= 1,
+              let index = plan.items.firstIndex(where: { $0.id == bonus.after }),
+              !plan.items[index].isBonus, planRecords[bonus.after]?.outcome == .completed,
+              planIndex == index || planIndex == index + 1 else { return [] }
+        switch phase {
+        case .exerciseComplete, .resting, .framing, .ready: break
+        default: return []
+        }
+        let nextIndex = index + 1
+        if plan.items.indices.contains(nextIndex) {
+            let next = plan.items[nextIndex]
+            guard !next.isBonus, planRecords[next.id] == nil else { return [] }
+        }
+        let source = plan.items[index]
+        plan.items.insert(WorkoutPlanItem(id: bonus.itemID, exerciseID: source.exerciseID, sets: 1,
+                                          targetReps: bonus.amount...bonus.amount, reducedRange: source.reducedRange,
+                                          isBonus: true),
+                          at: nextIndex)
+        // The occurrence on screen keeps its place in the list, so the move compares with what the user last saw.
+        if planIndex >= nextIndex { planIndex += 1 }
+        self.plan = plan
+        return advancePlan(to: nextIndex, at: now, restSeconds: nil, lead: "One more.")
+    }
+
     /// Skips the rest of the current occurrence, keeping any finished sets, and moves on.
     private mutating func skipToNextExercise(at now: TimeInterval) -> [WorkoutEffect] {
         guard let plan, isFollowingPlan, let item = currentPlanItem else {
@@ -726,8 +783,7 @@ struct WorkoutSession {
             break
         }
         if planRecords[item.id]?.outcome == nil {
-            planRecords[item.id] = PlanItemRecord(outcome: .skipped, setReps: progress[item.exerciseID]?.roundSetReps ?? [],
-                                                  setWeights: progress[item.exerciseID]?.roundSetWeights ?? [])
+            planRecords[item.id] = skippedRecord(for: item, isCurrent: true, at: now)
         }
         let effects = setCounting(false) + newAnalyzer() + clearFeedback()
         if let next = nextPlanIndex(after: planIndex) {
@@ -746,19 +802,34 @@ struct WorkoutSession {
     /// The whole Saved Set again from its first exercise; earlier sets stay in the summary.
     private mutating func restartPlan(at now: TimeInterval) -> [WorkoutEffect] {
         guard let plan, let first = plan.items.indices.first(where: { index in exercises.contains { $0.id == plan.items[index].exerciseID } }) else { return [] }
+        // A new round starts from what was prescribed: a bonus belonged to the round that earned it.
+        self.plan?.items.removeAll { $0.isBonus }
         planRecords = [:]
         let effects = setCounting(false) + newAnalyzer() + clearFeedback()
         return effects + advancePlan(to: first, at: now, restSeconds: nil, lead: "Another round of \(plan.name).")
     }
 
+    /// The record of an occurrence that was skipped: the sets it finished (only the occurrence in progress has any).
+    /// A bonus also keeps what its set under way had observed. It is never listed as skipped, so work the user did
+    /// in it must not vanish from history; any other occurrence keeps finished sets only.
+    private func skippedRecord(for item: WorkoutPlanItem, isCurrent: Bool, at now: TimeInterval) -> PlanItemRecord {
+        var reps = isCurrent ? (progress[item.exerciseID]?.roundSetReps ?? []) : []
+        var weights = isCurrent ? (progress[item.exerciseID]?.roundSetWeights ?? []) : []
+        if isCurrent, item.isBonus {
+            let observed = observedSetAmount(at: now)
+            if observed > 0 {
+                reps.append(observed)
+                weights.append(currentWeights[item.exerciseID])
+            }
+        }
+        return PlanItemRecord(outcome: .skipped, setReps: reps, setWeights: weights)
+    }
+
     /// Choosing a different exercise ends the plan's order; what's left of it is skipped.
-    private mutating func leavePlan() {
+    private mutating func leavePlan(at now: TimeInterval) {
         guard let plan else { return }
         for item in plan.items[planIndex...] where planRecords[item.id]?.outcome == nil {
-            let current = item.id == currentPlanItem?.id
-            planRecords[item.id] = PlanItemRecord(outcome: .skipped,
-                                                  setReps: current ? (progress[item.exerciseID]?.roundSetReps ?? []) : [],
-                                                  setWeights: current ? (progress[item.exerciseID]?.roundSetWeights ?? []) : [])
+            planRecords[item.id] = skippedRecord(for: item, isCurrent: item.id == currentPlanItem?.id, at: now)
         }
         isFollowingPlan = false
         isRestingBeforeNextExercise = false

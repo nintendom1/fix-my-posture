@@ -169,6 +169,14 @@ struct WorkoutCoachView: View {
                         .transition(.opacity)
                 }
 
+                // The same place as the effort card, for after an Easy rating.
+                if let offer = model.bonusOffer {
+                    BonusOfferView(state: offer, showsVoiceHint: model.micStatus.isUsable,
+                                   onAccept: { model.acceptBonus() },
+                                   onDecline: { model.declineBonus() })
+                        .transition(.opacity)
+                }
+
                 if model.showsCompletionCard {
                     if model.session.plan != nil, model.session.isFollowingPlan {
                         WorkoutCompleteScreen(
@@ -196,6 +204,7 @@ struct WorkoutCoachView: View {
             .onPreferenceChange(WorkoutHUDRects.self) { hudRects = $0 }
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: model.showsCompletionCard)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: model.effortCard?.id)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: model.bonusOffer?.id)
         }
     }
 
