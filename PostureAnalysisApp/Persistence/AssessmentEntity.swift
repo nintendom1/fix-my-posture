@@ -1,2 +1,2 @@
-// AssessmentEntity, LandmarkEntity, and MeasurementEntity are the V1 model aliases
-// declared alongside their versioned definitions in Schema/SchemaV1.swift.
+// AssessmentEntity, LandmarkEntity, and MeasurementEntity alias the current schema's models,
+// declared alongside their versioned definitions in Schema/SchemaV2.swift.
