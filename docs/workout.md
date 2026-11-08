@@ -601,6 +601,21 @@ The microphone and speech-recognition prompts follow the camera prompt, in that 
 - `VoiceCommandParserTests` cover spoken weights (digits, number words, halves, kilograms, bands, settling, and ignoring unrelated numbers), "wait" heard for "weight" (a weight, held while the number is said, or a pause after 1 s), fillers, longest-phrase matching, the whole-utterance rule for destructive commands, prefix ambiguity, exercise names, and opening and closing help by voice. They also check that every recognized phrase appears exactly once in the Voice Commands help.
 - `PhoneTiltDetectorTests` check the 1 s settle time, the 15°/10° hysteresis, and that missing motion data never warns.
 
+### Golden traces
+
+`WorkoutGoldenTraceTests` pin the coach model's recorded events and effects, speech text and order, saved records, and the audio-session calls the model itself makes. Each scenario drives the real `WorkoutCoachModel` through `WorkoutCoachHarness` (manual clock and scheduler, fake camera, speech, audio session, and voice controller), with clock times and one line per recorded call:
+
+- `>` lines are what the scenario did: appearing, camera and voice status, intents, voice commands, card taps, speech activity, and each batch of frames as one line, such as `> frames demo air_squat 553 frames @0.1 (55.3s)`.
+- `t=` lines are what happened, on the coach's clock: recorded reducer inputs and commands, effective pipeline controls, tips, every spoken line with its exact text (muted or not, status or interrupting), repeats, model-issued audio-session calls, calls received by the fake voice controller, adaptive evidence, saved history records, and a `state` line whenever the phase, set, reps, camera, microphone, mutes, effort card, or offers change.
+
+The scenarios are two full air-squat sets with rest, a two-item routine, pause and resume mid-set and Pause/Resume commands during rest, a muted coach, voice repeat, framing lost and regained, a corrective tip and its cooldown, a self-reported timed hold, Today's Session (bonus taken, bonus declined, Too Hard with the easier version), a calibration sample, and saving once. During rest, Pause produces the resting status hint and Resume produces the Start prompt; the rest timer continues and reaches its normal end. Each scenario runs twice and must give the same trace. The expected traces are string literals in `Tests/Support/WorkoutGoldenTraces.swift`.
+
+The model sends `.sessionPhase` to the frame pipeline before processing a frame. The trace logs that control when it changes the pipeline's control state, along with other effective controls. It does not record repeated no-op controls or every raw reducer effect, including redundant effects. State sampling may also miss a transient change that reverts before the next trace call.
+
+A mismatch fails with the first differing line, the expected and actual line, and nearby context. To re-record, run the class with `FMP_GOLDEN_PRINT=1` (or `TEST_RUNNER_FMP_GOLDEN_PRINT=1` through `xcodebuild test`): each actual trace is printed ready to paste and attached to the result, and the tests still fail until the literal is replaced. Change a golden only for an intended behaviour change, and give the reviewed reason in the PR: which lines changed and why.
+
+Limits: `FakeSpeechCoach` bypasses real speech activity, ducking, queue handling, and synthesizer callbacks; scenarios drive speech activity themselves. `FakeVoiceController` bypasses the production voice controller's listening and audio calls, including recognizer stop/restart behavior. Camera and tilt start/stop calls are not logged. Item 11 exercises the production save helper and record contents under a simulated lifecycle; `GoldenRun` supplies the once-only guard, so it does not test the view's once-only save invariant. Add a separate production-lifecycle or shared-save-coordinator test before relying on this suite for save deduplication. The audio facade work must also keep the voice and audio parity tests (`VoiceListeningParityTests`, `AudioSessionParityTests`, `SpeechActivityTraceTests`) unchanged.
+
 ## Adding an exercise
 
 Every new camera-tracked exercise ships with full guidance, even when the request only names it:
