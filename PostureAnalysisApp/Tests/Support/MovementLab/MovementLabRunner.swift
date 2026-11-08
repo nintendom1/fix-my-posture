@@ -101,6 +101,7 @@ struct MovementLabCountingChange: Codable, Equatable {
 struct MovementLabRun {
     let results: [MovementScenarioResult]
     let recordingLines: [String: [String]]
+    let referenceRecordingLines: [String: [String]]
     let countingChanges: [String: [MovementLabCountingChange]]
     let elapsedSeconds: TimeInterval
 }
@@ -122,9 +123,11 @@ enum MovementLabRunner {
         let started = ProcessInfo.processInfo.systemUptime
         var results: [MovementScenarioResult] = []
         var recordings: [String: [String]] = [:]
+        var references: [String: [String]] = [:]
         var counts: [String: [MovementLabCountingChange]] = [:]
         for scenario in plan.scenarios {
             let materialization = MovementGenerator.materialize(plan: plan, scenario: scenario)
+            references[scenario.id] = referenceRecordingLines(plan: plan, scenario: scenario, materialization: materialization)
             guard materialization.isValid else {
                 results.append(MovementScenarioResult(
                     scenarioID: scenario.id, revision: scenario.revision, outcome: .invalid,
@@ -157,8 +160,33 @@ enum MovementLabRunner {
             recordings[scenario.id] = observation.records
             counts[scenario.id] = observation.countingChanges
         }
-        return MovementLabRun(results: results, recordingLines: recordings, countingChanges: counts,
+        return MovementLabRun(results: results, recordingLines: recordings, referenceRecordingLines: references,
+                              countingChanges: counts,
                               elapsedSeconds: ProcessInfo.processInfo.systemUptime - started)
+    }
+
+    private static func referenceRecordingLines(plan: MovementPlan, scenario: MovementScenario,
+                                                 materialization: MovementMaterialization) -> [String] {
+        guard let exercise = ExerciseCatalog.all.first(where: { $0.id == scenario.exercise }) else { return [] }
+        var referenceMaterialization = materialization
+        if !materialization.isValid {
+            var referenceScenario = scenario
+            referenceScenario.mutations = scenario.mutations.filter { mutation in
+                switch mutation {
+                case .tempo, .pause, .frameGap: return true
+                default: return false
+                }
+            }
+            referenceScenario.assertions = []
+            referenceMaterialization = MovementGenerator.materialize(plan: plan, scenario: referenceScenario)
+        }
+        guard referenceMaterialization.isValid, !referenceMaterialization.frames.isEmpty else { return [] }
+        let referenceFrames = referenceMaterialization.frames.map { sample in
+            MovementMaterializedFrame(frame: sample.referenceFrame, referenceFrame: sample.referenceFrame,
+                                      constraintReferenceFrame: sample.referenceFrame, elapsed: sample.elapsed)
+        }
+        return MovementMaterializer.recordingLines(plan: plan, scenario: scenario, exercise: exercise,
+                                                   frames: referenceFrames)
     }
 
     private static func runPipeline(scenario: MovementScenario,

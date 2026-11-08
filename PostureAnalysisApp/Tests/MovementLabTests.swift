@@ -99,6 +99,40 @@ final class MovementLabTests: XCTestCase {
         XCTAssertTrue(states.contains { $0["phase"] as? String == "exercising" })
     }
 
+    func testReferenceRecordingUsesCanonicalPoseOnTheSameSeededTimeline() throws {
+        var scenario = try canonicalScenario()
+        scenario.mode = .raw
+        let motion = AirSquatExercise.definition().guide.motion
+        let peak = MovementGuideTimeline.maximumHipDropOutputTime(
+            rep: 1, motion: motion, mutations: [], readyHold: MovementGenerator.readyHold
+        )
+        scenario.mutations = [.jointOffset(joints: [LandmarkType.leftKnee.rawValue], dx: -0.08, dy: 0,
+                                            peak: peak, rise: 0, fall: 0, strength: 1)]
+
+        let run = MovementLabRunner.run(plan: planWith([scenario]), mode: .pipeline)
+        let modified = try XCTUnwrap(run.recordingLines[scenario.id]).compactMap(jsonRecord)
+        let reference = try XCTUnwrap(run.referenceRecordingLines[scenario.id]).compactMap(jsonRecord)
+        let modifiedFrames = modified.filter { $0["k"] as? String == "f" }
+        let referenceFrames = reference.filter { $0["k"] as? String == "f" }
+        XCTAssertFalse(referenceFrames.isEmpty)
+        XCTAssertEqual(referenceFrames.map { $0["t"] as? Double }, modifiedFrames.map { $0["t"] as? Double })
+        XCTAssertEqual(reference.first?["id"] as? String, modified.first?["id"] as? String)
+
+        let peakFrame = { (records: [[String: Any]]) -> [String: Any]? in
+            records.min { first, second in
+                abs((first["t"] as? Double ?? .infinity) - peak) < abs((second["t"] as? Double ?? .infinity) - peak)
+            }
+        }
+        guard let referencePeak = peakFrame(referenceFrames),
+              let modifiedPeak = peakFrame(modifiedFrames),
+              let referenceJoints = referencePeak["j"],
+              let modifiedJoints = modifiedPeak["j"] else {
+            return XCTFail("Expected synchronized reference and modified frames at the mutation peak.")
+        }
+        XCTAssertNotEqual(try JSONSerialization.data(withJSONObject: referenceJoints),
+                          try JSONSerialization.data(withJSONObject: modifiedJoints))
+    }
+
     func testPipelineRecordingKeepsClosingCountingControlAfterFrames() throws {
         let scenario = try canonicalScenario()
         let run = MovementLabRunner.run(plan: planWith([scenario]), mode: .pipeline)
@@ -252,6 +286,7 @@ final class MovementLabTests: XCTestCase {
         let second = MovementLabRunner.run(plan: plan, mode: .pipeline)
         XCTAssertEqual(first.results, second.results)
         XCTAssertEqual(first.recordingLines, second.recordingLines)
+        XCTAssertEqual(first.referenceRecordingLines, second.referenceRecordingLines)
         XCTAssertEqual(first.countingChanges, second.countingChanges)
     }
 
@@ -335,6 +370,13 @@ final class MovementLabTests: XCTestCase {
             }
             let json = "[\n" + lines.map { "  \($0)" }.joined(separator: ",\n") + "\n]\n"
             try writeAtomically(Data(json.utf8), to: scenariosDirectory.appendingPathComponent("\(scenario.id).json"))
+            guard let referenceLines = run.referenceRecordingLines[scenario.id] else {
+                XCTFail("Runner did not produce reference lines for scenario \(scenario.id).")
+                continue
+            }
+            let referenceJSON = "[\n" + referenceLines.map { "  \($0)" }.joined(separator: ",\n") + "\n]\n"
+            try writeAtomically(Data(referenceJSON.utf8),
+                                to: scenariosDirectory.appendingPathComponent("\(scenario.id).reference.json"))
         }
 
         let encoder = JSONEncoder()

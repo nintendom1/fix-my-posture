@@ -13,6 +13,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createStore, StoreError } from "./lib/store.mjs";
+import { createLabStore, LabStoreError } from "./lib/lab/store.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_PORT = 4317;
@@ -25,11 +26,15 @@ const STATIC = {
   "/views.mjs": ["public/views.mjs", "text/javascript; charset=utf-8"],
   "/style.css": ["public/style.css", "text/css; charset=utf-8"],
   "/lib/session.mjs": ["lib/session.mjs", "text/javascript; charset=utf-8"],
+  "/lab/dashboard.mjs": ["public/lab/dashboard.mjs", "text/javascript; charset=utf-8"],
+  "/lab/selection.mjs": ["public/lab/selection.mjs", "text/javascript; charset=utf-8"],
+  "/lab/views.mjs": ["public/lab/views.mjs", "text/javascript; charset=utf-8"],
 };
 
 /** The viewer's server. `root` is the repository; recordings live in `root/diagnostics/sessions`. */
 export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT } = {}) {
   const store = createStore(root);
+  const labStore = createLabStore(root);
   const clients = new Set();
   let viewerState = null;
   let lastSent = null;
@@ -53,6 +58,21 @@ export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT } = {
       return send(response, 200, await fs.readFile(path.join(here, file)), type);
     }
     if (request.method === "GET" && url.pathname === "/api/sessions") return sendJSON(response, await store.listSessions());
+    if (url.pathname === "/api/lab/runs") {
+      if (request.method !== "GET") throw new LabStoreError(405, "Movement Lab routes are read-only.");
+      return sendJSON(response, await labStore.listRuns());
+    }
+    const labArtifact = url.pathname.match(/^\/api\/lab\/runs\/([^/]+)\/scenarios\/([^/]+)\/([^/]+)$/);
+    if (labArtifact) {
+      if (request.method !== "GET") throw new LabStoreError(405, "Movement Lab routes are read-only.");
+      const [, runID, scenarioID, artifact] = labArtifact;
+      return sendJSON(response, await labStore.readScenarioArtifact(runID, scenarioID, artifact));
+    }
+    const labRun = url.pathname.match(/^\/api\/lab\/runs\/([^/]+)$/);
+    if (labRun) {
+      if (request.method !== "GET") throw new LabStoreError(405, "Movement Lab routes are read-only.");
+      return sendJSON(response, await labStore.readRun(labRun[1]));
+    }
     if (request.method === "GET" && url.pathname === "/api/identity") {
       return sendJSON(response, { app: "fmp-replay", root: await fs.realpath(root).catch(() => root) });
     }
@@ -107,7 +127,8 @@ export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT } = {
 
   const server = createHTTPServer((request, response) => {
     handle(request, response).catch((error) => {
-      const status = error instanceof StoreError ? error.status : error instanceof SyntaxError ? 400 : error?.code === "ENOENT" ? 404 : 500;
+      const status = error instanceof StoreError || error instanceof LabStoreError ? error.status
+        : error instanceof SyntaxError ? 400 : error?.code === "ENOENT" ? 404 : 500;
       sendJSON(response, { error: error?.message ?? String(error) }, status);
     });
   });

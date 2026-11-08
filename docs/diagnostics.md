@@ -26,6 +26,12 @@ A developer recording captures one workout in detail, so a problem can be descri
 - **Markup safety:** recordings and notes can come from anywhere, so every string goes through `views.mjs`, which escapes text and forces numbers before anything reaches the page. A test renders every view from a hostile recording. Note saves and other writes are serialized per file, so concurrent saves never lose each other.
 - Tests: `node --test tools/session-replay/test/*.test.mjs`, run by `validate.sh` with synthetic recordings only.
 
+## Movement Lab Runs dashboard
+
+`make viewer` opens the **Runs** dashboard first. It lists synthetic Movement Lab runs newest first, with the exercise, completion, and pass/fail/inconclusive/invalid counts. Run timestamps come from the timestamped run ID; the original plan creation time is shown separately. Open a run to review its plan and provenance, then choose a scenario for synchronized reference and modified playback. The shared timeline shows phase, rep, rejection, framing, and counting lanes; failed assertions link to the relevant time. **Session recordings** returns to the existing recording viewer.
+
+Scenario labels describe the result precisely: **planned** means no result exists yet; **executed** means a result exists; **passed**, **failed**, **inconclusive**, and **invalid** are executed outcomes; **not tested** means execution produced a `notRun` result. The reference is the canonical guide motion on the same seeded timeline as the modified scenario. Lab artifact routes are read-only and only expose the run plan, summary, results, and allowlisted scenario recordings beneath `diagnostics/movement-lab/runs/`.
+
 ## Claude link (MCP)
 
 The repository's `.mcp.json` registers `fmp-replay`, an MCP server over stdio (`tools/session-replay/mcp.mjs`, Node 20 or later, no dependencies), so Claude Code can work with recordings directly. Claude Code asks once to approve a project's MCP servers; after a restart, `/mcp` shows it. Recordings are read straight from `diagnostics/sessions/`. The viewer's server is used only for live work, and `fmp_open_viewer` starts it when needed.

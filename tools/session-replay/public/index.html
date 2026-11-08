@@ -4,14 +4,45 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FMP Session Replay</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-<div id="app">
+<div id="labDashboard" class="lab-dashboard">
+  <header class="lab-top">
+    <div class="brand"><span class="logo"></span>FMP Movement Lab</div>
+    <nav class="lab-view-tabs" aria-label="Viewer sections">
+      <button type="button" class="active" data-lab-view="runs">Runs</button>
+      <button type="button" data-lab-view="recordings">Session recordings</button>
+    </nav>
+    <div class="spacer"></div>
+    <span class="muted small">Synthetic Movement Lab artifacts · local only</span>
+    <button type="button" id="labRefresh" class="button">Refresh</button>
+  </header>
+  <main class="lab-layout">
+    <aside class="lab-run-column">
+      <div class="lab-column-heading"><h1>Runs</h1><span class="muted small">Newest first</span></div>
+      <div id="labRunsList" class="lab-run-list"><div class="lab-loading">Loading runs…</div></div>
+    </aside>
+    <section class="lab-run-detail">
+      <div id="labWelcome" class="lab-welcome">
+        <div class="lab-welcome-mark">↗</div><h2>Review a Movement Lab run</h2>
+        <p>Choose a synthetic run to inspect its test plan, compare the canonical reference with the modified movement, and follow analyzer outcomes on one timeline.</p>
+      </div>
+      <div id="labRunPane" hidden>
+        <div id="labRunHeader"></div>
+        <div class="lab-scenario-layout">
+          <nav id="labScenarioNav" class="lab-scenario-list" aria-label="Scenarios in this run"></nav>
+          <div id="labScenarioDetail" class="lab-scenario-detail"><div class="lab-loading">Select a scenario.</div></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="app" hidden>
   <header class="top">
     <div class="brand"><span class="logo"></span>FMP Session Replay</div>
+    <button type="button" class="button" data-lab-view="runs">Runs</button>
     <select id="sessionPicker" aria-label="Recording"></select>
     <span id="sessionInfo" class="muted mono"></span>
     <div class="spacer"></div>
@@ -166,5 +197,6 @@
 
 <div id="toast" class="toast" hidden></div>
 <script type="module" src="/app.js"></script>
+<script type="module" src="/lab/dashboard.mjs"></script>
 </body>
 </html>
