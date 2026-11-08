@@ -31,6 +31,7 @@ final class WorkoutTraceRecorder: WorkoutSessionRecording {
 
     private var expected: Expected?
     private var lastState: [String: String] = [:]
+    private var preservesExpectedSpeechDuringActivityCallback = false
 
     // MARK: - Scenario inputs
 
@@ -59,8 +60,18 @@ final class WorkoutTraceRecorder: WorkoutSessionRecording {
 
     /// Writes `t=<now> text`.
     func record(_ text: String) {
-        flushExpected()
+        if !preservesExpectedSpeechDuringActivityCallback { flushExpected() }
         emit(text)
+    }
+
+    /// Holds a pending utterance expectation while the fake coach reports its synchronous start callback. The real
+    /// `SpeechCoach` notifies listening before it hands the utterance to the synthesizer.
+    func beginSpeechActivityCallback() {
+        preservesExpectedSpeechDuringActivityCallback = true
+    }
+
+    func endSpeechActivityCallback() {
+        preservesExpectedSpeechDuringActivityCallback = false
     }
 
     /// The final trace, with any pending state written.

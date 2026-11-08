@@ -51,14 +51,28 @@ final class FakeSpeechCoach: SpeechCoaching {
     private(set) var utterances: [Utterance] = []
     private(set) var stopCount = 0
     private(set) var repeatCount = 0
-    var isSpeaking = false
+    private(set) var isSpeaking = false
+    /// Activity callbacks are opt-in so older model tests keep their original behavior.
+    var reportsActivity = false
     var onActivityChanged: ((Bool) -> Void)?
     /// Golden traces only: every call is also written here.
     var trace: WorkoutTraceRecorder?
 
     func speak(_ utterance: Utterance) {
+        if reportsActivity, !isSpeaking {
+            isSpeaking = true
+            trace?.beginSpeechActivityCallback()
+            onActivityChanged?(true)
+            trace?.endSpeechActivityCallback()
+        }
         utterances.append(utterance)
         trace?.speechSpoke(utterance)
+    }
+
+    func finishSpeaking() {
+        guard reportsActivity, isSpeaking else { return }
+        isSpeaking = false
+        onActivityChanged?(false)
     }
 
     func repeatLastInstruction() {
@@ -69,6 +83,56 @@ final class FakeSpeechCoach: SpeechCoaching {
     func stopAll() {
         stopCount += 1
         trace?.record("speech stopAll")
+        finishSpeaking()
+    }
+}
+
+@MainActor
+final class FakeSpeechRecognizer: SpeechRecognizing {
+    var onTranscript: ((_ text: String, _ isFinal: Bool) -> Void)?
+    var onStateChanged: ((SpeechRecognizerState) -> Void)?
+    private(set) var contextualStrings: [String] = []
+    private(set) var calls: [String] = []
+    var reportsListeningOnStart = true
+    var trace: WorkoutTraceRecorder?
+
+    func setContextualStrings(_ strings: [String]) {
+        contextualStrings = strings
+    }
+
+    func start() {
+        calls.append("start")
+        trace?.record("recognizer start")
+        if reportsListeningOnStart { onStateChanged?(.listening) }
+    }
+
+    func stop() {
+        calls.append("stop")
+        trace?.record("recognizer stop")
+        onStateChanged?(.idle)
+    }
+
+    func restartTask() {
+        calls.append("restartTask")
+        trace?.record("recognizer restartTask")
+    }
+
+    func reconfigureInput() {
+        calls.append("reconfigureInput")
+        trace?.record("recognizer reconfigureInput")
+    }
+
+    func rebuild() {
+        calls.append("rebuild")
+        trace?.record("recognizer rebuild")
+    }
+
+    func transcribe(_ text: String, isFinal: Bool = false) {
+        onTranscript?(text, isFinal)
+    }
+
+    func emit(_ state: SpeechRecognizerState) {
+        onStateChanged?(state)
     }
 }
 
@@ -244,6 +308,14 @@ final class ManualScheduler: Scheduling {
         }
         clock.advance(by: target - clock.now)
         now = target
+    }
+
+    /// Fires the registered repeating actions once without advancing either clock.
+    func fireRepeatingCallbacks() {
+        entries.values
+            .filter { $0.interval != nil }
+            .sorted { $0.fireAt < $1.fireAt }
+            .forEach { $0.action() }
     }
 
     private func add(after delay: TimeInterval, interval: TimeInterval?, _ action: @escaping @MainActor () -> Void) -> Cancellable {

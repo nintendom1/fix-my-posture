@@ -30,6 +30,36 @@ final class WorkoutGoldenTraceTests: XCTestCase {
         }
     }
 
+    func testPerSideDumbbellRowsFinishBothArmsRestAndStartNextSet() {
+        check(WorkoutGoldenTraces.perSideRows, "perSideRows") {
+            var row = DumbbellRowExercise.definition()
+            row.sets = 2
+            row.targetReps = 1...1
+            row.autoCompleteReps = 1
+            row.targetRangeAnnouncementReps = nil
+            row.startsByHolding = false
+            let run = GoldenRun(exercises: [row], initialExercise: .dumbbellRow)
+            run.open()
+            run.voiceStatus(.listening)
+            run.still(seconds: 1)
+            run.send(.start)
+
+            run.demo(until: { $0.session.completedSets(for: .dumbbellRow) == 1 && $0.session.phase != .exercising })
+            run.still(mirrored: true, seconds: 0.5)
+            run.send(.start)
+            run.demo(mirrored: true, until: Self.setEnded)
+
+            run.still(seconds: 61)
+            run.send(.start)
+            run.demo(until: { $0.session.completedSets(for: .dumbbellRow) == 3 && $0.session.phase != .exercising })
+            run.still(mirrored: true, seconds: 0.5)
+            run.send(.start)
+            run.demo(mirrored: true, until: Self.setEnded)
+            run.send(.endWorkout)
+            return run.finish()
+        }
+    }
+
     func testRoutineOfTwoItemsRestsBetweenThemAndCompletes() {
         check(WorkoutGoldenTraces.routineTwoItems, "routineTwoItems") {
             let plan = WorkoutPlan(id: Self.uuid(0x21), name: "Golden Routine", items: [
@@ -550,22 +580,22 @@ private final class GoldenRun {
     // MARK: Frames and time
 
     /// The current exercise's guide demonstration from its start, a frame every 0.1 s.
-    func demo(until stop: (WorkoutCoachModel) -> Bool, limit: Int = 900) {
+    func demo(mirrored: Bool = false, until stop: (WorkoutCoachModel) -> Bool, limit: Int = 900) {
         guard let exercise = model.session.exercise else { return }
         frames("frames demo \(WorkoutTraceRecorder.describe(exercise))", limit: limit, until: stop) { motion, time in
-            ReadyPoseFixtures.demoFrame(exercise, motionTime: motion, at: time)
+            ReadyPoseFixtures.demoFrame(exercise, motionTime: motion, at: time, mirrored: mirrored)
         }
     }
 
     /// The current exercise's start position, held still.
-    func still(seconds: TimeInterval) {
-        still(until: { _ in false }, limit: Int((seconds * 10).rounded()))
+    func still(mirrored: Bool = false, seconds: TimeInterval) {
+        still(until: { _ in false }, limit: Int((seconds * 10).rounded()), mirrored: mirrored)
     }
 
-    func still(until stop: (WorkoutCoachModel) -> Bool, limit: Int = 900) {
+    func still(until stop: (WorkoutCoachModel) -> Bool, limit: Int = 900, mirrored: Bool = false) {
         guard let exercise = model.session.exercise else { return }
         frames("frames still \(WorkoutTraceRecorder.describe(exercise))", limit: limit, until: stop) { _, time in
-            ReadyPoseFixtures.demoFrame(exercise, motionTime: 0, at: time)
+            ReadyPoseFixtures.demoFrame(exercise, motionTime: 0, at: time, mirrored: mirrored)
         }
     }
 
