@@ -76,4 +76,24 @@ final class AdaptiveEventTests: XCTestCase {
         let profile = Fixtures.profile(facts)
         XCTAssertFalse(AdaptiveReplay.events(facts: facts, profile: profile).contains { $0.kind == .effortEasy })
     }
+
+    func testSessionCompletedIncludesEarlyStopAndEasierSwitchOnlyForTodaySessionMain() {
+        let first = Fixtures.prescription(id: 260, itemID: 261)
+        let second = Fixtures.prescription(id: 262, day: 2, itemID: 263)
+        let third = Fixtures.prescription(id: 264, day: 3, itemID: 265)
+        let stoppedEarly = Fixtures.evidence(id: 266, day: 1, completion: .stoppedEarly,
+                                             itemID: 261, prescriptionID: 260)
+        let switchedToEasier = Fixtures.evidence(id: 267, day: 2, completion: .switchedToEasier,
+                                                 itemID: 263, prescriptionID: 262)
+        let endedWorkout = Fixtures.evidence(id: 268, day: 3, completion: .endedWorkout,
+                                             itemID: 265, prescriptionID: 264)
+        let facts = AdaptiveFacts(prescriptions: [first, second, third],
+                                  evidence: [stoppedEarly, switchedToEasier, endedWorkout],
+                                  calibrations: [Fixtures.calibration()])
+
+        let events = AdaptiveReplay.events(facts: facts, profile: Fixtures.profile(facts))
+        let completedFactIDs = Set<UUID>(events.filter { $0.kind == .sessionCompleted }.map(\.factID))
+
+        XCTAssertEqual(completedFactIDs, Set<UUID>([stoppedEarly.id, switchedToEasier.id]))
+    }
 }

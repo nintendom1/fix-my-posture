@@ -3,6 +3,15 @@ import XCTest
 @testable import PostureAnalysisApp
 
 @MainActor
+private final class RecordingAdaptiveEventObserver: WorkoutObserving {
+    private(set) var events: [AdaptiveEvent] = []
+
+    func adaptiveEventsDidOccur(_ events: [AdaptiveEvent]) {
+        self.events.append(contentsOf: events)
+    }
+}
+
+@MainActor
 final class AdaptiveTrainingCoordinatorTests: XCTestCase {
     private var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
@@ -75,12 +84,53 @@ final class AdaptiveTrainingCoordinatorTests: XCTestCase {
     // MARK: - Start
 
     func testStartWorksOnlyWhenReady() {
-        let rig = makeRig()
+        let observer = RecordingAdaptiveEventObserver()
+        let rig = makeRig(observer: observer)
 
         XCTAssertNil(rig.coordinator.start(asOf: date(day: 20)))
         XCTAssertNil(rig.coordinator.preparedLaunch)
         XCTAssertNotNil(rig.coordinator.lastStartProblem)
         XCTAssertTrue(rig.facts.prescriptions.isEmpty, "Nothing is issued when nothing is ready.")
+        XCTAssertTrue(observer.events.isEmpty)
+    }
+
+    func testTinySessionIsForwardedOnlyAfterItsPrescriptionIsIssued() throws {
+        let observer = RecordingAdaptiveEventObserver()
+        let tinyRig = makeRig(facts: calibrated(.push, at: shallowWall, dose: .reps(1)), observer: observer)
+        guard case .ready(let session) = tinyRig.coordinator.status(asOf: date(day: 20)) else {
+            return XCTFail("A calibrated family should offer Today's Session.")
+        }
+        XCTAssertTrue(session.isTiny)
+
+        let launch = try XCTUnwrap(tinyRig.coordinator.start(asOf: date(day: 20)))
+
+        XCTAssertEqual(observer.events, [AdaptiveEvent(
+            kind: .tinySessionPrescribed, family: session.family, at: date(day: 20),
+            factID: launch.prescription.id, to: session.main
+        )])
+        XCTAssertEqual(tinyRig.facts.prescriptions, [launch.prescription])
+    }
+
+    func testNonTinyOrFailedPrescriptionDoesNotForwardTinyEvent() throws {
+        let ordinaryObserver = RecordingAdaptiveEventObserver()
+        let ordinaryRig = makeRig(facts: calibrated(.push, at: shallowWall, dose: .reps(3)),
+                                  observer: ordinaryObserver)
+        guard case .ready(let ordinarySession) = ordinaryRig.coordinator.status(asOf: date(day: 20)) else {
+            return XCTFail("A calibrated family should offer Today's Session.")
+        }
+        XCTAssertFalse(ordinarySession.isTiny)
+        let ordinaryLaunch = try XCTUnwrap(ordinaryRig.coordinator.start(asOf: date(day: 20)))
+        XCTAssertTrue(ordinaryObserver.events.isEmpty)
+        XCTAssertEqual(ordinaryRig.facts.prescriptions, [ordinaryLaunch.prescription])
+
+        let failingStore = FailingStore(facts: calibrated(.push, at: shallowWall, dose: .reps(1)))
+        failingStore.failsRecording = true
+        let failedObserver = RecordingAdaptiveEventObserver()
+        let failedRig = makeRig(store: failingStore, observer: failedObserver)
+
+        XCTAssertNil(failedRig.coordinator.start(asOf: date(day: 20)))
+        XCTAssertTrue(failedObserver.events.isEmpty)
+        XCTAssertTrue(failedRig.facts.prescriptions.isEmpty)
     }
 
     func testStartIssuesThePrescriptionAndBuildsTheReducedRangeRepsPlan() throws {
@@ -466,13 +516,15 @@ final class AdaptiveTrainingCoordinatorTests: XCTestCase {
 
     private func makeRig(facts: AdaptiveFacts = .empty, store: (any AdaptiveTrainingStoring)? = nil,
                          ladders: ProgressionCatalog = .v1, exercises: any ExerciseCatalogProviding = LiveExerciseCatalog(),
-                         builtExerciseIDs: Set<String>? = nil) -> Rig {
+                         builtExerciseIDs: Set<String>? = nil,
+                         observer: (any WorkoutObserving)? = nil) -> Rig {
         let store: any AdaptiveTrainingStoring = store ?? InMemoryAdaptiveTrainingStore(facts: facts)
         let bridge = ExerciseVariantBridge(exercises: exercises, ladders: ladders)
         let built = builtExerciseIDs ?? bridge.availability(equipment: []).builtExerciseIDs
         let engine = AdaptiveTrainingEngine(store: store, builtExerciseIDs: built, calendar: calendar, catalog: ladders)
         let ids = IDs()
-        let coordinator = AdaptiveTrainingCoordinator(engine: engine, bridge: bridge, makeID: { ids.make() })
+        let coordinator = AdaptiveTrainingCoordinator(engine: engine, bridge: bridge, makeID: { ids.make() },
+                                                      observer: observer)
         return Rig(store: store, engine: engine, coordinator: coordinator, ids: ids)
     }
 

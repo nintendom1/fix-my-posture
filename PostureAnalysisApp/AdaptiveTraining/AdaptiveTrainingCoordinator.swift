@@ -243,6 +243,11 @@ final class AdaptiveTrainingCoordinator: AdaptiveEvidenceRecording, TodaySession
         })
         let launch = TodaySessionLaunch(prescription: prescription, plan: plan, items: items)
         preparedLaunch = launch
+        // The package owns the tiny-session decision. Emit only after its prescription was successfully issued.
+        if session.isTiny {
+            forward([AdaptiveEvent(kind: .tinySessionPrescribed, family: session.family, at: now,
+                                  factID: prescription.id, to: session.main)])
+        }
         return launch
     }
 
