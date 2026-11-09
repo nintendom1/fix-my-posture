@@ -1,4 +1,5 @@
 import Foundation
+import AdaptiveTraining
 
 enum WorkoutReminderRecommendation {
     case routine(SavedExerciseSet)
@@ -59,7 +60,7 @@ enum WorkoutReminderRecommendationSelector {
 
 /// Selects the advertised target, reconciles the bounded local schedule, and resolves reminder taps.
 @MainActor
-final class WorkoutReminderCoordinator: WorkoutReminderManaging {
+final class WorkoutReminderCoordinator: WorkoutReminderManaging, WorkoutObserving {
     private let preferences: any AppPreferencesStoring
     private let routines: (any RoutineRepository)?
     private let workoutHistory: (any WorkoutHistoryRepository)?
@@ -78,6 +79,9 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
     private let isAppActive: () -> Bool
     /// Each reconciliation waits for the previous one so overlapping triggers cannot interleave remove and add.
     private var latestReconciliation: Task<Void, Never>?
+    /// Workout-bound adaptive events are held until a successful history save can correlate them to its time window.
+    private var pendingWorkoutAdaptiveEvents: [AdaptiveEvent] = []
+    private static let tinySessionStartTolerance: TimeInterval = 5
 
     init(
         preferences: any AppPreferencesStoring,
@@ -128,13 +132,54 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
     }
 
     func workoutSaved(_ record: WorkoutRecord) {
+        let adaptiveEvents = takeAdaptiveEvents(for: record)
         enqueueReconciliation {
             self.eventLog.record(
                 "workoutSaved: workout ended \(record.endedAt.eventLogDescription(in: self.calendar.timeZone))"
             )
             // The acknowledgment step evaluates the persona once, with the saved workout as its trigger.
             await self.reconcileNow(evaluatesPersona: false)
-            await self.acknowledge(record)
+            await self.acknowledge(record, adaptiveEvents: adaptiveEvents)
+        }
+    }
+
+    /// Calibration milestones are independent of a workout; every other supported event waits for a saved record.
+    func adaptiveEventsDidOccur(_ events: [AdaptiveEvent]) {
+        guard !events.isEmpty else { return }
+        let immediate = events.filter { $0.kind == .calibrationCompleted || $0.kind == .recalibrationCompleted }
+        let workoutBound = events.filter {
+            $0.kind != .calibrationCompleted && $0.kind != .recalibrationCompleted && $0.kind != .returnedAfterAbsence
+        }
+        if !workoutBound.isEmpty {
+            for event in workoutBound where event.kind == .tinySessionPrescribed {
+                // A newer issued tiny session supersedes any earlier one that was never saved.
+                pendingWorkoutAdaptiveEvents.removeAll { $0.kind == .tinySessionPrescribed }
+            }
+            pendingWorkoutAdaptiveEvents.append(contentsOf: workoutBound)
+        }
+        guard !immediate.isEmpty else { return }
+
+        enqueueReconciliation {
+            // Keep reminders and persona aligned with the existing permission and settings gates.
+            await self.reconcileNow(evaluatesPersona: false)
+            guard self.preferences.workoutReminderSettings.enabled,
+                  await self.scheduler.authorizationStatus() == .authorized else { return }
+            let records = (try? self.workoutHistory?.list()) ?? []
+            _ = await self.applyPersonaPlan(
+                trigger: .adaptiveEvents(immediate), records: records, acknowledgmentWillFire: false
+            )
+        }
+    }
+
+    private func takeAdaptiveEvents(for record: WorkoutRecord) -> [AdaptiveEvent] {
+        defer { pendingWorkoutAdaptiveEvents.removeAll() }
+        return pendingWorkoutAdaptiveEvents.filter { event in
+            guard event.at <= record.endedAt else { return false }
+            if event.kind == .tinySessionPrescribed {
+                guard record.planID == AdaptiveTrainingCoordinator.todaySessionPlanID else { return false }
+                return event.at >= record.startedAt.addingTimeInterval(-Self.tinySessionStartTolerance)
+            }
+            return event.at >= record.startedAt
         }
     }
 
@@ -321,7 +366,7 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
 
     /// Selects and schedules a character acknowledgment after the reminder schedule has been refreshed, and evaluates
     /// Extra Personable with the saved workout as its trigger: persona content rides on the acknowledgment when one fires.
-    private func acknowledge(_ record: WorkoutRecord) async {
+    private func acknowledge(_ record: WorkoutRecord, adaptiveEvents: [AdaptiveEvent] = []) async {
         let settings = preferences.workoutReminderSettings
         guard settings.enabled else { return skipAcknowledgment("reminders are off") }
         guard settings.style == .character else { return skipAcknowledgment("style is Plain") }
@@ -342,7 +387,10 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
             skipAcknowledgment("scenario data is missing")
             selected = nil
         }
-        let personaPlan = await applyPersonaPlan(trigger: .workoutSaved(record), records: records, acknowledgmentWillFire: selected != nil)
+        let trigger: PersonaTrigger = adaptiveEvents.isEmpty
+            ? .workoutSaved(record)
+            : .workoutSavedWithAdaptiveEvents(record, adaptiveEvents)
+        let personaPlan = await applyPersonaPlan(trigger: trigger, records: records, acknowledgmentWillFire: selected != nil)
         guard let selected else { return }
         var content = selected.content
 
@@ -460,8 +508,17 @@ final class WorkoutReminderCoordinator: WorkoutReminderManaging {
             await scheduler.addPersonaRequest(request)
         }
         await scheduler.replacePersonaRequests(plan.scheduled)
+        let triggerName: String
+        switch trigger {
+        case .reconcile:
+            triggerName = "reconcile"
+        case .adaptiveEvents:
+            triggerName = "adaptive event"
+        case .workoutSaved(_), .workoutSavedWithAdaptiveEvents(_, _):
+            triggerName = "workout saved"
+        }
         eventLog.record(
-            "persona: \(trigger == .reconcile ? "reconcile" : "workout saved"), immediate \(Self.describe(plan.immediate)), "
+            "persona: \(triggerName), immediate \(Self.describe(plan.immediate)), "
                 + "scheduled \(plan.scheduled.count), suppressed \(plan.traces.filter { $0.suppressionReason != nil }.count)"
         )
         return plan

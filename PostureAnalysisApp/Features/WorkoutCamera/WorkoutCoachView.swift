@@ -38,6 +38,18 @@ enum WorkoutCoachHistory {
              savesHistory: savesHistory, history: history, preferences: preferences, reminders: reminders,
              onCommitted: { record in (model as? WorkoutCoachModel)?.historyDidCommit(record) })
     }
+
+    /// Finalizes adaptive evidence before it asks for the record end time, then uses the same successful-save path.
+    @discardableResult
+    static func save(session: WorkoutSession, startedAt: Date, endedAt: () -> Date, workoutID: UUID,
+                     savesHistory: Bool, history: (any WorkoutHistoryRepository)?,
+                     preferences: any AppPreferencesStoring, reminders: (any WorkoutReminderReconciliation)?,
+                     notifying model: any WorkoutCoachViewModeling) -> WorkoutRecord? {
+        (model as? WorkoutCoachModel)?.finalizeEvidenceBeforeSave()
+        return save(session: session, startedAt: startedAt, endedAt: endedAt(), workoutID: workoutID,
+                    savesHistory: savesHistory, history: history, preferences: preferences,
+                    reminders: reminders, notifying: model)
+    }
 }
 
 /// Workout Coach (Beta): mirrored selfie preview, focus-joint overlay, rep counter, and spoken coaching.
@@ -302,7 +314,7 @@ struct WorkoutCoachView: View {
         guard !historySaved else { return }
         historySaved = true
         finishedRecord = WorkoutCoachHistory.save(
-            session: model.session, startedAt: startedAt, endedAt: Date(), workoutID: model.workoutID,
+            session: model.session, startedAt: startedAt, endedAt: { Date() }, workoutID: model.workoutID,
             savesHistory: savesHistory, history: appRepositories?.workoutHistory, preferences: preferences,
             reminders: workoutReminderReconciliation, notifying: model)
     }

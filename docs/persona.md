@@ -25,7 +25,7 @@ saved history, a planner picks at most one observation per message, and copy com
 
 ```text
 PersonaHistory (workouts, assessments, routine names and minutes, exercise names)
-  + PersonaTrigger (workoutSaved or adaptiveEvents)
+  + PersonaTrigger (workoutSaved, saved workout + correlated adaptive events, or calibration events)
   + preferences (enabled, reset date) + PersonaTraceState (recent decisions, engagement)
     → PersonaContextBuilder.build      familiarity, trajectory, streak, relationship records, reminder slot times
     → PersonaDetectors.all              achievement · pattern · lapse · posture · adaptive → [PersonaObservation]
@@ -33,6 +33,14 @@ PersonaHistory (workouts, assessments, routine names and minutes, exercise names
     → PersonaPlan { immediate, scheduled, traces }
     → WorkoutReminderCoordinator        fold into the acknowledgment, add/replace persona requests, store traces
 ```
+
+`AdaptiveTrainingCoordinator` sends event batches to `WorkoutReminderCoordinator` in production. Calibration and
+recalibration events use the immediate planner gate. Workout-bound events wait for a successful workout save, then run
+with that record at the existing acknowledgment step. Evidence events must fall within the saved record's
+`startedAt...endedAt` interval. A `tinySessionPrescribed` event may start up to five seconds before that interval, and
+only matches a saved Today's Session plan. Unmatched buffered events are discarded at a save; a newer tiny-session
+prescription replaces an older unsaved one. Without a matching save, workout-bound events never reach the planner or
+scheduler.
 
 Everything under `PostureAnalysisApp/Notifications/Persona/` is Foundation-only and pure: detectors and the planner read
 time only from the context, so the same inputs always produce the same decision.
@@ -46,11 +54,11 @@ time only from the context, so the same inputs always produce the same decision.
   next 7 days, at most one notification per day at about 11:30, moved at least 90 minutes from any reminder slot.
   Projected requests use the identifier prefix `fixMyPosture.persona.plan.` and are all replaced on every reconciliation,
   so they always reflect current history. Immediate requests use `fixMyPosture.persona.now.` and are never replaced.
-- **Adaptive events**: `AdaptiveEventDetector` maps package events to `adaptive.*` observations on an
-  `adaptiveEvents` trigger. They enter the same immediate planner pass and use its cap, quiet hours, cooling,
-  deduplication, and traces. They are never projected. The detector reads event semantics only; it does not decide
-  whether a movement step is easier or harder, and copy cannot change adaptive state. Production delivery wiring is
-  added separately.
+- **Adaptive events**: `AdaptiveEventDetector` maps package events to `adaptive.*` observations. Calibration and
+  recalibration use an immediate trigger; workout-bound events join the saved-workout trigger only after correlation
+  with a successful save. They use the same cap, quiet hours, cooling, deduplication, and trace path, and are never
+  projected. The detector reads event semantics only; it does not decide whether a movement step is easier or harder,
+  and copy cannot change adaptive state.
 - **Daily cap**: at most 2 standalone persona notifications per calendar day, Active and Passive together. Folded content
   does not count. The cap is absolute; extra candidates are suppressed and rediscovered later from history.
 - **Quiet hours**: 22:00–08:00 behind `QuietHoursProviding`. An immediate notification during quiet hours is deferred to

@@ -119,6 +119,8 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     @ObservationIgnored private var pendingEffort: PendingEffort?
     /// An item rated Easy whose evidence waits until its bonus is settled.
     @ObservationIgnored private var pendingBonus: PendingBonus?
+    /// Close-time evidence must be emitted once, before the view captures the saved record's end time.
+    @ObservationIgnored private var didFinalizeEvidenceBeforeSave = false
     /// Items already asked about or recorded, so work the workout ended on is never recorded twice.
     @ObservationIgnored private var reportedItems = Set<FinishedWorkoutItem.Key>()
     /// What the user did about each item they flagged "Too hard?", until the item's evidence is recorded.
@@ -246,17 +248,24 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
 
     func onDisappear() {
         isViewActive = false
+        finalizeEvidenceBeforeSave()
+        stopTicks()
+        stopCapture()
+        speech.stopAll()
+        audio?.deactivate()
+        endRecording(.closed)
+    }
+
+    /// Settles close-time questions and partial work before a view saves the history record.
+    func finalizeEvidenceBeforeSave() {
+        guard !didFinalizeEvidenceBeforeSave else { return }
+        didFinalizeEvidenceBeforeSave = true
         // Leaving with the question open records the item unrated (or as its preselected answer), and so does work
         // that never finished its item. An open offer is declined and a bonus under way is kept with whatever was done.
         closeTooHardOffer()
         closeEffortCardByDefault()
         flushBonus()
         if adaptive != nil { recordUnfinishedItems() }
-        stopTicks()
-        stopCapture()
-        speech.stopAll()
-        audio?.deactivate()
-        endRecording(.closed)
     }
 
     func setApplicationActive(_ active: Bool) {

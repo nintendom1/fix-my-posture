@@ -83,7 +83,7 @@ final class AppEnvironment {
                 builtExerciseIDs: ExerciseVariantBridge().availability(equipment: []).builtExerciseIDs,
                 calendar: .current
             )
-            let coordinator = AdaptiveTrainingCoordinator(engine: adaptiveEngine)
+            let coordinator = AdaptiveTrainingCoordinator(engine: adaptiveEngine, observer: reminderCoordinator)
             adaptiveTraining = adaptiveEngine
             adaptiveCoordinator = coordinator
             workoutReminderCoordinator = reminderCoordinator

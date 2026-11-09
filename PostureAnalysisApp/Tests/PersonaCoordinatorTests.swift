@@ -1,6 +1,7 @@
 import Foundation
 import UserNotifications
 import XCTest
+import AdaptiveTraining
 @testable import PostureAnalysisApp
 
 /// Extra Personable wired through the reminder coordinator, the scheduler boundary, and the notification delegate.
@@ -47,6 +48,209 @@ final class PersonaCoordinatorTests: XCTestCase {
         await coordinator.reconcileNow()
 
         XCTAssertGreaterThan(scheduler.removeAllPersonaRequestsCount, 0)
+    }
+
+    func testAdaptiveTrainingProductionRouteHoldsTinyEventAndSchedulesOnePlannedAcknowledgment() async throws {
+        let start = date(day: 17, hour: 12)
+        let saved = WorkoutRecord(
+            id: UUID(), startedAt: start.addingTimeInterval(1), endedAt: start.addingTimeInterval(60),
+            planID: AdaptiveTrainingCoordinator.todaySessionPlanID, planName: AdaptiveTrainingCoordinator.todaySessionName,
+            entries: [PersonaFixtures.entry(.wallPushUp, sets: [PersonaFixtures.set(1)])]
+        )
+        let scheduler = MemoryWorkoutReminderScheduler()
+        let traces = MemoryPersonaTraceStore()
+        let reminders = makeCoordinator(
+            history: PersonaHistoryRepository(records: [saved]), scheduler: scheduler, traces: traces,
+            now: { saved.endedAt }, personaCatalog: adaptiveCatalog()
+        )
+        let adaptive = makeTinyAdaptiveCoordinator(observer: reminders)
+        let launch = try XCTUnwrap(adaptive.start(asOf: start))
+
+        XCTAssertTrue(scheduler.acknowledgments.isEmpty)
+        XCTAssertTrue(scheduler.immediatePersonaRequests.isEmpty)
+        XCTAssertFalse(traces.state.sent.contains { $0.observation.contentKey == "adaptive.tinySessionPrescribed" })
+
+        let acknowledged = expectation(description: "planned workout acknowledgment")
+        scheduler.onScheduleAcknowledgment = { acknowledged.fulfill() }
+        reminders.workoutSaved(saved)
+        await fulfillment(of: [acknowledged], timeout: 2)
+
+        XCTAssertEqual(launch.plan.id, AdaptiveTrainingCoordinator.todaySessionPlanID)
+        XCTAssertEqual(scheduler.acknowledgments.count, 1)
+        XCTAssertTrue(scheduler.immediatePersonaRequests.isEmpty, "the event rides on the saved-workout acknowledgment")
+        XCTAssertTrue(scheduler.personaRequests.isEmpty, "folded content does not schedule a separate persona request")
+        XCTAssertEqual(scheduler.acknowledgments.first?.title, "Title adaptive.tinySessionPrescribed")
+        XCTAssertEqual(
+            traces.state.sent.first { $0.observation.contentKey == "adaptive.tinySessionPrescribed" }?.delivery,
+            .foldedReplace
+        )
+    }
+
+    func testAppEnvironmentAttachesReminderCoordinatorAsTheAdaptiveObserver() throws {
+        let environment = AppEnvironment(inMemory: true)
+        let adaptive = try XCTUnwrap(environment.adaptiveCoordinator)
+
+        XCTAssertTrue(adaptive.observer === environment.workoutReminderCoordinator)
+    }
+
+    func testWorkoutAdaptiveEventIsHeldThenReleasedAtTheSuccessfulSave() async {
+        let eventTime = date(day: 17, hour: 11).addingTimeInterval(50 * 60)
+        let saved = PersonaFixtures.record(endingAt: date(day: 17, hour: 12), minutes: 20)
+        let scheduler = MemoryWorkoutReminderScheduler()
+        let traces = MemoryPersonaTraceStore()
+        let coordinator = makeCoordinator(
+            history: PersonaHistoryRepository(records: [saved]), scheduler: scheduler, traces: traces,
+            now: { saved.endedAt }, personaCatalog: adaptiveCatalog()
+        )
+
+        coordinator.adaptiveEventsDidOccur([adaptiveEvent(.sessionCompleted, at: eventTime, factID: 201)])
+
+        XCTAssertTrue(scheduler.immediatePersonaRequests.isEmpty)
+        XCTAssertTrue(scheduler.acknowledgments.isEmpty)
+        XCTAssertFalse(traces.state.sent.contains { $0.observation.contentKey == "adaptive.sessionCompleted" })
+
+        let acknowledged = expectation(description: "saved workout acknowledgment")
+        scheduler.onScheduleAcknowledgment = { acknowledged.fulfill() }
+        coordinator.workoutSaved(saved)
+        await fulfillment(of: [acknowledged], timeout: 2)
+
+        XCTAssertTrue(scheduler.immediatePersonaRequests.isEmpty)
+        XCTAssertEqual(scheduler.acknowledgments.count, 1)
+        XCTAssertEqual(
+            traces.state.sent.first { $0.observation.contentKey == "adaptive.sessionCompleted" }?.delivery,
+            .foldedReplace
+        )
+    }
+
+    func testAdaptiveEventFromAnUnsavedWorkoutDoesNotLeakIntoALaterSave() async {
+        let unsavedEventTime = date(day: 16, hour: 11)
+        let savedLater = PersonaFixtures.record(endingAt: date(day: 17, hour: 12), minutes: 20)
+        let scheduler = MemoryWorkoutReminderScheduler()
+        let traces = MemoryPersonaTraceStore()
+        let coordinator = makeCoordinator(
+            history: PersonaHistoryRepository(records: [savedLater]), scheduler: scheduler, traces: traces,
+            now: { savedLater.endedAt }, personaCatalog: adaptiveCatalog()
+        )
+        coordinator.adaptiveEventsDidOccur([
+            adaptiveEvent(.effortOkay, at: unsavedEventTime, factID: 202),
+            adaptiveEvent(.tinySessionPrescribed, at: unsavedEventTime, factID: 209),
+        ])
+
+        let acknowledged = expectation(description: "later workout acknowledgment")
+        scheduler.onScheduleAcknowledgment = { acknowledged.fulfill() }
+        coordinator.workoutSaved(savedLater)
+        await fulfillment(of: [acknowledged], timeout: 2)
+
+        XCTAssertFalse(traces.state.sent.contains { $0.observation.contentKey == "adaptive.effortOkay" })
+        XCTAssertFalse(traces.state.suppressed.contains { $0.observation.contentKey == "adaptive.effortOkay" })
+        XCTAssertFalse(traces.state.sent.contains { $0.observation.contentKey == "adaptive.tinySessionPrescribed" })
+        XCTAssertTrue(scheduler.immediatePersonaRequests.isEmpty)
+    }
+
+    func testCalibrationAdaptiveEventUsesTheImmediatePlannerRoute() async {
+        let now = date(day: 17, hour: 12)
+        let scheduler = MemoryWorkoutReminderScheduler()
+        let traces = MemoryPersonaTraceStore()
+        let coordinator = makeCoordinator(
+            scheduler: scheduler, traces: traces, now: { now }, personaCatalog: adaptiveCatalog()
+        )
+        let scheduled = expectation(description: "immediate calibration persona request")
+        scheduler.onAddPersonaRequest = { scheduled.fulfill() }
+
+        coordinator.adaptiveEventsDidOccur([adaptiveEvent(.calibrationCompleted, at: now, factID: 203)])
+
+        await fulfillment(of: [scheduled], timeout: 2)
+        XCTAssertEqual(scheduler.immediatePersonaRequests.count, 1)
+        XCTAssertEqual(
+            traces.state.sent.first { $0.observation.contentKey == "adaptive.calibrationCompleted" }?.delivery,
+            .passive
+        )
+    }
+
+    func testAdaptiveEventDoesNotScheduleWhenPersonaIsDisabledOrNotificationsAreUnauthorized() async {
+        let now = date(day: 17, hour: 12)
+
+        let disabledPreferences = characterPreferences()
+        disabledPreferences.extraPersonableEnabled = false
+        let disabledScheduler = MemoryWorkoutReminderScheduler()
+        let disabled = makeCoordinator(
+            preferences: disabledPreferences, scheduler: disabledScheduler, traces: MemoryPersonaTraceStore(),
+            now: { now }, personaCatalog: adaptiveCatalog()
+        )
+        disabled.adaptiveEventsDidOccur([adaptiveEvent(.calibrationCompleted, at: now, factID: 204)])
+        await disabled.enable() // waits behind the observer's queued evaluation
+        XCTAssertTrue(disabledScheduler.immediatePersonaRequests.isEmpty)
+        XCTAssertTrue(disabledScheduler.personaRequests.isEmpty)
+
+        let deniedScheduler = MemoryWorkoutReminderScheduler(status: .denied)
+        let denied = makeCoordinator(
+            scheduler: deniedScheduler, traces: MemoryPersonaTraceStore(), now: { now },
+            personaCatalog: adaptiveCatalog()
+        )
+        denied.adaptiveEventsDidOccur([adaptiveEvent(.calibrationCompleted, at: now, factID: 205)])
+        await denied.enable() // waits behind the observer's queued evaluation
+        XCTAssertTrue(deniedScheduler.immediatePersonaRequests.isEmpty)
+        XCTAssertTrue(deniedScheduler.personaRequests.isEmpty)
+    }
+
+    func testCalibrationAdaptiveEventUsesQuietHoursCapAndCoolingGates() async throws {
+        let catalog = adaptiveCatalog()
+        let late = date(day: 17, hour: 23)
+        let quietScheduler = MemoryWorkoutReminderScheduler()
+        let quietTraces = MemoryPersonaTraceStore()
+        let quiet = makeCoordinator(
+            scheduler: quietScheduler, traces: quietTraces, now: { late }, appIsActive: false,
+            personaCatalog: catalog
+        )
+        let deferred = expectation(description: "deferred adaptive notification")
+        quietScheduler.onAddPersonaRequest = { deferred.fulfill() }
+        quiet.adaptiveEventsDidOccur([adaptiveEvent(.calibrationCompleted, at: late, factID: 206)])
+        await fulfillment(of: [deferred], timeout: 2)
+        guard case .at(let quietComponents) = quietScheduler.immediatePersonaRequests.first?.trigger else {
+            return XCTFail("Expected the calibration notification to defer until quiet hours end.")
+        }
+        XCTAssertEqual(quietComponents.day, 18)
+        XCTAssertEqual(quietComponents.hour, 8)
+        XCTAssertTrue(quietTraces.state.sent.first { $0.observation.contentKey == "adaptive.calibrationCompleted" }?.quietDeferred ?? false)
+
+        let midday = date(day: 17, hour: 12)
+        let capTraceOne = sentTrace(observation: patternObservation("cap-one"), at: midday.addingTimeInterval(-3_600))
+        let capTraceTwo = sentTrace(observation: patternObservation("cap-two"), at: midday.addingTimeInterval(-7_200))
+        let cappedScheduler = MemoryWorkoutReminderScheduler()
+        let cappedTraces = MemoryPersonaTraceStore(state: PersonaTraceState(sent: [capTraceOne, capTraceTwo]))
+        let capped = makeCoordinator(
+            scheduler: cappedScheduler, traces: cappedTraces, now: { midday }, personaCatalog: catalog
+        )
+        capped.adaptiveEventsDidOccur([adaptiveEvent(.calibrationCompleted, at: midday, factID: 207)])
+        await capped.enable()
+        XCTAssertTrue(cappedScheduler.immediatePersonaRequests.isEmpty)
+        XCTAssertEqual(
+            cappedTraces.state.suppressed.first { $0.observation.contentKey == "adaptive.calibrationCompleted" }?.suppressionReason,
+            .dailyCapReached
+        )
+
+        let dismissed = (0..<3).map { index in
+            sentTrace(observation: patternObservation("dismissed-\(index)"),
+                      at: midday.addingTimeInterval(TimeInterval(-index - 1) * 86_400))
+        }
+        let engagement = dismissed.compactMap { trace -> PersonaEngagementEvent? in
+            guard let fireDate = trace.fireDate else { return nil }
+            return PersonaEngagementEvent(
+                traceID: trace.id, observationKey: trace.observation.key.string, kind: .dismissed, date: fireDate
+            )
+        }
+        let coolingScheduler = MemoryWorkoutReminderScheduler()
+        let coolingTraces = MemoryPersonaTraceStore(state: PersonaTraceState(sent: dismissed, engagement: engagement))
+        let cooling = makeCoordinator(
+            scheduler: coolingScheduler, traces: coolingTraces, now: { midday }, personaCatalog: catalog
+        )
+        cooling.adaptiveEventsDidOccur([adaptiveEvent(.calibrationCompleted, at: midday, factID: 208)])
+        await cooling.enable()
+        XCTAssertTrue(coolingScheduler.immediatePersonaRequests.isEmpty)
+        XCTAssertEqual(
+            coolingTraces.state.suppressed.first { $0.observation.contentKey == "adaptive.calibrationCompleted" }?.suppressionReason,
+            .cooling
+        )
     }
 
     // MARK: Workout save
@@ -320,7 +524,10 @@ final class PersonaCoordinatorTests: XCTestCase {
         scheduler: MemoryWorkoutReminderScheduler? = nil,
         traces: MemoryPersonaTraceStore?,
         now: @escaping () -> Date,
-        appIsActive: Bool = true
+        appIsActive: Bool = true,
+        personaCatalog: PersonaContentCatalog? = nil,
+        quietHours: any QuietHoursProviding = FixedQuietHours(),
+        personaPolicy: PersonaPolicy = .standard
     ) -> WorkoutReminderCoordinator {
         WorkoutReminderCoordinator(
             preferences: preferences ?? characterPreferences(),
@@ -332,9 +539,53 @@ final class PersonaCoordinatorTests: XCTestCase {
             scenarioCatalog: try? NotificationScenarioCatalog.bundled(),
             now: now,
             calendar: calendar,
-            personaCatalog: PersonaFixtures.catalog(),
+            personaCatalog: personaCatalog ?? PersonaFixtures.catalog(),
             personaTraces: traces,
+            quietHours: quietHours,
+            personaPolicy: personaPolicy,
             isAppActive: { appIsActive }
+        )
+    }
+
+    private func adaptiveCatalog() -> PersonaContentCatalog {
+        PersonaFixtures.catalog(keys: PersonaFixtures.contentKeys + AdaptiveEventDetector.contentKeys)
+    }
+
+    private func adaptiveEvent(_ kind: AdaptiveEventKind, at: Date, factID: Int) -> AdaptiveEvent {
+        AdaptiveEvent(
+            kind: kind, family: .push, at: at,
+            factID: UUID(uuid: (0, 0, 0, 0, 0, 0, 0x40, 0, 0x80, 0, 0, 0, 0, 0, 0, UInt8(factID)))
+        )
+    }
+
+    private func makeTinyAdaptiveCoordinator(observer: any WorkoutObserving) -> AdaptiveTrainingCoordinator {
+        let variant = VariantID(rawValue: "push.wall_push_up.shallow")
+        let calibrationTime = date(day: 10, hour: 9)
+        let calibration = CalibrationSessionRecord(
+            id: UUID(), kind: .initial, startedAt: calibrationTime, endedAt: calibrationTime, status: .committed,
+            families: [.push], equipment: [],
+            startingPoints: [CalibrationStart(family: .push, start: RungDose(variant: variant, dose: .reps(1)))]
+        )
+        let store = InMemoryAdaptiveTrainingStore(facts: AdaptiveFacts(calibrations: [calibration]))
+        let bridge = ExerciseVariantBridge()
+        let engine = AdaptiveTrainingEngine(
+            store: store, builtExerciseIDs: bridge.availability(equipment: []).builtExerciseIDs, calendar: calendar
+        )
+        return AdaptiveTrainingCoordinator(engine: engine, bridge: bridge, observer: observer)
+    }
+
+    private func patternObservation(_ period: String) -> PersonaObservation {
+        PersonaFixtures.observation(.pattern, "weekday", subject: period, period: "2026-W42", salience: .high)
+    }
+
+    private func sentTrace(observation: PersonaObservation, at: Date) -> PersonaDecisionTrace {
+        let id = UUID()
+        return PersonaDecisionTrace(
+            id: id, decisionID: UUID(), decidedAt: at, observation: observation, salience: .high,
+            delivery: .active, tone: .warm, familiarity: .familiar, trajectory: .stable,
+            templateID: nil, title: "fixture", body: "fixture", standaloneCountToday: 0,
+            quietDeferred: false, cooling: .none, recentSimilarCount: 0, whyThisWon: "fixture",
+            outcome: .sent(fireDate: at, identifier: "fixture.\(id.uuidString)")
         )
     }
 

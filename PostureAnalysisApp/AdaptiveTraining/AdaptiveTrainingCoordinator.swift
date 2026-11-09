@@ -182,7 +182,7 @@ final class AdaptiveTrainingCoordinator: AdaptiveEvidenceRecording, TodaySession
     @ObservationIgnored private let engine: AdaptiveTrainingEngine
     @ObservationIgnored private let bridge: ExerciseVariantBridge
     @ObservationIgnored private let makeID: () -> UUID
-    @ObservationIgnored private let observer: (any WorkoutObserving)?
+    @ObservationIgnored let observer: (any WorkoutObserving)?
 
     init(engine: AdaptiveTrainingEngine, bridge: ExerciseVariantBridge = ExerciseVariantBridge(),
          makeID: @escaping () -> UUID = UUID.init, observer: (any WorkoutObserving)? = nil) {

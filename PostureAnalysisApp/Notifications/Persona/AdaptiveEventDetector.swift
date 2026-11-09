@@ -25,12 +25,11 @@ enum AdaptiveEventDetector: PersonaDetecting {
         projected: Bool,
         policy _: PersonaPolicy
     ) -> [PersonaObservation] {
-        guard !projected,
-              case .adaptiveEvents(let triggerEvents) = context.trigger else {
+        guard !projected else {
             return []
         }
 
-        let events = triggerEvents.filter { $0.at <= asOf }
+        let events = context.trigger.adaptiveEventBatch.filter { $0.at <= asOf }
         let bonusOutcomes = Set(events.compactMap { event -> BonusFact? in
             guard event.kind == .bonusAccepted || event.kind == .bonusDeclined else { return nil }
             return BonusFact(family: event.family?.rawValue, factID: event.factID)
