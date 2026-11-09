@@ -5,7 +5,10 @@ import Foundation
 /// One synchronized canonical and modified sample on the scenario timeline.
 struct MovementMaterializedFrame {
     let frame: PoseFrame
+    /// Unmodified guide pose for the synchronized reference view.
     let referenceFrame: PoseFrame
+    /// Guide pose after structural range mutations; constrained edits preserve these lengths.
+    let constraintReferenceFrame: PoseFrame
     let elapsed: TimeInterval
 }
 
@@ -23,6 +26,8 @@ enum MovementGenerator {
     static let framesPerSecond = 30.0
     static let imageSize = CGSize(width: 1080, height: 1920)
     static let readyHold = MovementSequenceDurations.readyHold
+    static let minimumCompositeDepthScale = 1.0 / 16.0
+    static let maximumCompositeDepthScale = 16.0
 
     private struct RepSegment {
         var rep: Int
@@ -48,6 +53,10 @@ enum MovementGenerator {
             return invalid(["createdAt must be a valid ISO 8601 date-time."])
         }
         guard invalidReasons.isEmpty else { return invalid(invalidReasons) }
+
+        if let reason = compositeDepthScaleError(for: scenario) {
+            return invalid([reason])
+        }
 
         if scenario.mode == .constrained {
             for mutation in scenario.mutations {
@@ -93,7 +102,6 @@ enum MovementGenerator {
         guard frameCount > 0 else { return invalid(["Scenario frame count must be positive."]) }
 
         let startTime = readyHold
-        let startFrame = ReadyPoseFixtures.demoFrame(exercise, motionTime: 0, at: 0)
         var random = SplitMix64(seed: scenario.seed)
         var outputFrames: [MovementMaterializedFrame] = []
 
@@ -113,11 +121,32 @@ enum MovementGenerator {
 
             let referenceFrame = ReadyPoseFixtures.demoFrame(exercise, motionTime: motionTime,
                                                               at: startingTimestamp + elapsed)
-            let guidePoints = coordinates(in: referenceFrame.pose)
+            var renderedSample = motion.sample(at: motionTime)
+            for mutation in scenario.mutations {
+                guard case .depthScale(let scale, let selectedReps) = mutation,
+                      let repIndex, selectedReps == nil || selectedReps?.contains(repIndex) == true else { continue }
+                renderedSample.legs.hipDrop *= scale
+                guard renderedSample.legs.hipDrop.isFinite else {
+                    return invalid(["Depth-scaled guide geometry is not finite at repetition \(repIndex ?? 0)."])
+                }
+            }
+            let renderedLocations = ExerciseDemoFigureView.pose(
+                for: renderedSample, forearmPlane: motion.forearmPlane, cameraView: exercise.cameraView
+            ).jointLocations
+            guard renderedLocations.values.allSatisfy({ $0.x.isFinite && $0.y.isFinite }) else {
+                return invalid(["Rendered guide coordinates must be finite."])
+            }
+            let renderedPose = ReadyPoseFixtures.pose(for: Set(renderedLocations.keys), reference: renderedLocations,
+                                                       exercise: exercise)
+            let renderedFrame = PoseFrame(pose: renderedPose, timestamp: startingTimestamp + elapsed)
+            let guidePoints = coordinates(in: renderedFrame.pose)
+            guard pointsAreFinite(guidePoints) else {
+                return invalid(["Rendered guide coordinates must be finite."])
+            }
             var points = guidePoints
             let bodyHeight = max(1, bodyHeight(of: points))
+            guard bodyHeight.isFinite else { return invalid(["Rendered body height must be finite."]) }
             var targetJoints = Set<LandmarkType>()
-            var depthTargetJoints = Set<LandmarkType>()
             var exactTargetJoints = Set<LandmarkType>()
 
             // 1. Seeded pixel jitter is bounded to 0.002 body-heights per axis.
@@ -128,22 +157,8 @@ enum MovementGenerator {
                 points[joint] = CGPoint(x: point.x + jitterX, y: point.y + jitterY)
             }
 
-            // 2. Range mutations move the hips and knees relative to the guide's standing pose.
-            for mutation in scenario.mutations {
-                guard case .depthScale(let scale, let selectedReps) = mutation,
-                      let repIndex, selectedReps == nil || selectedReps?.contains(repIndex) == true else { continue }
-                let depthJoints: [LandmarkType] = [.leftHip, .rightHip, .leftKnee, .rightKnee]
-                for joint in depthJoints {
-                    guard let current = points[joint], let standing = startFrame.pose[joint]?.imageLocation else { continue }
-                    points[joint] = CGPoint(x: standing.x + (current.x - standing.x) * scale,
-                                            y: standing.y + (current.y - standing.y) * scale)
-                    if scale != 1, joint == .leftHip || joint == .rightHip { depthTargetJoints.insert(joint) }
-                }
-            }
-
-            // 3. Asymmetry follows squat depth so standing stays level.
-            let sample = motion.sample(at: motionTime)
-            let depthRatio = min(1, max(0, sample.legs.hipDrop / max(0.001, motion.topLegs.hipDrop)))
+            // 2. Asymmetry follows the rendered squat depth so standing stays level.
+            let depthRatio = min(1, max(0, renderedSample.legs.hipDrop / max(0.001, motion.topLegs.hipDrop)))
             for mutation in scenario.mutations {
                 guard case .asymmetry(let side, let amount) = mutation else { continue }
                 for (joint, factor) in [(side.hip, 1.0), (side.knee, 0.5)] {
@@ -170,7 +185,11 @@ enum MovementGenerator {
                 }
             }
 
-            // 5. Constrained edits project onto canonical bone lengths and keep both ankles planted.
+            guard pointsAreFinite(points) else {
+                return invalid(["Mutated guide coordinates must remain finite before projection."])
+            }
+
+            // 4. Constrained edits project onto the rendered guide's bone lengths and keep both ankles planted.
             if scenario.mode == .constrained {
                 let requestedPoints = points
                 for ankle in [LandmarkType.leftAnkle, .rightAnkle] {
@@ -182,11 +201,14 @@ enum MovementGenerator {
                 }
                 if let reason = constrain(&points, reference: guidePoints, requested: requestedPoints,
                                           planted: [.leftAnkle, .rightAnkle], targetJoints: targetJoints,
-                                          depthTargetJoints: depthTargetJoints,
                                           exactTargetJoints: exactTargetJoints) {
                     invalidReasons.append(reason)
                     return invalid(invalidReasons)
                 }
+            }
+
+            guard pointsAreFinite(points) else {
+                return invalid(["Projected guide coordinates must remain finite."])
             }
 
             // 6. Framing is a camera transform, followed by confidence and visibility changes.
@@ -200,7 +222,13 @@ enum MovementGenerator {
                                                 + CGFloat(offsetY * bodyHeight))
                 }
             }
-
+            guard pointsAreFinite(points) else {
+                return invalid(["Framed guide coordinates must remain finite."])
+            }
+            for (joint, point) in Array(points) where point.x < 0 || point.x >= imageSize.width
+                || point.y < 0 || point.y >= imageSize.height {
+                points.removeValue(forKey: joint)
+            }
             var confidenceOverrides: [LandmarkType: Double] = [:]
             var dropped = Set<LandmarkType>()
             for mutation in scenario.mutations {
@@ -223,9 +251,13 @@ enum MovementGenerator {
             }
             if inGap { continue }
 
-            var pose = referenceFrame.pose
+            var pose = renderedFrame.pose
             for joint in LandmarkType.allCases {
-                guard var landmark = pose[joint], let point = points[joint] else { continue }
+                guard var landmark = pose[joint] else { continue }
+                guard let point = points[joint] else {
+                    pose[joint] = nil
+                    continue
+                }
                 landmark.imageLocation = point
                 landmark.normalizedLocation = CoordinateConverter.imagePixelToNormalized(
                     pixel: point, imageWidth: imageSize.width, imageHeight: imageSize.height)
@@ -237,7 +269,7 @@ enum MovementGenerator {
             let timestamp = startingTimestamp + elapsed
             let frame = PoseFrame(pose: pose, timestamp: timestamp)
             outputFrames.append(MovementMaterializedFrame(frame: frame, referenceFrame: referenceFrame,
-                                                          elapsed: elapsed))
+                                                          constraintReferenceFrame: renderedFrame, elapsed: elapsed))
         }
 
         let lines = MovementMaterializer.recordingLines(plan: plan, scenario: scenario, exercise: exercise,
@@ -247,6 +279,22 @@ enum MovementGenerator {
 
     private static func invalid(_ reasons: [String]) -> MovementMaterialization {
         MovementMaterialization(frames: [], recordingLines: [], invalidReasons: reasons)
+    }
+
+    private static func compositeDepthScaleError(for scenario: MovementScenario) -> String? {
+        for rep in 1...scenario.reps {
+            var scale = 1.0
+            for (index, mutation) in scenario.mutations.enumerated() {
+                guard case .depthScale(let factor, let selectedReps) = mutation,
+                      selectedReps == nil || selectedReps?.contains(rep) == true else { continue }
+                scale *= factor
+                guard scale.isFinite, scale >= minimumCompositeDepthScale,
+                      scale <= maximumCompositeDepthScale else {
+                    return "Composite depth scale after mutation \(index) for repetition \(rep) must stay between 0.0625 and 16."
+                }
+            }
+        }
+        return nil
     }
 
     /// Removes inserted pause time to recover the guide-clock position.
@@ -266,6 +314,10 @@ enum MovementGenerator {
         Dictionary(uniqueKeysWithValues: pose.landmarks.map { ($0.key, $0.value.imageLocation) })
     }
 
+    private static func pointsAreFinite(_ points: [LandmarkType: CGPoint]) -> Bool {
+        points.values.allSatisfy { $0.x.isFinite && $0.y.isFinite }
+    }
+
     private static func bodyHeight(of points: [LandmarkType: CGPoint]) -> Double {
         guard let minimum = points.values.map(\.y).min(), let maximum = points.values.map(\.y).max() else { return 1 }
         return Double(maximum - minimum)
@@ -276,13 +328,16 @@ enum MovementGenerator {
     private static func constrain(_ points: inout [LandmarkType: CGPoint], reference: [LandmarkType: CGPoint],
                                   requested: [LandmarkType: CGPoint],
                                   planted: Set<LandmarkType>, targetJoints: Set<LandmarkType>,
-                                  depthTargetJoints: Set<LandmarkType>,
                                   exactTargetJoints: Set<LandmarkType>) -> String? {
+        guard pointsAreFinite(points), pointsAreFinite(reference), pointsAreFinite(requested) else {
+            return "Constrained projection received nonfinite coordinates."
+        }
         for _ in 0..<80 {
             for (first, second) in BodyPose.connections {
                 guard let referenceFirst = reference[first], let referenceSecond = reference[second],
                       let firstPoint = points[first], let secondPoint = points[second] else { continue }
                 let targetLength = ArmGeometry.distance(referenceFirst, referenceSecond)
+                guard targetLength.isFinite else { return "Constrained projection received a nonfinite guide bone length." }
                 guard targetLength > 0.000_1 else { continue }
                 let dx = secondPoint.x - firstPoint.x
                 let dy = secondPoint.y - firstPoint.y
@@ -290,9 +345,9 @@ enum MovementGenerator {
                 guard length > 0.000_1 else { continue }
                 let error = length - targetLength
                 let firstWeight: CGFloat = planted.contains(first) || exactTargetJoints.contains(first) ? 0
-                    : (depthTargetJoints.contains(first) ? 0.5 : (targetJoints.contains(first) ? 0.05 : 1))
+                    : (targetJoints.contains(first) ? 0.05 : 1)
                 let secondWeight: CGFloat = planted.contains(second) || exactTargetJoints.contains(second) ? 0
-                    : (depthTargetJoints.contains(second) ? 0.5 : (targetJoints.contains(second) ? 0.05 : 1))
+                    : (targetJoints.contains(second) ? 0.05 : 1)
                 let weight = firstWeight + secondWeight
                 guard weight > 0 else { continue }
                 let correctionX = dx / length * error
@@ -314,6 +369,7 @@ enum MovementGenerator {
             let targetLength = ArmGeometry.distance(referenceFirst, referenceSecond)
             guard targetLength > 0.000_1 else { continue }
             let difference = abs(ArmGeometry.distance(firstPoint, secondPoint) - targetLength) / targetLength
+            guard difference.isFinite else { return "Constrained projection produced a nonfinite bone length." }
             if difference > 0.03 {
                 return "Constrained projection could not keep \(first.rawValue)–\(second.rawValue) within 3% of its guide length."
             }
@@ -373,7 +429,7 @@ enum MovementMaterializer {
         return lines
     }
 
-    private static func recordingID(plan: MovementPlan, scenario: MovementScenario) -> UUID {
+    static func recordingID(plan: MovementPlan, scenario: MovementScenario) -> UUID {
         let input = "\(plan.id)|\(scenario.id)|\(scenario.revision)"
         var first: UInt64 = 1_469_598_103_934_665_603
         var second: UInt64 = 1_099_511_628_211

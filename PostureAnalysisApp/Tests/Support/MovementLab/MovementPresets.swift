@@ -18,10 +18,12 @@ enum MovementPresets {
 
         func scenario(_ id: String, _ category: MovementCategory, _ purpose: String,
                       _ mutations: [MovementMutation] = [], _ assertions: [MovementAssertion] = [],
-                      _ mode: MovementMode = .constrained, _ seed: UInt64 = 133) -> MovementScenario {
+                      _ mode: MovementMode = .constrained, _ seed: UInt64 = 133,
+                      scenarioRevision: Int = 1, parentRevision: Int? = nil) -> MovementScenario {
             MovementScenario(id: id, exercise: exercise.id, category: category, purpose: purpose,
                              canonicalRevision: revision, seed: seed, reps: 5, mode: mode,
-                             mutations: mutations, assertions: assertions)
+                             mutations: mutations, assertions: assertions, revision: scenarioRevision,
+                             parentRevision: parentRevision)
         }
 
         let kneeMutations = (1...5).flatMap { rep -> [MovementMutation] in
@@ -39,10 +41,9 @@ enum MovementPresets {
             scenario("canonical", .canonical,
                      "Count the guide motion at its normal range.", [], [.repCount(equals: 5, min: nil, max: nil)]),
             scenario("shallow-depth", .depthROM,
-                     "Check that a half-depth squat remains below the counted range.",
+                     "Revision 2 corrects the failed run's partialEnd expectation: Air Squat reports a shallow form attempt, not a partialEnd rejection; keep the frozen zero-rep expectation.",
                      [.depthScale(scale: 0.5, reps: nil)],
-                     [.repCount(equals: 0, min: nil, max: nil),
-                      .rejection(reasonContains: "partialEnd", countMin: 1)]),
+                     [.repCount(equals: 0, min: nil, max: nil)], scenarioRevision: 2, parentRevision: 1),
             scenario("slightly-shallow", .depthROM,
                      "Record whether a modest range reduction still counts.",
                      [.depthScale(scale: 0.85, reps: nil)], [.repCount(equals: nil, min: 4, max: nil)]),
@@ -68,9 +69,9 @@ enum MovementPresets {
                      "Drop frames for half a second in the middle of the set.",
                      [.frameGap(at: fifthRepMiddle, duration: 0.5)]),
             scenario("too-close-framing", .sessionFraming,
-                     "Scale the subject up to model a phone placed too close.",
-                     [.framing(scale: 1.6, offsetX: 0, offsetY: 0)],
-                     [.framing(state: "reliable", reached: false)]),
+                     "Revision 2 corrects the failed run: scale up and shift down until required knees and ankles leave the image, exercising FramingEvaluator's required-joint visibility rule; scale-only kept them visible.",
+                     [.framing(scale: 1.6, offsetX: 0, offsetY: 0.5)],
+                     [.framing(state: "reliable", reached: false)], scenarioRevision: 2, parentRevision: 1),
             scenario("raw-impossible-limb", .alignment,
                      "Preserve an intentionally impossible Vision-style knee location.",
                      [.jointOffset(joints: ["leftKnee"], dx: 0.5, dy: 0.5,
