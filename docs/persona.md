@@ -25,16 +25,17 @@ saved history, a planner picks at most one observation per message, and copy com
 
 ```text
 PersonaHistory (workouts, assessments, routine names and minutes, exercise names)
+  + PersonaTrigger (workoutSaved or adaptiveEvents)
   + preferences (enabled, reset date) + PersonaTraceState (recent decisions, engagement)
     → PersonaContextBuilder.build      familiarity, trajectory, streak, relationship records, reminder slot times
-    → PersonaDetectors.all              achievement · pattern · lapse · posture → [PersonaObservation]
+    → PersonaDetectors.all              achievement · pattern · lapse · posture · adaptive → [PersonaObservation]
     → PersonaPlanner.plan               one winner per event or day; salience, cap, quiet hours, cooling, tone, copy
     → PersonaPlan { immediate, scheduled, traces }
     → WorkoutReminderCoordinator        fold into the acknowledgment, add/replace persona requests, store traces
 ```
 
 Everything under `PostureAnalysisApp/Notifications/Persona/` is Foundation-only and pure: detectors and the planner read
-time only from the context, so the same history always produces the same decision.
+time only from the context, so the same inputs always produce the same decision.
 
 ## When she speaks
 
@@ -45,6 +46,11 @@ time only from the context, so the same history always produces the same decisio
   next 7 days, at most one notification per day at about 11:30, moved at least 90 minutes from any reminder slot.
   Projected requests use the identifier prefix `fixMyPosture.persona.plan.` and are all replaced on every reconciliation,
   so they always reflect current history. Immediate requests use `fixMyPosture.persona.now.` and are never replaced.
+- **Adaptive events**: `AdaptiveEventDetector` maps package events to `adaptive.*` observations on an
+  `adaptiveEvents` trigger. They enter the same immediate planner pass and use its cap, quiet hours, cooling,
+  deduplication, and traces. They are never projected. The detector reads event semantics only; it does not decide
+  whether a movement step is easier or harder, and copy cannot change adaptive state. Production delivery wiring is
+  added separately.
 - **Daily cap**: at most 2 standalone persona notifications per calendar day, Active and Passive together. Folded content
   does not count. The cap is absolute; extra candidates are suppressed and rediscovered later from history.
 - **Quiet hours**: 22:00–08:00 behind `QuietHoursProviding`. An immediate notification during quiet hours is deferred to
@@ -70,6 +76,13 @@ announced twice and a pattern's copy can keep referring back while the detector 
 | `lapse.comeback` | First workout after 14+ days | HIGH at 28+ days with 10+ earlier workouts, else MEDIUM |
 | `posture.returned` | An assessment today after 21+ days without one | LOW, MEDIUM at 45+ days |
 | `posture.improved` | The two latest assessments both 2°+ closer to zero than the baseline on the same measurement | MEDIUM |
+
+Adaptive observations use the package's event kind, optional movement family, and fact ID. Supported kinds are tiny
+session prescribed, session completed, too hard, okay, easy, bonus offered, bonus accepted, bonus declined, progressed,
+regressed, calibration completed, and recalibration completed. Each maps to its matching `adaptive.*` content key at
+MEDIUM salience. If a bonus outcome and offer share a fact, the accepted or declined outcome takes the slot; an
+offered-only event remains eligible. `returnedAfterAbsence` continues through `lapse.comeback`, so it cannot create a
+second observation. Adaptive observations do not count as negative observations.
 
 Negative observations (lapses other than a comeback) need evidence strength 3 or more and never exceed MEDIUM. Lapse
 copy can suggest a gentler routine through a tappable target; it never prescribes weight or reps.

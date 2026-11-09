@@ -4,7 +4,7 @@
 
 The copy library used by the on-device persona planner. The JSON file is the source of truth; the app data set, character portraits, and this page are generated from it. To change copy or art, edit `Design/NotificationCharacter/persona-content.json` and run `make notification-character`.
 
-- 15 content entries, 81 authored strings.
+- 27 content entries, 118 authored strings.
 
 ## Tokens
 
@@ -246,6 +246,7 @@ The copy library used by the on-device persona planner. The JSON file is the sou
 - `{days} days, then a workout. Good to see you back.` — tones: `warm`, `relieved`; minimum familiarity: `familiar`
 - `{days} days. You came back. That’s the good part.` — tones: `warm`, `relieved`; minimum familiarity: `familiar`
 - `{days} days, and you’re back. Just glad.` — tones: `warm`, `relieved`; minimum familiarity: `familiar`
+- `Welcome back. No speech. Just glad.` — tones: `warm`, `relieved`; minimum familiarity: `familiar`
 
 ### `posture.returned`
 
@@ -274,6 +275,174 @@ The copy library used by the on-device persona planner. The JSON file is the sou
 **Body variants**
 - `Your {measurement} trend is moving the right way.` — tones: all tones; minimum familiarity: `new`
 - `Less deviation in {measurement} on two checks. Nice.` — tones: all tones; minimum familiarity: `new`
+
+### `adaptive.tinySessionPrescribed`
+
+- **Family:** `adaptive`
+- **Default tone:** `warm`
+- **Tokens:** none
+- **Art overrides:** none
+
+**Title variants**
+- `Today counts` — tones: all tones; minimum familiarity: `new`
+
+**Body variants**
+- `Small is enough today.` — tones: all tones; minimum familiarity: `new`
+- `A small session still counts.` — tones: all tones; minimum familiarity: `new`
+
+### `adaptive.sessionCompleted`
+
+- **Family:** `adaptive`
+- **Default tone:** `warm`
+- **Tokens:** none
+- **Art overrides:** none
+
+**Title variants**
+- `Session complete` — tones: all tones; minimum familiarity: `new`
+
+**Body variants**
+- `Checked off. You’re done.` — tones: all tones; minimum familiarity: `new`
+- `That session counts. Nicely done.` — tones: all tones; minimum familiarity: `new`
+
+### `adaptive.effortTooHard`
+
+- **Family:** `adaptive`
+- **Default tone:** `warm`
+- **Tokens:** none
+- **Art overrides:** none
+
+**Title variants**
+- `Thanks for the signal` — tones: all tones; minimum familiarity: `new`
+
+**Body variants**
+- `That was too hard. Thanks for the honest read.` — tones: all tones; minimum familiarity: `new`
+- `A useful signal. We can adjust from here.` — tones: all tones; minimum familiarity: `new`
+
+### `adaptive.effortOkay`
+
+- **Family:** `adaptive`
+- **Default tone:** `warm`
+- **Tokens:** none
+- **Art overrides:** none
+
+**Title variants**
+- `About right` — tones: all tones; minimum familiarity: `new`
+
+**Body variants**
+- `About right. Good signal.` — tones: all tones; minimum familiarity: `new`
+- `That sounds well matched today.` — tones: all tones; minimum familiarity: `new`
+
+### `adaptive.effortEasy`
+
+- **Family:** `adaptive`
+- **Default tone:** `warm`
+- **Tokens:** none
+- **Art overrides:** none
+
+**Title variants**
+- `Good to know` — tones: all tones; minimum familiarity: `new`
+
+**Body variants**
+- `Easy today. Good to know.` — tones: all tones; minimum familiarity: `new`
+- `Noted. That helps shape the next step.` — tones: all tones; minimum familiarity: `new`
+
+### `adaptive.bonusOffered`
+
+- **Family:** `adaptive`
+- **Default tone:** `warm`
+- **Tokens:** none
+- **Art overrides:** none
+
+**Title variants**
+- `Extra is optional` — tones: all tones; minimum familiarity: `new`
+
+**Body variants**
+- `A little extra is here if you want it.` — tones: all tones; minimum familiarity: `new`
+- `There’s a little more, only if it suits you.` — tones: all tones; minimum familiarity: `new`
+
+### `adaptive.bonusAccepted`
+
+- **Family:** `adaptive`
+- **Default tone:** `warm`
+- **Tokens:** none
+- **Art overrides:** none
+
+**Title variants**
+- `Extra accepted` — tones: all tones; minimum familiarity: `new`
+
+**Body variants**
+- `You chose a little extra. Good to know.` — tones: all tones; minimum familiarity: `new`
+- `A little extra sounded right to you.` — tones: all tones; minimum familiarity: `new`
+
+### `adaptive.bonusDeclined`
+
+- **Family:** `adaptive`
+- **Default tone:** `warm`
+- **Tokens:** none
+- **Art overrides:** none
+
+**Title variants**
+- `No bonus today` — tones: all tones; minimum familiarity: `new`
+
+**Body variants**
+- `No bonus today. The work still counts.` — tones: all tones; minimum familiarity: `new`
+- `You left the extra. Today’s work is done.` — tones: all tones; minimum familiarity: `new`
+
+### `adaptive.progressed`
+
+- **Family:** `adaptive`
+- **Default tone:** `warm`
+- **Tokens:** none
+- **Art overrides:** none
+
+**Title variants**
+- `Next step ready` — tones: all tones; minimum familiarity: `new`
+
+**Body variants**
+- `A harder step is ready to try.` — tones: all tones; minimum familiarity: `new`
+- `The next challenge is ready when you are.` — tones: all tones; minimum familiarity: `new`
+
+### `adaptive.regressed`
+
+- **Family:** `adaptive`
+- **Default tone:** `warm`
+- **Tokens:** none
+- **Art overrides:** none
+
+**Title variants**
+- `A gentler step` — tones: all tones; minimum familiarity: `new`
+
+**Body variants**
+- `A gentler step. Still real work.` — tones: all tones; minimum familiarity: `new`
+- `We found a better fit for today.` — tones: all tones; minimum familiarity: `new`
+
+### `adaptive.calibrationCompleted`
+
+- **Family:** `adaptive`
+- **Default tone:** `warm`
+- **Tokens:** none
+- **Art overrides:** none
+
+**Title variants**
+- `Starting point set` — tones: all tones; minimum familiarity: `new`
+
+**Body variants**
+- `Starting point set. We can build from here.` — tones: all tones; minimum familiarity: `new`
+- `A clear starting point. One step at a time.` — tones: all tones; minimum familiarity: `new`
+
+### `adaptive.recalibrationCompleted`
+
+- **Family:** `adaptive`
+- **Default tone:** `warm`
+- **Tokens:** none
+- **Art overrides:** none
+
+**Title variants**
+- `Starting point refreshed` — tones: all tones; minimum familiarity: `new`
+
+**Body variants**
+- `Starting point refreshed. We can build from here.` — tones: all tones; minimum familiarity: `new`
+- `A fresh starting point. We can build from here.` — tones: all tones; minimum familiarity: `new`
 
 ## Fragments
 

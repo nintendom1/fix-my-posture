@@ -45,8 +45,16 @@ class PersonaContentTests(unittest.TestCase):
         fixture = (REPO_ROOT / "PostureAnalysisApp/Tests/Support/PersonaFixtures.swift").read_text(encoding="utf-8")
         block = fixture.split("static let contentKeys = [", 1)[1].split("]", 1)[0]
         expected = set(re.findall(r'"([a-z]+(?:\.[a-zA-Z]+)+)"', block))
+        detector = (REPO_ROOT / "PostureAnalysisApp/Notifications/Persona/AdaptiveEventDetector.swift").read_text(encoding="utf-8")
+        adaptive_block = detector.split("static let contentKeys = [", 1)[1].split("]", 1)[0]
+        adaptive_keys = set(re.findall(r'"(adaptive\.[a-zA-Z]+)"', adaptive_block))
         self.assertTrue(expected)
-        self.assertEqual(expected, set(self.data["content"]), "Swift content keys and persona-content.json must match")
+        self.assertTrue(adaptive_keys)
+        self.assertEqual(
+            expected | adaptive_keys,
+            set(self.data["content"]),
+            "Swift content keys and persona-content.json must match",
+        )
 
     def test_swift_tone_and_family_enums_match_the_validator(self):
         types = (REPO_ROOT / "PostureAnalysisApp/Notifications/Persona/PersonaTypes.swift").read_text(encoding="utf-8")
@@ -178,6 +186,43 @@ class PersonaContentTests(unittest.TestCase):
 
     def test_family_must_match_the_content_key(self):
         self.assertInvalid(lambda d: d["content"]["achievement.pr.weight"].update(family="lapse"), "family must be 'achievement'")
+
+    def test_adaptive_family_must_match_the_content_key(self):
+        self.assertInvalid(
+            lambda d: d["content"]["adaptive.tinySessionPrescribed"].update(family="posture"),
+            "family must be 'adaptive'",
+        )
+
+    def test_adaptive_copy_avoids_shame_and_diagnostic_terms(self):
+        forbidden = re.compile(
+            r"\b(?:lazy|weak|failure|failed|quitter|quit|pathetic|wimp|scoliosis|diagnosis|diagnostic|"
+            r"diagnose|diagnosed|medical|injury|injured|disease|deformity|misaligned|misalignment|abnormal|disorder)\b",
+            re.IGNORECASE,
+        )
+        adaptive_entries = {
+            key: entry for key, entry in self.data["content"].items()
+            if entry["family"] == "adaptive"
+        }
+        self.assertTrue(adaptive_entries)
+        for key, entry in adaptive_entries.items():
+            self.assertGreaterEqual(len(entry["body"]), 2, f"{key} needs multiple body variants")
+            for section in ("title", "body"):
+                for variant in entry[section]:
+                    self.assertIsNone(
+                        forbidden.search(variant["text"]),
+                        f"{key} {section} contains a shaming or diagnostic term: {variant['text']}",
+                    )
+
+    def test_tiny_and_accepted_bonus_copy_avoids_unsupported_claims(self):
+        unsupported_claim = re.compile(r"\b(?:complete|completed|done|rep|reps)\b", re.IGNORECASE)
+        for key in ("adaptive.tinySessionPrescribed", "adaptive.bonusAccepted"):
+            entry = self.data["content"][key]
+            for section in ("title", "body"):
+                for variant in entry[section]:
+                    self.assertIsNone(
+                        unsupported_claim.search(variant["text"]),
+                        f"{key} {section} makes an unsupported unit or completion claim: {variant['text']}",
+                    )
 
     def test_annoyed_cannot_be_the_default_tone(self):
         self.assertInvalid(
