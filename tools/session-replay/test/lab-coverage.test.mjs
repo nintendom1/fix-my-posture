@@ -1,19 +1,81 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { buildCoverageModel } from "../lib/lab/coverage.mjs";
 import { chooseKeyframe } from "../lib/lab/keyframe.mjs";
 import { createServer } from "../server.mjs";
-import { createCoveragePlaybackNavigator, renderCoverageMatrix, renderCoverageScenarioRow,
-  renderCoverageThumbnail, bindCoverageSeekHandler } from "../public/lab/coverage.mjs";
+import { createCoveragePlaybackNavigator, installCoverageViewElements,
+  renderCoverageMatrix, renderCoverageScenarioRow, renderCoverageThumbnail, bindCoverageSeekHandler } from "../public/lab/coverage.mjs";
 
 const RUN_OLD = "20261108-090000-c3d4";
 const RUN_MIDDLE = "20261108-100000-a1b2";
 const RUN_NEW = "20261108-110000-e5f6";
 const JOINTS = ["leftHip", "rightHip", "leftKnee", "rightKnee", "leftAnkle", "rightAnkle"];
+
+function navigationTab(section) {
+  const tab = {
+    dataset: { labView: section }, attributes: {}, activeClasses: new Set(),
+    textContent: section === "runs" ? "Runs" : section === "recordings" ? "Session recordings" : "Scenario coverage",
+    setAttribute(name, value) { this.attributes[name] = value; },
+  };
+  tab.classList = { toggle(name, active) { if (active) tab.activeClasses.add(name); else tab.activeClasses.delete(name); } };
+  return tab;
+}
+
+test("coverage tab is injected once into the persistent shared section navigation", async () => {
+  const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
+  const navStart = html.indexOf('<nav class="lab-view-tabs"');
+  const navEnd = html.indexOf("</nav>", navStart);
+  const staticNav = html.slice(navStart, navEnd);
+  assert.equal((staticNav.match(/data-lab-view=/g) ?? []).length, 2);
+  assert.equal((staticNav.match(/data-lab-view="runs"/g) ?? []).length, 1);
+  assert.equal((staticNav.match(/data-lab-view="recordings"/g) ?? []).length, 1);
+
+  const runs = navigationTab("runs");
+  const recordings = navigationTab("recordings");
+  const navigation = {
+    hidden: false,
+    tabs: [runs, recordings],
+    querySelector(selector) {
+      return selector === '[data-lab-view="recordings"]' ? recordings : null;
+    },
+    insertBefore(button, before) {
+      this.tabs.splice(this.tabs.indexOf(before), 0, button);
+    },
+  };
+  const dashboard = {
+    coverageView: null,
+    querySelector(selector) {
+      if (selector === ".lab-layout") return layout;
+      if (selector === "#labCoverageView") return this.coverageView;
+      return null;
+    },
+  };
+  const layout = {
+    insertAdjacentElement(position, element) {
+      assert.equal(position, "afterend");
+      dashboard.coverageView = element;
+    },
+  };
+  const doc = {
+    getElementById(id) { return id === "labDashboard" ? dashboard : null; },
+    querySelector(selector) { return selector === ".lab-view-tabs" ? navigation : null; },
+    createElement(tagName) {
+      return { tagName, dataset: {}, attributes: {}, setAttribute(name, value) { this.attributes[name] = value; } };
+    },
+  };
+
+  const installed = installCoverageViewElements(doc);
+  assert.ok(installed);
+  assert.equal(installed.button.dataset.labView, "coverage");
+  assert.equal(installed.button.textContent, "Scenario coverage");
+  assert.deepEqual(navigation.tabs.map((tab) => tab.dataset.labView), ["runs", "coverage", "recordings"]);
+  assert.equal(navigation.tabs.filter((tab) => tab.dataset.labView === "coverage").length, 1);
+  assert.equal(installCoverageViewElements(doc), null, "installing again does not duplicate the tab");
+});
 
 function scenario(id, revision = 1, overrides = {}) {
   return {
