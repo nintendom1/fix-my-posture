@@ -1,26 +1,23 @@
 #!/usr/bin/env bash
-# Compile check for agents that share one working tree. One build runs at a time (a directory lock), each agent
+# Compile check for agents that share one working tree. One build runs at a time (a kernel lock), each agent
 # uses its own derived data, and no simulator is needed. Agents never run tests; the orchestrator runs
 # ./scripts/validate.sh. Usage: scripts/agent-build.sh <agent-name> [--tests]
 #   --tests  also compiles the unit-test target (build-for-testing) without running it.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+lock="build/agents/build.lock"
+if [[ "${1:-}" == "__with_kernel_lock" \
+    && "${FMP_WITH_LOCK_PARENT_PID:-}" == "$PPID" ]]; then
+    shift
+else
+    exec python3 "$ROOT/scripts/orchestrate/with-lock.py" "$lock" -- \
+        "$ROOT/scripts/agent-build.sh" __with_kernel_lock "$@"
+fi
+
 name="${1:?usage: scripts/agent-build.sh <agent-name> [--tests]}"
 action="build"
 if [[ "${2:-}" == "--tests" ]]; then action="build-for-testing"; fi
-lock="build/agents/build.lock"
-mkdir -p build/agents
-until mkdir "$lock" 2>/dev/null; do
-    # A build that was killed leaves its lock behind; reclaim it when its process is gone.
-    holder="$(cat "$lock/pid" 2>/dev/null || true)"
-    if [[ -n "$holder" ]] && ! kill -0 "$holder" 2>/dev/null; then
-        rm -rf "$lock"
-        continue
-    fi
-    sleep 5
-done
-echo $$ > "$lock/pid"
-trap 'rm -rf "$lock"' EXIT
 log="build/agents/$name.log"
 if xcodebuild "$action" -project PostureAnalysisApp.xcodeproj -scheme PostureAnalysisApp \
     -destination 'generic/platform=iOS Simulator' -derivedDataPath "build/agents/$name" \

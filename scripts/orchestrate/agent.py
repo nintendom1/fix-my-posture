@@ -13,6 +13,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +22,7 @@ NAME_RE = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
 OVERFLOW_RE = re.compile(r"^Agent(?: (\d+))?$")
 SCRIPT_TAB_RE = re.compile(r"^Scripts(?: (\d+))?$")
 IMPLEMENTER_TOOLS = (
-    "Bash(scripts/agent-build.sh:*) Bash(swift test:*) Bash(swift build:*) "
+    "Bash(scripts/agent-build.sh:*) Bash(scripts/orchestrate/test.sh:*) Bash(swift test:*) Bash(swift build:*) "
     "Bash(xcodebuild:*) Bash(git diff:*) Bash(git status:*) Bash(git log:*) "
     "Bash(node --test:*) Bash(python3 -m unittest:*) Read Edit Write Glob Grep"
 )
@@ -188,8 +189,8 @@ class Context:
         self._snapshot: dict[str, Any] | None = None
         self._snapshot_epoch = -1
 
-    def snapshot(self) -> dict[str, Any]:
-        if self._snapshot is not None and self._snapshot_epoch == _MUTATION_EPOCH:
+    def snapshot(self, *, refresh: bool = False) -> dict[str, Any]:
+        if not refresh and self._snapshot is not None and self._snapshot_epoch == _MUTATION_EPOCH:
             return self._snapshot
         panes = _herdr_json("pane", "list", "--workspace", self.workspace).get("panes", [])
         tabs = _herdr_json("tab", "list", "--workspace", self.workspace).get("tabs", [])
@@ -1038,18 +1039,39 @@ def _prompt(args: argparse.Namespace, ctx: Context) -> None:
     _herdr_json("agent", "prompt", args.name, message)
     if not args.wait:
         return
-    wait_args = ["agent", "wait", args.name]
     wait_seconds = args.timeout if args.timeout is not None else WAIT_DEFAULT_SECONDS
-    wait_args.extend(("--timeout", str(max(1, int(wait_seconds * 1000)))))
-    data = _herdr_json(
-        *wait_args, timeout=wait_seconds + WAIT_TRANSPORT_MARGIN_SECONDS
-    )
-    agent = data.get("agent", data)
-    state = str(agent.get("agent_status") or agent.get("state") or agent.get("status") or "unknown")
-    if state not in {"idle", "done", "blocked"}:
-        snapshot = ctx.snapshot()
-        live = next((item for item in snapshot["agents"] if item.get("name") == args.name), {})
-        state = str(live.get("agent_status", "unknown"))
+    deadline = time.monotonic() + wait_seconds
+    terminal_states = {"idle", "done", "blocked"}
+    state = "working"
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        wait_args = [
+            "agent", "wait", args.name, "--timeout",
+            str(max(1, int(remaining * 1000))),
+        ]
+        try:
+            _herdr_json(*wait_args, timeout=remaining + WAIT_TRANSPORT_MARGIN_SECONDS)
+        except OrchestrationError:
+            # A vanished pane can make Herdr's wait command fail; the refreshed
+            # agent list below still decides whether the managed agent settled.
+            pass
+        snapshot = ctx.snapshot(refresh=True)
+        live = next(
+            (
+                item for item in snapshot["agents"]
+                if item.get("name") == args.name and str(item.get("pane_id", "")) == pane_id
+            ),
+            {},
+        )
+        state = str(live.get("agent_status", "unknown")) if live else "unknown"
+        if state in terminal_states:
+            break
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        time.sleep(min(0.1, remaining))
     report = ctx.root / "build" / "briefs" / f"{args.name}.report.md"
     output = f"{args.name} state={state}"
     if report.exists():
@@ -1060,6 +1082,10 @@ def _prompt(args: argparse.Namespace, ctx: Context) -> None:
         rows = [row.rstrip() for row in visible.splitlines() if row.strip()]
         for row in rows[-5:]:
             print(row)
+    elif state not in terminal_states:
+        raise OrchestrationError(
+            f"timed out waiting for agent {args.name} (state={state})"
+        )
 
 
 def _status(ctx: Context, name: str | None) -> None:

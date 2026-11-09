@@ -1,0 +1,35 @@
+{
+  "actions": [
+    {
+      "actionResult": {
+        "metrics": {
+          "testsCount": {"_type": {"_name": "Int"}, "_value": "2"},
+          "testsFailedCount": {"_type": {"_name": "Int"}, "_value": "0"},
+          "testsSkippedCount": {"_type": {"_name": "Int"}, "_value": "0"}
+        }
+      }
+    },
+    {
+      "actionResult": {
+        "metrics": {
+          "testsCount": {"_type": {"_name": "Int"}, "_value": "1"},
+          "testsFailedCount": {"_type": {"_name": "Int"}, "_value": "1"},
+          "testsSkippedCount": {"_type": {"_name": "Int"}, "_value": "0"}
+        },
+        "testFailureSummaries": {
+          "_values": [
+            {
+              "testCaseName": {"_type": {"_name": "String"}, "_value": "WorkoutSessionTests/testLegacyFailure"},
+              "message": {"_type": {"_name": "String"}, "_value": "XCTAssertTrue failed"},
+              "documentLocationInCreatingWorkspace": {
+                "url": {"_type": {"_name": "String"}, "_value": "file:///REPO/PostureAnalysisApp/Tests/Workout/WorkoutSessionTests.swift#EndingLineNumber=71&StartingLineNumber=71"}
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "startTime": {"_type": {"_name": "Double"}, "_value": "100"},
+  "finishTime": {"_type": {"_name": "Double"}, "_value": "106"}
+}
