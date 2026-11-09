@@ -77,6 +77,101 @@ Recordings are measurements of a real person's body, and this repository is publ
 - The recording's id is the saved `WorkoutRecord.id`, so a history entry and its recording match. A workout with no finished set saves no history entry.
 - Files: `Application Support/Diagnostics/Workouts/<uuid>.json` with `<uuid>.summary.json`. The folder is excluded from backups. Older JSON Lines recordings (`.jsonl`, `.fmpsession`) are converted when listed or pulled. Shared copies are hard links under readable names in the temporary folder.
 
+## Movement Lab scenarios
+
+Movement Lab plans use `schemaVersion: 1`. Plans and scenarios each have an `id` of 1–64 lowercase ASCII letters, digits, `_`, or `-`; a plan holds at most 200 scenarios. A scenario names a registered exercise, category (`canonical`, `depth_rom`, `alignment`, `timing`, `tracking`, or `session_framing`), purpose, canonical guide revision, seed, repetition count, mode (`constrained` or `raw`), mutations, assertions, and revision lineage. Plan authors are `agent` or `developer`. A plan is rejected during decoding if its schema version or a mutation/assertion kind is unknown. Validation collects field-specific issues before materialization. Scenario repetitions are 1–120, and the generated timeline may not exceed 120 seconds.
+
+### JSON contract
+
+This schema-complete plan shows the required envelope and a representative scenario. Replace the abbreviated `canonicalRevision` value with the current guide hash before materializing it. Fields not shown in this scenario are documented in the tables below.
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "air-squat-lab-v1",
+  "title": "Air Squat lab",
+  "purpose": "Exercise the guide-bottom knee edit.",
+  "author": "developer",
+  "createdAt": "2026-11-07T12:00:00Z",
+  "scenarios": [
+    {
+      "id": "knees-at-bottom",
+      "exercise": "air_squat",
+      "category": "alignment",
+      "purpose": "Move the knees inward at the first maximum hip drop.",
+      "canonicalRevision": "guide-fnv1a-…",
+      "seed": "9007199254740993",
+      "reps": 5,
+      "mode": "constrained",
+      "mutations": [
+        {
+          "kind": "jointOffset",
+          "joints": ["leftKnee"],
+          "dx": -0.04,
+          "dy": 0,
+          "peak": 3.7,
+          "rise": 0.35,
+          "fall": 0.35,
+          "strength": 1
+        }
+      ],
+      "assertions": [
+        {"kind": "repCount", "equals": 5},
+        {"kind": "rejection", "reasonContains": "partialEnd", "countMin": 1},
+        {"kind": "formSignal", "id": "squat.knees_in", "present": true},
+        {"kind": "framing", "state": "reliable", "reached": true},
+        {"kind": "spokenCue", "textContains": "stand tall", "present": true}
+      ],
+      "revision": 1
+    }
+  ]
+}
+```
+
+`seed` is a base-10 unsigned 64-bit integer encoded as a JSON string. The decoder accepts decimal digits only and converts them to `UInt64`; this preserves values above JavaScript's exact integer range, including `UInt64.max`. `parentRevision` is omitted when absent, as are optional mutation `reps` selectors and absent `repCount` bounds. JSON `null` is not emitted for these absent values. All other keys in the example are required.
+
+Mutation objects use `kind` as their discriminator. `joints` contains exact `LandmarkType.rawValue` names; `side` is `left` or `right`. A missing `reps` selector means every repetition; a supplied selector is a nonempty, duplicate-free list of one-based repetition numbers.
+
+| `kind` | Required payload | Meaning |
+|---|---|---|
+| `jointOffset` | `joints`, `dx`, `dy`, `peak`, `rise`, `fall`, `strength` | Offset the named joints by `dx`/`dy` body-heights, shaped by the raised-cosine influence. |
+| `depthScale` | `scale`; optional `reps` | Scale hip and knee travel from the standing pose on selected repetitions. |
+| `asymmetry` | `side`, `amount` | Lower or raise one side of the hips as squat depth changes. |
+| `tempo` | `scale`; optional `reps` | Multiply each selected guide cycle's duration. |
+| `pause` | `at`, `duration` | Insert a hold at `at` on the pre-insertion, tempo-scaled clock. |
+| `frameGap` | `at`, `duration` | Omit frames in a half-open output-clock interval. |
+| `dropout` | `joints`, `from`, `to` | Remove the named landmarks in a half-open output-clock interval. |
+| `confidence` | `joints`, `from`, `to`, `value` | Set confidence in a half-open output-clock interval. |
+| `framing` | `scale`, `offsetX`, `offsetY` | Scale and translate the pose in the image. |
+
+Assertion objects also use `kind` as their discriminator:
+
+| `kind` | Required payload | Optional payload |
+|---|---|---|
+| `repCount` | At least one of `equals`, `min`, or `max` | `equals` is exclusive with `min`/`max`; a range can use either endpoint or both. |
+| `rejection` | `reasonContains`, `countMin` | — |
+| `formSignal` | `id`, `present` | — |
+| `framing` | `state`, `reached` | — |
+| `spokenCue` | `textContains`, `present` | — |
+
+The reserved result object has `scenarioID`, `revision`, `outcome` (`passed`, `failed`, `inconclusive`, `invalid`, or `notRun`), `observed`, `assertionResults`, and `invalidReasons`. `observed` has optional `reps` and arrays `rejections`, `signals`, `framingChanges`, and `cues`. Each assertion result has its zero-based `assertionIndex`, `passed`, and `detail`. Result evaluation is for the next runner milestone; the scenario schema already freezes assertions before generation.
+
+### Timeline, units, and generation order
+
+`reps` is a count, while all time values are seconds. Each scenario begins with a 1.5-second ready hold. The guide's keyframe movement and hold durations define each cycle. Tempo scales cycle durations multiplicatively, including when a common tempo and a per-repetition tempo both apply. Repetition selectors are one-based. The total-duration check includes tempo and every inserted pause.
+
+There are two clocks. `pause.at` is measured before any pause is inserted, after tempo is applied; its valid range is inclusive from zero through the end of that pre-insertion clock. `jointOffset.peak`, `dropout.from/to`, `confidence.from/to`, and `frameGap.at` use the output clock after pause insertion. A frame gap's effective endpoint (`at + duration`) must be at or before sequence end. Dropout, confidence, and gap intervals apply as `[start, end)`. `jointOffset` influence supports include its rise/fall boundaries, where weight is zero; at `peak`, the weight is one. A zero-width side contributes only at the peak. Pause samples hold the guide pose at the insertion point.
+
+Composite tempo factors apply in mutation-array order. Each scaled repetition duration and cumulative timeline addition is normalized to the nearest nanosecond; validation and materialization use the same calculation. A composite tempo whose product overflows or underflows is invalid.
+
+Frames are sampled at `n / 30` seconds from zero through the first sample at or after sequence end, `ceil(duration × 30) / 30`. The frame timestamp is `startingTimestamp + elapsed`.
+
+One body-height is the vertical pixel span (`maxY - minY`) of all available joints in that frame's canonical guide pose, before jitter and other mutations. Offset, asymmetry, and framing translations use this measure. Supported mutation numeric limits are inclusive: offsets `dx/dy` ±0.5 body-heights, influence durations 0–10 seconds, strength 0–1, depth and tempo scales 0.3–2, asymmetry and framing translations ±0.5 body-heights, framing scale 0.3–2, confidence 0–1, and dropout/confidence interval length at most 10 seconds. Constrained joint offsets whose requested vector exceeds 0.3 body-heights are invalid.
+
+At 30 frames per second, samples are timestamped at `n / 30` seconds from zero through the first sample at or after sequence end (`ceil(duration × 30) / 30`). The generator applies stages in this fixed order: seeded jitter; depth scaling; asymmetry; local joint offsets; constrained projection; framing; confidence overrides and landmark dropout; frame-gap omission. Mutations within a stage are read in their JSON array order. Constrained mode projects toward canonical guide bone lengths, keeps both Air Squat ankles planted, and rejects a local joint offset if projection cannot retain at least half of its nonzero requested displacement while keeping each available connected bone within 3% of its guide length. A requested offset on a planted ankle is invalid. Raw mode preserves requested landmark displacements without projection. Higher-level depth and asymmetry edits retain lower mobility during projection so surrounding joints can compensate. The caller supplies creation and starting-frame timestamps; jitter uses the decimal `UInt64` seed. Identical inputs reproduce identical output frames and recording lines.
+
+Movement Lab landmarks are synthetic inputs. They can test analyzer behavior given those coordinates, but they never establish the accuracy of Apple Vision's camera-to-landmark estimates.
+
 ## Copy report
 
 `WorkoutRecordingReport` turns a recording into plain text sized for a chat (a few to about 15 KB). It reads the file twice: once for everything but frames, then only the frames it shows.

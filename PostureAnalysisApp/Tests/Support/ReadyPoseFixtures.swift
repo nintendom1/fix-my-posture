@@ -64,8 +64,8 @@ enum ReadyPoseFixtures {
         return PoseFrame(pose: pose(for: Set(reference.keys), reference: reference, exercise: exercise), timestamp: time)
     }
 
-    private static func pose(for joints: Set<LandmarkType>, reference: [LandmarkType: CGPoint],
-                             exercise: ExerciseDefinition) -> BodyPose {
+    static func pose(for joints: Set<LandmarkType>, reference: [LandmarkType: CGPoint],
+                     exercise: ExerciseDefinition) -> BodyPose {
         // The side figure shows only its left side; a right-side variant turns the whole figure around.
         let source = joints.allSatisfy { reference[$0] != nil } ? reference : mirrored(reference)
         var positions: [LandmarkType: CGPoint] = [:]
@@ -112,7 +112,7 @@ enum ReadyPoseFixtures {
     }
 
     /// The figure facing the other way: left and right joints swap, and x mirrors across the canvas.
-    private static func mirrored(_ reference: [LandmarkType: CGPoint]) -> [LandmarkType: CGPoint] {
+    static func mirrored(_ reference: [LandmarkType: CGPoint]) -> [LandmarkType: CGPoint] {
         Dictionary(uniqueKeysWithValues: reference.map { type, point in
             (oppositeSide(of: type) ?? type, CGPoint(x: ExerciseDemoFigureView.canvasSize.width - point.x, y: point.y))
         })
