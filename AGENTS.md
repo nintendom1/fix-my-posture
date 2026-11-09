@@ -105,7 +105,7 @@ Whenever an exercise thumbnail is added, replaced, removed, renamed, or material
 
 ## Herdr layout policy
 
-Use `scripts/orchestrate/agent.py` for managed agents and long-running scripts; see `docs/agent-orchestration.md`.
+Use `scripts/orchestrate/agent.py` for managed agents and long-running scripts, and `scripts/orchestrate/review.sh` for review requests and findings; see `docs/agent-orchestration.md`.
 Keep the Orchestrator pane (identified by pane ID) and up to two agents in `Main`, placing agents before scripts.
 Purposes are unique; `Orchestrator` is reserved.
 Only recorded pane IDs and the Orchestrator's Main geometry are in scope; ignore user tabs and unmanaged agents for placement.
