@@ -9,12 +9,16 @@
 
 import { createServer as createHTTPServer } from "node:http";
 import { spawn } from "node:child_process";
-import { promises as fs } from "node:fs";
+import { randomBytes, randomUUID } from "node:crypto";
+import { promises as fs, constants as fsConstants } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createStore, StoreError } from "./lib/store.mjs";
 import { createLabStore, LabStoreError } from "./lib/lab/store.mjs";
 import { buildCoverageModel } from "./lib/lab/coverage.mjs";
+import { buildScenarioRevision, RevisionError } from "./lib/lab/revisions.mjs";
+import { validatePlanText } from "./lib/lab/plan.mjs";
+import { DEFAULT_SIMULATOR, isSafeRunID, MAX_PLAN_BYTES, runPlan as runMovementPlan } from "./lib/lab/runner.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_PORT = 4317;
@@ -32,15 +36,131 @@ const STATIC = {
   "/lab/selection.mjs": ["public/lab/selection.mjs", "text/javascript; charset=utf-8"],
   "/lab/views.mjs": ["public/lab/views.mjs", "text/javascript; charset=utf-8"],
   "/lab/coverage.mjs": ["public/lab/coverage.mjs", "text/javascript; charset=utf-8"],
+  "/lab/editor.mjs": ["public/lab/editor.mjs", "text/javascript; charset=utf-8"],
 };
 
+const EDIT_ID = /^[a-f0-9]{32}$/;
+const EDIT_DIRECTORY = ["diagnostics", "movement-lab", "edits"];
+const PAGE_NONCE_LIFETIME_MS = 60 * 60 * 1000;
+
+function within(root, candidate) {
+  const relative = path.relative(root, candidate);
+  return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative));
+}
+
+async function safeEditsDirectory(root) {
+  await fs.mkdir(root, { recursive: true });
+  const canonicalRoot = await fs.realpath(root);
+  let current = canonicalRoot;
+  for (const component of EDIT_DIRECTORY) {
+    current = path.join(current, component);
+    try { await fs.mkdir(current); }
+    catch (error) { if (error?.code !== "EEXIST") throw error; }
+    const stat = await fs.lstat(current);
+    const resolved = await fs.realpath(current);
+    if (!stat.isDirectory() || stat.isSymbolicLink() || resolved !== current || !within(canonicalRoot, resolved)) {
+      throw new LabStoreError(403, "Movement Lab edit path must stay inside the repository.");
+    }
+  }
+  return { canonicalRoot, directory: current };
+}
+
+async function writeEditPlan(root, plan) {
+  const { canonicalRoot, directory } = await safeEditsDirectory(root);
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const editID = randomUUID().replaceAll("-", "").toLowerCase();
+    const editDirectory = path.join(directory, editID);
+    try { await fs.mkdir(editDirectory); }
+    catch (error) { if (error?.code === "EEXIST") continue; throw error; }
+    const resolved = await fs.realpath(editDirectory);
+    if (!within(canonicalRoot, resolved) || resolved !== editDirectory) {
+      throw new LabStoreError(403, "Movement Lab edit path must stay inside the repository.");
+    }
+    const temporary = path.join(editDirectory, `.plan-${randomUUID()}.tmp`);
+    const target = path.join(editDirectory, "plan.json");
+    try {
+      await fs.writeFile(temporary, `${JSON.stringify(plan, null, 2)}\n`, { flag: "wx", mode: 0o600 });
+      await fs.link(temporary, target);
+      await fs.unlink(temporary);
+      return editID;
+    } catch (error) {
+      await fs.unlink(temporary).catch(() => {});
+      await fs.rm(editDirectory, { recursive: true, force: true }).catch(() => {});
+      throw error;
+    }
+  }
+  throw new Error("Could not allocate a unique Movement Lab edit id.");
+}
+
+async function readEditPlan(root, editID, maxBytes) {
+  if (typeof editID !== "string" || !EDIT_ID.test(editID)) throw new LabStoreError(400, "Invalid Movement Lab edit id.");
+  const { canonicalRoot, directory } = await safeEditsDirectory(root);
+  const editDirectory = path.join(directory, editID);
+  let directoryStat;
+  try { directoryStat = await fs.lstat(editDirectory); }
+  catch (error) { if (error?.code === "ENOENT") throw new LabStoreError(404, "Saved Movement Lab edit was not found."); throw error; }
+  const resolvedDirectory = await fs.realpath(editDirectory);
+  if (!directoryStat.isDirectory() || directoryStat.isSymbolicLink() || resolvedDirectory !== editDirectory
+    || !within(canonicalRoot, resolvedDirectory)) {
+    throw new LabStoreError(403, "Movement Lab edit path must stay inside the repository.");
+  }
+  const planPath = path.join(editDirectory, "plan.json");
+  const stat = await fs.lstat(planPath).catch((error) => {
+    if (error?.code === "ENOENT") throw new LabStoreError(404, "Saved Movement Lab edit was not found.");
+    throw error;
+  });
+  if (!stat.isFile() || stat.isSymbolicLink()) throw new LabStoreError(403, "Saved Movement Lab plan must be a regular file.");
+  if (stat.size > maxBytes) throw new LabStoreError(413, "Saved Movement Lab plan is too large.");
+  const handle = await fs.open(planPath, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0));
+  let text;
+  try {
+    const openedStat = await handle.stat();
+    if (!openedStat.isFile() || openedStat.size > maxBytes) throw new LabStoreError(413, "Saved Movement Lab plan is too large.");
+    const bytes = await handle.readFile();
+    if (bytes.byteLength > maxBytes) throw new LabStoreError(413, "Saved Movement Lab plan is too large.");
+    text = bytes.toString("utf8");
+  } finally { await handle.close(); }
+  const checked = validatePlanText(text);
+  if (checked.errors.length) throw new LabStoreError(422, `Saved Movement Lab plan is invalid:\n${checked.errors.join("\n")}`);
+  return { planPath, plan: checked.plan };
+}
+
+function serialQueue() {
+  let tail = Promise.resolve();
+  return (operation) => {
+    const result = tail.then(operation);
+    tail = result.catch(() => undefined);
+    return result;
+  };
+}
+
 /** The viewer's server. `root` is the repository; recordings live in `root/diagnostics/sessions`. */
-export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT } = {}) {
+export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT, executePlan = runMovementPlan,
+  maxJSONBytes = MAX_JSON_BYTES } = {}) {
   const store = createStore(root);
   const labStore = createLabStore(root);
   const clients = new Set();
+  const pageNonces = new Map();
+  const enqueueRerun = serialQueue();
   let viewerState = null;
   let lastSent = null;
+
+  function issuePageNonce() {
+    const now = Date.now();
+    for (const [nonce, expiry] of pageNonces) if (expiry <= now) pageNonces.delete(nonce);
+    while (pageNonces.size >= 128) pageNonces.delete(pageNonces.keys().next().value);
+    const nonce = randomBytes(24).toString("base64url");
+    pageNonces.set(nonce, now + PAGE_NONCE_LIFETIME_MS);
+    return nonce;
+  }
+
+  function requirePageNonce(request) {
+    const nonce = request.headers["x-fmp-replay-nonce"];
+    const expiry = pageNonces.get(nonce);
+    if (typeof nonce !== "string" || expiry === undefined || expiry <= Date.now()) {
+      throw new StoreError(403, "Missing or expired page nonce.");
+    }
+  }
 
   function broadcast(event) {
     const data = `data: ${JSON.stringify(event)}\n\n`;
@@ -56,13 +176,57 @@ export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT } = {
       throw new StoreError(403, "Missing X-FMP-Replay header.");
     }
 
+    if (request.method === "GET" && url.pathname === "/") {
+      const nonce = issuePageNonce();
+      const page = (await fs.readFile(path.join(here, STATIC["/"][0]), "utf8"))
+        .replace("</head>", `<meta name="fmp-replay-nonce" content="${nonce}">\n</head>`)
+        .replace("</body>", '<script type="module" src="/lab/editor.mjs"></script>\n</body>');
+      return send(response, 200, page, "text/html; charset=utf-8");
+    }
     if (request.method === "GET" && STATIC[url.pathname]) {
       const [file, type] = STATIC[url.pathname];
       return send(response, 200, await fs.readFile(path.join(here, file)), type);
     }
     if (request.method === "GET" && url.pathname === "/api/sessions") return sendJSON(response, await store.listSessions());
+    if (url.pathname === "/api/lab/scenarios") {
+      if (request.method !== "POST") throw new LabStoreError(405, "Movement Lab scenario edits require POST.");
+      requirePageNonce(request);
+      const input = JSON.parse(await body(request, maxJSONBytes));
+      if (!input || typeof input !== "object" || Array.isArray(input)) throw new RevisionError("Request must be a JSON object.");
+      const sourceRun = await labStore.readRun(input.sourceRunID);
+      if (!Number.isSafeInteger(input.sourceRevision) || input.sourceRevision < 1) {
+        throw new RevisionError("sourceRevision must be the stored scenario revision.");
+      }
+      const sourceScenario = sourceRun.plan.scenarios.find((scenario) => scenario.id === input.scenarioID);
+      if (!sourceScenario) throw new RevisionError(`Scenario '${input.scenarioID}' was not found in the stored source run.`);
+      if (sourceScenario.revision !== input.sourceRevision) {
+        throw new LabStoreError(409, "The stored source revision changed. Reload the scenario before editing.");
+      }
+      // The caller supplies edits only. Frozen expectations and all other base fields come from the stored run.
+      const plan = buildScenarioRevision({ ...input, plan: sourceRun.plan });
+      if (Buffer.byteLength(JSON.stringify(plan), "utf8") > MAX_PLAN_BYTES) {
+        throw new LabStoreError(413, `Revised plan exceeds ${MAX_PLAN_BYTES} bytes.`);
+      }
+      const editID = await writeEditPlan(root, plan);
+      return sendJSON(response, { editID, plan }, 201);
+    }
     if (url.pathname === "/api/lab/runs") {
-      if (request.method !== "GET") throw new LabStoreError(405, "Movement Lab routes are read-only.");
+      if (request.method === "POST") {
+        // Preserve the old read-only response for a bodyless POST; editor requests carry a JSON body.
+        if (request.headers["content-length"] === undefined && request.headers["transfer-encoding"] === undefined) {
+          throw new LabStoreError(405, "Movement Lab POST requires a JSON body.");
+        }
+        requirePageNonce(request);
+        const input = JSON.parse(await body(request, maxJSONBytes));
+        if (!input || typeof input !== "object" || Array.isArray(input)) throw new LabStoreError(400, "Request must be a JSON object.");
+        const mode = input.mode ?? "pipeline";
+        if (mode !== "pipeline" && mode !== "coach") throw new LabStoreError(400, "mode must be pipeline or coach.");
+        const { planPath } = await readEditPlan(root, input.editID, MAX_PLAN_BYTES);
+        const run = await enqueueRerun(() => executePlan({ root, planPath, sim: DEFAULT_SIMULATOR, mode }));
+        if (!isSafeRunID(run?.runID)) throw new LabStoreError(500, "Movement Lab runner returned an invalid run id.");
+        return sendJSON(response, { editID: input.editID, runID: run.runID, summary: run.summary ?? null });
+      }
+      if (request.method !== "GET") throw new LabStoreError(405, "Movement Lab runs support GET or POST.");
       return sendJSON(response, await labStore.listRuns());
     }
     if (url.pathname === "/api/lab/coverage") {
@@ -80,7 +244,10 @@ export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT } = {
     const labRun = url.pathname.match(/^\/api\/lab\/runs\/([^/]+)$/);
     if (labRun) {
       if (request.method !== "GET") throw new LabStoreError(405, "Movement Lab routes are read-only.");
-      return sendJSON(response, await labStore.readRun(labRun[1]));
+      const run = await labStore.readRun(labRun[1]);
+      run.runID = labRun[1];
+      for (const scenario of run.plan.scenarios) scenario.sourceRunID = labRun[1];
+      return sendJSON(response, run);
     }
     if (request.method === "GET" && url.pathname === "/api/identity") {
       return sendJSON(response, { app: "fmp-replay", root: await fs.realpath(root).catch(() => root) });
@@ -136,7 +303,7 @@ export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT } = {
 
   const server = createHTTPServer((request, response) => {
     handle(request, response).catch((error) => {
-      const status = error instanceof StoreError || error instanceof LabStoreError ? error.status
+      const status = error instanceof StoreError || error instanceof LabStoreError || error instanceof RevisionError ? error.status
         : error instanceof SyntaxError ? 400 : error?.code === "ENOENT" ? 404 : 500;
       sendJSON(response, { error: error?.message ?? String(error) }, status);
     });
@@ -157,13 +324,22 @@ function sendJSON(response, value, status = 200) {
 
 function body(request, limit) {
   return new Promise((resolve, reject) => {
+    const declaredLength = Number(request.headers["content-length"]);
+    if (Number.isFinite(declaredLength) && declaredLength > limit) {
+      request.resume?.();
+      reject(new StoreError(413, "Too large."));
+      return;
+    }
     const chunks = [];
     let size = 0;
+    let exceeded = false;
     request.on("data", (chunk) => {
+      if (exceeded) return;
       size += chunk.length;
       if (size > limit) {
+        exceeded = true;
         reject(new StoreError(413, "Too large."));
-        request.destroy();
+        request.resume?.();
       } else {
         chunks.push(chunk);
       }

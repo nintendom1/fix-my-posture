@@ -200,6 +200,14 @@ The Movement Lab **Scenario coverage** view groups stored scenario revisions int
 
 Keyframes are selected from the saved recording. Joint offsets use their configured peak time; depth and asymmetry use the frame with the greatest hip drop or side difference; framing and canonical motion use a representative deepest pose. A depth mutation limited to selected repetitions searches only those cycles, locating their timing from reference poses or stored rep events. Pause uses its insertion boundary. Dropout and confidence use the start of their affected window, frame gaps use the first frame after the gap, and tempo uses a repetition boundary. Each thumbnail names the mutation type and time, highlights affected landmarks, and opens playback at that timestamp. A scenario without a materialized recording shows that its keyframe is unavailable rather than substituting a generic image.
 
+### Hybrid movement editor
+
+Choose **Edit movement** from a scenario's playback or coverage row. The editor loads the saved plan and its stored recording and reference samples. Presets add one of the supported mutation kinds. Drag a joint on the selected keyframe to add a local `jointOffset`; the peak is the selected time, and the rise, fall, and strength controls shape its bounded influence. The editor also supports constrained and raw modes, plus side-by-side, overlay, and difference comparisons. Its timeline shows phases, rep events, rejected attempts, tracking changes, and cues.
+
+The browser view is an approximate **preview** of stored pose samples. It does not implement the Swift generator, projection, or workout analyzer. **Save and rerun in Swift** creates a new edit plan at `diagnostics/movement-lab/edits/<edit-id>/plan.json`, then runs that plan through the existing fixed-argument CLI runner and adds the materialized result under `diagnostics/movement-lab/runs/`. The local POST endpoints require both the viewer's `x-fmp-replay` header and a per-page nonce; they accept only plans validated by the shared schema validator.
+
+Every save keeps the scenario id, increments its revision, sets `parentRevision` to the prior revision, and records `editNote`. Existing assertions are copied unchanged. An assertion change is accepted only as a new revision with an `assertionChangeReason`; the editor does not rewrite assertions after observing a run. Saved edit plans are unique and written atomically. The server serializes reruns and uses the CLI runner's timeout and process-group termination behavior.
+
 ## Copy report
 
 `WorkoutRecordingReport` turns a recording into plain text sized for a chat (a few to about 15 KB). It reads the file twice: once for everything but frames, then only the frames it shows.
