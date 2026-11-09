@@ -494,6 +494,7 @@
 		A10000012B00000000000504 /* MovementLabTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000504 /* MovementLabTests.swift */; };
 		A10000012B00000000000505 /* MovementLabRunner.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000505 /* MovementLabRunner.swift */; };
 		A10000012B00000000000506 /* MovementLabRegressionTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000506 /* MovementLabRegressionTests.swift */; };
+		A10000012B00000000000507 /* AdaptiveEventDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000507 /* AdaptiveEventDetector.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -996,6 +997,7 @@
 		B10000012B00000000000504 /* MovementLabTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementLabTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000505 /* MovementLabRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementLabRunner.swift; sourceTree = "<group>"; };
 		B10000012B00000000000506 /* MovementLabRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementLabRegressionTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000507 /* AdaptiveEventDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveEventDetector.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1954,6 +1956,7 @@
 				B10000012B00000000000367 /* PersonaTrace.swift */,
 				B10000012B00000000000368 /* PersonaTypes.swift */,
 				B10000012B00000000000369 /* PostureDetector.swift */,
+				B10000012B00000000000507 /* AdaptiveEventDetector.swift */,
 			);
 			path = Persona;
 			sourceTree = "<group>";
@@ -2503,6 +2506,7 @@
 				A10000012B00000000000494 /* SpeechSynthesizing.swift in Sources */,
 				A10000012B00000000000495 /* AudioCoordinating.swift in Sources */,
 				A10000012B00000000000496 /* SoundCue.swift in Sources */,
+				A10000012B00000000000507 /* AdaptiveEventDetector.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

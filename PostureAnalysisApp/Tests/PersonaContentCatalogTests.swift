@@ -46,7 +46,7 @@ final class PersonaContentCatalogTests: XCTestCase {
     func testBundledCatalogContainsEveryPersonaKeyAndItsArtAssetsExist() throws {
         let catalog = try PersonaContentCatalog.bundled(bundle: appBundle)
 
-        XCTAssertEqual(Set(catalog.contentKeys), Set(PersonaFixtures.contentKeys))
+        XCTAssertEqual(Set(catalog.contentKeys), Set(PersonaFixtures.contentKeys + AdaptiveEventDetector.contentKeys))
         let allArt = Array(catalog.toneArt.values) + catalog.entries.values.flatMap { $0.art.values }
         for art in allArt {
             let image = UIImage(named: art.assetName, in: appBundle, compatibleWith: nil)

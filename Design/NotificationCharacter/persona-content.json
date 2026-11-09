@@ -738,6 +738,14 @@
             "relieved"
           ],
           "minFamiliarity": "familiar"
+        },
+        {
+          "text": "Welcome back. No speech. Just glad.",
+          "tones": [
+            "warm",
+            "relieved"
+          ],
+          "minFamiliarity": "familiar"
         }
       ],
       "art": {
@@ -791,6 +799,234 @@
         },
         {
           "text": "Less deviation in {measurement} on two checks. Nice."
+        }
+      ],
+      "art": {}
+    },
+    "adaptive.tinySessionPrescribed": {
+      "family": "adaptive",
+      "defaultTone": "warm",
+      "tokens": [],
+      "title": [
+        {
+          "text": "Today counts"
+        }
+      ],
+      "body": [
+        {
+          "text": "Small is enough today."
+        },
+        {
+          "text": "A small session still counts."
+        }
+      ],
+      "art": {}
+    },
+    "adaptive.sessionCompleted": {
+      "family": "adaptive",
+      "defaultTone": "warm",
+      "tokens": [],
+      "title": [
+        {
+          "text": "Session complete"
+        }
+      ],
+      "body": [
+        {
+          "text": "Checked off. You’re done."
+        },
+        {
+          "text": "That session counts. Nicely done."
+        }
+      ],
+      "art": {}
+    },
+    "adaptive.effortTooHard": {
+      "family": "adaptive",
+      "defaultTone": "warm",
+      "tokens": [],
+      "title": [
+        {
+          "text": "Thanks for the signal"
+        }
+      ],
+      "body": [
+        {
+          "text": "That was too hard. Thanks for the honest read."
+        },
+        {
+          "text": "A useful signal. We can adjust from here."
+        }
+      ],
+      "art": {}
+    },
+    "adaptive.effortOkay": {
+      "family": "adaptive",
+      "defaultTone": "warm",
+      "tokens": [],
+      "title": [
+        {
+          "text": "About right"
+        }
+      ],
+      "body": [
+        {
+          "text": "About right. Good signal."
+        },
+        {
+          "text": "That sounds well matched today."
+        }
+      ],
+      "art": {}
+    },
+    "adaptive.effortEasy": {
+      "family": "adaptive",
+      "defaultTone": "warm",
+      "tokens": [],
+      "title": [
+        {
+          "text": "Good to know"
+        }
+      ],
+      "body": [
+        {
+          "text": "Easy today. Good to know."
+        },
+        {
+          "text": "Noted. That helps shape the next step."
+        }
+      ],
+      "art": {}
+    },
+    "adaptive.bonusOffered": {
+      "family": "adaptive",
+      "defaultTone": "warm",
+      "tokens": [],
+      "title": [
+        {
+          "text": "Extra is optional"
+        }
+      ],
+      "body": [
+        {
+          "text": "A little extra is here if you want it."
+        },
+        {
+          "text": "There’s a little more, only if it suits you."
+        }
+      ],
+      "art": {}
+    },
+    "adaptive.bonusAccepted": {
+      "family": "adaptive",
+      "defaultTone": "warm",
+      "tokens": [],
+      "title": [
+        {
+          "text": "Extra accepted"
+        }
+      ],
+      "body": [
+        {
+          "text": "You chose a little extra. Good to know."
+        },
+        {
+          "text": "A little extra sounded right to you."
+        }
+      ],
+      "art": {}
+    },
+    "adaptive.bonusDeclined": {
+      "family": "adaptive",
+      "defaultTone": "warm",
+      "tokens": [],
+      "title": [
+        {
+          "text": "No bonus today"
+        }
+      ],
+      "body": [
+        {
+          "text": "No bonus today. The work still counts."
+        },
+        {
+          "text": "You left the extra. Today’s work is done."
+        }
+      ],
+      "art": {}
+    },
+    "adaptive.progressed": {
+      "family": "adaptive",
+      "defaultTone": "warm",
+      "tokens": [],
+      "title": [
+        {
+          "text": "Next step ready"
+        }
+      ],
+      "body": [
+        {
+          "text": "A harder step is ready to try."
+        },
+        {
+          "text": "The next challenge is ready when you are."
+        }
+      ],
+      "art": {}
+    },
+    "adaptive.regressed": {
+      "family": "adaptive",
+      "defaultTone": "warm",
+      "tokens": [],
+      "title": [
+        {
+          "text": "A gentler step"
+        }
+      ],
+      "body": [
+        {
+          "text": "A gentler step. Still real work."
+        },
+        {
+          "text": "We found a better fit for today."
+        }
+      ],
+      "art": {}
+    },
+    "adaptive.calibrationCompleted": {
+      "family": "adaptive",
+      "defaultTone": "warm",
+      "tokens": [],
+      "title": [
+        {
+          "text": "Starting point set"
+        }
+      ],
+      "body": [
+        {
+          "text": "Starting point set. We can build from here."
+        },
+        {
+          "text": "A clear starting point. One step at a time."
+        }
+      ],
+      "art": {}
+    },
+    "adaptive.recalibrationCompleted": {
+      "family": "adaptive",
+      "defaultTone": "warm",
+      "tokens": [],
+      "title": [
+        {
+          "text": "Starting point refreshed"
+        }
+      ],
+      "body": [
+        {
+          "text": "Starting point refreshed. We can build from here."
+        },
+        {
+          "text": "A fresh starting point. We can build from here."
         }
       ],
       "art": {}

@@ -4,6 +4,52 @@ import XCTest
 final class PersonaCopyComposerTests: XCTestCase {
     private let key = "achievement.test"
 
+    func testAdaptiveContentComposesAtNewFamiliarity() throws {
+        let catalog = try PersonaContentCatalog.bundled(bundle: Bundle(for: AppEnvironment.self))
+
+        for contentKey in AdaptiveEventDetector.contentKeys {
+            let result = PersonaCopyComposer.compose(
+                catalog: catalog,
+                contentKey: contentKey,
+                tone: .pleased,
+                familiarity: .new,
+                values: [:],
+                variant: 0,
+                intro: false
+            )
+            XCTAssertEqual(result?.content.scenarioID, contentKey, "Missing usable copy for \(contentKey).")
+            XCTAssertFalse(result?.content.body.isEmpty ?? true, "Empty body for \(contentKey).")
+        }
+    }
+
+    func testTinySessionAndAcceptedBonusCopyAvoidUnsupportedUnitAndCompletionClaims() throws {
+        let catalog = try PersonaContentCatalog.bundled(bundle: Bundle(for: AppEnvironment.self))
+        let keys = ["adaptive.tinySessionPrescribed", "adaptive.bonusAccepted"]
+        let unsupportedClaim = #"\b(?:complete|completed|done|rep|reps)\b"#
+
+        for contentKey in keys {
+            var composedBodies = Set<String>()
+            for variant in 0..<16 {
+                let result = try XCTUnwrap(PersonaCopyComposer.compose(
+                    catalog: catalog,
+                    contentKey: contentKey,
+                    tone: .pleased,
+                    familiarity: .new,
+                    values: [:],
+                    variant: variant,
+                    intro: false
+                ), "Missing usable copy for \(contentKey).")
+                let composedText = "\(result.content.title) \(result.content.body)"
+                XCTAssertNil(
+                    composedText.range(of: unsupportedClaim, options: [.regularExpression, .caseInsensitive]),
+                    "\(contentKey) made an unsupported completion or rep claim: \(composedText)"
+                )
+                composedBodies.insert(result.content.body)
+            }
+            XCTAssertEqual(composedBodies.count, 2, "Expected every authored body variant for \(contentKey).")
+        }
+    }
+
     func testToneAndFamiliarityGating() throws {
         let entry = makeEntry(
             defaultTone: .warm,

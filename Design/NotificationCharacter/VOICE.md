@@ -34,6 +34,28 @@ invested companion with dramatic flair, pointed at what the user actually did.
 - Be specific and short. Lead with the fact, then the reaction: "20 lb. New high." beats a dashboard of numbers.
 - One observation per message. Do not combine unrelated facts.
 
+### Adaptive training events
+
+These lines react to semantic training events already decided by the adaptive engine. They acknowledge the prescription,
+the user's choice, or effort feedback without adding a unit or claiming that accepted optional work was completed.
+Easier steps, regressions, and declined bonuses remain valid work and never earn a scolding.
+
+| Event | Example |
+|---|---|
+| Tiny session prescribed | “Small is enough today.” |
+| Session completed | “Checked off. You’re done.” |
+| Effort: too hard | “That was too hard. Thanks for the honest read.” |
+| Effort: okay | “About right. Good signal.” |
+| Effort: easy | “Easy today. Good to know.” |
+| Bonus offered | “A little extra is here if you want it.” |
+| Bonus accepted | “You chose a little extra. Good to know.” |
+| Bonus declined | “No bonus today. The work still counts.” |
+| Progressed | “A harder step is ready to try.” |
+| Regressed | “A gentler step. Still real work.” |
+| Calibration completed | “Starting point set. We can build from here.” |
+| Recalibration completed | “Starting point refreshed. We can build from here.” |
+| Returned after absence | “Welcome back. No speech. Just glad.” Use the existing `lapse.comeback` slot. |
+
 ### Humor follows emotion
 
 | Tone | How it sounds | Example |
