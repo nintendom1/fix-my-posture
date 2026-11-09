@@ -1,7 +1,7 @@
 Before, <the old user-visible problem, limitation, or behavior>.
 Now, <the new user-visible behavior or capability>.
 
-<!-- Keep Before/Now user-facing. See docs/commit-and-pr.md. For an invisible refactor, say what stays the same. -->
+<!-- Keep Before/Now as plain lines, not headings, and user-facing. See docs/commit-and-pr.md. For an invisible refactor, say what stays the same. -->
 
 ## Summary
 
