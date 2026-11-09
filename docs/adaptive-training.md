@@ -244,7 +244,7 @@ The app never decides what is easier or harder. It runs what the engine returns 
   family, `RungDose`, exercise, and reduced range). `AppRoute.todaySession` (Train tab, full screen) reads the prepared
   launch from the coordinator, so the route carries no plan.
 - **Developer entry point.** Settings › Developer diagnostics › Adaptive training has **Start Today's Session**
-  (`adaptiveDebugStartTodayButton`). It is enabled only for `.ready`. This branch has no Train hero entry for Today's Session.
+  (`adaptiveDebugStartTodayButton`). It is enabled only for `.ready`.
 - **Plan shape.** The plan is named "Today's Session" and has the fixed id `AdaptiveTrainingCoordinator.todaySessionPlanID`
   (`70DA0000-0000-4000-8000-000000000001`). The main item is one set whose `targetReps` is the dose, in seconds for a
   timed dose. An optional harder sample is one set at its dose, labeled "Optional: <name>" wherever the plan shows item
@@ -267,6 +267,20 @@ The app never decides what is easier or harder. It runs what the engine returns 
   set done". A session under a minute shows its actual length ("40 s"), or "Done" under one second, instead of "<1m". A
   skipped optional sample reads "Optional, skipped". Other workouts keep their copy. There is no survey after the effort
   cards.
+
+## Train and the invitation
+
+When the coordinator is available, Train reads `TodaySessionStatus` and formats that answer for the hero. The app does
+not choose a family, variant, or dose. A ready session shows its area, exercise, dose, estimate, and **Start**. A session
+already completed today says **Done for today** and names the next area when one is offered. The user's routine remains
+available from the card. When setup is needed, the hero links to calibration. When nothing is offered, the normal
+routine hero remains.
+
+On launch and when the app becomes active, a small sheet invites a user with `.needsCalibration` to find a starting
+point. It stays hidden while a full-screen route is presented. **Find your starting point** closes the sheet before
+opening calibration and does not count as a dismissal. **Not now** and a swipe down snooze the sheet for seven days and
+increment its saved dismissal count. It stops appearing after the third dismissal. Leaving calibration without saving
+allows the invitation to appear at the next app activation unless it is still snoozed.
 
 ## Effort card
 
@@ -505,7 +519,7 @@ ignores an uncommitted attempt's, so abandoning changes nothing (invariant 7). A
   (`adaptiveDebugStartCalibrationButton`), which opens `AppRoute.calibration` full screen for the initial calibration.
   Settings › Adaptive Training also offers the initial, recalibration, and add-an-area flows; these are pushed inside
   Settings' navigation stack and return to the Adaptive Training page when they finish. The developer button stays as
-  it is; this branch has no Train hero entry for calibration. A reminder tap never replaces the open screen, including Settings while a calibration is active.
+  it is. A reminder tap never replaces the open screen, including Settings while a calibration is active.
 - **Screen.** `CalibrationViewModel` holds the flow and sends each answer to it. `CalibrationScreen` draws the step. All
   copy lives in `CalibrationCopy`, and a test scans every string for scoring and medical words. Every control has an
   accessibility identifier that starts with `calibration`.

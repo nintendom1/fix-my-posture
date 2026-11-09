@@ -911,4 +911,12 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - Change the equipment toggles. Remove dumbbells and confirm a dumbbell exercise is no longer offered.
     - While calibration is pushed inside Settings, swipe back does nothing; the close button and leave confirmation control how the page exits.
 
+- [ ] **56.** Train and the launch invitation:
+    - On a fresh install, confirm the Adaptive Training invitation appears. Tap **Not now** and confirm it stays hidden
+      for a week (or advance the date to the snooze end). Dismiss it three times and confirm it stops appearing.
+    - Check the Train hero for **Find your starting point**, a ready Today's Session, a completed session with its next
+      area, and **Nice work.** when there is no next area.
+    - From a ready hero, tap **Start** and confirm Today's Session opens. When a routine is saved, tap **Or start …**
+      and confirm the routine workout opens.
+
 These checks remain manual; a passing simulator run does not imply they were performed.

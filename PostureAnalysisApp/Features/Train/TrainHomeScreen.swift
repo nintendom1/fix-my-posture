@@ -118,7 +118,9 @@ struct TrainHomeScreen: View {
 
     private var hero: some View {
         Group {
-            if let routine = state.heroRoutine {
+            if let todayHero = state.todayHero {
+                todayHeroCard(todayHero, routine: state.heroRoutine)
+            } else if let routine = state.heroRoutine {
                 routineHero(routine)
             } else if state.showsCreateRoutineEmptyState {
                 EmptyStateTile(
@@ -136,7 +138,7 @@ struct TrainHomeScreen: View {
         .frame(maxWidth: .infinity)
         .frame(height: heroHeight)
         .background {
-            if state.heroRoutine != nil {
+            if state.heroRoutine != nil || state.todayHero != nil {
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
                     .fill(GradientTokens.trainHero)
             }
@@ -144,6 +146,93 @@ struct TrainHomeScreen: View {
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
         .shadow(color: Color(hex: 0x7C4DFF, alpha: 0.32), radius: 20, x: 0, y: 10)
         .designAnchor("train.hero")
+    }
+
+    private func todayHeroCard(_ hero: TrainTodayHeroPresentation,
+                               routine: TrainHomeRoutinePresentation?) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(hero.eyebrow)
+                .font(.system(size: 13, weight: .black, design: .rounded))
+                .tracking(1)
+                .foregroundStyle(.white.opacity(0.9))
+                .frame(height: 16, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(hero.title)
+                    .font(Typography.title)
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Text(hero.subtitle)
+                    .font(Typography.body)
+                    .foregroundStyle(.white.opacity(0.92))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            Spacer(minLength: 0)
+
+            if let action = hero.action, let actionTitle = hero.actionTitle {
+                PrimaryButton(
+                    title: actionTitle,
+                    icon: action == .startTodaySession ? "play.fill" : "arrow.right",
+                    iconFontSize: 22,
+                    contentSpacing: 6,
+                    variant: .white
+                ) {
+                    switch action {
+                    case .startTodaySession: send(.startTodaySession)
+                    case .findStartingPoint: send(.findStartingPoint)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+
+                if let startProblem = hero.startProblem {
+                    Text(startProblem)
+                        .font(.system(size: 12, weight: .heavy, design: .rounded))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityIdentifier("trainTodayStartProblem")
+                }
+            } else if hero.kind == .completed, let routine {
+                PrimaryButton(
+                    title: "Start \(routine.name)",
+                    icon: "play.fill",
+                    iconFontSize: 22,
+                    contentSpacing: 6,
+                    variant: .white
+                ) {
+                    send(.startRoutine)
+                }
+                .frame(maxWidth: .infinity)
+                .disabled(!routine.canStart)
+                .opacity(routine.canStart ? 1 : 0.55)
+            }
+
+            if hero.kind != .completed, let routine {
+                Button("Or start \(routine.name)") { send(.startRoutine) }
+                    .font(.system(size: 12, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.white)
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(minHeight: 16, alignment: .leading)
+                    .disabled(!routine.canStart)
+                    .opacity(routine.canStart ? 1 : 0.55)
+            }
+        }
+        .padding(22)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(alignment: .topTrailing) {
+            Circle()
+                .fill(.white.opacity(0.12))
+                .frame(width: 200, height: 200)
+                .offset(x: 60, y: -70)
+                .allowsHitTesting(false)
+        }
     }
 
     private func routineHero(_ routine: TrainHomeRoutinePresentation) -> some View {

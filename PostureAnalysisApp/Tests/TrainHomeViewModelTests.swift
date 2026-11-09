@@ -168,7 +168,7 @@ final class TrainHomeViewModelTests: XCTestCase {
     }
 }
 
-private struct MemoryExerciseCatalog: ExerciseCatalogProviding {
+struct MemoryExerciseCatalog: ExerciseCatalogProviding {
     let exercises: [ExerciseDefinition]
 
     var all: [ExerciseDefinition] { exercises }
@@ -179,7 +179,7 @@ private struct MemoryExerciseCatalog: ExerciseCatalogProviding {
 }
 
 @MainActor
-private final class MemoryRoutineRepository: RoutineRepository {
+final class MemoryRoutineRepository: RoutineRepository {
     var entries: [SavedExerciseSetRecord]
 
     init(entries: [SavedExerciseSetRecord]) {
