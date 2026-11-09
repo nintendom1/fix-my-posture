@@ -70,9 +70,27 @@ Agents never commit, push, stash, or reset. Keep agents idle while validation ru
 assigned simulator with `scripts/orchestrate/test.sh --sim <assigned-id> --name <agent>`, summarize a result bundle
 or derived-data folder with `scripts/orchestrate/test-summary.py`. Derived-data lookup skips bundles without
 `Info.plist`; a directly named incomplete bundle is an error. Agents never run `scripts/validate.sh`. Package, Node,
-and Python tests use the commands in `build/briefs/_rules.md`. The orchestrator reads each package against its brief,
-checks that only owned files changed, runs the required tests and one mutation check per package, then fixes problems
-directly. The orchestrator runs `scripts/orchestrate/validate-both.sh` for sequential local-time and UTC validation.
+and Python tests use the commands in `build/briefs/_rules.md`. Mutation checks use `scripts/orchestrate/mutate.sh`:
+
+```sh
+scripts/orchestrate/mutate.sh --file Packages/AdaptiveTraining/Sources/Engine.swift \
+  --replace 'threshold: 0.7' 'threshold: 0.8' --tests EngineTests/testThreshold
+scripts/orchestrate/mutate.sh --file Sources/Feature.swift --sed 's/guard ready/guard false/' \
+  --tests FeatureTests/testReady --sim <assigned-id> --name <agent>
+scripts/orchestrate/mutate.sh --file Packages/AdaptiveTraining/Sources/Engine.swift \
+  --patch build/mutations/remove-guard.patch --tests EngineTests/testGuard --package Packages/AdaptiveTraining
+scripts/orchestrate/mutate.sh --batch build/mutations.json
+```
+
+Batch files are JSON lists with `id`, `file`, one of `replace: [old, new]`, `sed`, or `patch`, `tests`, and an
+optional `package` path. XCTest runs go through `test.sh`; package runs use `swift test --package-path ... --filter`.
+The tool reports `CAUGHT`, `SURVIVED`, `NOT-APPLIED`, or `BUILD-FAILED` with test counts. It restores each file
+after every run and verifies the bytes with `cmp`; restore verification failure exits 3 and preserves the backup.
+The mutation command holds the build lock from backup through verified restoration. `mutate.py`, `mutate.sh`,
+`test.sh`, and `validate-both.sh` resolve the caller's repository with `git rev-parse --show-toplevel` and print
+that root first. The orchestrator reads each package against its brief, checks that only owned files changed, and
+fixes problems directly. It runs
+`scripts/orchestrate/validate-both.sh` for sequential local-time and UTC validation.
 Use `make notification-character-check` when content or art changed.
 
 ## Review gate

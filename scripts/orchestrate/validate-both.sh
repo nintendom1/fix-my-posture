@@ -1,16 +1,44 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(git rev-parse --show-toplevel)" || {
+    echo "validate-both.sh: cannot resolve repository root from the current directory." >&2
+    exit 2
+}
+printf 'Repository root: %s\n' "$ROOT"
 cd "$ROOT"
+
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "RUNNER_ERROR: python3 is not available." >&2
+    exit 2
+fi
+for tool in node swift xcrun xcodebuild; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        printf 'RUNNER_ERROR: %s is not available.\n' "$tool" >&2
+        exit 2
+    fi
+done
+if [[ ! -r "$SCRIPT_DIR/with-lock.py" || ! -x "$SCRIPT_DIR/validate-both.sh" ]]; then
+    echo "RUNNER_ERROR: validate-both.sh or its adjacent with-lock.py helper is missing or not runnable." >&2
+    exit 2
+fi
+if [[ ! -r "$SCRIPT_DIR/test-summary.py" ]]; then
+    echo "RUNNER_ERROR: adjacent test-summary.py helper is missing or unreadable." >&2
+    exit 2
+fi
+if [[ ! -x "$ROOT/scripts/validate.sh" ]]; then
+    echo "RUNNER_ERROR: scripts/validate.sh is missing or not executable in the caller's repository." >&2
+    exit 2
+fi
 
 lock="build/orchestrate/validate.lock"
 if [[ "${1:-}" == "__with_kernel_lock" \
     && "${FMP_WITH_LOCK_PARENT_PID:-}" == "$PPID" ]]; then
     shift
 else
-    exec python3 "$ROOT/scripts/orchestrate/with-lock.py" "$lock" -- \
-        "$ROOT/scripts/orchestrate/validate-both.sh" __with_kernel_lock "$@"
+    exec python3 "$SCRIPT_DIR/with-lock.py" "$lock" -- \
+        "$SCRIPT_DIR/validate-both.sh" __with_kernel_lock "$@"
 fi
 
 sim=""
@@ -109,6 +137,10 @@ run_one() {
 
     local error_line
     if [[ "$validate_status" -ne 0 ]]; then
+        if [[ "$validate_status" -eq 126 || "$validate_status" -eq 127 ]]; then
+            printf 'RUNNER_ERROR: scripts/validate.sh could not be launched (status %s). log=%s\n' "$validate_status" "$log" >&2
+            return 2
+        fi
         error_line="$(grep -m 1 '^Error:' "$log" || true)"
         if [[ -n "$error_line" ]]; then
             printf '%s: %s log=%s\n' "$mode" "$error_line" "$log"
@@ -121,10 +153,14 @@ run_one() {
     bundle="$(new_result_bundle)"
     if [[ -n "$bundle" ]]; then
         local summary summary_status header
-        if summary="$(python3 scripts/orchestrate/test-summary.py "$bundle" 2>&1)"; then
+        if summary="$(python3 "$SCRIPT_DIR/test-summary.py" "$bundle" 2>&1)"; then
             summary_status=0
         else
             summary_status=$?
+        fi
+        if [[ "$summary" == *"xcresulttool could not run:"* ]]; then
+            printf 'RUNNER_ERROR: xcresulttool could not be launched. log=%s\n' "$log" >&2
+            return 2
         fi
         if [[ "$summary_status" -le 1 ]]; then
             header="${summary%%$'\n'*}"
@@ -147,9 +183,21 @@ run_one() {
 
 overall=0
 if [[ -z "$only" || "$only" == "local" ]]; then
-    if ! run_one local; then overall=1; fi
+    if run_one local; then
+        :
+    else
+        run_status=$?
+        if [[ "$run_status" -eq 2 ]]; then exit 2; fi
+        overall=1
+    fi
 fi
 if [[ -z "$only" || "$only" == "utc" ]]; then
-    if ! run_one utc; then overall=1; fi
+    if run_one utc; then
+        :
+    else
+        run_status=$?
+        if [[ "$run_status" -eq 2 ]]; then exit 2; fi
+        overall=1
+    fi
 fi
 exit "$overall"

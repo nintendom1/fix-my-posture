@@ -1,16 +1,42 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(git rev-parse --show-toplevel)" || {
+    echo "test.sh: cannot resolve repository root from the current directory." >&2
+    exit 2
+}
+printf 'Repository root: %s\n' "$ROOT"
 cd "$ROOT"
+
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "RUNNER_ERROR: python3 is not available." >&2
+    exit 2
+fi
+if [[ ! -r "$SCRIPT_DIR/with-lock.py" || ! -x "$SCRIPT_DIR/test.sh" ]]; then
+    echo "RUNNER_ERROR: test.sh or its adjacent with-lock.py helper is missing or not runnable." >&2
+    exit 2
+fi
+if [[ ! -r "$SCRIPT_DIR/test-summary.py" ]]; then
+    echo "RUNNER_ERROR: adjacent test-summary.py helper is missing or unreadable." >&2
+    exit 2
+fi
+if ! command -v xcrun >/dev/null 2>&1; then
+    echo "RUNNER_ERROR: xcrun is not available." >&2
+    exit 2
+fi
+if ! command -v xcodebuild >/dev/null 2>&1; then
+    echo "RUNNER_ERROR: xcodebuild is not available." >&2
+    exit 2
+fi
 
 lock="build/agents/build.lock"
 if [[ "${1:-}" == "__with_kernel_lock" \
     && "${FMP_WITH_LOCK_PARENT_PID:-}" == "$PPID" ]]; then
     shift
 else
-    exec python3 "$ROOT/scripts/orchestrate/with-lock.py" "$lock" -- \
-        "$ROOT/scripts/orchestrate/test.sh" __with_kernel_lock "$@"
+    exec python3 "$SCRIPT_DIR/with-lock.py" "$lock" -- \
+        "$SCRIPT_DIR/test.sh" __with_kernel_lock "$@"
 fi
 
 sim=""
@@ -104,13 +130,21 @@ if "${command[@]}" > "$log" 2>&1; then
 else
     xcode_status=$?
 fi
+if [[ "$xcode_status" -eq 126 || "$xcode_status" -eq 127 ]]; then
+    printf 'RUNNER_ERROR: xcodebuild could not be launched (status %s). log=%s\n' "$xcode_status" "$log" >&2
+    exit 2
+fi
 
 summary=""
 summary_status=2
-if summary="$(python3 scripts/orchestrate/test-summary.py "$result_bundle" 2>&1)"; then
+if summary="$(python3 "$SCRIPT_DIR/test-summary.py" "$result_bundle" 2>&1)"; then
     summary_status=0
 else
     summary_status=$?
+fi
+if [[ "$summary" == *"xcresulttool could not run:"* ]]; then
+    printf 'RUNNER_ERROR: xcresulttool could not be launched. log=%s\n' "$log" >&2
+    exit 2
 fi
 if [[ -n "$summary" ]]; then
     first_line="${summary%%$'\n'*}"
