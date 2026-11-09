@@ -333,6 +333,9 @@ if sys.argv[1:] == ["rev-parse", "--show-toplevel"]:
 if sys.argv[1:] == ["rev-parse", "--git-common-dir"]:
     print(os.environ["FAKE_GIT_COMMON_DIR"])
     sys.exit(0)
+if sys.argv[1:] == ["rev-parse", "--verify", "HEAD^{commit}"]:
+    print("a" * 40)
+    sys.exit(0)
 sys.exit(2)
 '''
 
@@ -655,6 +658,192 @@ class OrchestrateAgentTests(unittest.TestCase):
         self.assertIn(f"closed closeacross pane={pane_id}", closed.stdout)
         self.assertNotIn("closeacross", self.get_managed_state()["agents"])
         self.assertFalse(any(pane["pane_id"] == pane_id for pane in self.read_state()["panes"]))
+
+    def test_overlapping_ownership_globs_are_refused_until_close_releases_lease(self) -> None:
+        first = self.start(
+            "readerone", purpose="Reader one",
+            extra=("--owns", "Tests/Fakes/Fake.swift,Sources/[A-M]*.swift"),
+        )
+        self.assertEqual(first.returncode, 0, first.stderr)
+        first_meta = self.get_managed_state()["agents"]["readerone"]
+        self.assertEqual(first_meta["owns"], ["Tests/Fakes/Fake.swift", "Sources/[A-M]*.swift"])
+
+        status = self.run_tool("status", "readerone")
+        self.assertEqual(status.returncode, 0, status.stderr)
+        self.assertIn("owns=Tests/Fakes/Fake.swift,Sources/[A-M]*.swift", status.stdout)
+
+        panes_before = len(self.read_state()["panes"])
+        conflict = self.start(
+            "readertwo", purpose="Reader two", extra=("--owns", "Sources/Model.swift"),
+        )
+        self.assertEqual(conflict.returncode, 2)
+        self.assertIn("ownership conflict with agent readerone", conflict.stderr)
+        self.assertIn("Sources/[A-M]*.swift", conflict.stderr)
+        self.assertEqual(len(self.read_state()["panes"]), panes_before)
+
+        independent = self.start(
+            "docreader", purpose="Docs reader", extra=("--owns", "Docs/**/*.md"),
+        )
+        self.assertEqual(independent.returncode, 0, independent.stderr)
+        self.assertEqual(self.run_tool("close", "readerone").returncode, 0)
+        recursive = self.start(
+            "recursive", purpose="Recursive", extra=("--owns", "Sources/**/*.swift"),
+        )
+        self.assertEqual(recursive.returncode, 0, recursive.stderr)
+        nested_conflict = self.start(
+            "nestedreader", purpose="Nested reader", extra=("--owns", "Sources/Workout/Coach.swift"),
+        )
+        self.assertEqual(nested_conflict.returncode, 2)
+        self.assertIn("Sources/**/*.swift", nested_conflict.stderr)
+        self.assertEqual(self.run_tool("close", "recursive").returncode, 0)
+        released = self.start(
+            "readertwo", purpose="Reader two", extra=("--owns", "Sources/Workout/Coach.swift"),
+        )
+        self.assertEqual(released.returncode, 0, released.stderr)
+
+    def test_recursive_ownership_overlap_is_symmetric_for_double_star_components(self) -> None:
+        def assert_conflicts_in_both_orders(first: str, second: str, stem: str) -> None:
+            first_name, second_name = f"{stem}one", f"{stem}two"
+            started = self.start(first_name, purpose=f"{stem} first", extra=("--owns", first))
+            self.assertEqual(started.returncode, 0, started.stderr)
+            conflict = self.start(second_name, purpose=f"{stem} second", extra=("--owns", second))
+            self.assertEqual(conflict.returncode, 2, conflict.stderr)
+            self.assertIn(f"ownership conflict with agent {first_name}", conflict.stderr)
+            self.assertEqual(self.run_tool("close", first_name).returncode, 0)
+
+            started = self.start(second_name, purpose=f"{stem} second", extra=("--owns", second))
+            self.assertEqual(started.returncode, 0, started.stderr)
+            conflict = self.start(first_name, purpose=f"{stem} first", extra=("--owns", first))
+            self.assertEqual(conflict.returncode, 2, conflict.stderr)
+            self.assertIn(f"ownership conflict with agent {second_name}", conflict.stderr)
+            self.assertEqual(self.run_tool("close", second_name).returncode, 0)
+
+        assert_conflicts_in_both_orders(
+            "Sources/**/Tests/**", "Sources/**", "starstarwide",
+        )
+        assert_conflicts_in_both_orders(
+            "Sources/**/Workout/**", "Sources/**/Tests/**", "starstarcross",
+        )
+
+    def test_negated_bracket_class_with_literal_close_bracket_conflicts_correctly(self) -> None:
+        owner = self.start(
+            "negatedclass", purpose="Negated class", extra=("--owns", "Sources/[!]]*.swift"),
+        )
+        self.assertEqual(owner.returncode, 0, owner.stderr)
+        positive_conflict = self.start(
+            "modelreader", purpose="Model reader", extra=("--owns", "Sources/Model.swift"),
+        )
+        self.assertEqual(positive_conflict.returncode, 2, positive_conflict.stderr)
+        self.assertIn("ownership conflict with agent negatedclass", positive_conflict.stderr)
+
+        negative_conflict = self.start(
+            "bracketreader", purpose="Bracket reader", extra=("--owns", "Sources/]odel.swift"),
+        )
+        self.assertEqual(negative_conflict.returncode, 0, negative_conflict.stderr)
+        self.assertEqual(self.run_tool("close", "negatedclass").returncode, 0)
+        self.assertEqual(self.run_tool("close", "bracketreader").returncode, 0)
+
+    def test_note_handoff_is_workspace_scoped_and_marks_changed_files_stale(self) -> None:
+        source = self.repo / "Sources" / "WorkoutCoachModel.swift"
+        source.parent.mkdir(parents=True)
+        source.write_text("struct Model {\n    var phase: Int\n}\n", encoding="utf-8")
+        added = self.run_tool(
+            "note", "add", "--topic", "workout-flow", "--file", "Sources/WorkoutCoachModel.swift",
+            "--summary", "The reducer commits its phase before emitting effects (Sources/WorkoutCoachModel.swift:1-3).",
+        )
+        self.assertEqual(added.returncode, 0, added.stderr)
+        self.assertIn("commit=" + "a" * 40, added.stdout)
+        stored = list((self.common_dir / "build/orchestrate/notes").rglob("workout-flow.json"))
+        self.assertEqual(len(stored), 1)
+        note = json.loads(stored[0].read_text(encoding="utf-8"))
+        self.assertEqual(note["workspace_id"], "w1")
+        self.assertEqual(note["entries"]["Sources/WorkoutCoachModel.swift"]["commit"], "a" * 40)
+
+        retrieved = self.run_tool("note", "get", "--topic", "workout-flow")
+        self.assertEqual(retrieved.returncode, 0, retrieved.stderr)
+        self.assertIn("file=Sources/WorkoutCoachModel.swift", retrieved.stdout)
+        self.assertIn("state=current", retrieved.stdout)
+        self.assertIn("Sources/WorkoutCoachModel.swift:1-3", retrieved.stdout)
+
+        other_workspace = self.run_tool_in_workspace("w2", "note", "get", "--topic", "workout-flow")
+        self.assertEqual(other_workspace.returncode, 0, other_workspace.stderr)
+        self.assertEqual(other_workspace.stdout.strip(), "no notes for topic=workout-flow")
+
+        source.write_text("struct Model {\n    var phase: String\n}\n", encoding="utf-8")
+        stale = self.run_tool("note", "get", "--topic", "workout-flow")
+        self.assertEqual(stale.returncode, 0, stale.stderr)
+        self.assertIn("state=stale", stale.stdout)
+
+    def test_note_commands_do_not_open_the_shared_agent_state_lock(self) -> None:
+        self.shared_lock_path.parent.mkdir(parents=True, exist_ok=True)
+        self.shared_lock_path.mkdir()
+        retrieved = self.run_tool("note", "get", "--topic", "unwritten")
+        self.assertEqual(retrieved.returncode, 0, retrieved.stderr)
+        self.assertEqual(retrieved.stdout.strip(), "no notes for topic=unwritten")
+
+        source = self.repo / "Sources" / "Visible.swift"
+        source.parent.mkdir(parents=True)
+        source.write_text("struct Visible {}\n", encoding="utf-8")
+        added = self.run_tool(
+            "note", "add", "--topic", "local-write", "--file", "Sources/Visible.swift",
+            "--summary", "Visible stays local (Sources/Visible.swift:1).",
+        )
+        self.assertEqual(added.returncode, 0, added.stderr)
+        self.assertTrue(self.shared_lock_path.is_dir())
+
+    def test_codex_and_claude_receive_the_workspace_scoped_notes_directory(self) -> None:
+        notes_dir = (self.common_dir / "build" / "orchestrate" / "notes").resolve()
+        codex = self.start("notes_codex", purpose="Notes Codex")
+        self.assertEqual(codex.returncode, 0, codex.stderr)
+        codex_start = next(call for call in self.calls() if call[:3] == ["agent", "start", "notes_codex"])
+        codex_args = codex_start[codex_start.index("--") + 1:]
+        self.assertIn("workspace-write", codex_args)
+        self.assertEqual(codex_args[codex_args.index("--add-dir") + 1], str(notes_dir / self._workspace_key("w1")))
+        self.assertEqual(self.run_tool("close", "notes_codex").returncode, 0)
+
+        claude = self.start(
+            "notes_claude", kind="claude", model="claude-opus", purpose="Notes Claude",
+        )
+        self.assertEqual(claude.returncode, 0, claude.stderr)
+        claude_start = next(call for call in self.calls() if call[:3] == ["agent", "start", "notes_claude"])
+        claude_args = claude_start[claude_start.index("--") + 1:]
+        self.assertIn("acceptEdits", claude_args)
+        self.assertEqual(claude_args[claude_args.index("--add-dir") + 1], str(notes_dir / self._workspace_key("w1")))
+
+    @staticmethod
+    def _workspace_key(workspace: str) -> str:
+        import hashlib
+        return hashlib.sha256(workspace.encode("utf-8")).hexdigest()[:24]
+
+    def test_missing_investigation_note_allows_fresh_work(self) -> None:
+        result = self.run_tool("note", "get", "--topic", "not-explored")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "no notes for topic=not-explored")
+
+    def test_shared_note_reduces_two_agent_context_bytes(self) -> None:
+        shared = self.repo / "Sources" / "WorkoutSession.swift"
+        first_file = self.repo / "Agents" / "first-task.md"
+        second_file = self.repo / "Agents" / "second-task.md"
+        shared.parent.mkdir(parents=True)
+        first_file.parent.mkdir(parents=True)
+        shared.write_text("// shared state reducer\n" + "let state = .ready\n" * 120, encoding="utf-8")
+        first_file.write_text("First independent task reads this.\n" * 8, encoding="utf-8")
+        second_file.write_text("Second independent task reads this.\n" * 8, encoding="utf-8")
+        shared_bytes = len(shared.read_bytes())
+        first_bytes = len(first_file.read_bytes())
+        second_bytes = len(second_file.read_bytes())
+
+        without_notes = shared_bytes * 2 + first_bytes + second_bytes
+        added = self.run_tool(
+            "note", "add", "--topic", "session-reducer", "--file", "Sources/WorkoutSession.swift",
+            "--summary", "State is immutable after reduce returns; effects are interpreted by the model (Sources/WorkoutSession.swift:1-10).",
+        )
+        self.assertEqual(added.returncode, 0, added.stderr)
+        note_handoff = self.run_tool("note", "get", "--topic", "session-reducer")
+        self.assertEqual(note_handoff.returncode, 0, note_handoff.stderr)
+        with_notes = shared_bytes + len(note_handoff.stdout.encode("utf-8")) + first_bytes + second_bytes
+        print(f"TWO_AGENT_CONTEXT_BYTES without_notes={without_notes} with_notes={with_notes}")
+        self.assertLess(with_notes, without_notes)
 
     def add_pane(self, *, tab: str = "w1:t1", label: str | None = None, name: str | None = None, kind: str = "codex", status: str = "idle", proc: str | None = None, width: float | None = None, cwd: str | None = None, visible: str = "Ready") -> dict:
         pane_id = f"w1:p{self.state['next_pane'] + 1}"
@@ -1080,13 +1269,17 @@ class OrchestrateAgentTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
         starts = [call for call in self.calls() if call[:2] == ["agent", "start"]]
         codex_call = next(call for call in starts if call[2] == "codexer")
-        self.assertEqual(codex_call[codex_call.index("--") + 1:], ["-m", "gpt-6-luna", "-c", "model_reasoning_effort=max", "-s", "workspace-write", "-a", "on-request"])
+        codex_args = codex_call[codex_call.index("--") + 1:]
+        notes_dir = (self.common_dir / "build/orchestrate/notes" / self._workspace_key("w1")).resolve()
+        self.assertEqual(codex_args[:6], ["-m", "gpt-6-luna", "-c", "model_reasoning_effort=max", "-s", "workspace-write"])
+        self.assertEqual(codex_args[6:8], ["--add-dir", str(notes_dir)])
+        self.assertEqual(codex_args[8:], ["-a", "on-request"])
         impl_call = next(call for call in starts if call[2] == "claudeimpl")
         reviewer_call = next(call for call in starts if call[2] == "reviewer")
         for call in (impl_call, reviewer_call):
             self.assertEqual(call[call.index("--") + 1:call.index("--") + 5], ["--model", call[call.index("--") + 2], "--permission-mode", "acceptEdits"])
-        self.assertEqual(impl_call[impl_call.index("--allowedTools") + 1], "Bash(scripts/agent-build.sh:*) Bash(scripts/orchestrate/test.sh:*) Bash(swift test:*) Bash(swift build:*) Bash(xcodebuild:*) Bash(git diff:*) Bash(git status:*) Bash(git log:*) Bash(node --test:*) Bash(python3 -m unittest:*) Read Edit Write Glob Grep")
-        self.assertEqual(reviewer_call[reviewer_call.index("--allowedTools") + 1], "Bash(git diff:*) Bash(git log:*) Bash(git show:*) Bash(git status:*) Read Glob Grep Write(build/reviews/**) Edit(build/reviews/**)")
+        self.assertEqual(impl_call[impl_call.index("--allowedTools") + 1], "Bash(scripts/agent-build.sh:*) Bash(scripts/orchestrate/test.sh:*) Bash(swift test:*) Bash(swift build:*) Bash(xcodebuild:*) Bash(git diff:*) Bash(git status:*) Bash(git log:*) Bash(node --test:*) Bash(python3 -m unittest:*) Bash(scripts/orchestrate/agent.py note get:*) Bash(scripts/orchestrate/agent.py note add:*) Read Edit Write Glob Grep")
+        self.assertEqual(reviewer_call[reviewer_call.index("--allowedTools") + 1], "Bash(git diff:*) Bash(git log:*) Bash(git show:*) Bash(git status:*) Bash(scripts/orchestrate/agent.py note get:*) Read Glob Grep Write(build/reviews/**) Edit(build/reviews/**)")
 
     def test_script_uses_main_when_available_and_scripts_tab_when_busy(self) -> None:
         main = self.run_tool("script", "Watcher", "--", "python3", "-m", "http.server")

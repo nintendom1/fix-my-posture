@@ -6,6 +6,7 @@ description: Use when requesting, collecting, fixing, or confirming a read-only 
 # Review Workflow
 
 Before pushing a branch, prepare a review with `scripts/orchestrate/review.sh`. Use `WORKTREE` as the head for uncommitted changes. The command writes a request and findings template; criteria come from the brief's Goal and Done sections unless `--criteria` overrides them. Use `--notes` to include test and deviation notes.
+Before exploring shared files, check relevant `agent.py note get --topic TOPIC` artifacts. Treat them as file maps only: inspect the diff and verify every claim independently. Add reusable factual notes with file:line refs after review without replacing independent findings.
 
 ```sh
 scripts/orchestrate/review.sh <base>..<head> --name <branch> --brief <brief> --start sol --purpose "Review: engine"
