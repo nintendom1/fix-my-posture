@@ -20,6 +20,10 @@ import sys
 with open(os.environ["FAKE_REVIEW_EVENTS"], "a", encoding="utf-8") as stream:
     stream.write(json.dumps({"source": "agent", "args": sys.argv[1:]}) + "\n")
 if sys.argv[1] == "start":
+    failure = os.environ.get("FAKE_AGENT_START_ERROR")
+    if failure:
+        print(failure, file=sys.stderr)
+        sys.exit(1)
     print("started " + sys.argv[2] + " pane=fake")
 '''
 
@@ -222,6 +226,17 @@ class OrchestrateReviewTests(unittest.TestCase):
             "source": "herdr",
             "args": ["agent", "read", "review-engine", "--source", "visible", "--lines", "12"],
         })
+
+    def test_reviewer_start_error_is_reported_and_returns_nonzero(self) -> None:
+        result = self.run_review(
+            f"{self.base_commit}..HEAD", "--name", "engine", "--brief",
+            "build/briefs/sample.md", "--start", "sol",
+            env={"FAKE_AGENT_START_ERROR": "agent review-engine failed to register"},
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("review.sh: agent review-engine failed to register", result.stderr)
+        self.assertIn("request=build/reviews/engine.request.md", result.stdout)
+        self.assertNotIn("agent=", result.stdout)
 
     def test_start_opus_uses_claude_model_and_accepts_display_footer(self) -> None:
         result = self.run_review(

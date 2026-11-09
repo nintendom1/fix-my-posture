@@ -30,8 +30,8 @@ explicit model. Never start Codex Astra or use Fable or Codex Astra as a reviewe
 - Keep running processes alive while moving panes, re-equalize after layout changes, and preserve focus.
 - Only operate on pane IDs recorded in `build/orchestrate/state.json`; identify managed overflow tabs by their recorded tab IDs. Ignore other tabs and unmanaged agents for placement.
 
-Run the tool from a Herdr pane (`HERDR_ENV=1`). It enforces placement, naming, model restrictions, agent flags, focus,
-and width rules. Pane purposes are at most 20 characters.
+Run the tool from a Herdr pane (`HERDR_ENV=1`). It enforces layout and model rules. Starts wait for
+registration; failed starts close panes; failed closes keep cleanup records. Purposes are at most 20 characters.
 
 ```bash
 scripts/orchestrate/agent.py start detectors --kind codex --model gpt-6-luna --purpose "History detectors"

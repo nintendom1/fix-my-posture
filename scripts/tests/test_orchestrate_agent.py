@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-import json
+import contextlib
 import fcntl
+import importlib.util
+import io
+import json
 import os
 import subprocess
 import sys
@@ -11,6 +14,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -110,6 +114,24 @@ elif group == "tab" and command == "list":
         tabs.append(tab)
     output({"tabs": tabs})
 elif group == "agent" and command == "list":
+    changed = False
+    mode = os.environ.get("FAKE_HERDR_REGISTER_MODE", "immediate")
+    register_after = int(os.environ.get("FAKE_HERDR_REGISTER_AFTER", "2"))
+    for pane in state["panes"]:
+        if not pane.get("pending_agent_name"):
+            continue
+        pane["registration_checks"] = pane.get("registration_checks", 0) + 1
+        changed = True
+        if mode != "never" and pane["registration_checks"] >= register_after:
+            registered_kind = pane.pop("pending_agent_kind")
+            pane.update({
+                "name": pane.pop("pending_agent_name"),
+                "kind": registered_kind,
+                "agent_status": "idle",
+                "proc": registered_kind,
+            })
+    if changed:
+        save()
     agents = []
     for pane in state["panes"]:
         if pane.get("name") and not pane.get("hide_from_agent_list"):
@@ -211,6 +233,9 @@ elif group == "pane" and command == "move":
     save()
     output({"move_result": {"pane": {"pane_id": pane_id}, "previous_pane_id": pane_id}})
 elif group == "pane" and command == "close":
+    if os.environ.get("FAKE_HERDR_FAIL_PANE_CLOSE") == "1":
+        print(json.dumps({"error": {"message": "injected pane close failure"}}), file=sys.stderr)
+        sys.exit(1)
     pane_id = args[2]
     pane = find_pane(pane_id)
     tab_id = pane["tab_id"]
@@ -227,7 +252,10 @@ elif group == "agent" and command == "start":
     kind = args[args.index("--kind") + 1]
     pane_id = args[args.index("--pane") + 1]
     pane = find_pane(pane_id)
-    pane.update({"name": name, "kind": kind, "agent_status": "idle", "proc": kind})
+    if os.environ.get("FAKE_HERDR_REGISTER_MODE", "immediate") in {"delayed", "never"}:
+        pane.update({"pending_agent_name": name, "pending_agent_kind": kind})
+    else:
+        pane.update({"name": name, "kind": kind, "agent_status": "idle", "proc": kind})
     save()
     output({"agent": {"name": name, "pane_id": pane_id, "agent_status": "idle"}})
 elif group == "agent" and command == "prompt":
@@ -396,7 +424,7 @@ class OrchestrateAgentTests(unittest.TestCase):
         self.write_state()
         path.write_text(json.dumps({
             "workspaces": {"w1": {
-                "agents": agent_metadata, "scripts": script_metadata,
+                "agents": agent_metadata, "orphaned_panes": {}, "scripts": script_metadata,
                 "managed_tabs": sorted(managed_tabs),
             }},
             "migrated_legacy_states": [], "legacy_buckets": [],
@@ -407,6 +435,25 @@ class OrchestrateAgentTests(unittest.TestCase):
             [sys.executable, str(ENTRY_POINT), *args],
             cwd=self.repo, env=env or self.env, text=True, capture_output=True, check=False,
         )
+
+    def run_tool_with_registration_timeout(
+        self, timeout: float, *args: str, env: dict[str, str] | None = None
+    ) -> subprocess.CompletedProcess[str]:
+        spec = importlib.util.spec_from_file_location("agent_test_module", ENTRY_POINT)
+        assert spec and spec.loader
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        stdout, stderr = io.StringIO(), io.StringIO()
+        previous_cwd = Path.cwd()
+        try:
+            os.chdir(self.repo)
+            with patch.dict(os.environ, env or self.env, clear=False):
+                with patch.object(module, "AGENT_REGISTRATION_TIMEOUT_SECONDS", timeout):
+                    with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                        code = module.main(list(args))
+        finally:
+            os.chdir(previous_cwd)
+        return subprocess.CompletedProcess(list(args), code, stdout.getvalue(), stderr.getvalue())
 
     def run_tool_in(self, repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
         env = self.env.copy()
@@ -636,6 +683,112 @@ class OrchestrateAgentTests(unittest.TestCase):
         result = self.start("cwdagent", extra=("--cwd", str(working_dir)))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.pane("cwdagent")["cwd"], str(working_dir.resolve()))
+
+    def test_start_waits_for_delayed_herdr_registration(self) -> None:
+        env = self.env.copy()
+        env.update({"FAKE_HERDR_REGISTER_MODE": "delayed", "FAKE_HERDR_REGISTER_AFTER": "3"})
+        result = self.run_tool(
+            "start", "delayed", "--kind", "codex", "--model", "gpt-6-luna",
+            "--role", "implementer", "--purpose", "Delayed agent", env=env,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("started delayed", result.stdout)
+        self.assertEqual(self.pane("delayed")["registration_checks"], 3)
+
+    def test_unregistered_start_rolls_back_and_allows_retry(self) -> None:
+        env = self.env.copy()
+        env["FAKE_HERDR_REGISTER_MODE"] = "never"
+        result = self.run_tool_with_registration_timeout(
+            0.06, "start", "retry", "--kind", "codex", "--model", "gpt-6-luna",
+            "--role", "implementer", "--purpose", "Retry purpose", env=env,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(len(result.stderr.splitlines()), 1)
+        self.assertIn("did not register agent retry", result.stderr)
+        self.assertIn("created pane", result.stderr)
+        self.assertNotIn("retry", self.get_managed_state()["agents"])
+        self.assertEqual([pane["name"] for pane in self.read_state()["panes"]], ["orchestrator"])
+        self.assertTrue(any(call[:2] == ["pane", "close"] for call in self.calls()))
+
+        retried = self.start("retry", purpose="Retry purpose")
+        self.assertEqual(retried.returncode, 0, retried.stderr)
+        self.assertIn("retry", self.get_managed_state()["agents"])
+
+    def test_start_reconciles_not_running_name_and_purpose_records(self) -> None:
+        stale = self.add_pane(name="retry", label="Retry purpose", width=60)
+        stale["hide_from_agent_list"] = True
+        self.write_state()
+        self.write_metadata(agents={"retry": {
+            "kind": "codex", "purpose": "Retry purpose", "pane_id": stale["pane_id"],
+        }})
+
+        result = self.start("retry", purpose="Retry purpose")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        current = self.get_managed_state()["agents"]["retry"]
+        self.assertNotEqual(current["pane_id"], stale["pane_id"])
+        self.assertEqual(current["purpose"], "Retry purpose")
+        orphan = self.get_managed_state()["orphaned_panes"][stale["pane_id"]]
+        self.assertEqual(orphan["name"], "retry")
+        self.assertEqual(orphan["agent_status"], "not-running")
+        self.assertTrue(any(pane["pane_id"] == stale["pane_id"] for pane in self.read_state()["panes"]))
+
+    def test_vanished_agent_pane_keeps_shared_overflow_tab_owned(self) -> None:
+        overflow = self.add_tab("Agent")
+        main_one = self.add_pane(name="first", kind="codex", width=40)
+        main_two = self.add_pane(name="second", kind="codex", width=40)
+        third = self.add_pane(tab=overflow["tab_id"], name="third", kind="claude")
+        fourth = self.add_pane(tab=overflow["tab_id"], name="fourth", kind="codex")
+        self.write_state()
+        self.write_metadata(agents={name: {
+            "kind": "claude" if name == "third" else "codex",
+            "model": "gpt-6-luna", "role": "implementer", "purpose": f"{name} purpose",
+            "pane_id": pane["pane_id"],
+        } for name, pane in (("first", main_one), ("second", main_two), ("third", third), ("fourth", fourth))})
+        third["hide_from_agent_list"] = True
+        self.write_state()
+
+        started = self.start("fifth", purpose="Fifth purpose")
+        self.assertEqual(started.returncode, 0, started.stderr)
+        state = self.read_state()
+        self.assertEqual(self.pane("fifth")["tab_id"], overflow["tab_id"])
+        self.assertEqual(sum(pane["tab_id"] == overflow["tab_id"] for pane in state["panes"]), 3)
+        self.assertIn(third["pane_id"], self.get_managed_state()["orphaned_panes"])
+        self.assertIn("fourth", self.get_managed_state()["agents"])
+        status = self.run_tool("status", "third")
+        self.assertEqual(status.returncode, 0, status.stderr)
+        self.assertIn(f"third state=not-running pane={third['pane_id']}", status.stdout)
+
+        prompted = self.run_tool("prompt", "fourth", "--text", "continue")
+        self.assertEqual(prompted.returncode, 0, prompted.stderr)
+        closed = self.run_tool("close", "fourth")
+        self.assertEqual(closed.returncode, 0, closed.stderr)
+        self.assertNotIn("fourth", self.get_managed_state()["agents"])
+        self.assertTrue(any(pane["pane_id"] == third["pane_id"] for pane in self.read_state()["panes"]))
+
+    def test_failed_rollback_close_keeps_record_for_close_retry(self) -> None:
+        env = self.env.copy()
+        env.update({"FAKE_HERDR_REGISTER_MODE": "never", "FAKE_HERDR_FAIL_PANE_CLOSE": "1"})
+        result = self.run_tool_with_registration_timeout(
+            0.06, "start", "retry", "--kind", "codex", "--model", "gpt-6-luna",
+            "--role", "implementer", "--purpose", "Retry purpose", env=env,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(len(result.stderr.splitlines()), 1)
+        self.assertIn("cleanup incomplete", result.stderr)
+        self.assertIn("injected pane close failure", result.stderr)
+        pending = self.get_managed_state()["agents"]["retry"]
+        self.assertTrue(pending["cleanup_pending"])
+        self.assertTrue(any(pane["pane_id"] == pending["pane_id"] for pane in self.read_state()["panes"]))
+
+        blocked = self.start("retry", purpose="Retry purpose")
+        self.assertNotEqual(blocked.returncode, 0)
+        self.assertIn("already managed", blocked.stderr)
+        self.assertTrue(self.get_managed_state()["agents"]["retry"]["cleanup_pending"])
+
+        closed = self.run_tool("close", "retry")
+        self.assertEqual(closed.returncode, 0, closed.stderr)
+        self.assertNotIn("retry", self.get_managed_state()["agents"])
+        self.assertEqual([pane["name"] for pane in self.read_state()["panes"]], ["orchestrator"])
 
     def test_start_equalizes_after_split_without_fake_herdr_help(self) -> None:
         first = self.start("first")
