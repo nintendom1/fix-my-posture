@@ -53,6 +53,13 @@ const state = {
   log: { items: [], current: -1 },
   renderedFrame: null,
 };
+let replayActive = false;
+let activationGeneration = 0;
+let sessionRequest = 0;
+
+function isCurrentRecordingRequest(generation, request) {
+  return replayActive && generation === activationGeneration && request === sessionRequest;
+}
 
 const pct = (t) => `${(state.session ? t / Math.max(state.session.duration, 0.001) : 0) * 100}%`;
 
@@ -66,15 +73,23 @@ function toast(message, duration = 3200) {
 
 // MARK: - Loading
 
-async function loadList(selectID) {
-  state.sessions = await api.json("/api/sessions");
+async function loadList(selectID, generation = activationGeneration) {
+  const sessions = await api.json("/api/sessions");
+  if (!replayActive || generation !== activationGeneration) return;
+  state.sessions = sessions;
   $("sessionPicker").innerHTML = views.sessionOptions(state.sessions);
   $("emptyState").hidden = state.sessions.length > 0;
   const params = new URLSearchParams(location.search);
   const wanted = selectID ?? params.get("session") ?? memory.get("fmp-replay-session", null);
   const chosen = state.sessions.find((s) => s.id === wanted) ?? state.sessions[0];
   if (!chosen) return;
-  await openSession(chosen.id, selectID ? 0 : Number(params.get("t") ?? memory.get(`fmp-replay-t-${chosen.id}`, 0)));
+  const request = ++sessionRequest;
+  await openSession(chosen.id, selectID ? 0 : Number(params.get("t") ?? memory.get(`fmp-replay-t-${chosen.id}`, 0)), {
+    preserveURL: !selectID && params.has("session"),
+    generation,
+    request,
+  });
+  if (!isCurrentRecordingRequest(generation, request)) return;
   // A link can open a range and the export, such as one Claude sends: ?session=…&t=13.3&from=12.3&to=15.4&export=1
   if (!selectID && params.has("from") && params.has("to")) {
     state.selection = { from: views.num(params.get("from")), to: views.num(params.get("to")) };
@@ -83,29 +98,40 @@ async function loadList(selectID) {
   if (!selectID && params.get("export") === "1") openExport();
 }
 
-async function openSession(id, t = 0) {
+async function openSession(id, t = 0, { preserveURL = false, generation = activationGeneration, request = ++sessionRequest } = {}) {
   const response = await fetch(`/api/sessions/${encodeURIComponent(id)}/file`);
+  if (!isCurrentRecordingRequest(generation, request)) return;
   if (!response.ok) { toast(`Couldn't open the recording (${response.status}).`); return; }
-  const session = Session.fromText(await response.text());
+  const text = await response.text();
+  if (!isCurrentRecordingRequest(generation, request)) return;
+  const session = Session.fromText(text);
   pause(false);
   state.session = session;
   state.selection = null;
   state.series = buildSeries(session);
   $("sessionPicker").value = id;
   memory.set("fmp-replay-session", id);
-  history.replaceState(null, "", `?session=${encodeURIComponent(id)}`);
+  const nextURL = new URL(location.href);
+  nextURL.searchParams.set("session", id);
+  nextURL.searchParams.set("view", "recordings");
+  if (!preserveURL) {
+    for (const key of ["t", "from", "to", "export"]) nextURL.searchParams.delete(key);
+  }
+  history.replaceState(null, "", `${nextURL.pathname}${nextURL.search}${nextURL.hash}`);
   const header = session.header;
   $("sessionInfo").textContent = `${String(header.startedAt ?? "").slice(0, 16).replace("T", " ")} · ${views.fmt(session.duration)}${session.isComplete ? "" : " · incomplete"}${session.skipped ? ` · ${session.skipped} unreadable` : ""}`;
   $("deviceInfo").textContent = `${header.device?.model ?? "iPhone"} · iOS ${header.device?.os ?? "?"} · Vision · ${session.jointOrder.length} joints · ${header.camera?.analysisHz ?? 10} Hz`;
   $("duration").textContent = views.fmt(session.duration);
   buildTimeline();
-  await loadNotes();
+  await loadNotes(generation, session.id, request);
+  if (!isCurrentRecordingRequest(generation, request)) return;
   seek(Math.min(Math.max(0, views.num(t)), session.duration));
 }
 
-async function loadNotes() {
+async function loadNotes(generation = activationGeneration, sessionID = state.session?.id, request = sessionRequest) {
   if (!state.session) return;
-  const document = await api.json(`/api/sessions/${encodeURIComponent(state.session.id)}/notes`).catch(() => ({ notes: [] }));
+  const document = await api.json(`/api/sessions/${encodeURIComponent(sessionID)}/notes`).catch(() => ({ notes: [] }));
+  if (!isCurrentRecordingRequest(generation, request) || state.session?.id !== sessionID) return;
   state.notes = Array.isArray(document?.notes) ? document.notes : [];
   notesChanged();
 }
@@ -533,6 +559,7 @@ function wire() {
   });
 
   document.addEventListener("keydown", (event) => {
+    if ($("app").hidden) return;
     if (/INPUT|TEXTAREA|SELECT/.test(event.target.tagName) || document.querySelector("dialog[open]")) return;
     if (event.key === " ") { event.preventDefault(); state.playing ? pause() : play(); }
     else if (event.key === "ArrowLeft") { event.preventDefault(); if (event.shiftKey) { pause(false); seek(state.t - 1); } else stepFrame(-1); }
@@ -561,5 +588,28 @@ function wire() {
   };
 }
 
-wire();
-loadList().catch((error) => toast(`Couldn't load recordings: ${error.message}`, 8000));
+let initialized = false;
+window.FMPReplayViewer = {
+  activate() {
+    const linkedSession = new URLSearchParams(location.search).get("session");
+    const needsLoad = !state.session || (linkedSession && linkedSession !== state.session.id);
+    if (!initialized) {
+      initialized = true;
+      wire();
+    }
+    if (!replayActive) replayActive = true;
+    if (needsLoad) {
+      const generation = ++activationGeneration;
+      loadList(undefined, generation).catch((error) => {
+        if (generation === activationGeneration && replayActive) toast(`Couldn't load recordings: ${error.message}`, 8000);
+      });
+    }
+  },
+  deactivate() {
+    if (!replayActive) return;
+    replayActive = false;
+    activationGeneration += 1;
+    sessionRequest += 1;
+    pause(false);
+  },
+};

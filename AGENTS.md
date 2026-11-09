@@ -69,7 +69,7 @@ Packages/AdaptiveTraining/       # Foundation-only Swift package: progression la
 Packages/Narrative/              # Dormant and internal Foundation-only script model, validator, and pure runtime (`swift test`)
 scripts/design/                  # Reference extraction/rendering, anchors, masks, and pixel diff
 scripts/diagnostics/             # `make diagnostics`: pull workout recordings from the iPhone
-tools/session-replay/            # `make viewer`, `make lab`, replay viewer and `fmp-replay` MCP server (Node, no deps)
+tools/session-replay/            # `make viewer` Runs dashboard + replay viewer, `make lab`, and `fmp-replay` MCP server (Node, no deps)
 diagnostics/                     # Gitignored: pulled recordings and synthetic Movement Lab runs (never commit)
 Design/Metrics/                  # Committed metrics generated from the local design bundle
 Design/AppIcon/                  # App icon SVG source, export script, and notices
