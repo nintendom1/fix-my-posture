@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import fcntl
 import json
 import math
 import os
@@ -33,6 +34,9 @@ REVIEWER_TOOLS = (
 RPC_TIMEOUT_SECONDS = 20.0
 WAIT_DEFAULT_SECONDS = 3600.0
 WAIT_TRANSPORT_MARGIN_SECONDS = 10.0
+STATE_RELATIVE_PATH = Path("build/orchestrate/state.json")
+STATE_LOCK_RELATIVE_PATH = Path("build/orchestrate/state.lock")
+MIGRATED_STATE_FIELD = "migrated_legacy_states"
 _MUTATION_EPOCH = 0
 
 
@@ -121,6 +125,25 @@ def _repo_root() -> Path:
     return Path(proc.stdout.strip()).resolve()
 
 
+def _git_common_dir(root: Path) -> Path:
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--git-common-dir"], cwd=root,
+            capture_output=True, text=True, check=False, timeout=RPC_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise OrchestrationError("git common directory lookup timed out") from exc
+    except OSError as exc:
+        raise OrchestrationError(f"could not run git: {exc}") from exc
+    if proc.returncode:
+        detail = proc.stderr.strip() or proc.stdout.strip()
+        raise OrchestrationError(detail or "could not locate git common directory")
+    common_dir = Path(proc.stdout.strip())
+    if not common_dir.is_absolute():
+        common_dir = root / common_dir
+    return common_dir.resolve()
+
+
 def _now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat(timespec="microseconds")
 
@@ -135,14 +158,43 @@ def _next_start_order(state: dict[str, Any]) -> int:
     return max(values, default=0) + 1
 
 
-def _load_state(root: Path) -> dict[str, Any]:
-    path = root / "build" / "orchestrate" / "state.json"
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        data = {}
-    except (OSError, json.JSONDecodeError) as exc:
-        raise OrchestrationError(f"cannot read {path}: {exc}") from exc
+class StateFileLock:
+    """A process-wide kernel lock for shared orchestration state."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self._stream = None
+
+    def __enter__(self) -> StateFileLock:
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self._stream = self.path.open("a", encoding="utf-8")
+            fcntl.flock(self._stream.fileno(), fcntl.LOCK_EX)
+        except OSError as exc:
+            if self._stream:
+                self._stream.close()
+                self._stream = None
+            raise OrchestrationError(f"cannot lock shared agent state {self.path}: {exc}") from exc
+        return self
+
+    def release(self) -> None:
+        if self._stream is None:
+            return
+        try:
+            fcntl.flock(self._stream.fileno(), fcntl.LOCK_UN)
+        finally:
+            self._stream.close()
+            self._stream = None
+
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+        self.release()
+
+
+def _empty_workspace_state() -> dict[str, Any]:
+    return {"agents": {}, "scripts": {}, "managed_tabs": []}
+
+
+def _validated_legacy_state(data: Any, path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise OrchestrationError(f"invalid state file: {path}")
     agents = data.setdefault("agents", {})
@@ -153,8 +205,172 @@ def _load_state(root: Path) -> dict[str, Any]:
     return data
 
 
-def _save_state(root: Path, state: dict[str, Any]) -> None:
-    path = root / "build" / "orchestrate" / "state.json"
+def _legacy_bucket(source: str, payload: Any, path: Path) -> dict[str, Any]:
+    legacy = _validated_legacy_state(payload, path)
+    return {
+        "source": source,
+        "agents": legacy["agents"],
+        "scripts": legacy["scripts"],
+        "managed_tabs": legacy["managed_tabs"],
+        "imported": {"agents": [], "scripts": [], "managed_tabs": []},
+        "checked_workspaces": [],
+    }
+
+
+def _normalize_shared_state(data: Any, path: Path) -> tuple[dict[str, Any], bool]:
+    if not isinstance(data, dict):
+        raise OrchestrationError(f"invalid state file: {path}")
+    changed = False
+    if "workspaces" not in data:
+        old_agents = data.pop("agents", {})
+        old_scripts = data.pop("scripts", {})
+        old_tabs = data.pop("managed_tabs", [])
+        migrated_paths = data.get(MIGRATED_STATE_FIELD, [])
+        legacy_payload = {"agents": old_agents, "scripts": old_scripts, "managed_tabs": old_tabs}
+        buckets = data.get("legacy_buckets", [])
+        if any(legacy_payload[key] for key in legacy_payload):
+            buckets.append(_legacy_bucket("shared-unscoped", legacy_payload, path))
+        data["workspaces"] = {}
+        data["legacy_buckets"] = buckets
+        data[MIGRATED_STATE_FIELD] = migrated_paths
+        changed = True
+    workspaces = data.setdefault("workspaces", {})
+    if MIGRATED_STATE_FIELD not in data or "legacy_buckets" not in data:
+        changed = True
+    migrated_paths = data.setdefault(MIGRATED_STATE_FIELD, [])
+    buckets = data.setdefault("legacy_buckets", [])
+    if not isinstance(workspaces, dict) or not isinstance(migrated_paths, list) or not isinstance(buckets, list):
+        raise OrchestrationError(f"invalid state file: {path}")
+    for workspace_id, state in workspaces.items():
+        if not isinstance(workspace_id, str) or not isinstance(state, dict):
+            raise OrchestrationError(f"invalid workspace state in {path}")
+        if any(key not in state for key in ("agents", "scripts", "managed_tabs")):
+            changed = True
+        agents = state.setdefault("agents", {})
+        scripts = state.setdefault("scripts", {})
+        tabs = state.setdefault("managed_tabs", [])
+        if not isinstance(agents, dict) or not isinstance(scripts, dict) or not isinstance(tabs, list):
+            raise OrchestrationError(f"invalid workspace state in {path}")
+    for bucket in buckets:
+        if not isinstance(bucket, dict):
+            raise OrchestrationError(f"invalid legacy state archive in {path}")
+        legacy = _validated_legacy_state(bucket, path)
+        imported = bucket.setdefault("imported", {})
+        checked = bucket.setdefault("checked_workspaces", [])
+        if not isinstance(imported, dict) or not isinstance(checked, list):
+            raise OrchestrationError(f"invalid legacy state archive in {path}")
+        for section in ("agents", "scripts", "managed_tabs"):
+            values = imported.setdefault(section, [])
+            if not isinstance(values, list):
+                raise OrchestrationError(f"invalid legacy state archive in {path}")
+        bucket["agents"] = legacy["agents"]
+        bucket["scripts"] = legacy["scripts"]
+        bucket["managed_tabs"] = legacy["managed_tabs"]
+    return data, changed
+
+
+def _migration_snapshot(workspace_id: str) -> dict[str, Any]:
+    panes = _herdr_json("pane", "list", "--workspace", workspace_id).get("panes", [])
+    tabs = _herdr_json("tab", "list", "--workspace", workspace_id).get("tabs", [])
+    agents = _herdr_json("agent", "list").get("agents", [])
+    if not all(isinstance(items, list) for items in (panes, tabs, agents)):
+        raise OrchestrationError("Herdr returned invalid data while migrating shared state")
+    return {
+        "panes": [pane for pane in panes if pane.get("workspace_id", workspace_id) == workspace_id],
+        "tabs": [tab for tab in tabs if tab.get("workspace_id", workspace_id) == workspace_id],
+        "agents": [agent for agent in agents if agent.get("workspace_id", workspace_id) == workspace_id],
+    }
+
+
+def _import_legacy_bucket(
+    bucket: dict[str, Any], workspace_id: str, workspace_state: dict[str, Any],
+    snapshot: dict[str, Any],
+) -> None:
+    imported = bucket["imported"]
+    pane_ids = {str(pane.get("pane_id", "")) for pane in snapshot["panes"]}
+    live_agents = {
+        (str(agent.get("name", "")), str(agent.get("pane_id", "")))
+        for agent in snapshot["agents"]
+    }
+    for name, metadata in bucket["agents"].items():
+        pane_id = str(metadata.get("pane_id", "")) if isinstance(metadata, dict) else ""
+        if name in imported["agents"] or not pane_id or pane_id not in pane_ids:
+            continue
+        if (str(name), pane_id) not in live_agents:
+            continue
+        workspace_state["agents"].setdefault(name, metadata)
+        imported["agents"].append(name)
+    for purpose, metadata in bucket["scripts"].items():
+        pane_id = str(metadata.get("pane_id", "")) if isinstance(metadata, dict) else ""
+        if purpose in imported["scripts"] or not pane_id or pane_id not in pane_ids:
+            continue
+        workspace_state["scripts"].setdefault(purpose, metadata)
+        imported["scripts"].append(purpose)
+    tab_ids = {str(tab.get("tab_id", "")) for tab in snapshot["tabs"]}
+    for tab_id in bucket["managed_tabs"]:
+        value = str(tab_id)
+        if value in imported["managed_tabs"] or value not in tab_ids:
+            continue
+        workspace_state["managed_tabs"].append(value)
+        imported["managed_tabs"].append(value)
+    workspace_state["managed_tabs"] = sorted(set(workspace_state["managed_tabs"]))
+    bucket["checked_workspaces"].append(workspace_id)
+
+
+def _load_state(root: Path, path: Path, workspace_id: str) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any] | None]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        data = {}
+    except (OSError, json.JSONDecodeError) as exc:
+        raise OrchestrationError(f"cannot read {path}: {exc}") from exc
+    data, changed = _normalize_shared_state(data, path)
+
+    legacy_path = (root / STATE_RELATIVE_PATH).resolve()
+    migrated = {str(item) for item in data[MIGRATED_STATE_FIELD]}
+    legacy_key = str(legacy_path)
+    if legacy_path != path.resolve() and legacy_key not in migrated:
+        try:
+            legacy_data = json.loads(legacy_path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            legacy_data = None
+        except (OSError, json.JSONDecodeError) as exc:
+            raise OrchestrationError(f"cannot migrate legacy state {legacy_path}: {exc}") from exc
+        if legacy_data is not None:
+            data["legacy_buckets"].append(_legacy_bucket(legacy_key, legacy_data, legacy_path))
+            migrated.add(legacy_key)
+            data[MIGRATED_STATE_FIELD] = sorted(migrated)
+            changed = True
+
+    workspaces = data["workspaces"]
+    if workspace_id not in workspaces:
+        workspace_state = _empty_workspace_state()
+        workspaces[workspace_id] = workspace_state
+        changed = True
+    else:
+        workspace_state = workspaces[workspace_id]
+        if any(key not in workspace_state for key in ("agents", "scripts", "managed_tabs")):
+            changed = True
+    agents = workspace_state.setdefault("agents", {})
+    scripts = workspace_state.setdefault("scripts", {})
+    managed_tabs = workspace_state.setdefault("managed_tabs", [])
+    if not isinstance(agents, dict) or not isinstance(scripts, dict) or not isinstance(managed_tabs, list):
+        raise OrchestrationError(f"invalid workspace state for {workspace_id!r} in {path}")
+    pending = [
+        bucket for bucket in data["legacy_buckets"]
+        if workspace_id not in {str(item) for item in bucket["checked_workspaces"]}
+    ]
+    migration_snapshot = _migration_snapshot(workspace_id) if pending else None
+    if migration_snapshot is not None:
+        for bucket in pending:
+            _import_legacy_bucket(bucket, workspace_id, workspace_state, migration_snapshot)
+            changed = True
+    if changed:
+        _save_state(path, data)
+    return data, workspace_state, migration_snapshot
+
+
+def _save_state(path: Path, state: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_name = None
     try:
@@ -177,17 +393,28 @@ def _save_state(root: Path, state: dict[str, Any]) -> None:
 
 
 class Context:
-    def __init__(self) -> None:
+    def __init__(self, root: Path, common_dir: Path, state_lock: StateFileLock) -> None:
         if os.environ.get("HERDR_ENV") != "1":
             raise OrchestrationError("run this command inside a Herdr-managed pane (HERDR_ENV=1)")
         workspace = os.environ.get("HERDR_WORKSPACE_ID")
         if not workspace:
             raise OrchestrationError("HERDR_WORKSPACE_ID is not set")
-        self.root = _repo_root()
+        self.root = root
         self.workspace = workspace
-        self.state = _load_state(self.root)
-        self._snapshot: dict[str, Any] | None = None
-        self._snapshot_epoch = -1
+        self.state_path = common_dir / STATE_RELATIVE_PATH
+        self.state_lock = state_lock
+        self.shared_state, self.state, migration_snapshot = _load_state(
+            self.root, self.state_path, self.workspace
+        )
+        self._snapshot = migration_snapshot
+        self._snapshot_epoch = _MUTATION_EPOCH if migration_snapshot is not None else -1
+
+    def save_state(self) -> None:
+        self.shared_state["workspaces"][self.workspace] = self.state
+        _save_state(self.state_path, self.shared_state)
+
+    def release_state_lock(self) -> None:
+        self.state_lock.release()
 
     def snapshot(self, *, refresh: bool = False) -> dict[str, Any]:
         if not refresh and self._snapshot is not None and self._snapshot_epoch == _MUTATION_EPOCH:
@@ -304,7 +531,7 @@ def _register_managed_tab(ctx: Context, tab_id: str) -> None:
     if tab_id not in managed_tabs:
         managed_tabs.add(tab_id)
         ctx.state["managed_tabs"] = sorted(managed_tabs)
-        _save_state(ctx.root, ctx.state)
+        ctx.save_state()
 
 
 def _managed_panes_in_tab(ctx: Context, snapshot: dict[str, Any], tab_id: str) -> list[dict[str, Any]]:
@@ -556,7 +783,7 @@ def _record_script(ctx: Context, purpose: str, pane_id: str) -> None:
         ctx.state["scripts"][purpose] = {
             "pane_id": pane_id, "started_at": _now(), "start_order": _next_start_order(ctx.state)
         }
-        _save_state(ctx.root, ctx.state)
+        ctx.save_state()
 
 
 def _move_pane(ctx: Context, pane: dict[str, Any], target: dict[str, Any], touched: set[str]) -> str:
@@ -974,7 +1201,7 @@ def _start(args: argparse.Namespace, ctx: Context) -> None:
         "started_at": _now(),
         "start_order": _next_start_order(ctx.state),
     }
-    _save_state(ctx.root, ctx.state)
+    ctx.save_state()
     _herdr_json("pane", "rename", str(pane["pane_id"]), purpose)
 
     if args.kind == "codex":
@@ -1039,6 +1266,7 @@ def _prompt(args: argparse.Namespace, ctx: Context) -> None:
     _herdr_json("agent", "prompt", args.name, message)
     if not args.wait:
         return
+    ctx.release_state_lock()
     wait_seconds = args.timeout if args.timeout is not None else WAIT_DEFAULT_SECONDS
     deadline = time.monotonic() + wait_seconds
     terminal_states = {"idle", "done", "blocked"}
@@ -1155,7 +1383,7 @@ def _close_agent(name: str, ctx: Context) -> None:
     if pane:
         _herdr_json("pane", "close", str(pane["pane_id"]))
     del ctx.state["agents"][name]
-    _save_state(ctx.root, ctx.state)
+    ctx.save_state()
     touched = {old_tab} if old_tab else set()
     snapshot = ctx.snapshot()
     main = _main(snapshot)
@@ -1225,7 +1453,7 @@ def _script_command(args: argparse.Namespace, ctx: Context) -> None:
         "pane_id": str(pane["pane_id"]), "started_at": _now(),
         "start_order": _next_start_order(ctx.state),
     }
-    _save_state(ctx.root, ctx.state)
+    ctx.save_state()
     _herdr_json("pane", "rename", str(pane["pane_id"]), purpose)
     _herdr_json("pane", "run", str(pane["pane_id"]), shlex.join(command_parts))
     touched.add(str(tab["tab_id"]))
@@ -1248,14 +1476,14 @@ def _close_script(purpose: str, ctx: Context) -> None:
         raise OrchestrationError(f"script {purpose!r} is in a user-owned tab; refusing to close its pane")
     if not pane:
         del ctx.state["scripts"][purpose]
-        _save_state(ctx.root, ctx.state)
+        ctx.save_state()
         _close_empty_tabs(ctx)
         print(f"closed-script {purpose} pane=already-closed")
         return
     tab_id = str(pane.get("tab_id", ""))
     _herdr_json("pane", "close", str(pane["pane_id"]))
     del ctx.state["scripts"][purpose]
-    _save_state(ctx.root, ctx.state)
+    ctx.save_state()
     touched = {tab_id}
     _close_empty_tabs(ctx)
     _equalize_touched(ctx, touched)
@@ -1308,21 +1536,25 @@ def main(argv: list[str] | None = None) -> int:
             not math.isfinite(args.timeout) or args.timeout <= 0 or args.timeout > 86400
         ):
             raise OrchestrationError("--timeout must be finite and between 0 and 86400 seconds")
-        ctx = Context()
-        if args.command == "start":
-            _start(args, ctx)
-        elif args.command == "prompt":
-            _prompt(args, ctx)
-        elif args.command == "status":
-            _status(ctx, args.name)
-        elif args.command == "close":
-            _close_agent(args.name, ctx)
-        elif args.command == "script":
-            _script_command(args, ctx)
-        elif args.command == "close-script":
-            _close_script(args.purpose, ctx)
-        elif args.command == "layout":
-            print(_layout(ctx))
+        root = _repo_root()
+        common_dir = _git_common_dir(root)
+        lock_path = common_dir / STATE_LOCK_RELATIVE_PATH
+        with StateFileLock(lock_path) as state_lock:
+            ctx = Context(root, common_dir, state_lock)
+            if args.command == "start":
+                _start(args, ctx)
+            elif args.command == "prompt":
+                _prompt(args, ctx)
+            elif args.command == "status":
+                _status(ctx, args.name)
+            elif args.command == "close":
+                _close_agent(args.name, ctx)
+            elif args.command == "script":
+                _script_command(args, ctx)
+            elif args.command == "close-script":
+                _close_script(args.purpose, ctx)
+            elif args.command == "layout":
+                print(_layout(ctx))
     except OrchestrationError as exc:
         print(str(exc).replace("\n", " "), file=sys.stderr)
         return 2 if "refusing" in str(exc) or "20 characters" in str(exc) else 1
