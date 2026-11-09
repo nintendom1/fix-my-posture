@@ -194,6 +194,12 @@ At 30 frames per second, samples are timestamped at `n / 30` seconds from zero t
 
 Movement Lab landmarks are synthetic inputs. They can test analyzer behavior given those coordinates, but they never establish the accuracy of Apple Vision's camera-to-landmark estimates.
 
+### Scenario coverage
+
+The Movement Lab **Scenario coverage** view groups stored scenario revisions into an exercise-by-category matrix. Each cell shows the latest recorded outcome for each scenario id and revision; an empty cell is labeled **not tested**. This is scenario coverage, not code coverage. Filters narrow the matrix by exercise, category, and outcome. Open a populated cell to see its scenarios and stored keyframe comparisons.
+
+Keyframes are selected from the saved recording. Joint offsets use their configured peak time; depth and asymmetry use the frame with the greatest hip drop or side difference; framing and canonical motion use a representative deepest pose. A depth mutation limited to selected repetitions searches only those cycles, locating their timing from reference poses or stored rep events. Pause uses its insertion boundary. Dropout and confidence use the start of their affected window, frame gaps use the first frame after the gap, and tempo uses a repetition boundary. Each thumbnail names the mutation type and time, highlights affected landmarks, and opens playback at that timestamp. A scenario without a materialized recording shows that its keyframe is unavailable rather than substituting a generic image.
+
 ## Copy report
 
 `WorkoutRecordingReport` turns a recording into plain text sized for a chat (a few to about 15 KB). It reads the file twice: once for everything but frames, then only the frames it shows.

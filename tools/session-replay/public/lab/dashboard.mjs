@@ -1,6 +1,7 @@
 import { recordsToFileText, Session, clock } from "../../lib/session.mjs";
 import { num } from "../views.mjs";
 import * as labViews from "./views.mjs";
+import { createCoveragePlaybackNavigator } from "./coverage.mjs";
 import { createSelectionToken, sectionHref } from "./selection.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -223,6 +224,39 @@ function bindScenarioPlayback(panel, session, referenceSession, request, runID, 
   });
   update(0);
 }
+
+function seekCurrentPlayback({ runID, scenarioID, timestamp }) {
+  if (state.activeView !== "runs" || state.runID !== runID || state.scenarioID !== scenarioID) return false;
+  const article = [...$("labScenarioDetail").querySelectorAll(".lab-selected-scenario")]
+    .find((item) => item.dataset.labScenarioId === scenarioID);
+  const scrubber = article?.querySelector("[data-lab-scrubber]");
+  if (!scrubber) return false;
+  scrubber.step = "any";
+  scrubber.value = String(Math.max(0, Math.min(num(scrubber.max), timestamp)));
+  scrubber.dispatchEvent(new Event("input", { bubbles: true }));
+  article.scrollIntoView?.({ block: "start", behavior: "smooth" });
+  return true;
+}
+
+const navigateCoverageThumbnail = createCoveragePlaybackNavigator({
+  activateRuns: () => {
+    $("labDashboard").querySelector('[data-lab-view="runs"]')?.click();
+    return state.activeView === "runs";
+  },
+  loadRun: async (runID) => {
+    await openRun(runID);
+    return state.activeView === "runs" && state.runID === runID ? state.run : null;
+  },
+  selectScenario: async (runID, scenarioID) => {
+    if (state.activeView !== "runs" || state.runID !== runID
+      || !state.run?.plan?.scenarios?.some((scenario) => scenario.id === scenarioID)) return false;
+    await openScenario(scenarioID);
+    return state.activeView === "runs" && state.runID === runID && state.scenarioID === scenarioID;
+  },
+  seek: seekCurrentPlayback,
+});
+
+window.FMPLabDashboard = { navigateToScenario: navigateCoverageThumbnail };
 
 document.addEventListener("click", (event) => {
   const viewButton = event.target.closest("[data-lab-view]");

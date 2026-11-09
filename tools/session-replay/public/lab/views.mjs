@@ -1,5 +1,6 @@
 import { recordsToFileText, Session, clock } from "../../lib/session.mjs";
 import * as replay from "../views.mjs";
+import { installCoverageView } from "./coverage.mjs";
 
 const OUTCOMES = ["passed", "failed", "inconclusive", "invalid", "notRun"];
 const statusClass = (status) => status === "not tested" ? "not-tested" : status.replace(/[^a-z-]/g, "-");
@@ -242,7 +243,7 @@ export function renderScenarioDetail({ plan, scenario, result = null, recording 
   const links = failureLinks(scenario, result, recording);
   const hasPlayback = session?.frames.length > 0;
   const referenceText = referenceSession?.frames.length ? "Canonical reference" : "Reference unavailable";
-  return `<article class="lab-selected-scenario" data-lab-status="${replay.esc(status)}">
+  return `<article class="lab-selected-scenario" data-lab-scenario-id="${replay.esc(scenario.id)}" data-lab-status="${replay.esc(status)}">
     <header class="lab-scenario-heading"><div><p class="lab-eyebrow">${replay.esc(scenario.category ?? "scenario")} · revision ${replay.num(scenario.revision)}</p>
       <h3>${replay.esc(scenario.name ?? scenario.title ?? scenario.id)}</h3><p>${replay.esc(scenario.purpose ?? "No stated purpose.")}</p></div>
       <div class="lab-status-group">${statusBadges(status)}</div></header>
@@ -276,4 +277,6 @@ export function setPlaybackFrame(container, session, t, { toggles = { mirror: tr
   stage.setAttribute("viewBox", `0 0 ${width} ${height}`);
   stage.innerHTML = replay.stageSVG(session, frame, { width, height, toggles, glow: replay.phaseColor(session.stateAt(t)?.phase) });
 }
+
+if (typeof document !== "undefined") installCoverageView();
 

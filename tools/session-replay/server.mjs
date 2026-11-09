@@ -14,6 +14,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createStore, StoreError } from "./lib/store.mjs";
 import { createLabStore, LabStoreError } from "./lib/lab/store.mjs";
+import { buildCoverageModel } from "./lib/lab/coverage.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_PORT = 4317;
@@ -26,9 +27,11 @@ const STATIC = {
   "/views.mjs": ["public/views.mjs", "text/javascript; charset=utf-8"],
   "/style.css": ["public/style.css", "text/css; charset=utf-8"],
   "/lib/session.mjs": ["lib/session.mjs", "text/javascript; charset=utf-8"],
+  "/lib/lab/keyframe.mjs": ["lib/lab/keyframe.mjs", "text/javascript; charset=utf-8"],
   "/lab/dashboard.mjs": ["public/lab/dashboard.mjs", "text/javascript; charset=utf-8"],
   "/lab/selection.mjs": ["public/lab/selection.mjs", "text/javascript; charset=utf-8"],
   "/lab/views.mjs": ["public/lab/views.mjs", "text/javascript; charset=utf-8"],
+  "/lab/coverage.mjs": ["public/lab/coverage.mjs", "text/javascript; charset=utf-8"],
 };
 
 /** The viewer's server. `root` is the repository; recordings live in `root/diagnostics/sessions`. */
@@ -61,6 +64,12 @@ export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT } = {
     if (url.pathname === "/api/lab/runs") {
       if (request.method !== "GET") throw new LabStoreError(405, "Movement Lab routes are read-only.");
       return sendJSON(response, await labStore.listRuns());
+    }
+    if (url.pathname === "/api/lab/coverage") {
+      if (request.method !== "GET") throw new LabStoreError(405, "Movement Lab routes are read-only.");
+      const runs = await labStore.listRuns();
+      const storedRuns = await Promise.all(runs.map((run) => labStore.readRun(run.id)));
+      return sendJSON(response, buildCoverageModel(storedRuns));
     }
     const labArtifact = url.pathname.match(/^\/api\/lab\/runs\/([^/]+)\/scenarios\/([^/]+)\/([^/]+)$/);
     if (labArtifact) {
