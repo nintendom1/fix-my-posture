@@ -45,13 +45,24 @@ export function formatSummary(results, summary) {
     const observed = count == null ? "reps unknown" : `reps ${count}`;
     const reasons = Array.isArray(result.invalidReasons) ? result.invalidReasons : [];
     const assertion = result.assertionResults?.find((item) => !item.passed)?.detail;
-    lines.push(`${result.scenarioID}: ${result.outcome} · ${observed}${assertion ? ` · ${assertion}` : ""}${reasons.length ? ` · ${reasons.join("; ")}` : ""}`);
+    lines.push(boundSummaryLine(`${result.scenarioID}: ${result.outcome} · ${observed}${assertion ? ` · ${assertion}` : ""}${reasons.length ? ` · ${reasons.join("; ")}` : ""}`));
   }
   const counts = summary?.outcomes ?? Object.fromEntries(["passed", "failed", "inconclusive", "invalid", "notRun"].map((name) => [name, results.filter((result) => result.outcome === name).length]));
   const total = results.length;
   const elapsed = Number.isFinite(summary?.elapsedSeconds) ? `${summary.elapsedSeconds.toFixed(2)}s` : "time unknown";
-  lines.push(`total ${total} · passed ${counts.passed ?? 0} · failed ${counts.failed ?? 0} · inconclusive ${counts.inconclusive ?? 0} · invalid ${counts.invalid ?? 0} · notRun ${counts.notRun ?? 0} · ${elapsed}`);
+  lines.push(boundSummaryLine(`total ${total} · passed ${counts.passed ?? 0} · failed ${counts.failed ?? 0} · inconclusive ${counts.inconclusive ?? 0} · invalid ${counts.invalid ?? 0} · notRun ${counts.notRun ?? 0} · ${elapsed}`));
   return lines.join("\n");
+}
+
+function boundSummaryLine(line) {
+  const safe = String(line).replace(/[\r\n\u2028\u2029\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
+  if (Buffer.byteLength(safe, "utf8") <= 240) return safe;
+  let prefix = "";
+  for (const character of safe) {
+    if (Buffer.byteLength(prefix + character, "utf8") > 220) break;
+    prefix += character;
+  }
+  return `${prefix}… [line truncated]`;
 }
 
 export function invokeXcodebuild(args, { cwd, env = process.env, timeoutMs = XCODEBUILD_TIMEOUT_MS,
@@ -234,7 +245,7 @@ async function validateRunDirectory(root, runDir) {
   return resolved;
 }
 
-export async function runPlan({ root, planPath, presetID, sim = DEFAULT_SIMULATOR, mode = "pipeline",
+export async function runPlan({ root, planPath, inputPlan, presetID, sim = DEFAULT_SIMULATOR, mode = "pipeline",
   now = new Date(), suffix, runner } = {}) {
   if (mode !== "pipeline" && mode !== "coach") throw new Error("Mode must be pipeline or coach.");
   const runID = createRunID(now, suffix);
@@ -242,10 +253,10 @@ export async function runPlan({ root, planPath, presetID, sim = DEFAULT_SIMULATO
   let actualPlanPath = planPath;
   let plan;
   if (presetID === undefined) {
-    if (typeof planPath !== "string" || planPath.length === 0) throw new Error("Provide a plan JSON path or --preset.");
-    const bytes = await readFile(planPath);
+    if (inputPlan === undefined && (typeof planPath !== "string" || planPath.length === 0)) throw new Error("Provide a plan JSON path, plan object, or --preset.");
+    const bytes = inputPlan === undefined ? await readFile(planPath) : Buffer.from(JSON.stringify(inputPlan));
     if (bytes.byteLength > MAX_PLAN_BYTES) throw new Error(`Plan exceeds ${MAX_PLAN_BYTES} bytes.`);
-    const checked = validatePlanText(bytes.toString("utf8"));
+    const checked = inputPlan === undefined ? validatePlanText(bytes.toString("utf8")) : { plan: inputPlan, errors: validatePlan(inputPlan) };
     if (checked.errors.length) throw new Error(`Invalid Movement Lab plan:\n${checked.errors.join("\n")}`);
     plan = checked.plan;
   } else if (!BUILTIN_PRESET_IDS.has(presetID)) {
@@ -261,6 +272,9 @@ export async function runPlan({ root, planPath, presetID, sim = DEFAULT_SIMULATO
     const errors = (await import("./plan.mjs")).validatePlan(plan);
     if (errors.length) throw new Error(`Built-in preset is invalid:\n${errors.join("\n")}`);
     actualPlanPath = path.join(runDir, "preset-plan.json");
+    await writeFile(actualPlanPath, `${JSON.stringify(plan, null, 2)}\n`, { flag: "wx" });
+  } else if (inputPlan !== undefined) {
+    actualPlanPath = path.join(runDir, "agent-plan.json");
     await writeFile(actualPlanPath, `${JSON.stringify(plan, null, 2)}\n`, { flag: "wx" });
   }
 

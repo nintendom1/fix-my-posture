@@ -101,6 +101,19 @@ The preset list comes from a manifest emitted by the Swift `MovementLabTests` ta
 
 Each run is stored locally at `diagnostics/movement-lab/runs/<run-id>/`. `plan.json` preserves the plan input. `scenarios/<id>.json` is a workout-session recording array with processed pipeline fields, including `out`, `fr`, `rd`, `sig`, `rej`, and `cnt`, so the existing replay viewer can open it. `results.json` contains scenario outcomes and assertion details. `summary.json` contains execution mode, outcome totals, elapsed time, and revisions. `counting-changes.json` records counting transitions by scenario. The inspector prints one scenario by default, filters event records to a requested time window, and limits ordinary output to about 60 lines; `--full` prints the complete selected trace.
 
+### Agent workflow through MCP
+
+The existing `fmp-replay` MCP server also exposes four Movement Lab tools:
+
+- `fmp_lab_manifest` returns exercises found in the Swift preset manifest, scenario categories, validator-backed mutation bounds, and built-in preset ids.
+- `fmp_lab_run` accepts one strict plan object (up to 1 MiB) or preset and an explicit `pipeline` or `coach` mode. Plans use the same validator and fixed-argument runner as the CLI. The server records plan and scenario authorship as `agent`, stores an intent on every scenario, and returns one bounded line for each non-passing scenario followed by totals. Invalid plans show at most 20 validation issues plus the omitted count, within an 8 KiB UTF-8 limit. Runs are serialized in one MCP process.
+- `fmp_lab_inspect` accepts a safe run id, optional scenario id, and optional `{ "from": 1.0, "to": 3.0 }` window. Ordinary output is limited to 60 lines. `full: true` returns a full trace only when it is no larger than 256 KiB.
+- `fmp_lab_open` starts the local viewer, includes the run/scenario/keyframe in its URL, and sends a `lab-open` event through the viewer command channel. The dashboard reads those URL parameters on load and handles live `lab-open` events by loading the requested run, selecting its scenario, and seeking after the scenario playback controls are ready.
+
+A follow-up run may include `parentRunID` and `followUpReason` together. Both are validated and stored in the run plan; the reason is also included in the plan purpose displayed in the run panel. The agent tools do not expose fixture approval or writing. Fixture approval remains a human-only dashboard action and fixtures reach CI only through a reviewed commit.
+
+The MCP integration test measures the compact canonical Air Squat sample using a fake `xcodebuild` executable: three tool calls (manifest, preset run, bounded inspection) returned 2,769 UTF-8 bytes in total (849 + 181 + 1,739 bytes). This is a local harness measurement, not a model-token estimate or a measurement of actual analyzer execution time.
+
 All generated poses and plans in these runs are synthetic. They test analyzer behavior for supplied coordinates and do not validate Apple Vision estimates from a camera. Exploratory plans and artifacts stay in the gitignored `diagnostics/` folder; do not commit them or share real workout recordings as substitutes.
 
 ### JSON contract

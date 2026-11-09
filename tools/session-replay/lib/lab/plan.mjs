@@ -2,9 +2,22 @@ import { readFileSync } from "node:fs";
 
 const ID = /^[a-z0-9_-]{1,64}$/;
 const UINT64_MAX = 18446744073709551615n;
-const CATEGORIES = new Set(["canonical", "depth_rom", "alignment", "timing", "tracking", "session_framing"]);
+export const SCENARIO_CATEGORIES = Object.freeze(["canonical", "depth_rom", "alignment", "timing", "tracking", "session_framing"]);
+const CATEGORIES = new Set(SCENARIO_CATEGORIES);
 export const MINIMUM_COMPOSITE_DEPTH_SCALE = 1 / 16;
 export const MAXIMUM_COMPOSITE_DEPTH_SCALE = 16;
+const bounds = (lower, upper) => Object.freeze([lower, upper]);
+export const MUTATION_BOUNDS = Object.freeze({
+  jointOffset: Object.freeze({ joints: "LandmarkType[]", dx: bounds(-0.5, 0.5), dy: bounds(-0.5, 0.5), peak: bounds(0, 120), rise: bounds(0, 10), fall: bounds(0, 10), strength: bounds(0, 1) }),
+  depthScale: Object.freeze({ scale: bounds(0.3, 2), reps: "optional one-based repetition numbers" }),
+  asymmetry: Object.freeze({ side: Object.freeze(["left", "right"]), amount: bounds(-0.5, 0.5) }),
+  tempo: Object.freeze({ scale: bounds(0.3, 2), reps: "optional one-based repetition numbers" }),
+  pause: Object.freeze({ at: bounds(0, 120), duration: bounds(0, 10) }),
+  frameGap: Object.freeze({ at: bounds(0, 120), duration: bounds(0, 10) }),
+  dropout: Object.freeze({ joints: "LandmarkType[]", from: bounds(0, 120), to: bounds(0, 120), intervalMaximum: 10 }),
+  confidence: Object.freeze({ joints: "LandmarkType[]", from: bounds(0, 120), to: bounds(0, 120), value: bounds(0, 1), intervalMaximum: 10 }),
+  framing: Object.freeze({ scale: bounds(0.3, 2), offsetX: bounds(-0.5, 0.5), offsetY: bounds(-0.5, 0.5) }),
+});
 
 export function landmarkNamesFromSwiftSource(source) {
   const body = /(?:public\s+)?enum\s+LandmarkType\b[^\{]*\{([\s\S]*?)^\}/m.exec(source)?.[1];
@@ -24,6 +37,9 @@ function finiteNumber(value) { return typeof value === "number" && Number.isFini
 function number(errors, value, path, lower, upper) {
   if (!finiteNumber(value)) issue(errors, path, "must be a finite number");
   else if (lower !== undefined && (value < lower || value > upper)) issue(errors, path, `must be between ${lower} and ${upper}`);
+}
+function boundedNumber(errors, value, path, limits) {
+  number(errors, value, path, limits[0], limits[1]);
 }
 function text(errors, value, path, nonempty = true) {
   if (typeof value !== "string" || (nonempty && value.trim().length === 0)) issue(errors, path, nonempty ? "must be a nonempty string" : "must be a string");
@@ -52,63 +68,63 @@ function joints(errors, affected, path) {
     seen.add(joint);
   });
 }
-function interval(errors, from, to, path, duration) {
-  number(errors, from, `${path}.from`, 0, 120);
-  number(errors, to, `${path}.to`, 0, 120);
+function interval(errors, from, to, path, duration, kind) {
+  const limits = MUTATION_BOUNDS[kind];
+  boundedNumber(errors, from, `${path}.from`, limits.from);
+  boundedNumber(errors, to, `${path}.to`, limits.to);
   if (finiteNumber(from) && finiteNumber(to)) {
     if (from > to) issue(errors, `${path}.to`, "must be at or after from");
-    else if (to - from > 10) issue(errors, `${path}.to`, "interval duration must not exceed 10 seconds");
+    else if (to - from > limits.intervalMaximum) issue(errors, `${path}.to`, `interval duration must not exceed ${limits.intervalMaximum} seconds`);
     if (finiteNumber(duration) && to > duration) issue(errors, `${path}.to`, "must be within the output sequence");
   }
 }
 function mutation(errors, value, path, reps, sequenceDuration) {
   if (!object(value)) { issue(errors, path, "must be an object"); return; }
   const kind = value.kind;
-  const allowed = new Set(["jointOffset", "depthScale", "asymmetry", "tempo", "pause", "frameGap", "dropout", "confidence", "framing"]);
-  if (typeof kind !== "string" || !allowed.has(kind)) { issue(errors, `${path}.kind`, "is not a supported mutation kind"); return; }
+  if (typeof kind !== "string" || !Object.hasOwn(MUTATION_BOUNDS, kind)) { issue(errors, `${path}.kind`, "is not a supported mutation kind"); return; }
   switch (kind) {
     case "jointOffset":
       joints(errors, value.joints, `${path}.joints`);
-      number(errors, value.dx, `${path}.dx`, -0.5, 0.5);
-      number(errors, value.dy, `${path}.dy`, -0.5, 0.5);
-      number(errors, value.peak, `${path}.peak`, 0, sequenceDuration);
-      number(errors, value.rise, `${path}.rise`, 0, 10);
-      number(errors, value.fall, `${path}.fall`, 0, 10);
-      number(errors, value.strength, `${path}.strength`, 0, 1);
+      boundedNumber(errors, value.dx, `${path}.dx`, MUTATION_BOUNDS.jointOffset.dx);
+      boundedNumber(errors, value.dy, `${path}.dy`, MUTATION_BOUNDS.jointOffset.dy);
+      boundedNumber(errors, value.peak, `${path}.peak`, MUTATION_BOUNDS.jointOffset.peak);
+      boundedNumber(errors, value.rise, `${path}.rise`, MUTATION_BOUNDS.jointOffset.rise);
+      boundedNumber(errors, value.fall, `${path}.fall`, MUTATION_BOUNDS.jointOffset.fall);
+      boundedNumber(errors, value.strength, `${path}.strength`, MUTATION_BOUNDS.jointOffset.strength);
       if (finiteNumber(value.rise) && finiteNumber(value.peak) && value.peak - value.rise < 0) issue(errors, `${path}.rise`, "influence start must be inside the output sequence");
       if (finiteNumber(value.peak) && finiteNumber(value.fall) && value.peak + value.fall > sequenceDuration) issue(errors, `${path}.fall`, "influence end must be inside the output sequence");
       break;
     case "depthScale":
     case "tempo":
-      number(errors, value.scale, `${path}.scale`, 0.3, 2);
+      boundedNumber(errors, value.scale, `${path}.scale`, MUTATION_BOUNDS[kind].scale);
       repsSelector(errors, value.reps, `${path}.reps`, reps);
       break;
     case "asymmetry":
       if (value.side !== "left" && value.side !== "right") issue(errors, `${path}.side`, "must be left or right");
-      number(errors, value.amount, `${path}.amount`, -0.5, 0.5);
+      boundedNumber(errors, value.amount, `${path}.amount`, MUTATION_BOUNDS.asymmetry.amount);
       break;
     case "pause":
-      number(errors, value.at, `${path}.at`, 0, 120);
-      number(errors, value.duration, `${path}.duration`, 0, 10);
+      boundedNumber(errors, value.at, `${path}.at`, MUTATION_BOUNDS.pause.at);
+      boundedNumber(errors, value.duration, `${path}.duration`, MUTATION_BOUNDS.pause.duration);
       break;
     case "frameGap":
-      number(errors, value.at, `${path}.at`, 0, sequenceDuration);
-      number(errors, value.duration, `${path}.duration`, 0, 10);
+      boundedNumber(errors, value.at, `${path}.at`, MUTATION_BOUNDS.frameGap.at);
+      boundedNumber(errors, value.duration, `${path}.duration`, MUTATION_BOUNDS.frameGap.duration);
       if (finiteNumber(value.at) && finiteNumber(value.duration) && value.at + value.duration > sequenceDuration) issue(errors, `${path}.duration`, "frame-gap end must be at or before the output sequence end");
       break;
     case "dropout":
       joints(errors, value.joints, `${path}.joints`);
-      interval(errors, value.from, value.to, path, sequenceDuration);
+      interval(errors, value.from, value.to, path, sequenceDuration, kind);
       break;
     case "confidence":
       joints(errors, value.joints, `${path}.joints`);
-      interval(errors, value.from, value.to, path, sequenceDuration);
-      number(errors, value.value, `${path}.value`, 0, 1);
+      interval(errors, value.from, value.to, path, sequenceDuration, kind);
+      boundedNumber(errors, value.value, `${path}.value`, MUTATION_BOUNDS.confidence.value);
       break;
     case "framing":
-      number(errors, value.scale, `${path}.scale`, 0.3, 2);
-      number(errors, value.offsetX, `${path}.offsetX`, -0.5, 0.5);
-      number(errors, value.offsetY, `${path}.offsetY`, -0.5, 0.5);
+      boundedNumber(errors, value.scale, `${path}.scale`, MUTATION_BOUNDS.framing.scale);
+      boundedNumber(errors, value.offsetX, `${path}.offsetX`, MUTATION_BOUNDS.framing.offsetX);
+      boundedNumber(errors, value.offsetY, `${path}.offsetY`, MUTATION_BOUNDS.framing.offsetY);
       break;
   }
 }

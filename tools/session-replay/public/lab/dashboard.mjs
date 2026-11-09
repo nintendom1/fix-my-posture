@@ -2,7 +2,7 @@ import { recordsToFileText, Session, clock } from "../../lib/session.mjs";
 import { num } from "../views.mjs";
 import * as labViews from "./views.mjs";
 import { createCoveragePlaybackNavigator } from "./coverage.mjs";
-import { createSelectionToken, sectionHref } from "./selection.mjs";
+import { createLabOpenHandler, createSelectionToken, installLabOpenCommandReceiver, labOpenRequestFromURL, sectionHref } from "./selection.mjs";
 
 const $ = (id) => document.getElementById(id);
 const selectionTokens = createSelectionToken();
@@ -122,6 +122,9 @@ function escapeText(value) {
   })[character]);
 }
 
+// Explicit navigation (fmp_lab_open, URL, live command) wins over the list's default "open the first run".
+let explicitNavigations = 0;
+
 async function loadRuns() {
   if (state.loading) return;
   state.loading = true;
@@ -134,7 +137,9 @@ async function loadRuns() {
     state.runs = runs;
     state.loaded = true;
     list.innerHTML = labViews.renderRunCards(state.runs, state.runID);
-    if (state.runID && state.runs.some((run) => run.id === state.runID)) await openRun(state.runID);
+    if (explicitNavigations > 0) {
+      // After any explicit navigation the list never auto-opens a run; the requested selection stays.
+    } else if (state.runID && state.runs.some((run) => run.id === state.runID)) await openRun(state.runID);
     else if (state.runs.length) await openRun(state.runs[0].id);
     else {
       state.runID = null;
@@ -170,11 +175,13 @@ async function openRun(runID) {
     const firstScenario = run.plan.scenarios?.[0];
     if (firstScenario) await openScenario(firstScenario.id);
     else $("labScenarioDetail").innerHTML = `<div class="lab-empty">This run has no scenarios.</div>`;
+    return state.run === run && state.runID === runID && state.activeView === "runs" ? run : null;
   } catch (error) {
     if (!isCurrent()) return;
     $("labRunPane").hidden = true;
     $("labWelcome").hidden = false;
     showError($("labRunsList"), error);
+    return null;
   }
 }
 
@@ -300,11 +307,13 @@ function seekCurrentPlayback({ runID, scenarioID, timestamp }) {
   return true;
 }
 
+function activateLabRuns() {
+  $("labDashboard").querySelector('[data-lab-view="runs"]')?.click();
+  return state.activeView === "runs";
+}
+
 const navigateCoverageThumbnail = createCoveragePlaybackNavigator({
-  activateRuns: () => {
-    $("labDashboard").querySelector('[data-lab-view="runs"]')?.click();
-    return state.activeView === "runs";
-  },
+  activateRuns: activateLabRuns,
   loadRun: async (runID) => {
     await openRun(runID);
     return state.activeView === "runs" && state.runID === runID ? state.run : null;
@@ -318,7 +327,28 @@ const navigateCoverageThumbnail = createCoveragePlaybackNavigator({
   seek: seekCurrentPlayback,
 });
 
+const labOpenHandler = createLabOpenHandler({
+  navigateToScenario: navigateCoverageThumbnail,
+  navigateToRun: async ({ runID, scenarioID }) => {
+    if (await activateLabRuns() === false) return false;
+    const run = await openRun(runID);
+    if ((run?.id ?? run?.summary?.id) !== runID) return false;
+    if (!scenarioID) return true;
+    if (!run.plan?.scenarios?.some((scenario) => scenario.id === scenarioID)) return false;
+    await openScenario(scenarioID);
+    return state.activeView === "runs" && state.runID === runID && state.scenarioID === scenarioID;
+  },
+});
+
+const handleLabOpenRequest = (request) => {
+  explicitNavigations += 1;
+  return labOpenHandler(request);
+};
+
 window.FMPLabDashboard = { navigateToScenario: navigateCoverageThumbnail };
+
+const dashboardEvents = new EventSource("/api/events");
+installLabOpenCommandReceiver(dashboardEvents, handleLabOpenRequest);
 
 document.addEventListener("click", (event) => {
   const viewButton = event.target.closest("[data-lab-view]");
@@ -338,12 +368,20 @@ document.addEventListener("click", (event) => {
 
 $("labRefresh").addEventListener("click", loadRuns);
 
-const directRecording = new URLSearchParams(location.search).has("session")
-  || new URLSearchParams(location.search).get("view") === "recordings";
+const initialLabOpen = labOpenRequestFromURL(location.search);
+const directRecording = !initialLabOpen && (new URLSearchParams(location.search).has("session")
+  || new URLSearchParams(location.search).get("view") === "recordings");
 switchView(directRecording ? "recordings" : "runs", { updateURL: false });
+if (initialLabOpen) void handleLabOpenRequest(initialLabOpen);
 
 window.addEventListener("popstate", () => {
   const params = new URLSearchParams(location.search);
+  const labTarget = labOpenRequestFromURL(location.search);
+  if (labTarget) {
+    switchView("runs", { updateURL: false });
+    void handleLabOpenRequest(labTarget);
+    return;
+  }
   const recording = params.has("session") || params.get("view") === "recordings";
   switchView(recording ? "recordings" : "runs", { updateURL: false });
 });
