@@ -76,6 +76,7 @@ export function buildCoverageModel(runs = []) {
     const scenario = definition.scenario;
     return {
       id: scenario.id,
+      planID: definition.run.plan?.id ?? null,
       revision: scenario.revision,
       exercise: scenario.exercise,
       category: scenario.category,

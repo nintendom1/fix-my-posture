@@ -493,6 +493,7 @@
 		A10000012B00000000000503 /* MovementScenario.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000503 /* MovementScenario.swift */; };
 		A10000012B00000000000504 /* MovementLabTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000504 /* MovementLabTests.swift */; };
 		A10000012B00000000000505 /* MovementLabRunner.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000505 /* MovementLabRunner.swift */; };
+		A10000012B00000000000506 /* MovementLabRegressionTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000506 /* MovementLabRegressionTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -994,6 +995,7 @@
 		B10000012B00000000000503 /* MovementScenario.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementScenario.swift; sourceTree = "<group>"; };
 		B10000012B00000000000504 /* MovementLabTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementLabTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000505 /* MovementLabRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementLabRunner.swift; sourceTree = "<group>"; };
+		B10000012B00000000000506 /* MovementLabRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovementLabRegressionTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1292,6 +1294,7 @@
 				B10000012B00000000000498 /* AudioCoordinatorTests.swift */,
 				B10000012B00000000000499 /* MovementScenarioTests.swift */,
 				B10000012B00000000000504 /* MovementLabTests.swift */,
+				B10000012B00000000000506 /* MovementLabRegressionTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -2678,6 +2681,7 @@
 				A10000012B00000000000503 /* MovementScenario.swift in TestSources */,
 				A10000012B00000000000504 /* MovementLabTests.swift in TestSources */,
 				A10000012B00000000000505 /* MovementLabRunner.swift in TestSources */,
+				A10000012B00000000000506 /* MovementLabRegressionTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

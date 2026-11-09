@@ -391,6 +391,7 @@ final class MovementLabTests: XCTestCase {
             guideRevisions[scenario.exercise.rawValue] = MovementCanonicalRevision.value(for: exercise)
         }
         let summary = MovementLabSummary(schemaVersion: MovementPlan.currentSchemaVersion,
+                                         executionMode: mode.rawValue,
                                          outcomes: counts, elapsedSeconds: run.elapsedSeconds,
                                          guideRevisions: guideRevisions,
                                          buildRevision: MovementLabArtifactPaths.environmentValue("FMP_LAB_BUILD_REVISION", environment: environment) ?? "unknown",
@@ -453,6 +454,7 @@ final class MovementLabTests: XCTestCase {
 
 private struct MovementLabSummary: Codable {
     let schemaVersion: Int
+    let executionMode: String
     let outcomes: [String: Int]
     let elapsedSeconds: TimeInterval
     let guideRevisions: [String: String]

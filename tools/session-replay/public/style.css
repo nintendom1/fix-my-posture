@@ -250,6 +250,21 @@ svg.chart.small-chart { height: 40px; }
 .lab-failure-link { border: 1px solid rgba(255,93,115,.25); border-radius: 7px; padding: 5px 8px; background: transparent; color: #ffb4bf; cursor: pointer; font-size: 10px; }
 .lab-failure-link:hover { background: rgba(255,93,115,.13); }
 .lab-expected-observed { padding-top: 16px; }
+.lab-review-panel { display: grid; gap: 10px; margin-top: 18px; padding: 14px; border: 1px solid var(--line-strong); border-radius: 10px; background: rgba(255,255,255,.025); }
+.lab-review-heading, .lab-review-heading > div, .lab-review-actions, .coverage-review-state { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.lab-review-heading { justify-content: space-between; }
+.lab-review-heading h4 { display: inline; margin: 0 8px 0 0; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.lab-review-heading time { color: var(--faint); font-size: 10px; }
+.lab-review-badge { display: inline-flex; align-items: center; padding: 3px 7px; border: 1px solid var(--line-strong); border-radius: 99px; color: var(--muted); font-size: 9px; text-transform: capitalize; }
+.lab-review-badge.approved { border-color: rgba(75,204,148,.45); color: #85e4b6; }
+.lab-review-badge.rejected { border-color: rgba(255,93,115,.45); color: #ff9ba8; }
+.lab-review-badge.needs-edit { border-color: rgba(255,181,71,.45); color: #ffd38c; }
+.lab-review-badge.promoted { border-color: rgba(155,123,255,.5); color: #c9b3ff; }
+.lab-review-saved-note { margin: 0; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.lab-review-panel label { display: grid; gap: 5px; color: var(--faint); font-size: 10px; }
+.lab-review-panel textarea { width: 100%; resize: vertical; border: 1px solid var(--line); border-radius: 7px; padding: 8px; background: #0c0a12; color: var(--text); font: inherit; }
+.lab-review-message { min-height: 14px; margin: 0; color: var(--faint); font-size: 10px; }
+.lab-review-message.error { color: #ff9ba8; }
 .lab-assertions { display: flex; flex-direction: column; gap: 6px; }
 .lab-assertion { display: grid; grid-template-columns: 82px minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.02); font-size: 11px; line-height: 1.4; }
 .lab-observed { display: grid; grid-template-columns: 94px minmax(0, 1fr); gap: 8px; padding: 10px 2px; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
@@ -297,6 +312,7 @@ svg.chart.small-chart { height: 40px; }
 .coverage-scenario { display: grid; grid-template-columns: minmax(150px, .65fr) minmax(0, 1.35fr); gap: 12px; align-items: center; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.025); }
 .coverage-matrix.one-category .coverage-scenario { grid-template-columns: minmax(0, 1fr); }
 .coverage-scenario-info { min-width: 0; }
+.coverage-review-state { margin-top: 7px; }
 .coverage-scenario-heading { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
 .coverage-scenario-heading h4 { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
 .coverage-scenario-heading h4 span { color: var(--faint); font: 10px var(--mono); }
