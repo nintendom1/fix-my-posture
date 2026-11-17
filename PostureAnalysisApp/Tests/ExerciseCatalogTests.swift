@@ -4,6 +4,56 @@ import XCTest
 @testable import PostureAnalysisApp
 
 final class ExerciseCatalogTests: XCTestCase {
+    func testExerciseViewPreferenceRawValuesRoundTrip() throws {
+        let cases: [(ExerciseViewPreference, String)] = [
+            (.auto, "auto"),
+            (.locked(.facing), "facing"),
+            (.locked(.sideOn), "side")
+        ]
+
+        for (preference, rawValue) in cases {
+            XCTAssertEqual(preference.rawValue, rawValue)
+            XCTAssertEqual(ExerciseViewPreference(rawValue: rawValue), preference)
+            let encoded = try JSONEncoder().encode(preference)
+            XCTAssertEqual(try JSONDecoder().decode(ExerciseViewPreference.self, from: encoded), preference)
+        }
+        XCTAssertNil(ExerciseViewPreference(rawValue: "unknown"))
+    }
+
+    func testExerciseCameraViewsRoundTripAndMapStances() throws {
+        for view in ExerciseCameraView.allCases {
+            let encoded = try JSONEncoder().encode(view)
+            XCTAssertEqual(try JSONDecoder().decode(ExerciseCameraView.self, from: encoded), view)
+        }
+
+        XCTAssertEqual(ExerciseCameraView.front.stance, .facing)
+        XCTAssertEqual(ExerciseCameraView.floor.stance, .facing)
+        XCTAssertEqual(ExerciseCameraView.side.stance, .sideOn)
+        XCTAssertNil(ExerciseCameraView.lyingSide.stance)
+    }
+
+    func testSingleViewDefinitionsIgnoreSameAndUnsupportedViews() throws {
+        let exercise = try XCTUnwrap(ExerciseCatalog.definition(for: .hammerCurl))
+        XCTAssertFalse(exercise.hasViewChoice)
+        XCTAssertEqual(exercise.views, [exercise.cameraView])
+
+        let sameView = exercise.inView(exercise.cameraView)
+        XCTAssertEqual(sameView.id, exercise.id)
+        XCTAssertEqual(sameView.displayName, exercise.displayName)
+        XCTAssertEqual(sameView.cameraView, exercise.cameraView)
+        XCTAssertEqual(sameView.sets, exercise.sets)
+        XCTAssertEqual(sameView.targetReps, exercise.targetReps)
+
+        let unsupportedView = exercise.inView(.lyingSide)
+        XCTAssertEqual(unsupportedView.id, exercise.id)
+        XCTAssertEqual(unsupportedView.displayName, exercise.displayName)
+        XCTAssertEqual(unsupportedView.cameraView, exercise.cameraView)
+    }
+
+    func testCatalogEveryViewIncludesOnlyTheCurrentDefinitions() {
+        XCTAssertEqual(ExerciseCatalog.everyView.count, ExerciseCatalog.all.count)
+    }
+
     func testEveryExerciseHasOneBundledSquarePhotograph() throws {
         let photographs = ExercisePhotography.all
         let catalogIDs = Set(ExerciseCatalog.all.map(\.id))

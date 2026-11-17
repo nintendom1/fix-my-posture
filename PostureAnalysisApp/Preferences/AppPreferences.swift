@@ -34,6 +34,7 @@ enum PreferenceKey {
     static let workoutCoachVoiceTipSpoken = "workoutCoach.voiceTipSpoken"
     static func workoutCoachGuideSeen(_ exerciseID: String) -> String { "workoutCoach.guideSeen.\(exerciseID)" }
     static func workoutCoachTarget(_ exerciseID: String) -> String { "workoutCoach.target.\(exerciseID)" }
+    static func workoutCoachViewPreference(_ exerciseID: String) -> String { "workoutCoach.view.\(exerciseID)" }
 
     /// New Phase 4 settings use the settings. namespace.
     static let restPolicy = "settings.restPolicy"
@@ -91,6 +92,8 @@ protocol AppPreferencesStoring: AnyObject {
     var workoutCoachVoiceTipSpoken: Bool { get set }
     func guideSeen(for exerciseID: String) -> Bool
     func setGuideSeen(_ seen: Bool, for exerciseID: String)
+    func viewPreference(for id: ExerciseID) -> ExerciseViewPreference
+    func setViewPreference(_ preference: ExerciseViewPreference, for id: ExerciseID)
     func exerciseTarget(for exerciseID: String) -> ExerciseTarget?
     func setExerciseTarget(_ target: ExerciseTarget?, for exerciseID: String)
 
@@ -167,6 +170,21 @@ final class UserDefaultsPreferences: AppPreferencesStoring {
 
     func setGuideSeen(_ seen: Bool, for exerciseID: String) {
         defaults.set(seen, forKey: PreferenceKey.workoutCoachGuideSeen(exerciseID))
+    }
+
+    func viewPreference(for id: ExerciseID) -> ExerciseViewPreference {
+        let key = PreferenceKey.workoutCoachViewPreference(id.rawValue)
+        guard let rawValue = defaults.string(forKey: key) else { return .auto }
+        return ExerciseViewPreference(rawValue: rawValue) ?? .auto
+    }
+
+    func setViewPreference(_ preference: ExerciseViewPreference, for id: ExerciseID) {
+        let key = PreferenceKey.workoutCoachViewPreference(id.rawValue)
+        guard preference != .auto else {
+            defaults.removeObject(forKey: key)
+            return
+        }
+        defaults.set(preference.rawValue, forKey: key)
     }
 
     func exerciseTarget(for exerciseID: String) -> ExerciseTarget? {
@@ -326,6 +344,7 @@ final class InMemoryPreferences: AppPreferencesStoring {
     var workoutCoachVoiceTipSpoken = false
     private var seenGuides = Set<String>()
     private var exerciseTargets: [String: ExerciseTarget] = [:]
+    private var viewPreferences: [ExerciseID: ExerciseViewPreference] = [:]
 
     private var storedRestPolicy: RestPolicy = .exerciseDefault
     var restPolicy: RestPolicy {
@@ -362,6 +381,18 @@ final class InMemoryPreferences: AppPreferencesStoring {
             seenGuides.insert(exerciseID)
         } else {
             seenGuides.remove(exerciseID)
+        }
+    }
+
+    func viewPreference(for id: ExerciseID) -> ExerciseViewPreference {
+        viewPreferences[id] ?? .auto
+    }
+
+    func setViewPreference(_ preference: ExerciseViewPreference, for id: ExerciseID) {
+        if preference == .auto {
+            viewPreferences.removeValue(forKey: id)
+        } else {
+            viewPreferences[id] = preference
         }
     }
 

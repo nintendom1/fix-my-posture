@@ -370,7 +370,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         case .openSettings:
             break
         case .start, .pause, .resume, .restartSet, .nextSet, .changeExercise, .chooseExercise,
-             .cancelExerciseChange, .anotherRound, .nextExercise, .endWorkout, .tooHard:
+             .setCameraView, .cancelExerciseChange, .anotherRound, .nextExercise, .endWorkout, .tooHard:
             assertionFailure("Command-backed intents are mapped above.")
         }
     }
@@ -714,6 +714,8 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
                 setActiveTip(nil)
             case .showTip(let tip):
                 setActiveTip(tip)
+            case .rememberViewPreference:
+                break
             case .stopCaptureAndVoice:
                 stopTicks()
                 stopCapture()

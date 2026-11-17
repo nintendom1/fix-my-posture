@@ -477,6 +477,10 @@ enum WorkoutSessionLines {
             if swap.reducedRange { fields.append(("reducedRange", .bool(true))) }
             fields.append(("amount", .int(swap.amount)))
             return fields
+        case .stanceObserved(let observation):
+            return [("type", "stance"),
+                    ("settled", observation.settled.map { .string($0.rawValue) } ?? .null),
+                    ("turning", .bool(observation.turning))]
         case .tick, .command, .formObserved, .coachSpeakingChanged, .poseObserved:
             return [("type", .string(String(describing: event)))]
         }
@@ -487,6 +491,7 @@ enum WorkoutSessionLines {
         switch command {
         case .selectExercise(let id): return "selectExercise(\(id.rawValue))"
         case .setWeight(let weight): return "setWeight(\(weight.label))"
+        case .setCameraView(let preference): return "setCameraView:\(preference.rawValue)"
         // The marker line carries the note.
         case .mark: return "mark"
         default: return String(describing: command)

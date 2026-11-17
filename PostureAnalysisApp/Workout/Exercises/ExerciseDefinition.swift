@@ -25,8 +25,53 @@ struct FocusSegment: Hashable {
     let style: Style
 }
 
+/// The user's body orientation relative to the phone.
+enum BodyStance: String, Codable, CaseIterable {
+    case facing
+    case sideOn = "side"
+}
+
+/// Whether a workout should choose a camera view automatically or keep the user's choice.
+enum ExerciseViewPreference: Hashable, RawRepresentable, Codable {
+    case auto
+    case locked(BodyStance)
+
+    typealias RawValue = String
+
+    init?(rawValue: String) {
+        switch rawValue {
+        case "auto": self = .auto
+        case "facing": self = .locked(.facing)
+        case "side": self = .locked(.sideOn)
+        default: return nil
+        }
+    }
+
+    var rawValue: String {
+        switch self {
+        case .auto: return "auto"
+        case .locked(.facing): return "facing"
+        case .locked(.sideOn): return "side"
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+        guard let preference = Self(rawValue: rawValue) else {
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unknown exercise view preference")
+        }
+        self = preference
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
 /// Where the user faces relative to the phone.
-enum ExerciseCameraView: String, Equatable {
+enum ExerciseCameraView: String, Codable, CaseIterable, Equatable {
     /// Facing the phone; both arms visible.
     case front
     /// Side-on to the phone; the arm nearer the phone is tracked.
@@ -36,6 +81,25 @@ enum ExerciseCameraView: String, Equatable {
     case floor
     /// The phone stands upright at floor height, side-on to a person lying on their back.
     case lyingSide
+
+    /// The short name used to identify this camera angle.
+    var displayName: String {
+        switch self {
+        case .front: return "Front"
+        case .side: return "Side-on"
+        case .floor: return "Floor"
+        case .lyingSide: return "Lying side-on"
+        }
+    }
+
+    /// The standing orientation compatible with this view, if it can change automatically.
+    var stance: BodyStance? {
+        switch self {
+        case .front, .floor: return .facing
+        case .side: return .sideOn
+        case .lyingSide: return nil
+        }
+    }
 }
 
 /// The limb whose work is tracked one side at a time.
@@ -97,6 +161,8 @@ struct ExerciseDefinition: Identifiable {
     /// Where the limbs travel during a rep; tips stay out of it.
     let motionEnvelope: MotionEnvelope
     var cameraView: ExerciseCameraView = .front
+    /// Supported camera views, with the usual view first.
+    let views: [ExerciseCameraView]
     /// When not empty, tracking also needs one of these sets fully visible, such as either arm from the side.
     var anyOfRequiredJoints: [Set<LandmarkType>] = []
     /// Holding the start position for a moment begins a set. Off when the start position is just standing,
@@ -120,6 +186,8 @@ struct ExerciseDefinition: Identifiable {
     var doseUnit: ExerciseDoseUnit = .reps
     /// A same-exercise variant with a smaller range, when the adaptive ladder prescribes one.
     let reducedRange: (() -> ExerciseDefinition)?
+    /// Builds the complete exercise definition for another supported camera view.
+    let buildView: ((ExerciseCameraView) -> ExerciseDefinition)?
 
     private let cameraAnalyzer: (_ epoch: Int) -> ExerciseAnalyzing
 
@@ -171,7 +239,9 @@ struct ExerciseDefinition: Identifiable {
         doseUnit: ExerciseDoseUnit = .reps,
         makeAnalyzer: @escaping (_ epoch: Int) -> ExerciseAnalyzing,
         diagnostics: ExerciseDiagnostics? = nil,
-        reducedRange: (() -> ExerciseDefinition)? = nil
+        reducedRange: (() -> ExerciseDefinition)? = nil,
+        views: [ExerciseCameraView] = [],
+        buildView: ((ExerciseCameraView) -> ExerciseDefinition)? = nil
     ) {
         self.id = id
         self.displayName = displayName
@@ -199,6 +269,7 @@ struct ExerciseDefinition: Identifiable {
         self.reminders = reminders
         self.motionEnvelope = motionEnvelope
         self.cameraView = cameraView
+        self.views = views.isEmpty ? [cameraView] : views
         self.anyOfRequiredJoints = anyOfRequiredJoints
         self.startsByHolding = startsByHolding
         self.perSide = perSide
@@ -209,6 +280,7 @@ struct ExerciseDefinition: Identifiable {
         self.tracking = tracking
         self.doseUnit = doseUnit
         self.reducedRange = reducedRange
+        self.buildView = buildView
         cameraAnalyzer = makeAnalyzer
         self.diagnostics = diagnostics
     }
@@ -274,4 +346,31 @@ struct ExerciseDefinition: Identifiable {
     }
 
     var isSelfReported: Bool { tracking == .selfReported }
+
+    /// The default camera angle for this exercise.
+    var usualView: ExerciseCameraView { views.first ?? cameraView }
+
+    /// Whether this exercise has multiple camera definitions that can be selected.
+    var hasViewChoice: Bool { views.count > 1 && tracking == .camera && buildView != nil }
+
+    /// The first supported view that matches a detected body stance.
+    func view(for stance: BodyStance) -> ExerciseCameraView? {
+        views.first { $0.stance == stance }
+    }
+
+    /// Builds another supported view while preserving the active workout dose.
+    func inView(_ view: ExerciseCameraView) -> ExerciseDefinition {
+        guard view != cameraView, views.contains(view), let buildView else { return self }
+        var definition = buildView(view)
+        definition.sets = sets
+        definition.targetReps = targetReps
+        definition.autoCompleteReps = autoCompleteReps
+        definition.targetRangeAnnouncementReps = targetRangeAnnouncementReps
+        return definition
+    }
+
+    /// Every selectable camera definition, or this definition when it has no view choice.
+    var everyView: [ExerciseDefinition] {
+        hasViewChoice ? views.map { inView($0) } : [self]
+    }
 }

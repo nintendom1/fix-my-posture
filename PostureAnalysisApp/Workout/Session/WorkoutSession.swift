@@ -36,6 +36,8 @@ enum WorkoutCommand: Equatable {
     case nextExercise
     /// Records the weight for this set and later sets of this exercise, until changed.
     case setWeight(WorkoutWeight)
+    /// Stores a per-exercise camera-view preference.
+    case setCameraView(ExerciseViewPreference)
     case cancel
     case repCount
     case whichSet
@@ -90,6 +92,8 @@ enum WorkoutEvent: Equatable {
     case voiceControlChanged(Bool)
     /// Form output from the analyzer, on every frame while counting.
     case formObserved(FormObservation)
+    /// The latest settled body stance and whether the user is turning.
+    case stanceObserved(StanceDetector.Observation)
     /// Corrective cues wait for the coach to finish speaking, so a tip and its spoken line match.
     case coachSpeakingChanged(Bool)
     /// A camera frame was analyzed, at its capture moment. A start hold counts only up to the latest one, so a
@@ -113,6 +117,8 @@ enum WorkoutEffect: Equatable {
     case stopCaptureAndVoice
     /// Show a coaching tip; corrective tips are also spoken through `.speak`.
     case showTip(CoachingTip)
+    /// Persists a camera-view preference for one exercise.
+    case rememberViewPreference(ExerciseID, ExerciseViewPreference)
 }
 
 struct ExerciseProgress: Equatable {
@@ -143,13 +149,17 @@ struct WorkoutSettings: Equatable {
     let restPolicy: RestPolicy
     let weightUnit: PreferredWeightUnit
     let startByHolding: Bool
+    /// Per-exercise camera-view choices captured for this workout.
+    let viewPreferences: [ExerciseID: ExerciseViewPreference]
 
     init(restPolicy: RestPolicy = .exerciseDefault,
          weightUnit: PreferredWeightUnit = .lb,
-         startByHolding: Bool = true) {
+         startByHolding: Bool = true,
+         viewPreferences: [ExerciseID: ExerciseViewPreference] = [:]) {
         self.restPolicy = restPolicy
         self.weightUnit = weightUnit
         self.startByHolding = startByHolding
+        self.viewPreferences = viewPreferences
     }
 
     func restSeconds(for exercise: ExerciseDefinition) -> Int {
@@ -254,6 +264,14 @@ struct WorkoutSession {
         }
         return base
     }
+
+    /// The stored camera-view preference for an exercise, defaulting to automatic selection.
+    func viewPreference(for id: ExerciseID) -> ExerciseViewPreference {
+        settings.viewPreferences[id] ?? .auto
+    }
+
+    /// Reserved for a future stable tag for the active camera view.
+    var cameraViewTag: String? { nil }
 
     /// The exercise's hold-to-start choice combined with the workout-wide preference.
     var effectiveStartsByHolding: Bool {
@@ -382,6 +400,8 @@ struct WorkoutSession {
         case .formObserved(let observation):
             guard observation.epoch == analyzerEpoch, phase == .exercising, isCounting else { return [] }
             return tipEffects(coaching.update(observation, speaking: isCoachSpeaking, at: now))
+        case .stanceObserved:
+            return []
         case .coachSpeakingChanged(let speaking):
             isCoachSpeaking = speaking
             return []
@@ -497,6 +517,8 @@ struct WorkoutSession {
             guard exercise.equipment != .bodyweight else { return hint("\(exercise.displayName) doesn't use weights.") }
             currentWeights[exercise.id] = weight
             return [.speak(Utterance(text: "\(weight.spokenLabel).", isInstruction: false))]
+        case .setCameraView:
+            return []
         case .repCount:
             return [.speak(Utterance(text: repCountReply(at: now), isInstruction: false))]
         case .whichSet:

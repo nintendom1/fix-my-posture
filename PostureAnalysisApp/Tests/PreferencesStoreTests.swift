@@ -109,6 +109,31 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertEqual(defaults.object(forKey: PreferenceKey.showAlignmentTargets) as? Bool, false)
     }
 
+    func testWorkoutViewPreferenceRoundTripsAndAutoRemovesItsValue() throws {
+        let suiteName = "PreferencesStoreTests.ViewPreference.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let exerciseID = ExerciseID(rawValue: "view_preference_test")
+        let preferenceKey = PreferenceKey.workoutCoachViewPreference(exerciseID.rawValue)
+        let preferences = UserDefaultsPreferences(defaults: defaults)
+
+        XCTAssertEqual(preferences.viewPreference(for: exerciseID), .auto)
+        preferences.setViewPreference(.locked(.sideOn), for: exerciseID)
+        XCTAssertEqual(defaults.string(forKey: preferenceKey), "side")
+        XCTAssertEqual(UserDefaultsPreferences(defaults: defaults).viewPreference(for: exerciseID), .locked(.sideOn))
+
+        preferences.setViewPreference(.auto, for: exerciseID)
+        XCTAssertNil(defaults.object(forKey: preferenceKey))
+        XCTAssertEqual(preferences.viewPreference(for: exerciseID), .auto)
+
+        let inMemory = InMemoryPreferences()
+        inMemory.setViewPreference(.locked(.facing), for: exerciseID)
+        XCTAssertEqual(inMemory.viewPreference(for: exerciseID), .locked(.facing))
+        inMemory.setViewPreference(.auto, for: exerciseID)
+        XCTAssertEqual(inMemory.viewPreference(for: exerciseID), .auto)
+    }
+
     func testAdaptiveInvitationPreferencesDefaultAndRoundTrip() throws {
         let suiteName = "PreferencesStoreTests.AdaptiveInvitation.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))

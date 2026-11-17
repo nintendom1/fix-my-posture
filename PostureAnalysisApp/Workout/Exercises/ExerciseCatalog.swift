@@ -32,6 +32,8 @@ enum ExerciseCatalog {
         InclinePushUpExercise.definition()
     ]
 
+    static var everyView: [ExerciseDefinition] { all.flatMap(\.everyView) }
+
     static func definition(for id: ExerciseID) -> ExerciseDefinition? {
         all.first { $0.id == id }
     }

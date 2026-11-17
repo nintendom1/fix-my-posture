@@ -96,6 +96,7 @@ struct WorkoutCoachHarness {
                      plan: WorkoutPlan? = nil,
                      adaptive: (any AdaptiveEvidenceRecording)? = nil,
                      todayLaunch: TodaySessionLaunch? = nil,
+                     settings: WorkoutSettings = WorkoutSettings(),
                      trace: WorkoutTraceRecorder? = nil,
                      observer: (any WorkoutObserving)? = nil,
                      actionLog: WorkoutObservationActionLog? = nil) -> WorkoutCoachHarness {
@@ -138,6 +139,7 @@ struct WorkoutCoachHarness {
             exercises: exercises,
             initialExercise: initialExercise,
             plan: plan,
+            settings: settings,
             recorder: recorder ?? trace,
             audioTiming: audioTiming,
             adaptive: adaptive,

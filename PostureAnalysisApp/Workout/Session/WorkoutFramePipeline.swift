@@ -25,6 +25,8 @@ struct WorkoutFramePipeline {
         /// The counting flag passed to the analyzer.
         let counting: Bool
         let analysis: ExerciseAnalysis?
+        /// The frame's stance classification when the detector is connected.
+        var stance: StanceDetector.Reading? = nil
     }
 
     /// A change the coach makes between frames. The coach and session replay both go through `apply`,
