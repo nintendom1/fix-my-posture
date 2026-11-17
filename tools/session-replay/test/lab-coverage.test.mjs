@@ -147,6 +147,67 @@ test("coverage aggregates the newest result per scenario id and revision and mar
   assert.doesNotMatch(passedOnly, /class="coverage-cell not-tested"/);
 });
 
+test("scenario coverage discovers Push-Up from stored plans", () => {
+  const airSquat = scenario("squat-case");
+  const pushUp = scenario("push-up-case", 1, {
+    exercise: "push_up", category: "tracking", purpose: "Bottom shoulder dropout.",
+    mutations: [{ kind: "dropout", joints: ["leftShoulder", "rightShoulder"], from: 4, to: 4.3 }],
+  });
+  const model = buildCoverageModel([storedRun("mixed-run", "2026-11-08T12:00:00Z", [airSquat, pushUp])]);
+  assert.deepEqual(model.exercises, ["air_squat", "push_up"]);
+  const pushUpCell = model.cells.find((item) => item.exercise === "push_up" && item.category === "tracking");
+  assert.equal(pushUpCell.scenarios.length, 1);
+  assert.equal(pushUpCell.scenarios[0].id, "push-up-case");
+  assert.match(renderCoverageMatrix(model), /Push Up/);
+});
+
+test("coverage keeps Air Squat and Push-Up canonical revision one separate in either run order", () => {
+  const airSquat = scenario("canonical", 1, {
+    exercise: "air_squat", category: "canonical", purpose: "Air Squat canonical.", mutations: [],
+  });
+  const pushUp = scenario("canonical", 1, {
+    exercise: "push_up", category: "canonical", purpose: "Push-Up canonical.", mutations: [],
+  });
+  const airRun = {
+    id: RUN_OLD,
+    summary: { id: RUN_OLD, createdAt: "2026-11-08T09:00:00Z" },
+    plan: { id: "air-squat-core-v1", scenarios: [airSquat] },
+    // Older stored runs omit the result revision; coverage must recover it from this run's plan.
+    results: [{ scenarioID: "canonical", outcome: "passed", observed: { reps: 5 }, assertionResults: [] }],
+  };
+  const pushRun = {
+    id: RUN_NEW,
+    summary: { id: RUN_NEW, createdAt: "2026-11-08T11:00:00Z" },
+    plan: { id: "push-up-core-v1", scenarios: [pushUp] },
+    results: [{ scenarioID: "canonical", revision: 1, outcome: "failed", observed: { reps: 4 }, assertionResults: [] }],
+  };
+  const expected = [
+    ["air_squat", "canonical", 1, "passed"],
+    ["push_up", "canonical", 1, "failed"],
+  ];
+
+  for (const runs of [[airRun, pushRun], [pushRun, airRun]]) {
+    const model = buildCoverageModel(runs);
+    assert.deepEqual(model.scenarios.map(({ exercise, id, revision, status }) => [exercise, id, revision, status]), expected);
+    assert.equal(model.scenarios.find((item) => item.exercise === "air_squat").resultRunID, RUN_OLD);
+    assert.equal(model.scenarios.find((item) => item.exercise === "push_up").resultRunID, RUN_NEW);
+
+    const rowKeys = model.scenarios.map((item) => renderCoverageScenarioRow(item)
+      .match(/data-coverage-row="([^"]+)"/)?.[1]);
+    assert.deepEqual(rowKeys, ["air_squat|canonical|1", "push_up|canonical|1"]);
+  }
+
+  const pushRunWithoutResult = { ...pushRun, results: [] };
+  for (const runs of [[airRun, pushRunWithoutResult], [pushRunWithoutResult, airRun]]) {
+    const model = buildCoverageModel(runs);
+    assert.deepEqual(model.scenarios.map(({ exercise, id, revision, status }) => [exercise, id, revision, status]), [
+      ["air_squat", "canonical", 1, "passed"],
+      ["push_up", "canonical", 1, "planned"],
+    ]);
+    assert.equal(model.scenarios.find((item) => item.exercise === "push_up").resultRunID, null);
+  }
+});
+
 test("keyframes follow each mutation peak, event, or window boundary and label event types", () => {
   const records = coverageRecords({ bottomY: 250, asymmetry: 35 });
   const cases = [

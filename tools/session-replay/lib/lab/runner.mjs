@@ -11,7 +11,7 @@ export const MAX_PLAN_BYTES = 5 * 1024 * 1024;
 export const XCODEBUILD_TIMEOUT_MS = 20 * 60 * 1000;
 export const XCODEBUILD_TERM_GRACE_MS = 1500;
 export const XCODEBUILD_KILL_WAIT_MS = 500;
-const BUILTIN_PRESET_IDS = new Set(["air_squat"]);
+const BUILTIN_PRESET_IDS = new Set(["air_squat", "push_up"]);
 
 export function createRunID(now = new Date(), suffix = randomBytes(3).toString("hex")) {
   const stamp = [now.getUTCFullYear(), String(now.getUTCMonth() + 1).padStart(2, "0"),

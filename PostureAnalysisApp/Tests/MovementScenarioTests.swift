@@ -3,7 +3,7 @@ import Foundation
 import XCTest
 @testable import PostureAnalysisApp
 
-/// Movement Lab schema, temporal influence, and synthetic Air Squat generation tests.
+/// Movement Lab schema, temporal influence, and synthetic exercise generation tests.
 final class MovementScenarioTests: XCTestCase {
     private let createdAt = "2026-11-07T12:00:00Z"
 
@@ -565,6 +565,43 @@ final class MovementScenarioTests: XCTestCase {
                           "\(scenario.id): \(materialized.invalidReasons.joined(separator: ", "))")
             XCTAssertFalse(materialized.frames.isEmpty, "\(scenario.id) should contain camera frames")
             XCTAssertFalse(materialized.recordingLines.isEmpty, "\(scenario.id) should have recording lines")
+        }
+    }
+
+    func testPushUpPresetMaterializesFloorViewDepthAtExpectedElbowAngles() throws {
+        let plan = MovementPresets.pushUp(createdAt: createdAt, author: .developer)
+        XCTAssertTrue(plan.validate().isEmpty)
+
+        let exerciseMotion = try XCTUnwrap(ExerciseCatalog.all.first { $0.id == .pushUp }).guide.motion
+        XCTAssertEqual(PushUpMovement.motion.duration, exerciseMotion.duration, accuracy: 1e-12)
+
+        let canonical = try XCTUnwrap(plan.scenarios.first { $0.id == "canonical" })
+        let clean = MovementGenerator.materialize(plan: plan, scenario: canonical)
+        XCTAssertTrue(clean.isValid, clean.invalidReasons.joined(separator: ", "))
+        let up = try frame(at: MovementGenerator.readyHold, in: clean).frame
+        let downTime = MovementGenerator.readyHold + PushUpMovement.bottomTime
+        let down = try frame(at: downTime, in: clean).frame
+
+        func elbowAngle(in pose: PoseFrame, side: BodySide) throws -> Double {
+            let shoulder = try XCTUnwrap(pose.pose[side.shoulder]?.imageLocation)
+            let elbow = try XCTUnwrap(pose.pose[side.elbow]?.imageLocation)
+            let wrist = try XCTUnwrap(pose.pose[side.wrist]?.imageLocation)
+            return ArmGeometry.angle(at: elbow, shoulder, wrist)
+        }
+
+        for side in BodySide.allCases {
+            XCTAssertGreaterThan(try elbowAngle(in: up, side: side), 175, "Up should have straight arms.")
+            XCTAssertEqual(try elbowAngle(in: down, side: side), 80, accuracy: 2,
+                           "Down should pass the depth line with a controlled elbow angle.")
+        }
+
+        let shallowScenario = try XCTUnwrap(plan.scenarios.first { $0.id == "shallow-depth" })
+        let shallow = MovementGenerator.materialize(plan: plan, scenario: shallowScenario)
+        XCTAssertTrue(shallow.isValid, shallow.invalidReasons.joined(separator: ", "))
+        let shallowBottom = try frame(at: downTime, in: shallow).frame
+        for side in BodySide.allCases {
+            XCTAssertGreaterThan(try elbowAngle(in: shallowBottom, side: side), 110,
+                                 "Shallow repetitions must stay above the counted elbow threshold.")
         }
     }
 

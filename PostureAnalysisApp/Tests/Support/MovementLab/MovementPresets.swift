@@ -1,7 +1,7 @@
 import Foundation
 @testable import PostureAnalysisApp
 
-/// Small, explicit scenario plans that cover common Air Squat variations.
+/// Small, explicit scenario plans that cover common Air Squat and Push-Up variations.
 enum MovementPresets {
     static func airSquat(createdAt: String = "1970-01-01T00:00:00Z",
                          author: MovementAuthor = .agent) -> MovementPlan {
@@ -81,6 +81,64 @@ enum MovementPresets {
 
         return MovementPlan(id: "air-squat-core-v1", title: "Air Squat Movement Scenarios",
                             purpose: "Synthetic hypotheses for Air Squat counting, tracking, and framing.",
+                            author: author, createdAt: createdAt, scenarios: scenarios)
+    }
+
+    static func pushUp(createdAt: String = "1970-01-01T00:00:00Z",
+                       author: MovementAuthor = .agent) -> MovementPlan {
+        let exercise = PushUpExercise.definition()
+        let revision = MovementCanonicalRevision.value(for: exercise)
+        let firstBottom = MovementGenerator.readyHold + PushUpMovement.bottomTime
+        let firstDescentStart = MovementGenerator.readyHold + PushUpMovement.descentStartTime
+        let sampleInterval = 1 / MovementGenerator.framesPerSecond
+        let shoulderDropout = ["leftShoulder", "rightShoulder"]
+
+        func scenario(_ id: String, _ category: MovementCategory, _ purpose: String,
+                      reps: Int = 1, mutations: [MovementMutation] = [],
+                      assertions: [MovementAssertion] = []) -> MovementScenario {
+            MovementScenario(id: id, exercise: exercise.id, category: category, purpose: purpose,
+                             canonicalRevision: revision, seed: 133, reps: reps, mode: .constrained,
+                             mutations: mutations, assertions: assertions)
+        }
+
+        // The analyzer measures between visible samples, so the half-open dropout ends one frame before the gap.
+        func bottomDropout(_ id: String, duration: TimeInterval) -> MovementScenario {
+            scenario(id, .tracking,
+                     "Hold Down through a \(duration)-second dropout of both shoulders.",
+                     mutations: [
+                        .pause(at: firstBottom, duration: duration),
+                        .dropout(joints: shoulderDropout, from: firstBottom,
+                                 to: firstBottom + duration - sampleInterval)
+                     ],
+                     assertions: [.repCount(equals: 1, min: nil, max: nil)])
+        }
+
+        let descentDropoutFrom = firstDescentStart + 1.2
+        let descentDropoutDuration = 0.3
+
+        let scenarios = [
+            scenario("canonical", .canonical,
+                     "Count five clean guide repetitions with straight arms at Up and about 80° elbows at Down.",
+                     reps: 5, assertions: [.repCount(equals: 5, min: nil, max: nil)]),
+            scenario("shallow-depth", .depthROM,
+                     "Keep the elbows above 110° at the bottom so no repetition reaches Down.",
+                     reps: 5, mutations: [.depthScale(scale: 0.5, reps: nil)],
+                     assertions: [.repCount(equals: 0, min: nil, max: nil)]),
+            bottomDropout("bottom-shoulder-dropout-0-3s", duration: 0.3),
+            bottomDropout("bottom-shoulder-dropout-0-7s", duration: 0.7),
+            scenario("descent-shoulder-dropout", .tracking,
+                     "Remove both shoulders during the descent; the attempt is rejected and does not count.",
+                     mutations: [.dropout(joints: shoulderDropout,
+                                          from: descentDropoutFrom,
+                                          to: descentDropoutFrom + descentDropoutDuration - sampleInterval)],
+                     assertions: [
+                        .repCount(equals: 0, min: nil, max: nil),
+                        .rejection(reasonContains: "trackingGap", countMin: 1)
+                     ])
+        ]
+
+        return MovementPlan(id: "push-up-core-v1", title: "Push-Up Movement Scenarios",
+                            purpose: "Synthetic hypotheses for Push-Up counting and shoulder tracking.",
                             author: author, createdAt: createdAt, scenarios: scenarios)
     }
 }

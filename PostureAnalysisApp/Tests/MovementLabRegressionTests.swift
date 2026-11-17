@@ -16,6 +16,31 @@ private struct ApprovedMovementFixture: Codable {
 /// Runs every human-approved Movement Lab fixture through its recorded execution path (#133).
 @MainActor
 final class MovementLabRegressionTests: XCTestCase {
+    func testPushUpPresetsKeepTheirCountingAndDropoutExpectations() throws {
+        let plan = MovementPresets.pushUp()
+        XCTAssertTrue(plan.validate().isEmpty)
+        XCTAssertEqual(Set(plan.scenarios.map(\.id)), Set([
+            "canonical", "shallow-depth", "bottom-shoulder-dropout-0-3s",
+            "bottom-shoulder-dropout-0-7s", "descent-shoulder-dropout"
+        ]))
+
+        let run = MovementLabRunner.run(plan: plan, mode: .pipeline)
+        XCTAssertEqual(run.results.count, plan.scenarios.count)
+        XCTAssertTrue(run.results.allSatisfy { $0.outcome == .passed })
+
+        for (scenarioID, expectedReps) in [
+            ("canonical", 5), ("shallow-depth", 0),
+            ("bottom-shoulder-dropout-0-3s", 1), ("bottom-shoulder-dropout-0-7s", 1),
+            ("descent-shoulder-dropout", 0)
+        ] {
+            let result = try XCTUnwrap(run.results.first { $0.scenarioID == scenarioID }, scenarioID)
+            XCTAssertEqual(result.observed.reps, expectedReps, scenarioID)
+        }
+
+        let descent = try XCTUnwrap(run.results.first { $0.scenarioID == "descent-shoulder-dropout" })
+        XCTAssertTrue(descent.observed.rejections.contains { $0.contains("trackingGap") })
+    }
+
     func testApprovedFixturesRegenerateAndPassFrozenAssertions() throws {
         let testsDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         let fixtureDirectory = testsDirectory.appendingPathComponent("Fixtures/MovementScenarios/approved", isDirectory: true)

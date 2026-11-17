@@ -6,8 +6,10 @@ const SVG_WIDTH = 1080;
 const SVG_HEIGHT = 1920;
 const TOGGLES = { mirror: true, hud: false, angles: false, thresholds: false, labels: false, trail: false };
 
-function scenarioKey(scenario) { return `${scenario.id}\u0000${scenario.revision}`; }
-function scenarioDOMKey(scenario) { return `${encodeURIComponent(scenario.id)}|${scenario.revision}`; }
+function scenarioKey(scenario) { return `${scenario.exercise}\u0000${scenario.id}\u0000${scenario.revision}`; }
+function scenarioDOMKey(scenario) {
+  return `${encodeURIComponent(scenario.exercise)}|${encodeURIComponent(scenario.id)}|${scenario.revision}`;
+}
 function cellKey(exercise, category) { return `${encodeURIComponent(exercise)}|${category}`; }
 function humanize(value) { return String(value ?? "unknown").replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
 function statusClass(value) { return String(value ?? "unknown").replace(/[^a-z-]/g, "-"); }

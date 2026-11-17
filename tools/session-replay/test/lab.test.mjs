@@ -150,11 +150,54 @@ test("preset manifest emission uses an existing safe run directory and refuses r
     const runDir = await createFreshRunDirectory(root, "20261107-123456-a1b2c3");
     const runner = async (argv, config) => {
       assert.ok(argv.includes("-only-testing:PostureAnalysisAppTests/MovementLabTests/testEmitBuiltInPresetsManifest"));
-      await writeFile(config.env.FMP_LAB_PRESETS_OUT, JSON.stringify({ presets: [{ id: "air_squat", plan: plan() }] }), { flag: "wx" });
+      const pushUp = plan();
+      pushUp.id = "push-up-plan";
+      pushUp.title = "Push-Up";
+      pushUp.scenarios[0].id = "canonical";
+      pushUp.scenarios[0].exercise = "push_up";
+      const presets = [
+        { id: "air_squat", plan: plan() },
+        { id: "push_up", plan: pushUp },
+      ];
+      await writeFile(config.env.FMP_LAB_PRESETS_OUT, JSON.stringify({ presets }), { flag: "wx" });
     };
     const manifest = await emitPresetManifest({ root, runDir, runner });
-    assert.equal(manifest.presets[0].id, "air_squat");
+    assert.deepEqual(manifest.presets.map((entry) => entry.id), ["air_squat", "push_up"]);
     await assert.rejects(emitPresetManifest({ root, runDir, runner }), /refuses to overwrite/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("push_up is a runnable built-in preset", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "fmp-lab-push-up-"));
+  const pushUp = plan();
+  pushUp.id = "push-up-plan";
+  pushUp.title = "Push-Up";
+  pushUp.scenarios[0].id = "canonical";
+  pushUp.scenarios[0].exercise = "push_up";
+  const calls = [];
+  const runner = async (argv, config) => {
+    calls.push(argv);
+    if (argv.some((value) => value.includes("testEmitBuiltInPresetsManifest"))) {
+      await writeFile(config.env.FMP_LAB_PRESETS_OUT, JSON.stringify({ presets: [
+        { id: "air_squat", plan: plan() }, { id: "push_up", plan: pushUp },
+      ] }), { flag: "wx" });
+      return { code: 0 };
+    }
+    await writeFile(path.join(config.env.FMP_LAB_OUT, "results.json"), JSON.stringify([
+      { scenarioID: "canonical", outcome: "passed", observed: { reps: 5 }, assertionResults: [] },
+    ]), { flag: "wx" });
+    await writeFile(path.join(config.env.FMP_LAB_OUT, "summary.json"), JSON.stringify({
+      outcomes: { passed: 1, failed: 0, inconclusive: 0, invalid: 0, notRun: 0 }, elapsedSeconds: 0.1,
+    }), { flag: "wx" });
+    return { code: 0 };
+  };
+  try {
+    const result = await runPlan({ root, presetID: "push_up", now: new Date("2026-11-07T12:34:56Z"),
+      suffix: "a1b2c3", runner });
+    assert.equal(calls.length, 2);
+    assert.equal(result.plan.id, "push-up-plan");
+    assert.equal(result.plan.scenarios[0].exercise, "push_up");
+    assert.match(result.text, /total 1 · passed 1/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
