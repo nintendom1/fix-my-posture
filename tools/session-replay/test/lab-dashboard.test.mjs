@@ -9,7 +9,7 @@ import { createLabStore, LabStoreError } from "../lib/lab/store.mjs";
 import { recordsToFileText, Session } from "../lib/session.mjs";
 import * as replayViews from "../public/views.mjs";
 import { renderRunCards, renderRunHeader, renderScenarioDetail, renderScenarioList } from "../public/lab/views.mjs";
-import { createCoveragePlaybackNavigator } from "../public/lab/coverage.mjs";
+import { applyLabSectionView, createCoveragePlaybackNavigator } from "../public/lab/coverage.mjs";
 import { createLabOpenHandler, createSelectionToken, installLabOpenCommandReceiver, labOpenRequestFromURL, sectionHref } from "../public/lab/selection.mjs";
 
 const RUN_ID = "20261108-100000-a1b2";
@@ -235,6 +235,83 @@ test("section URLs retain recording deep links and clear them when returning to 
   const deepLink = "http://127.0.0.1:4317/?session=synthetic-id&t=4.9&from=4&to=6&export=1";
   assert.equal(sectionHref(deepLink, "recordings"), "/?session=synthetic-id&t=4.9&from=4&to=6&export=1&view=recordings");
   assert.equal(sectionHref(deepLink, "runs"), "/?view=runs");
+});
+
+test("shared section tabs remain visible outside both views and keep the active tab across sections", async () => {
+  const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
+  const dashboardSource = await readFile(new URL("../public/lab/dashboard.mjs", import.meta.url), "utf8");
+  const navStart = html.indexOf('<nav class="lab-view-tabs"');
+  const navEnd = html.indexOf("</nav>", navStart);
+  const dashboardStart = html.indexOf('<div id="labDashboard"');
+  const appStart = html.indexOf('<div id="app"');
+  assert.ok(navStart >= 0 && navEnd > navStart, "the section navigation exists");
+  assert.ok(navEnd < dashboardStart, "the section navigation is outside #labDashboard");
+  assert.ok(navEnd < appStart, "the section navigation is outside #app");
+  const navHTML = html.slice(navStart, navEnd);
+  assert.equal((navHTML.match(/data-lab-view="runs"/g) ?? []).length, 1);
+  assert.equal((navHTML.match(/data-lab-view="recordings"/g) ?? []).length, 1);
+  assert.doesNotMatch(navHTML, /data-lab-view="coverage"/, "coverage is injected into the shared navigation");
+
+  const makeTab = (section) => {
+    const activeClasses = new Set();
+    return {
+      dataset: { labView: section }, activeClasses, attributes: {},
+      classList: { toggle(name, active) { if (active) activeClasses.add(name); else activeClasses.delete(name); } },
+      setAttribute(name, value) { this.attributes[name] = value; },
+    };
+  };
+  const tabs = [makeTab("runs"), makeTab("coverage"), makeTab("recordings")];
+  const navigation = { hidden: false };
+  const labDashboard = { hidden: false };
+  const app = { hidden: true };
+  const labNote = { hidden: false };
+  const labRefresh = { hidden: false };
+  const layout = { hidden: false };
+  const coverageView = { hidden: true };
+  const elements = { navigation, labDashboard, app, labNote, labRefresh, layout, coverageView, tabs };
+
+  applyLabSectionView("recordings", elements);
+  assert.equal(navigation.hidden, false);
+  assert.equal(labDashboard.hidden, true);
+  assert.equal(app.hidden, false);
+  assert.equal(labNote.hidden, true);
+  assert.equal(labRefresh.hidden, true);
+  assert.equal(tabs[2].activeClasses.has("active"), true);
+  assert.equal(tabs[2].attributes["aria-current"], "page");
+  assert.equal(tabs[0].attributes["aria-current"], "false");
+
+  applyLabSectionView("coverage", elements);
+  assert.equal(navigation.hidden, false);
+  assert.equal(labDashboard.hidden, false);
+  assert.equal(app.hidden, true);
+  assert.equal(labNote.hidden, false);
+  assert.equal(labRefresh.hidden, false);
+  assert.equal(layout.hidden, true);
+  assert.equal(coverageView.hidden, false);
+  assert.equal(tabs[1].activeClasses.has("active"), true);
+  assert.equal(tabs[1].attributes["aria-current"], "page");
+  assert.equal(tabs[2].attributes["aria-current"], "false");
+  assert.match(dashboardSource, /switchView\(viewButton\.dataset\.labView\)/, "the shared tab handler routes coverage clicks through switchView");
+  assert.match(dashboardSource, /applyLabSectionView\(view, \{/, "the view switch updates the shared navigation and content visibility");
+  assert.match(dashboardSource, /if \(view === "coverage"\) window\.FMPLabCoverage\?\.activate\(\)/);
+  assert.match(dashboardSource, /switchView\(recording \? "recordings" : "runs", \{ updateURL: false \}\)/,
+    "back and forward navigation uses the same tab-state update");
+});
+
+test("recordings keep their full-width controls reachable from 721px through 1099px", async () => {
+  const stylesheet = await readFile(new URL("../public/style.css", import.meta.url), "utf8");
+  const appRule = stylesheet.match(/@media\s*\(min-width:\s*721px\)\s*and\s*\(max-width:\s*1099px\)\s*\{\s*#app\s*\{([^}]*)\}\s*\}/)?.[1];
+  assert.ok(appRule, "the recordings app has an intermediate-width rule");
+  assert.match(appRule, /min-width:\s*0\s*;/, "#app stays within the viewport as a scroll container");
+  assert.match(appRule, /overflow-x:\s*auto\s*;/, "the recordings content can scroll horizontally");
+  assert.match(appRule, /overflow-y:\s*hidden\s*;/, "only horizontal overflow becomes scrollable");
+  assert.match(appRule, /grid-template-columns:\s*minmax\(710px,\s*1fr\)\s+390px\s*;/,
+    "the stage and details panel keep their full content width");
+
+  for (const viewportWidth of [800, 900, 1000]) {
+    assert.ok(viewportWidth >= 721 && viewportWidth <= 1099,
+      `${viewportWidth}px must use the horizontally scrollable recordings layout`);
+  }
 });
 
 test("dashboard deep links and live lab-open commands select the requested run, scenario, and keyframe", async () => {

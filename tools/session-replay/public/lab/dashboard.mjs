@@ -1,7 +1,7 @@
 import { recordsToFileText, Session, clock } from "../../lib/session.mjs";
 import { num } from "../views.mjs";
 import * as labViews from "./views.mjs";
-import { createCoveragePlaybackNavigator } from "./coverage.mjs";
+import { applyLabSectionView, createCoveragePlaybackNavigator } from "./coverage.mjs";
 import { createLabOpenHandler, createSelectionToken, installLabOpenCommandReceiver, labOpenRequestFromURL, sectionHref } from "./selection.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -80,7 +80,7 @@ async function promoteScenario(button) {
 }
 
 function switchView(name, { updateURL = true } = {}) {
-  const view = name === "recordings" ? "recordings" : "runs";
+  const view = name === "recordings" || name === "coverage" ? name : "runs";
   const showRuns = view === "runs";
   if (state.activeView !== view) {
     state.activeView = view;
@@ -91,24 +91,31 @@ function switchView(name, { updateURL = true } = {}) {
       state.loading = false;
     }
   }
-  if (updateURL) {
+  if (updateURL && view !== "coverage") {
     const next = sectionHref(location.href, view);
     if (`${location.pathname}${location.search}${location.hash}` !== next) history.pushState(null, "", next);
   }
-  $("labDashboard").hidden = !showRuns;
-  $("app").hidden = showRuns;
-  for (const button of document.querySelectorAll("[data-lab-view]")) {
-    const active = button.dataset.labView === view;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-current", active ? "page" : "false");
-  }
+  if (view === "coverage") window.FMPLabCoverage?.activate();
+  else window.FMPLabCoverage?.deactivate();
+  applyLabSectionView(view, {
+    navigation: document.querySelector(".lab-top"),
+    labDashboard: $("labDashboard"),
+    app: $("app"),
+    labNote: $("labNote"),
+    labRefresh: $("labRefresh"),
+    layout: $("labDashboard").querySelector(".lab-layout"),
+    coverageView: $("labCoverageView"),
+    tabs: document.querySelectorAll("[data-lab-view]"),
+  });
   if (showRuns) {
     window.FMPReplayViewer?.deactivate();
     if (!state.loaded) loadRuns();
     else if (state.runID && state.run) openScenario(state.scenarioID ?? state.run.plan.scenarios?.[0]?.id);
     else if (state.runID) openRun(state.runID);
-  } else {
+  } else if (view === "recordings") {
     window.FMPReplayViewer?.activate();
+  } else {
+    window.FMPReplayViewer?.deactivate();
   }
 }
 
@@ -308,7 +315,7 @@ function seekCurrentPlayback({ runID, scenarioID, timestamp }) {
 }
 
 function activateLabRuns() {
-  $("labDashboard").querySelector('[data-lab-view="runs"]')?.click();
+  document.querySelector('[data-lab-view="runs"]')?.click();
   return state.activeView === "runs";
 }
 
@@ -366,7 +373,10 @@ document.addEventListener("click", (event) => {
   if (promoteButton) { event.preventDefault(); void promoteScenario(promoteButton); }
 });
 
-$("labRefresh").addEventListener("click", loadRuns);
+$("labRefresh").addEventListener("click", () => {
+  if (state.activeView === "coverage") window.FMPLabCoverage?.refresh();
+  else loadRuns();
+});
 
 const initialLabOpen = labOpenRequestFromURL(location.search);
 const directRecording = !initialLabOpen && (new URLSearchParams(location.search).has("session")

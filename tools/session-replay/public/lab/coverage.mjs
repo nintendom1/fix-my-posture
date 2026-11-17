@@ -195,18 +195,38 @@ async function loadArtifacts(scenario) {
   return { recording: [], reference: [], runID: null };
 }
 
-function installView() {
-  const dashboard = document.getElementById("labDashboard");
+/** Apply the shared header and content visibility for one viewer section. */
+export function applyLabSectionView(section, { navigation, labDashboard, app, labNote, labRefresh, layout, coverageView, tabs }) {
+  const view = section === "recordings" || section === "coverage" ? section : "runs";
+  if (navigation) navigation.hidden = false;
+  labDashboard.hidden = view === "recordings";
+  app.hidden = view !== "recordings";
+  if (labNote) labNote.hidden = view === "recordings";
+  if (labRefresh) labRefresh.hidden = view === "recordings";
+  layout.hidden = view === "coverage";
+  coverageView.hidden = view !== "coverage";
+  for (const button of tabs) {
+    const active = button.dataset.labView === view;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-current", active ? "page" : "false");
+  }
+  return view;
+}
+
+/** Install the shared Scenario coverage tab and its view container. */
+export function installCoverageViewElements(doc = globalThis.document) {
+  const dashboard = doc?.getElementById("labDashboard");
   const layout = dashboard?.querySelector(".lab-layout");
-  const tabs = dashboard?.querySelector(".lab-view-tabs");
+  const tabs = doc?.querySelector(".lab-view-tabs");
   if (!dashboard || !layout || !tabs || dashboard.querySelector("#labCoverageView")) return null;
-  const button = document.createElement("button");
+  const button = doc.createElement("button");
   button.type = "button";
   button.textContent = "Scenario coverage";
+  button.dataset.labView = "coverage";
   button.dataset.labCoverageToggle = "true";
   button.setAttribute("aria-current", "false");
   tabs.insertBefore(button, tabs.querySelector('[data-lab-view="recordings"]'));
-  const view = document.createElement("main");
+  const view = doc.createElement("main");
   view.id = "labCoverageView";
   view.className = "lab-coverage-view";
   view.hidden = true;
@@ -223,9 +243,9 @@ function installView() {
 /** Install the browser view from the already-loaded lab views module. */
 export function installCoverageView() {
   if (typeof document === "undefined") return;
-  const elements = installView();
+  const elements = installCoverageViewElements(document);
   if (!elements) return;
-  const { dashboard, layout, button, view } = elements;
+  const { view } = elements;
   let model = null;
   let active = false;
   let request = 0;
@@ -237,22 +257,10 @@ export function installCoverageView() {
   const matrix = view.querySelector("#coverageMatrix");
   const message = view.querySelector("#coverageMessage");
 
-  function updateTabs() {
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-current", active ? "page" : "false");
-    for (const tab of dashboard.querySelectorAll("[data-lab-view]")) {
-      tab.classList.toggle("active", false);
-      tab.setAttribute("aria-current", "false");
-    }
-  }
-
   function deactivate() {
     if (!active) return;
     active = false;
     request += 1;
-    view.hidden = true;
-    layout.hidden = false;
-    updateTabs();
   }
 
   async function fetchModel() {
@@ -312,19 +320,13 @@ export function installCoverageView() {
     paint();
   });
   for (const select of [exerciseSelect, categorySelect, statusSelect]) select.addEventListener("change", paint);
-  document.addEventListener("click", (event) => {
-    if (event.target.closest?.("[data-lab-coverage-toggle]")) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
+  window.FMPLabCoverage = {
+    activate() {
+      if (active) return;
       active = true;
-      layout.hidden = true;
-      view.hidden = false;
-      document.getElementById("app").hidden = true;
-      updateTabs();
       fetchModel();
-      return;
-    }
-    if (event.target.closest?.("[data-lab-view]")) deactivate();
-  });
-  document.getElementById("labRefresh")?.addEventListener("click", () => { if (active) fetchModel(); });
+    },
+    deactivate,
+    refresh() { if (active) fetchModel(); },
+  };
 }

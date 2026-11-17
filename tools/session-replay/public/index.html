@@ -3,21 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FMP Session Replay</title>
+<title>FMP Movement Lab</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+<header class="lab-top">
+  <div class="brand"><span class="logo"></span>FMP Movement Lab</div>
+  <nav class="lab-view-tabs" aria-label="Viewer sections">
+    <button type="button" class="active" data-lab-view="runs" aria-current="page">Runs</button>
+    <button type="button" data-lab-view="recordings" aria-current="false">Session recordings</button>
+  </nav>
+  <div class="spacer"></div>
+  <span id="labNote" class="muted small">Synthetic Movement Lab artifacts · local only</span>
+  <button type="button" id="labRefresh" class="button">Refresh</button>
+</header>
+
 <div id="labDashboard" class="lab-dashboard">
-  <header class="lab-top">
-    <div class="brand"><span class="logo"></span>FMP Movement Lab</div>
-    <nav class="lab-view-tabs" aria-label="Viewer sections">
-      <button type="button" class="active" data-lab-view="runs">Runs</button>
-      <button type="button" data-lab-view="recordings">Session recordings</button>
-    </nav>
-    <div class="spacer"></div>
-    <span class="muted small">Synthetic Movement Lab artifacts · local only</span>
-    <button type="button" id="labRefresh" class="button">Refresh</button>
-  </header>
   <main class="lab-layout">
     <aside class="lab-run-column">
       <div class="lab-column-heading"><h1>Runs</h1><span class="muted small">Newest first</span></div>
@@ -40,9 +41,7 @@
 </div>
 
 <div id="app" hidden>
-  <header class="top">
-    <div class="brand"><span class="logo"></span>FMP Session Replay</div>
-    <button type="button" class="button" data-lab-view="runs">Runs</button>
+  <header class="top recording-toolbar">
     <select id="sessionPicker" aria-label="Recording"></select>
     <span id="sessionInfo" class="muted mono"></span>
     <div class="spacer"></div>
