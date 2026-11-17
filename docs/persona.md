@@ -101,8 +101,9 @@ copy can suggest a gentler routine through a tappable target; it never prescribe
   at 40+ when the counted days span at least 8 weeks.
 - **Trajectory** compares workouts in the last 14 days with the 14 before: ±2 is improving or declining; fewer than 4 in
   total is unknown.
-- **Tone** comes from the observation kind, familiarity, and trajectory, then avoids repeating the most recent tone or
-  using any tone more than once in the last five. Annoyed and disappointed need established familiarity.
+- **Tone** comes from the observation kind, familiarity, and trajectory. Selection prefers not to repeat the latest tone
+  and skips tones that already appear more than once in the recent five; if none qualify, it uses the first eligible
+  tone. Annoyed and disappointed require established familiarity.
 
 ## Engagement cooling
 

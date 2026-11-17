@@ -25,9 +25,9 @@ Do not use the unreadable-store fallback as a substitute for a migration that a 
 
 `Repositories/` defines main-actor `WorkoutHistoryRepository`, `RoutineRepository`, and `AssessmentRepository` protocols with SwiftData implementations that receive a `ModelContext`. The repositories save explicitly, log failures, and expose value types for list operations. Views can retain `@Query` for reactive reads; assessment, Saved Set, and workout-history writes go through the repository container injected at the app root. `ImageStoring` wraps the shared `ImageStore` for photo save, load, and deletion.
 
-- Workout history lists newest first, saves records, updates their entries when weights change, and deletes records.
+- Workout history lists newest first, saves records, updates entries when weights change, and deletes records. Corrupt workout-entry JSON decodes as an empty list.
 - Routine storage lists, saves, duplicates using the existing `"Name Copy"` rule, and deletes user Saved Sets. `BuiltInRoutineRepository` decorates it with the read-only starter catalog, keeps starter ids out of base writes, and saves starter duplicates as user copies. Corrupt item JSON continues to decode as an empty list.
-- Assessment storage maps domain landmarks and measurements to their SwiftData child models, keeps at most one baseline per posture view, and deletes assessments. Corrupt workout entry JSON continues to decode as an empty list.
+- Assessment storage maps domain landmarks and measurements to SwiftData child models, keeps at most one baseline per posture view, and deletes assessments.
 - `SwiftDataAdaptiveTrainingRepository` stores prescriptions, evidence, calibrations, engagement, and settings as JSON payloads in `AdaptiveFactEntity`; it stores one cached interpretation in `AdaptiveProfileCacheEntity`. It skips and logs facts with an unknown kind or unreadable payload without deleting them, so a fact kind this version doesn't know is kept for a later version. Saving a calibration updates its own row in place and never overwrites another fact that shares its id.
 
 ## Preferences

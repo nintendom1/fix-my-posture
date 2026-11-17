@@ -1,142 +1,84 @@
 # Standing Posture Analysis iOS App
 
-An iPhone 15 Pro native Swift/SwiftUI application for analyzing standing body posture from still photos and a live camera preview.
+Native SwiftUI app for iPhone. It analyzes posture from still photos and a live camera preview using on-device Apple Vision. The app has Train, Routines, Progress, and Posture tabs. Photos and camera frames stay on the device.
 
-## Key Features
+## Features
 
-- **Four-tab app**: Train, Routines, Progress, and Posture, with settings for workout, camera, and posture preferences.
-- **Workouts and routines**: Quick-start 14 camera-guided exercises, save and reorder routines, and review rep and weight history.
-- **Workout reminders**: Optional on-device reminders, plain or from a notification character, set up in Settings.
-- **Exercise library**: Search and filter exercises, review movement guidance, and adjust set and rep targets.
-- **Progress and history**: See weekly workout stats and trends, open completed workouts, and edit logged weights.
-- **On-device posture checks**: Analyze photos or use the live camera for geometric measurements, baseline comparisons, and manual landmark adjustment. Photos and frames stay on the device.
+- Camera-guided workouts, saved routines, exercise guidance, and workout history.
+- Geometric posture measurements, baseline comparisons, and manual landmark editing.
+- Optional on-device workout reminders, including a notification character.
+- Live posture feedback from the front or rear camera.
 
 ## Requirements
 
-- **Xcode**: 16.4 or later
-- **Target OS**: iOS 17.0 or later (iPhone 15 Pro recommended)
-- **Swift Version**: 5.9+
+- Xcode 16.4 or later with an iOS 17 or later simulator runtime.
+- An iPhone running iOS 17 or later for device installation.
 
-## How to Build & Run
+## Build and run on iPhone
 
-For a physical iPhone, run from the repository directory:
+Connect and unlock the phone, trust the Mac, enable Developer Mode, and pair the phone in Xcode if prompted. Then run:
 
 ```bash
-make ios
+make ios-devices
+cp ios.local.env.example ios.local.env
 ```
 
-This builds, signs, installs, and launches a Debug build using Xcode's command-line
-tools. Full Xcode 16.4+ is required, with support for your phone's installed iOS
-version. No Node or npm installation is needed.
+For first-time signing, add your Apple account in Xcode → Settings → Accounts. In the app target's **Signing & Capabilities**, enable automatic signing, choose a team (a Personal Team works), and set a unique bundle identifier. Copy the 10-character `DEVELOPMENT_TEAM` from the target's build settings or `project.pbxproj` into `IOS_TEAM_ID`. For an initial run from Xcode, in **Build Settings** override Debug's **Code Signing Allowed** to `YES` and **Code Signing Identity** to `Apple Development`, select your iPhone, and press **Cmd + R** once to establish signing and device registration. `make ios` supplies these signing overrides automatically.
 
-**First-time setup:**
+Set `IOS_DEVICE`, `IOS_TEAM_ID` (your 10-character Apple development team ID), and the same unique `IOS_BUNDLE_ID` in the ignored `ios.local.env`. Run `make ios` to build, sign, install, and launch the Debug app. Keep the bundle ID the same when updating the app so it uses the existing app container. Signing may contact Apple for provisioning assets; posture processing stays on-device. `bash scripts/run-ios.sh` runs the same installer directly.
 
-1. Connect your unlocked iPhone by USB and accept **Trust This Computer**.
-   Enable **Settings > Privacy & Security > Developer Mode** on the phone and
-   follow the restart prompts. Pair the phone in Xcode's **Window > Devices and
-   Simulators** if necessary.
-2. Open `PostureAnalysisApp.xcodeproj` in Xcode. Add your Apple account in
-   **Xcode > Settings > Accounts**. Select the app target's **Signing & Capabilities**,
-   enable automatic signing, select your team (a Personal Team can be used), and
-   choose a unique bundle identifier, such as `com.yourname.PostureAnalysisApp`.
-3. For an initial run from Xcode, override the app target's **Build Settings > Code
-   Signing Allowed** to **Yes** and **Code Signing Identity** to **Apple Development**
-   for Debug. The project defaults disable signing for local simulator validation;
-   `make ios` supplies these overrides automatically. Select your physical iPhone
-   and press **Cmd + R** once to establish signing and device registration.
-4. Run `make ios-devices` to find your phone's name or identifier, then:
-
-   ```bash
-   cp ios.local.env.example ios.local.env
-   ```
-
-   Edit `ios.local.env`: set `IOS_DEVICE`, `IOS_TEAM_ID` (the 10-character team ID),
-   and `IOS_BUNDLE_ID` to match your signing setup. The team ID is the
-   `DEVELOPMENT_TEAM` value in `PostureAnalysisApp.xcodeproj/project.pbxproj` after
-   selecting your team in Xcode. This local configuration is ignored by git.
-5. Run `make ios` whenever you want to test changes. Keep the phone unlocked during
-   installation and launch. Reusing the bundle identifier preserves the existing
-   app's stored assessments during normal updates.
-
-Signing may contact Apple to obtain provisioning assets; posture processing in
-the app remains entirely on-device. If signing expires, rerun the command;
-account or provisioning errors may require revisiting Xcode's signing settings.
-
-Alternatively, run `bash scripts/run-ios.sh` directly. For a simulator, open the
-project in Xcode, select an iOS 17+ simulator, and press **Cmd + R**.
-
-## How to Run Tests
-
-Run automated tests via Xcode (`Cmd + U`) or from the terminal:
+## Validate
 
 ```bash
 ./scripts/validate.sh
 ```
 
-The script builds the app and runs XCTest on an automatically selected installed
-iPhone simulator (iOS 17+). No physical device, signing team, or `ios.local.env`
-is needed. Full Xcode and an iOS simulator runtime are required; missing
-prerequisites cause validation to fail rather than skip tests. Build output and
-test results are stored in `build/validation`.
+This runs the Python, Node, Swift package, project-registration, and app simulator tests. It selects an installed iPhone simulator on the newest iOS 17+ runtime; set `SIMULATOR_DESTINATION`, for example `platform=iOS Simulator,name=iPhone 15 Pro,OS=18.6`, to choose one. Full Xcode and an installed simulator runtime are required. No physical phone or signing team is needed. Results go under `build/validation/`.
 
-To choose a specific installed simulator:
+## Movement Lab
 
-```bash
-SIMULATOR_DESTINATION='platform=iOS Simulator,name=iPhone 16 Pro,OS=18.6' ./scripts/validate.sh
-```
+The Movement Lab runs deterministic synthetic pose scenarios through the workout counting pipeline. Use it to check analyzer changes without a person or physical phone; it still needs Xcode and an installed iOS simulator.
 
-Or directly using xcodebuild (adjust the simulator name to one installed locally):
+From the repository root:
 
 ```bash
-xcodebuild test -project PostureAnalysisApp.xcodeproj -scheme PostureAnalysisApp -destination 'platform=iOS Simulator,name=iPhone 15 Pro'
+node tools/session-replay/lab.mjs presets
+node tools/session-replay/lab.mjs run --preset <id>
+make viewer
 ```
 
-## How to Run Gitleaks
+`presets` accepts `--exercise ID` and `--sim ID`; `run` accepts `--sim ID` and `--mode pipeline|coach` (default `pipeline`). Both CLI commands run XCTest on an iOS simulator, using the default ID in `tools/session-replay/lib/lab/runner.mjs`; pass `--sim ID` to select an installed simulator on your machine. `make viewer` starts the local Runs and Scenario coverage dashboards; it requires Node 20 or later and no Node packages, but no simulator. See [Workout Session Recordings and Movement Lab](docs/diagnostics.md) for details.
 
-Install [Gitleaks](https://github.com/gitleaks/gitleaks) on macOS with Homebrew:
+## Gitleaks
 
-```bash
-brew install gitleaks
-```
-
-From the repository root, scan all locally available Git history using the same
-options as CI:
-
-```bash
-gitleaks git . --log-opts="--all" --redact --exit-code=1
-```
-
-Every commit requires a staged scan. Stage the intended changes, run this
-command, and commit only when it exits successfully:
+Install Gitleaks with `brew install gitleaks`. Before every commit, scan the staged snapshot:
 
 ```bash
 gitleaks git . --pre-commit --staged --redact --exit-code=1
 ```
 
-The history scan checks committed content. The required pre-commit scan checks
-the exact staged snapshot. `--redact` hides secret values in output. A clean scan
-exits with code 0; detected secrets cause exit code 1. Execution errors also fail
-the command and must be resolved rather than bypassed.
+To scan all locally available Git history:
 
-The [Gitleaks workflow](.github/workflows/gitleaks.yml) scans Git history on every
-push and pull request using Gitleaks 8.30.1. Once the workflow is on the default
-branch, you can also start it from **Actions > Gitleaks > Run workflow** on GitHub.
-It requires no Gitleaks license secret. Secret scanning runs separately from
-`./scripts/validate.sh`, which builds the app and runs simulator tests.
+```bash
+gitleaks git . --log-opts="--all" --redact --exit-code=1
+```
 
-## App Icon & Third-Party Notices
+The [Gitleaks workflow](.github/workflows/gitleaks.yml) scans full history on pushes and pull requests. `./scripts/validate.sh` does not run Gitleaks.
 
-The app icon is exported from a hand-written SVG in `Design/AppIcon/`; see
-[Design/AppIcon/README.md](Design/AppIcon/README.md) to change or re-export it. Its glyph is a
-modified Tabler Icons `body-scan` (MIT). The license is in
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and in the app under **gear → Acknowledgements**.
+## Assets and acknowledgements
 
-Notification character portraits are rendered from a third-party chibi PSD by a script in
-`Design/NotificationCharacter/`; see [its README](Design/NotificationCharacter/README.md) to render or change a
-character. The artwork's credits and terms are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+See [Design/AppIcon/README.md](Design/AppIcon/README.md) to export the app icon and [Design/NotificationCharacter/README.md](Design/NotificationCharacter/README.md) to render notification portraits. Credits and licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and in the app under **Settings → Acknowledgements**.
 
-## Known Limitations & Design Boundary
+## Limits
 
-- **Non-Diagnostic**: The app produces objective geometric metrics and is not a medical device or diagnostic tool for spinal/musculoskeletal disorders.
-- **Workout Voice Commands**: English only, and they need on-device speech recognition support. Recognition can mishear in noisy rooms or with music from the phone's speaker; headphones help. The coach doesn't listen while it's speaking, and touch controls always remain.
-- **Live Tracking**: Requires a physical camera and sufficient lighting/body visibility. Low-confidence landmarks are excluded and uncertain measurements are labeled. Live measurements are not saved or compared with stored baselines. See [realtime validation and architecture](docs/realtime.md).
+The posture measurements are geometric observations, not medical advice or diagnoses. Live tracking needs a physical camera, adequate lighting, and a visible body. Live measurements are not saved or compared with stored baselines; see [Realtime posture check](docs/realtime.md). Voice commands are English-only, require on-device recognition, and can mishear in noise or speaker music; headphones can help, and touch controls remain available. See [Voice control](docs/workout.md#voice-control).
+
+## Agent workflow index
+
+Project-local skills load on demand. Codex reads `.agents/skills/`; Claude Code reads matching copies in `.claude/skills/`.
+
+- [Herdr orchestration](.agents/skills/herdr-orchestration/SKILL.md)
+- [Implementer workflow](.agents/skills/implementer-workflow/SKILL.md)
+- [Mutation checks](.agents/skills/mutation-checks/SKILL.md)
+- [Review workflow](.agents/skills/review-workflow/SKILL.md)
+- [PR handoff](.agents/skills/pr-handoff/SKILL.md)
