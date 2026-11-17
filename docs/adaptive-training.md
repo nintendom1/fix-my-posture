@@ -218,13 +218,15 @@ produce `progressed`; decreases and easier variants produce `regressed`. Rated e
 it is a calibration probe. A Today's Session main item that was completed, stopped early, or switched to an easier
 version produces `sessionCompleted`. Bonus facts produce `bonusOffered` and
 either `bonusAccepted` or `bonusDeclined`. A transition after absence produces `returnedAfterAbsence`.
-`tinySessionPrescribed` is defined but not derived from replay, and the app does not emit it yet.
+`tinySessionPrescribed` is emitted by `AdaptiveTrainingCoordinator` after a successful issue when the package's
+`TodaySession.isTiny` is true. It is a live app-adapter event, not a replay-derived or exported event.
 
 The engine's `record`, `save`, `commit`, `abandon`, `removeFamily`, and `changeEquipment` return the events derived for
 their fact. `AdaptiveTrainingCoordinator` forwards each nonempty result, in engine order, to its optional
-`WorkoutObserving` observer after the successful operation. **Dormant and internal:** production attaches none, so
-nothing in the app reacts to an event yet; events also appear in the developer snapshot and export (see [Debug view
-and export](#debug-view-and-export)).
+`WorkoutObserving` observer after the successful operation; after a successful tiny-session issue it forwards the
+single live `tinySessionPrescribed` event as well. **Dormant and internal:** production attaches no observer, so
+nothing in the app reacts to these events yet. Replay-derived events appear in the developer snapshot and export (see
+[Debug view and export](#debug-view-and-export)); the live tiny-session event does not.
 Persona and notification reactions are planned in #112 (Persona Reactions for Adaptive Training Events).
 
 ### Cache
