@@ -237,8 +237,11 @@ export class Session {
         case "tip": add(event.t, "cue", `Tip: ${event.cue}`, event.text ? `“${event.text}”` : ""); break;
         case "tilt": add(event.t, "warn", event.tilted ? "Phone tilted" : "Phone upright"); break;
         case "audio.work":
-          // Audio work blocks the main thread; long steps delay frames and the HUD.
-          if (event.ms >= 100) add(event.t, "warn", "Main thread blocked", `${Math.round(event.ms)} ms · ${event.step}`);
+          // Legacy records omit execution and retain the old main-thread warning behavior.
+          if (event.execution === "worker") add(event.t, "info", "Audio session work", `${Math.round(event.ms)} ms · ${event.step}`);
+          else if ((event.execution === "main" || event.execution == null) && event.ms >= 100) {
+            add(event.t, "warn", "Main thread blocked", `${Math.round(event.ms)} ms · ${event.step}`);
+          }
           break;
         case "camera.interrupted": case "camera.failed": case "app.background": case "interruptionBegan":
           add(event.t, "warn", event.type, event.message ?? "");

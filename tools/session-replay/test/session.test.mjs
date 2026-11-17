@@ -240,15 +240,24 @@ test("each analyzer rep is classified by what the coach did with it", () => {
     "7 Analyzer rep not counted", "9 Analyzer rep not counted"]);
 });
 
-test("audio work that blocks the main thread for 100 ms or more is flagged", () => {
+test("audio work warns for main-thread stalls, labels worker work, and preserves legacy records", () => {
   const items = records();
   const end = items.findIndex((r) => r.k === "end");
   items.splice(end, 0,
-    { k: "e", t: 3.5, type: "audio.work", step: "restoreOtherAudio", ms: 412.3 },
-    { k: "e", t: 3.6, type: "audio.work", step: "taskStart", ms: 4.2 });
+    { k: "e", t: 3.5, type: "audio.work", step: "restoreOtherAudio", ms: 412.3, execution: "main" },
+    { k: "e", t: 3.6, type: "audio.work", step: "taskStart", ms: 4.2, execution: "main" },
+    { k: "e", t: 3.7, type: "audio.work", step: "restoreOtherAudio", ms: 412.3, execution: "worker" },
+    { k: "e", t: 3.8, type: "audio.work", step: "restoreOtherAudio", ms: 150 });
   const timeline = Session.fromText(arrayText(items)).timeline;
   const blocked = timeline.filter((item) => item.title === "Main thread blocked");
-  assert.deepEqual(blocked.map((item) => [item.t, item.kind, item.detail]), [[3.5, "warn", "412 ms · restoreOtherAudio"]]);
+  assert.deepEqual(blocked.map((item) => [item.t, item.kind, item.detail]), [
+    [3.5, "warn", "412 ms · restoreOtherAudio"],
+    [3.8, "warn", "150 ms · restoreOtherAudio"],
+  ]);
+  const workerWork = timeline.filter((item) => item.title === "Audio session work");
+  assert.deepEqual(workerWork.map((item) => [item.t, item.kind, item.detail]), [
+    [3.7, "info", "412 ms · restoreOtherAudio"],
+  ]);
 });
 
 test("attempts the analyzer let go are listed and logged in words", () => {

@@ -30,6 +30,10 @@ final class WorkoutAudioCoordinator: AudioCoordinating {
         owner.activateForListening()
     }
 
+    func activateForListening(completion: @escaping @MainActor (Bool) -> Void) {
+        owner.activateForListening(completion: completion)
+    }
+
     func stopListening() {
         owner.stopListening()
     }
@@ -38,8 +42,16 @@ final class WorkoutAudioCoordinator: AudioCoordinating {
         owner.beginDucking()
     }
 
+    func beginDucking(completion: @escaping @MainActor () -> Void) {
+        owner.beginDucking(completion: completion)
+    }
+
     func endDucking() {
         owner.endDucking()
+    }
+
+    func endDucking(completion: @escaping @MainActor () -> Void) {
+        owner.endDucking(completion: completion)
     }
 
     func deactivate() {

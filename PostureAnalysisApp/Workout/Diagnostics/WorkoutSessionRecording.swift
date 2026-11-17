@@ -68,8 +68,8 @@ enum WorkoutRecordingEvent: Equatable {
     case audioSessionOperation(operation: String, active: Bool?, category: String, mode: String,
                                categoryOptions: [String], activeOptions: [String],
                                isOtherAudioPlaying: Bool, secondaryAudioShouldBeSilenced: Bool)
-    /// Audio work that ran synchronously on the main thread, and how long it took.
-    case audioWork(AudioWorkStep, seconds: TimeInterval)
+    /// Audio work duration and the executor where its measured work ran.
+    case audioWork(AudioWorkStep, seconds: TimeInterval, executionContext: AudioWorkExecutionContext)
     case guidePresented(Bool)
     case helpPresented(Bool)
     case measurementsShown(Bool)

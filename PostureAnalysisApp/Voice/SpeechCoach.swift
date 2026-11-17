@@ -30,6 +30,8 @@ final class SpeechCoach: NSObject, SpeechCoaching, SpeechSynthesizingDelegate {
     private let voice: AVSpeechSynthesisVoice?
     private var queue: [Utterance] = []
     private var current: AVSpeechUtterance?
+    private var pendingDuckingID: UUID?
+    private var pendingUtterance: Utterance?
     private var isActive = false
     private var watchdog: Timer?
     private let timing: AudioWorkTiming?
@@ -51,6 +53,11 @@ final class SpeechCoach: NSObject, SpeechCoaching, SpeechSynthesizingDelegate {
         if utterance.isInstruction { lastInstruction = utterance }
         if utterance.interrupts {
             queue.removeAll()
+            if pendingDuckingID != nil {
+                // Keep the in-flight duck request and replace the line that will speak when it completes.
+                pendingUtterance = utterance
+                return
+            }
             // The cancel callback advances to this utterance; speaking immediately after a stop can be dropped.
             if current != nil { stopSynthesizer() }
         }
@@ -65,13 +72,15 @@ final class SpeechCoach: NSObject, SpeechCoaching, SpeechSynthesizingDelegate {
 
     func stopAll() {
         queue.removeAll()
+        pendingDuckingID = nil
+        pendingUtterance = nil
         current = nil
         stopSynthesizer()
         finishActivity()
     }
 
     private func speakNext() {
-        guard current == nil else { return }
+        guard current == nil, pendingDuckingID == nil else { return }
         guard !queue.isEmpty else {
             finishActivity()
             return
@@ -82,12 +91,20 @@ final class SpeechCoach: NSObject, SpeechCoaching, SpeechSynthesizingDelegate {
             // Listeners such as speech recognition stop before the session is reconfigured.
             onActivityChanged?(true)
         }
-        audio.beginDucking()
-        let spoken = AVSpeechUtterance(string: next.text)
-        spoken.voice = voice
-        current = spoken
-        measured(.speechStart) { synthesizer.speak(spoken) }
-        armWatchdog(for: spoken)
+        let duckingID = UUID()
+        pendingDuckingID = duckingID
+        pendingUtterance = next
+        audio.beginDucking { [weak self] in
+            guard let self, self.pendingDuckingID == duckingID,
+                  let utterance = self.pendingUtterance else { return }
+            self.pendingDuckingID = nil
+            self.pendingUtterance = nil
+            let spoken = AVSpeechUtterance(string: utterance.text)
+            spoken.voice = self.voice
+            self.current = spoken
+            self.measured(.speechStart) { self.synthesizer.speak(spoken) }
+            self.armWatchdog(for: spoken)
+        }
     }
 
     private func stopSynthesizer() {

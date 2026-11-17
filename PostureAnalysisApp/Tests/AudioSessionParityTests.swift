@@ -1,17 +1,20 @@
 import AVFoundation
+import Dispatch
 import XCTest
 @testable import PostureAnalysisApp
 
 @MainActor
 final class AudioSessionParityTests: XCTestCase {
-    func testPlaybackAndRecordingCategoriesActivationAndDeactivation() {
+    func testPlaybackAndRecordingCategoriesActivationAndDeactivation() async {
         let session = RecordingAudioSessioning()
         let audio = WorkoutAudioSession(session: session)
 
         audio.configureBaseCategory()
         audio.setRecordingEnabled(true)
-        XCTAssertTrue(audio.activateForListening())
+        let activated = await activate(audio)
+        XCTAssertTrue(activated)
         audio.stopListening()
+        await audio.waitForPendingSessionWork()
 
         XCTAssertEqual(session.calls, [
             .category("AVAudioSessionCategoryPlayback", "AVAudioSessionModeDefault", ["mixWithOthers"]),
@@ -26,15 +29,18 @@ final class AudioSessionParityTests: XCTestCase {
         XCTAssertTrue(audio.isRecordingEnabled)
     }
 
-    func testDuckingAndRestoreOrderWhileListening() {
+    func testDuckingAndRestoreOrderWhileListening() async {
         let session = RecordingAudioSessioning()
         let audio = WorkoutAudioSession(session: session)
         audio.setRecordingEnabled(true)
-        XCTAssertTrue(audio.activateForListening())
+        let activated = await activate(audio)
+        XCTAssertTrue(activated)
 
         audio.beginDucking()
+        await audio.waitForPendingSessionWork()
         XCTAssertTrue(audio.isDucking)
         audio.endDucking()
+        await audio.waitForPendingSessionWork()
 
         XCTAssertEqual(session.calls, [
             .category("AVAudioSessionCategoryPlayAndRecord", "AVAudioSessionModeDefault",
@@ -55,12 +61,14 @@ final class AudioSessionParityTests: XCTestCase {
         XCTAssertTrue(audio.isActive)
     }
 
-    func testSpeechDuckingWithoutListeningDoesNotReactivateAfterSpeech() {
+    func testSpeechDuckingWithoutListeningDoesNotReactivateAfterSpeech() async {
         let session = RecordingAudioSessioning()
         let audio = WorkoutAudioSession(session: session)
 
         audio.beginDucking()
+        await audio.waitForPendingSessionWork()
         audio.endDucking()
+        await audio.waitForPendingSessionWork()
 
         XCTAssertEqual(session.calls, [
             .category("AVAudioSessionCategoryPlayback", "AVAudioSessionModeDefault", ["duckOthers", "mixWithOthers"]),
@@ -85,14 +93,17 @@ final class AudioSessionParityTests: XCTestCase {
         ])
     }
 
-    func testDeactivateEndsDuckingAndReleasesListeningSession() {
+    func testDeactivateEndsDuckingAndReleasesListeningSession() async {
         let session = RecordingAudioSessioning()
         let audio = WorkoutAudioSession(session: session)
         audio.setRecordingEnabled(true)
-        XCTAssertTrue(audio.activateForListening())
+        let activated = await activate(audio)
+        XCTAssertTrue(activated)
         audio.beginDucking()
+        await audio.waitForPendingSessionWork()
 
         audio.deactivate()
+        await audio.waitForPendingSessionWork()
 
         XCTAssertEqual(session.calls.suffix(3), [
             .active(false, ["notifyOthersOnDeactivation"]),
@@ -104,12 +115,14 @@ final class AudioSessionParityTests: XCTestCase {
         XCTAssertFalse(audio.isActive)
     }
 
-    func testInterruptionNotificationsReportBeganAndBothResumeValues() {
+    func testInterruptionNotificationsReportBeganAndBothResumeValues() async {
         let session = RecordingAudioSessioning()
         let audio = WorkoutAudioSession(session: session)
         audio.setRecordingEnabled(true)
-        XCTAssertTrue(audio.activateForListening())
+        let activated = await activate(audio)
+        XCTAssertTrue(activated)
         audio.beginDucking()
+        await audio.waitForPendingSessionWork()
         XCTAssertTrue(audio.isActive)
         XCTAssertTrue(audio.isDucking)
         var events: [AudioSessionEvent] = []
@@ -131,6 +144,7 @@ final class AudioSessionParityTests: XCTestCase {
         center.post(name: AVAudioSession.interruptionNotification, object: shared, userInfo: [
             AVAudioSessionInterruptionTypeKey: NSNumber(value: AVAudioSession.InterruptionType.began.rawValue)
         ])
+        await audio.waitForPendingSessionWork()
         XCTAssertFalse(audio.isDucking)
         XCTAssertFalse(audio.isActive)
         XCTAssertEqual(session.calls, callsBeforeInterruption)
@@ -138,11 +152,13 @@ final class AudioSessionParityTests: XCTestCase {
             AVAudioSessionInterruptionTypeKey: NSNumber(value: AVAudioSession.InterruptionType.ended.rawValue),
             AVAudioSessionInterruptionOptionKey: NSNumber(value: 0)
         ])
+        await audio.waitForPendingSessionWork()
         center.post(name: AVAudioSession.interruptionNotification, object: shared, userInfo: [
             AVAudioSessionInterruptionTypeKey: NSNumber(value: AVAudioSession.InterruptionType.ended.rawValue),
             AVAudioSessionInterruptionOptionKey:
                 NSNumber(value: AVAudioSession.InterruptionOptions.shouldResume.rawValue)
         ])
+        await audio.waitForPendingSessionWork()
 
         XCTAssertEqual(events, [
             .interruptionDiagnostic(type: "began", reason: nil, wasSuspended: false, shouldResume: nil),
@@ -154,7 +170,7 @@ final class AudioSessionParityTests: XCTestCase {
         ])
     }
 
-    func testRouteNotificationReasonsAndMediaServicesReset() {
+    func testRouteNotificationReasonsAndMediaServicesReset() async {
         let session = RecordingAudioSessioning()
         let audio = WorkoutAudioSession(session: session)
         var events: [AudioSessionEvent] = []
@@ -172,6 +188,7 @@ final class AudioSessionParityTests: XCTestCase {
             center.post(name: AVAudioSession.routeChangeNotification, object: shared, userInfo: [
                 AVAudioSessionRouteChangeReasonKey: NSNumber(value: reason.rawValue)
             ])
+            await audio.waitForPendingSessionWork()
             let expected = [AudioSessionEvent.routeDiagnostic(reason: Int(reason.rawValue),
                                                                outputs: session.outputs, inputs: session.inputs)]
                 + (isDeviceChange ? [.routeChanged] : [])
@@ -179,11 +196,14 @@ final class AudioSessionParityTests: XCTestCase {
         }
 
         audio.setRecordingEnabled(true)
-        XCTAssertTrue(audio.activateForListening())
+        let activated = await activate(audio)
+        XCTAssertTrue(activated)
         audio.beginDucking()
+        await audio.waitForPendingSessionWork()
         XCTAssertTrue(audio.isDucking)
         XCTAssertTrue(audio.isActive)
         center.post(name: AVAudioSession.mediaServicesWereResetNotification, object: shared)
+        await audio.waitForPendingSessionWork()
 
         XCTAssertEqual(events.last, .mediaServicesReset)
         XCTAssertFalse(audio.isActive)
@@ -207,15 +227,18 @@ final class AudioSessionParityTests: XCTestCase {
         ])
     }
 
-    func testListeningActivationAndCategoryFailuresAreReportedPrecisely() {
+    func testListeningActivationAndCategoryFailuresAreReportedPrecisely() async {
         let session = RecordingAudioSessioning()
         let audio = WorkoutAudioSession(session: session)
         audio.setRecordingEnabled(true)
+        await audio.waitForPendingSessionWork()
         session.categoryFailures = 1
 
         audio.configureBaseCategory()
+        await audio.waitForPendingSessionWork()
         session.activeFailures = [true]
-        XCTAssertFalse(audio.activateForListening())
+        let activated = await activate(audio)
+        XCTAssertFalse(activated)
         XCTAssertFalse(audio.isActive)
 
         XCTAssertEqual(session.calls, [
@@ -229,12 +252,14 @@ final class AudioSessionParityTests: XCTestCase {
         ])
     }
 
-    func testDuckCategoryFailureAndActivationFailureBothRestoreBaseState() {
+    func testDuckCategoryFailureAndActivationFailureBothRestoreBaseState() async {
         let categoryFailureSession = RecordingAudioSessioning()
         let categoryFailureAudio = WorkoutAudioSession(session: categoryFailureSession)
         categoryFailureAudio.setRecordingEnabled(true)
+        await categoryFailureAudio.waitForPendingSessionWork()
         categoryFailureSession.categoryFailures = 1
         categoryFailureAudio.beginDucking()
+        await categoryFailureAudio.waitForPendingSessionWork()
         XCTAssertFalse(categoryFailureAudio.isDucking)
         XCTAssertEqual(categoryFailureSession.calls, [
             .category("AVAudioSessionCategoryPlayAndRecord", "AVAudioSessionModeDefault",
@@ -246,9 +271,11 @@ final class AudioSessionParityTests: XCTestCase {
         let activationFailureSession = RecordingAudioSessioning()
         let activationFailureAudio = WorkoutAudioSession(session: activationFailureSession)
         activationFailureAudio.setRecordingEnabled(true)
-        XCTAssertTrue(activationFailureAudio.activateForListening())
+        let activated = await activate(activationFailureAudio)
+        XCTAssertTrue(activated)
         activationFailureSession.activeFailures = [true]
         activationFailureAudio.beginDucking()
+        await activationFailureAudio.waitForPendingSessionWork()
         XCTAssertFalse(activationFailureAudio.isDucking)
         XCTAssertTrue(activationFailureAudio.isActive)
         XCTAssertEqual(activationFailureSession.calls, [
@@ -268,29 +295,182 @@ final class AudioSessionParityTests: XCTestCase {
         ])
     }
 
-    func testBusyRestoreDeactivationRecordsFirstRetryAttemptWithoutWaiting() {
+    func testBusyRestoreDeactivationRecordsFirstRetryAttemptWithoutWaiting() async {
         let session = RecordingAudioSessioning()
         let audio = WorkoutAudioSession(session: session)
         audio.setRecordingEnabled(true)
-        XCTAssertTrue(audio.activateForListening())
+        let activated = await activate(audio)
+        XCTAssertTrue(activated)
         audio.beginDucking()
+        await audio.waitForPendingSessionWork()
         session.activeFailures = [false]
 
         audio.endDucking()
+        await audio.waitForPendingSessionWork()
 
         XCTAssertFalse(audio.isDucking)
         XCTAssertTrue(audio.isActive, "The first busy restore leaves the session active until its scheduled retry.")
         XCTAssertEqual(session.calls.suffix(1), [.active(false, ["notifyOthersOnDeactivation"])])
     }
 
-    func testFailedPreDuckDeactivateStillDucksAndFailedRestoreActivationLeavesSessionInactive() {
+    func testEndDuckingReturnsPromptlyWhileRestoreRunsOnTheSessionWorker() async {
+        let session = RecordingAudioSessioning()
+        let timing = AudioWorkTiming()
+        var measurements: [(AudioWorkStep, TimeInterval, AudioWorkExecutionContext)] = []
+        timing.onMeasured = { measurements.append(($0, $1, $2)) }
+        let audio = WorkoutAudioSession(timing: timing, session: session)
+        audio.beginDucking()
+        await audio.waitForPendingSessionWork()
+        session.blockNextRestore()
+
+        let start = ProcessInfo.processInfo.systemUptime
+        audio.endDucking()
+        let returnDuration = ProcessInfo.processInfo.systemUptime - start
+
+        let restoreWasBlocked = await session.waitForBlockedRestore()
+        XCTAssertTrue(restoreWasBlocked)
+        XCTAssertLessThan(returnDuration, 0.1, "The MainActor request must return while setActive is blocked.")
+        Thread.sleep(forTimeInterval: 0.02)
+        session.releaseBlockedRestore()
+        await audio.waitForPendingSessionWork()
+        XCTAssertFalse(audio.isDucking)
+        XCTAssertFalse(audio.isActive)
+        XCTAssertGreaterThanOrEqual(measurements.first(where: { $0.0 == .restoreOtherAudio })?.1 ?? 0, 0.02)
+        XCTAssertEqual(measurements.first(where: { $0.0 == .restoreOtherAudio })?.2, .worker)
+    }
+
+    func testDuckingCompletionWaitsUntilTheOtherAudioIsActuallyDucked() async {
+        let session = RecordingAudioSessioning()
+        let audio = WorkoutAudioSession(session: session)
+        session.blockNextDuckActivation()
+        var completed = false
+
+        audio.beginDucking { completed = true }
+
+        let duckActivationWasBlocked = await session.waitForBlockedDuckActivation()
+        XCTAssertTrue(duckActivationWasBlocked)
+        XCTAssertFalse(completed)
+        session.releaseBlockedDuckActivation()
+        await audio.waitForPendingSessionWork()
+
+        XCTAssertTrue(completed)
+        XCTAssertTrue(audio.isDucking)
+    }
+
+    func testDuckRequestedDuringRestoreWinsAndDoubleEndIsIdempotent() async {
+        let session = RecordingAudioSessioning()
+        let audio = WorkoutAudioSession(session: session)
+        audio.beginDucking()
+        await audio.waitForPendingSessionWork()
+        session.blockNextRestore()
+
+        audio.endDucking()
+        let restoreWasBlocked = await session.waitForBlockedRestore()
+        XCTAssertTrue(restoreWasBlocked)
+        audio.endDucking()
+        audio.beginDucking()
+        session.releaseBlockedRestore()
+        await audio.waitForPendingSessionWork()
+
+        XCTAssertTrue(audio.isDucking)
+        XCTAssertTrue(session.categoryOptions.contains(.duckOthers))
+        XCTAssertEqual(session.calls.filter {
+            if case .active(false, ["notifyOthersOnDeactivation"]) = $0 { return true }
+            return false
+        }.count, 1)
+    }
+
+    func testTeardownDuringRestoreLeavesSessionRestoredAndInactive() async {
+        let session = RecordingAudioSessioning()
+        let audio = WorkoutAudioSession(session: session)
+        audio.beginDucking()
+        await audio.waitForPendingSessionWork()
+        session.blockNextRestore()
+
+        audio.endDucking()
+        let restoreWasBlocked = await session.waitForBlockedRestore()
+        XCTAssertTrue(restoreWasBlocked)
+        audio.deactivate()
+        session.releaseBlockedRestore()
+        await audio.waitForPendingSessionWork()
+
+        XCTAssertFalse(audio.isDucking)
+        XCTAssertFalse(audio.isActive)
+        XCTAssertFalse(session.categoryOptions.contains(.duckOthers))
+        XCTAssertEqual(session.calls.suffix(1), [.active(false, ["notifyOthersOnDeactivation"])])
+    }
+
+    func testRestoreRetriesToTheLimitAndReactivationEventReturnsOnMainActor() async {
+        let session = RecordingAudioSessioning()
+        let audio = WorkoutAudioSession(session: session)
+        let activated = await activate(audio)
+        XCTAssertTrue(activated)
+        audio.beginDucking()
+        await audio.waitForPendingSessionWork()
+        session.activeFailures = [false]
+        var reactivatedEvents = 0
+        var eventWasOnMainThread = false
+        let reactivated = expectation(description: "a retry reactivates listening")
+        audio.onEvent = { event in
+            guard event == .reactivated else { return }
+            reactivatedEvents += 1
+            eventWasOnMainThread = Thread.isMainThread
+            reactivated.fulfill()
+        }
+
+        audio.endDucking()
+        await fulfillment(of: [reactivated], timeout: 2)
+        await audio.waitForPendingSessionWork()
+
+        XCTAssertEqual(reactivatedEvents, 1)
+        XCTAssertTrue(eventWasOnMainThread)
+        XCTAssertFalse(audio.isDucking)
+        XCTAssertTrue(audio.isActive)
+        XCTAssertEqual(session.calls.filter {
+            if case .active(false, ["notifyOthersOnDeactivation"]) = $0 { return true }
+            return false
+        }.count, 2)
+    }
+
+    func testRestoreStopsAfterMaximumAttemptsWithoutLeavingDuckingEnabled() async {
+        let session = RecordingAudioSessioning()
+        let audio = WorkoutAudioSession(session: session)
+        audio.beginDucking()
+        await audio.waitForPendingSessionWork()
+        session.activeFailures = Array(repeating: false, count: WorkoutAudioSession.maximumRestoreAttempts)
+        var deactivationAttempts = 0
+        let restoreExhausted = expectation(description: "restore attempts reach their configured maximum")
+        audio.onEvent = { event in
+            guard case .sessionOperation(let operation, let active, _, _, _, _, _, _) = event,
+                  operation == "setActive", active == false else { return }
+            deactivationAttempts += 1
+            if deactivationAttempts == WorkoutAudioSession.maximumRestoreAttempts {
+                restoreExhausted.fulfill()
+            }
+        }
+
+        audio.endDucking()
+        await fulfillment(of: [restoreExhausted], timeout: 3)
+        await audio.waitForPendingSessionWork()
+
+        XCTAssertFalse(audio.isDucking)
+        XCTAssertFalse(session.categoryOptions.contains(.duckOthers))
+        XCTAssertEqual(session.calls.filter {
+            if case .active(false, ["notifyOthersOnDeactivation"]) = $0 { return true }
+            return false
+        }.count, WorkoutAudioSession.maximumRestoreAttempts)
+    }
+
+    func testFailedPreDuckDeactivateStillDucksAndFailedRestoreActivationLeavesSessionInactive() async {
         let preDuckSession = RecordingAudioSessioning()
         let preDuckAudio = WorkoutAudioSession(session: preDuckSession)
         preDuckAudio.setRecordingEnabled(true)
-        XCTAssertTrue(preDuckAudio.activateForListening())
+        let preDuckActivated = await activate(preDuckAudio)
+        XCTAssertTrue(preDuckActivated)
         preDuckSession.activeFailures = [false]
 
         preDuckAudio.beginDucking()
+        await preDuckAudio.waitForPendingSessionWork()
 
         XCTAssertTrue(preDuckAudio.isDucking)
         XCTAssertTrue(preDuckAudio.isActive)
@@ -304,11 +484,14 @@ final class AudioSessionParityTests: XCTestCase {
         let restoreSession = RecordingAudioSessioning()
         let restoreAudio = WorkoutAudioSession(session: restoreSession)
         restoreAudio.setRecordingEnabled(true)
-        XCTAssertTrue(restoreAudio.activateForListening())
+        let restoreActivated = await activate(restoreAudio)
+        XCTAssertTrue(restoreActivated)
         restoreAudio.beginDucking()
+        await restoreAudio.waitForPendingSessionWork()
         restoreSession.activeFailures = [true]
 
         restoreAudio.endDucking()
+        await restoreAudio.waitForPendingSessionWork()
 
         XCTAssertFalse(restoreAudio.isDucking)
         XCTAssertFalse(restoreAudio.isActive)
@@ -320,28 +503,37 @@ final class AudioSessionParityTests: XCTestCase {
         ])
     }
 
-    func testStopListeningAndFinalDeactivationSwallowDeactivateFailures() {
+    func testStopListeningAndFinalDeactivationSwallowDeactivateFailures() async {
         let session = RecordingAudioSessioning()
         let audio = WorkoutAudioSession(session: session)
         audio.setRecordingEnabled(true)
-        XCTAssertTrue(audio.activateForListening())
+        let activated = await activate(audio)
+        XCTAssertTrue(activated)
         session.activeFailures = [false]
 
         audio.stopListening()
+        await audio.waitForPendingSessionWork()
 
         XCTAssertFalse(audio.isActive)
         XCTAssertEqual(session.calls.suffix(1), [.active(false, ["notifyOthersOnDeactivation"])])
 
-        XCTAssertTrue(audio.activateForListening())
+        let reactivated = await activate(audio)
+        XCTAssertTrue(reactivated)
         session.activeFailures = [false]
         audio.deactivate()
+        await audio.waitForPendingSessionWork()
 
         XCTAssertFalse(audio.isActive)
         XCTAssertEqual(session.calls.suffix(1), [.active(false, ["notifyOthersOnDeactivation"])])
     }
+
+    private func activate(_ audio: WorkoutAudioSession) async -> Bool {
+        await withCheckedContinuation { continuation in
+            audio.activateForListening { continuation.resume(returning: $0) }
+        }
+    }
 }
 
-@MainActor
 private final class RecordingAudioSessioning: AudioSessioning {
     enum Call: Equatable {
         case category(String, String, AVAudioSession.CategoryOptions.RawValue, [String])
@@ -372,6 +564,46 @@ private final class RecordingAudioSessioning: AudioSessioning {
     let secondaryAudioShouldBeSilenced = false
     var categoryFailures = 0
     var activeFailures: [Bool] = []
+    private let blockedRestoreStarted = DispatchSemaphore(value: 0)
+    private let releaseBlockedRestoreSemaphore = DispatchSemaphore(value: 0)
+    private let blockedDuckStarted = DispatchSemaphore(value: 0)
+    private let releaseBlockedDuckSemaphore = DispatchSemaphore(value: 0)
+    private let blockNextRestoreSemaphore = DispatchSemaphore(value: 0)
+    private let blockNextDuckSemaphore = DispatchSemaphore(value: 0)
+
+    func blockNextRestore() {
+        blockNextRestoreSemaphore.signal()
+    }
+
+    /// Wait off the MainActor: the facade starts its worker command from a MainActor task, so a synchronous
+    /// semaphore wait here would prevent that task from running and the fake would never reach its blocked call.
+    func waitForBlockedRestore() async -> Bool {
+        await waitForSignal(blockedRestoreStarted)
+    }
+
+    func releaseBlockedRestore() {
+        releaseBlockedRestoreSemaphore.signal()
+    }
+
+    func blockNextDuckActivation() {
+        blockNextDuckSemaphore.signal()
+    }
+
+    func waitForBlockedDuckActivation() async -> Bool {
+        await waitForSignal(blockedDuckStarted)
+    }
+
+    func releaseBlockedDuckActivation() {
+        releaseBlockedDuckSemaphore.signal()
+    }
+
+    private func waitForSignal(_ semaphore: DispatchSemaphore) async -> Bool {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global().async {
+                continuation.resume(returning: semaphore.wait(timeout: .now() + 1) == .success)
+            }
+        }
+    }
 
     func setCategory(_ category: AVAudioSession.Category, mode: AVAudioSession.Mode,
                      options: AVAudioSession.CategoryOptions) throws {
@@ -389,6 +621,15 @@ private final class RecordingAudioSessioning: AudioSessioning {
     func setActive(_ active: Bool, options: AVAudioSession.SetActiveOptions) throws {
         let optionNames = options.contains(.notifyOthersOnDeactivation) ? ["notifyOthersOnDeactivation"] : []
         calls.append(.active(active, optionNames))
+        if active, blockNextDuckSemaphore.wait(timeout: .now()) == .success {
+            blockedDuckStarted.signal()
+            _ = releaseBlockedDuckSemaphore.wait(timeout: .now() + 2)
+        }
+        if !active, options.contains(.notifyOthersOnDeactivation),
+           blockNextRestoreSemaphore.wait(timeout: .now()) == .success {
+            blockedRestoreStarted.signal()
+            _ = releaseBlockedRestoreSemaphore.wait(timeout: .now() + 2)
+        }
         if activeFailures.first == active {
             activeFailures.removeFirst()
             throw RecordingFailure.failed

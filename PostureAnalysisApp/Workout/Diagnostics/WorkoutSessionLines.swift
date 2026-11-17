@@ -366,8 +366,10 @@ enum WorkoutSessionLines {
                       ("activeOptions", .strings(activeOptions)),
                       ("isOtherAudioPlaying", .bool(isOtherAudioPlaying)),
                       ("secondaryAudioShouldBeSilenced", .bool(shouldBeSilenced))]
-        case .audioWork(let step, let seconds):
-            fields = [("type", "audio.work"), ("step", .string(step.rawValue)), ("ms", .rounded(seconds * 1000, places: 1))]
+        case .audioWork(let step, let seconds, let executionContext):
+            fields = [("type", "audio.work"), ("step", .string(step.rawValue)),
+                      ("ms", .rounded(seconds * 1000, places: 1)),
+                      ("execution", .string(executionContext.rawValue))]
         case .guidePresented(let shown):
             fields = [("type", "ui.guide"), ("shown", .bool(shown))]
         case .helpPresented(let shown):

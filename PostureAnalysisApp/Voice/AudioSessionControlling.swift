@@ -1,6 +1,6 @@
 import Foundation
 
-enum AudioSessionEvent: Equatable {
+enum AudioSessionEvent: Equatable, Sendable {
     case interruptionBegan
     case interruptionEnded(shouldResume: Bool)
     /// Recording-only details; the plain interruption cases above keep their existing workout behavior.
@@ -24,8 +24,28 @@ protocol AudioSessionControlling: AnyObject {
     func configureBaseCategory()
     func setRecordingEnabled(_ enabled: Bool)
     func activateForListening() -> Bool
+    func activateForListening(completion: @escaping @MainActor (Bool) -> Void)
     func stopListening()
     func beginDucking()
+    func beginDucking(completion: @escaping @MainActor () -> Void)
     func endDucking()
+    func endDucking(completion: @escaping @MainActor () -> Void)
     func deactivate()
+}
+
+extension AudioSessionControlling {
+    /// Synchronous test and adapter implementations can keep their existing behavior.
+    func activateForListening(completion: @escaping @MainActor (Bool) -> Void) {
+        completion(activateForListening())
+    }
+
+    func beginDucking(completion: @escaping @MainActor () -> Void) {
+        beginDucking()
+        completion()
+    }
+
+    func endDucking(completion: @escaping @MainActor () -> Void) {
+        endDucking()
+        completion()
+    }
 }
