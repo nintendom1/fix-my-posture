@@ -159,11 +159,11 @@ struct WorkoutSessionReplayer {
                 continue
             }
             try checkDrift(entry, exercise)
-            guard let configuration = entry["configuration"] as? [String: Any], let diagnostics = exercise.diagnostics else {
-                definitions[id] = exercise
-                continue
+            var rebuilt = exercise
+            if let configuration = entry["configuration"] as? [String: Any], let diagnostics = exercise.diagnostics {
+                rebuilt = try diagnostics.rebuild(JSONSerialization.data(withJSONObject: configuration))
             }
-            definitions[id] = try diagnostics.rebuild(JSONSerialization.data(withJSONObject: configuration))
+            definitions[id] = recordedPhoneDistance(entry, over: rebuilt)
         }
         // A smaller-range variant keeps its own recorded configuration. A recording without one (every recording from
         // before variants were recorded) runs this build's variant, and a control that names none runs the full range.
@@ -174,14 +174,26 @@ struct WorkoutSessionReplayer {
                 definitions[key] = variant
                 continue
             }
-            guard let entry = recorded[key] as? [String: Any], let configuration = entry["configuration"] as? [String: Any],
-                  let diagnostics = variant.diagnostics else {
+            guard let entry = recorded[key] as? [String: Any] else {
                 definitions[key] = variant
                 continue
             }
-            definitions[key] = try diagnostics.rebuild(JSONSerialization.data(withJSONObject: configuration))
+            var rebuilt = variant
+            if let configuration = entry["configuration"] as? [String: Any], let diagnostics = variant.diagnostics {
+                rebuilt = try diagnostics.rebuild(JSONSerialization.data(withJSONObject: configuration))
+            }
+            definitions[key] = recordedPhoneDistance(entry, over: rebuilt)
         }
         return definitions
+    }
+
+    /// The phone-distance limits the recording ran with. The header omits an unset limit, and recordings from before
+    /// the wrist limit omit it too, so a missing limit replays without that check.
+    private static func recordedPhoneDistance(_ entry: [String: Any], over exercise: ExerciseDefinition) -> ExerciseDefinition {
+        var exercise = exercise
+        exercise.maximumShoulderSpan = (entry["maximumShoulderSpan"] as? Double).map { CGFloat($0) }
+        exercise.maximumWristHeightFraction = (entry["maximumWristHeightFraction"] as? Double).map { CGFloat($0) }
+        return exercise
     }
 
     private static func checkDrift(_ entry: [String: Any], _ exercise: ExerciseDefinition) throws {

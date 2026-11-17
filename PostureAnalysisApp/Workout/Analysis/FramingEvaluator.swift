@@ -84,8 +84,8 @@ struct FramingConfiguration: Codable {
     var centerTolerance: CGFloat = 0.17
     /// Fewer confident joints than this means nobody is in view.
     var minimumBodyJoints = 3
-    /// The shoulder span must fall this far below an exercise's limit to clear the phone-distance warning, so a
-    /// span near the limit doesn't flicker.
+    /// A normalized phone-distance measurement must fall this far below its limit to clear the warning, so values
+    /// near a boundary don't flicker.
     var shoulderSpanClearance: CGFloat = 0.02
 }
 
@@ -99,16 +99,20 @@ struct FramingEvaluator {
     /// Horizontal room needed at each shoulder, in measured arm lengths; nil skips the check.
     let sideroomArmLengths: CGFloat?
     /// Widest the shoulders may span, as a fraction of image width, before the phone is too close; nil skips the
-    /// check. Guidance only: it holds setup but never affects reliability, because the shoulders widen as the body
-    /// nears the phone during every rep.
+    /// check. Guidance only: it holds setup but never affects reliability, so a set in progress keeps counting.
     let maximumShoulderSpan: CGFloat?
+    /// Lowest in-frame position allowed for either wrist, as a fraction of image height from the top; lower asks for
+    /// the phone farther away, and nil skips the check. Guidance only, like the shoulder span.
+    let maximumWristHeightFraction: CGFloat?
     let centersInFrame: Bool
     let cameraView: ExerciseCameraView
     let configuration: FramingConfiguration
     private var presentSince: TimeInterval?
     private var lastPresent: TimeInterval?
     private(set) var isReliable = false
-    private var isPhoneTooClose = false
+    private var isShoulderSpanTooWide = false
+    private var areWristsTooLow = false
+    private var isPhoneTooClose: Bool { isShoulderSpanTooWide || areWristsTooLow }
 
     private var needsFullBodySideView: Bool {
         requiredJoints.contains(.leftAnkle) || requiredJoints.contains(.rightAnkle)
@@ -117,6 +121,7 @@ struct FramingEvaluator {
 
     init(requiredJoints: Set<LandmarkType>, anyOfRequiredJoints: [Set<LandmarkType>] = [], headroomArmLengths: CGFloat?,
          sideroomArmLengths: CGFloat? = nil, maximumShoulderSpan: CGFloat? = nil,
+         maximumWristHeightFraction: CGFloat? = nil,
          centersInFrame: Bool = true, cameraView: ExerciseCameraView = .front,
          configuration: FramingConfiguration = FramingConfiguration()) {
         self.requiredJoints = requiredJoints
@@ -124,6 +129,7 @@ struct FramingEvaluator {
         self.headroomArmLengths = headroomArmLengths
         self.sideroomArmLengths = sideroomArmLengths
         self.maximumShoulderSpan = maximumShoulderSpan
+        self.maximumWristHeightFraction = maximumWristHeightFraction
         self.centersInFrame = centersInFrame
         self.cameraView = cameraView
         self.configuration = configuration
@@ -154,21 +160,34 @@ struct FramingEvaluator {
         presentSince = nil
         lastPresent = nil
         isReliable = false
-        isPhoneTooClose = false
+        isShoulderSpanTooWide = false
+        areWristsTooLow = false
     }
 
-    /// Too close above `maximumShoulderSpan`, clear again below it by `shoulderSpanClearance`. Unseen shoulders keep
-    /// the last answer; missing joints have their own guidance.
+    /// Distance guidance latches each configured measurement until it clears its hysteresis range. Missing joints
+    /// keep the last answer; missing required joints have their own guidance.
     private mutating func updatePhoneDistance(_ frame: PoseFrame) {
         let confidence = configuration.minimumConfidence
-        guard let maximumShoulderSpan, frame.pose.imageWidth > 0,
-              let left = frame.point(.leftShoulder, minimumConfidence: confidence),
-              let right = frame.point(.rightShoulder, minimumConfidence: confidence) else { return }
-        let span = hypot(left.x - right.x, left.y - right.y) / frame.pose.imageWidth
-        if span > maximumShoulderSpan {
-            isPhoneTooClose = true
-        } else if span < maximumShoulderSpan - configuration.shoulderSpanClearance {
-            isPhoneTooClose = false
+        if let maximumShoulderSpan, frame.pose.imageWidth > 0,
+           let left = frame.point(.leftShoulder, minimumConfidence: confidence),
+           let right = frame.point(.rightShoulder, minimumConfidence: confidence) {
+            let span = hypot(left.x - right.x, left.y - right.y) / frame.pose.imageWidth
+            if span > maximumShoulderSpan {
+                isShoulderSpanTooWide = true
+            } else if span < maximumShoulderSpan - configuration.shoulderSpanClearance {
+                isShoulderSpanTooWide = false
+            }
+        }
+
+        if let maximumWristHeightFraction, frame.pose.imageHeight > 0,
+           let left = frame.point(.leftWrist, minimumConfidence: confidence),
+           let right = frame.point(.rightWrist, minimumConfidence: confidence) {
+            let wristHeight = max(left.y, right.y) / frame.pose.imageHeight
+            if wristHeight > maximumWristHeightFraction {
+                areWristsTooLow = true
+            } else if wristHeight < maximumWristHeightFraction - configuration.shoulderSpanClearance {
+                areWristsTooLow = false
+            }
         }
     }
 

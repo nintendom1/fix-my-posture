@@ -85,9 +85,16 @@ enum PushUpExercise {
                 FocusSegment(from: .leftShoulder, to: .rightShoulder, style: .reference)
             ],
             headroomArmLengths: nil,
-            // Recordings lost the whole body before the bottom of every rep at 34% or more, and kept it at 30%
-            // or less: with the phone near the face, Vision stops seeing a body.
-            maximumShoulderSpan: 0.32,
+            // Local recordings, as medians of shoulder span / image width and lower wrist y / image height (from the
+            // top, unmirrored portrait pixels). A far setup that tracked through the set measured 0.19 and 0.56.
+            // Too-close setups measured 0.25-0.30 with wrists at 0.71-0.73 at Ready (the body or face was lost on
+            // most reps), and 0.29-0.32 with wrists at 0.58 mid-set. Seen from the floor, the span is narrower at
+            // Down than at Up (0.17 vs 0.19 far, 0.21 vs 0.25 close), so it is widest in the Ready plank. These
+            // limit passes the far setup with margin and holds every close one; it clears 0.02 below, at 0.21.
+            // No wrist-height limit: on device the hands stayed 0.72-0.78 down the frame at every distance (it
+            // follows the phone's tilt, not its distance), so "move the phone farther" could never clear it, and
+            // the span alone already holds every too-close setup above.
+            maximumShoulderSpan: 0.23,
             framingUnreliableAfter: configuration.maximumBottomGap,
             countsArmsIndependently: false,
             setupLine: "Lay the phone on the floor a long step in front of your hands, tilted up to see you, and get into a plank facing it.",

@@ -12,7 +12,8 @@ struct ReadyPoseVariant {
     let pose: BodyPose
 }
 
-/// Ready-valid poses for every catalog exercise, centered with headroom so framing gives no guidance.
+/// Ready-valid poses for every catalog exercise, centered with headroom and inside any phone-distance limits so
+/// framing gives no guidance.
 enum ReadyPoseFixtures {
     static let imageSize = CGSize(width: 1080, height: 1920)
     static let confidence = 0.9
@@ -96,10 +97,8 @@ enum ReadyPoseFixtures {
             preconditionFailure("Ready pose for \(exercise.id) has no joints to center.")
         }
         let centerX = pointsToCenter.reduce(0) { $0 + $1.x } / CGFloat(pointsToCenter.count)
-        // Exercises that need room beside the arms (side-room framing) stand a little farther back.
-        let scale: CGFloat = exercise.sideroomArmLengths == nil ? 3 : 2.5
+        let (scale, yOffset) = placement(for: exercise)
         let xOffset = CGFloat(540) - centerX * scale
-        let yOffset = (imageSize.height - ExerciseDemoFigureView.canvasSize.height * scale) / 2
         let landmarks = Dictionary(uniqueKeysWithValues: positions.map { type, point in
             let pixel = CGPoint(x: point.x * scale + xOffset, y: point.y * scale + yOffset)
             return (type, Landmark(type: type,
@@ -109,6 +108,35 @@ enum ReadyPoseFixtures {
                                    confidence: confidence))
         })
         return BodyPose(landmarks: landmarks, imageWidth: imageSize.width, imageHeight: imageSize.height)
+    }
+
+    /// Figure-to-pixel scale and vertical offset, fixed per exercise so every frame of its motion lines up. An
+    /// exercise with phone-distance limits stands where a real user passes them: the start pose's shoulder span and
+    /// lowest wrist sit two clearances inside each limit, below the point where a distance warning clears.
+    private static func placement(for exercise: ExerciseDefinition) -> (scale: CGFloat, yOffset: CGFloat) {
+        // Exercises that need room beside the arms (side-room framing) stand a little farther back.
+        var scale: CGFloat = exercise.sideroomArmLengths == nil ? 3 : 2.5
+        var yOffset = (imageSize.height - ExerciseDemoFigureView.canvasSize.height * scale) / 2
+        guard exercise.maximumShoulderSpan != nil || exercise.maximumWristHeightFraction != nil else {
+            return (scale, yOffset)
+        }
+        let motion = exercise.guide.motion
+        let start = ExerciseDemoFigureView.pose(for: motion.startSample, forearmPlane: motion.forearmPlane,
+                                                cameraView: exercise.cameraView).jointLocations
+        let margin = 2 * FramingConfiguration().shoulderSpanClearance
+        if let limit = exercise.maximumShoulderSpan, let left = start[.leftShoulder], let right = start[.rightShoulder] {
+            let span = hypot(left.x - right.x, left.y - right.y)
+            let widest = (limit - margin) * imageSize.width
+            if span > 0, widest > 0, span * scale > widest {
+                scale = widest / span
+                yOffset = (imageSize.height - ExerciseDemoFigureView.canvasSize.height * scale) / 2
+            }
+        }
+        if let limit = exercise.maximumWristHeightFraction,
+           let lowest = [start[.leftWrist], start[.rightWrist]].compactMap({ $0?.y }).max() {
+            yOffset = min(yOffset, (limit - margin) * imageSize.height - lowest * scale)
+        }
+        return (scale, yOffset)
     }
 
     /// The figure facing the other way: left and right joints swap, and x mirrors across the canvas.
