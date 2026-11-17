@@ -1,9 +1,92 @@
 import XCTest
+import AdaptiveTraining
 @testable import PostureAnalysisApp
 
 final class PersonaDetectorTests: XCTestCase {
     private var calendar: Calendar { PersonaFixtures.calendar }
     private var now: Date { PersonaFixtures.date(day: 24, month: 10, year: 2026, hour: 12) }
+
+    func testAdaptiveEventsMapToStableKeysGroupBonusOutcomesAndIgnoreReturnEvents() throws {
+        let family = MovementFamilyID(rawValue: "upper_body")
+        let supportedKinds = AdaptiveEventKind.allCases.filter { $0 != .returnedAfterAbsence }
+        let supportedEvents = supportedKinds.enumerated().map { index, kind in
+            AdaptiveEvent(kind: kind, family: family, at: now, factID: identifier(index + 100))
+        }
+        let acceptedFact = identifier(201)
+        let declinedFact = identifier(202)
+        let groupedBonuses = [
+            AdaptiveEvent(kind: .bonusOffered, family: family, at: now, factID: acceptedFact),
+            AdaptiveEvent(kind: .bonusAccepted, family: family, at: now, factID: acceptedFact),
+            AdaptiveEvent(kind: .bonusOffered, family: family, at: now, factID: declinedFact),
+            AdaptiveEvent(kind: .bonusDeclined, family: family, at: now, factID: declinedFact),
+            // A different family is a separate fact even when the package fact ID is shared.
+            AdaptiveEvent(kind: .bonusOffered, family: MovementFamilyID(rawValue: "hinge"), at: now, factID: acceptedFact),
+        ]
+        let future = AdaptiveEvent(
+            kind: .effortOkay,
+            family: family,
+            at: now.addingTimeInterval(1),
+            factID: identifier(203)
+        )
+        let returned = AdaptiveEvent(kind: .returnedAfterAbsence, family: family, at: now, factID: identifier(204))
+        let events = supportedEvents + [supportedEvents[0]] + groupedBonuses + [future, returned]
+        let adaptiveContext = context(adaptiveEvents: events)
+        XCTAssertTrue(adaptiveContext.trigger.shouldEvaluateImmediately)
+        XCTAssertFalse(context(adaptiveEvents: [returned]).trigger.shouldEvaluateImmediately)
+
+        let observations = AdaptiveEventDetector.observations(
+            adaptiveContext,
+            asOf: now,
+            projected: false,
+            policy: .standard
+        )
+
+        XCTAssertEqual(Set(observations.map(\.contentKey)), Set(AdaptiveEventDetector.contentKeys))
+        XCTAssertEqual(observations.count, supportedKinds.count + 3)
+        for observation in observations {
+            XCTAssertEqual(observation.key.family, .adaptive)
+            XCTAssertEqual(observation.contentKey, "adaptive.\(observation.key.kind)")
+        }
+        XCTAssertEqual(
+            Set(AdaptiveEventDetector.contentKeys.map { String($0.dropFirst("adaptive.".count)) }),
+            Set(supportedKinds.map(\.rawValue))
+        )
+
+        let tiny = try XCTUnwrap(observations.first { $0.contentKey == "adaptive.tinySessionPrescribed" })
+        XCTAssertEqual(tiny.key, PersonaObservationKey(
+            family: .adaptive,
+            kind: "tinySessionPrescribed",
+            subject: family.rawValue,
+            period: identifier(100).uuidString
+        ))
+        XCTAssertEqual(tiny.salience, .medium)
+        XCTAssertEqual(tiny.evidence.strength, 3)
+
+        XCTAssertFalse(observations.contains {
+            $0.key.period == acceptedFact.uuidString && $0.key.subject == family.rawValue
+                && $0.contentKey == "adaptive.bonusOffered"
+        })
+        XCTAssertTrue(observations.contains {
+            $0.key.period == acceptedFact.uuidString && $0.key.subject == family.rawValue
+                && $0.contentKey == "adaptive.bonusAccepted"
+        })
+        XCTAssertTrue(observations.contains {
+            $0.key.period == declinedFact.uuidString && $0.key.subject == family.rawValue
+                && $0.contentKey == "adaptive.bonusDeclined"
+        })
+        XCTAssertTrue(observations.contains {
+            $0.key.period == acceptedFact.uuidString && $0.key.subject == "hinge"
+                && $0.contentKey == "adaptive.bonusOffered"
+        })
+        XCTAssertFalse(observations.contains { $0.key.period == future.factID.uuidString })
+        XCTAssertFalse(observations.contains { $0.key.period == returned.factID.uuidString })
+        XCTAssertTrue(AdaptiveEventDetector.observations(
+            adaptiveContext,
+            asOf: now,
+            projected: true,
+            policy: .standard
+        ).isEmpty)
+    }
 
     func testWeightPRThresholdMixesUnitsAndHasStableKey() throws {
         let prior = (1...3).map { id in
@@ -592,6 +675,22 @@ final class PersonaDetectorTests: XCTestCase {
 
     private func posture(_ context: PersonaContext, asOf: Date? = nil) -> [PersonaObservation] {
         PostureDetector.observations(context, asOf: asOf ?? context.now, projected: false, policy: .standard)
+    }
+
+    private func context(adaptiveEvents: [AdaptiveEvent], now: Date? = nil) -> PersonaContext {
+        let contextNow = now ?? self.now
+        return PersonaContextBuilder.build(
+            history: PersonaHistory(),
+            settings: PersonaFixtures.reminderSettings,
+            extraPersonableEnabled: true,
+            personaResetDate: nil,
+            traceState: .empty,
+            trigger: .adaptiveEvents(adaptiveEvents),
+            acknowledgmentWillFire: false,
+            appIsActive: false,
+            now: contextNow,
+            calendar: calendar
+        )
     }
 
     private func context(

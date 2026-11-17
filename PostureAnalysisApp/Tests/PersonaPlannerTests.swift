@@ -1,4 +1,5 @@
 import XCTest
+import AdaptiveTraining
 @testable import PostureAnalysisApp
 
 final class PersonaPlannerTests: XCTestCase {
@@ -90,6 +91,81 @@ final class PersonaPlannerTests: XCTestCase {
         ])
         let immediateCounts = makePlan(context: savedContext(traceState: pendingImmediate), immediate: [candidate])
         XCTAssertEqual(immediateCounts.traces.first?.suppressionReason, .dailyCapReached)
+    }
+
+    func testAdaptiveEventsUseTheImmediateCapQuietHoursAndCoolingGates() throws {
+        let catalog = PersonaFixtures.catalog(keys: PersonaFixtures.contentKeys + AdaptiveEventDetector.contentKeys)
+        let adaptive = adaptiveEvent(.sessionCompleted, factID: 700)
+        let capState = PersonaTraceState(sent: [
+            trace(observation(.pattern, "weekday", subject: "cap-one", salience: .high),
+                  fireDate: now.addingTimeInterval(-3_600), delivery: .active),
+            trace(observation(.pattern, "weekday", subject: "cap-two", salience: .high),
+                  fireDate: now.addingTimeInterval(-7_200), delivery: .passive),
+        ])
+        let capped = PersonaPlanner.plan(
+            context: makeContext(trigger: .adaptiveEvents([adaptive]), traceState: capState),
+            quietHours: FixedQuietHours(startHour: 22, endHour: 8),
+            catalog: catalog
+        )
+        XCTAssertEqual(capped.traces.first?.observation.contentKey, "adaptive.sessionCompleted")
+        XCTAssertEqual(capped.traces.first?.suppressionReason, .dailyCapReached)
+
+        let late = PersonaFixtures.date(day: 16, hour: 23)
+        var policy = PersonaPolicy.standard
+        policy.projectionHorizonDays = 0
+        let quietDeferred = PersonaPlanner.plan(
+            context: makeContext(
+                now: late,
+                trigger: .adaptiveEvents([adaptiveEvent(.sessionCompleted, at: late, factID: 701)])
+            ),
+            quietHours: FixedQuietHours(startHour: 22, endHour: 8),
+            catalog: catalog,
+            policy: policy
+        )
+        guard case .standalone(let deferredRequest)? = quietDeferred.immediate,
+              case .at(let components) = deferredRequest.trigger else {
+            return XCTFail("Expected an adaptive event to defer through quiet hours.")
+        }
+        XCTAssertEqual(components.day, 17)
+        XCTAssertEqual(components.hour, 8)
+        XCTAssertTrue(quietDeferred.traces.first?.quietDeferred ?? false)
+
+        let dismissed = (0..<3).map { index in
+            trace(
+                observation(.pattern, "weekday", subject: "dismissed-\(index)", salience: .high),
+                fireDate: now.addingTimeInterval(TimeInterval(-index - 1) * 86_400),
+                delivery: .passive
+            )
+        }
+        let coolingState = PersonaTraceState(
+            sent: dismissed,
+            engagement: dismissed.map { event(for: $0, kind: .dismissed) }
+        )
+        let mildlyCooled = PersonaPlanner.plan(
+            context: makeContext(
+                trigger: .adaptiveEvents([adaptiveEvent(.sessionCompleted, factID: 703)]),
+                traceState: PersonaTraceState(
+                    sent: Array(dismissed.prefix(2)),
+                    engagement: Array(dismissed.prefix(2)).map { event(for: $0, kind: .dismissed) }
+                )
+            ),
+            quietHours: FixedQuietHours(startHour: 22, endHour: 8),
+            catalog: catalog
+        )
+        XCTAssertEqual(mildlyCooled.traces.first?.cooling, .mild)
+        XCTAssertEqual(mildlyCooled.traces.first?.salience, .low)
+        XCTAssertEqual(mildlyCooled.traces.first?.suppressionReason, .lowSalience)
+
+        let cooled = PersonaPlanner.plan(
+            context: makeContext(
+                trigger: .adaptiveEvents([adaptiveEvent(.sessionCompleted, factID: 702)]),
+                traceState: coolingState
+            ),
+            quietHours: FixedQuietHours(startHour: 22, endHour: 8),
+            catalog: catalog
+        )
+        XCTAssertEqual(cooled.traces.first?.cooling, .strong)
+        XCTAssertEqual(cooled.traces.first?.suppressionReason, .cooling)
     }
 
     func testProjectedSlotsCoverTodayThroughSevenDaysAtElevenThirty() {
@@ -599,6 +675,16 @@ final class PersonaPlannerTests: XCTestCase {
             observationKey: trace.observation.key.string,
             kind: kind,
             date: now.addingTimeInterval(-60)
+        )
+    }
+
+    private func adaptiveEvent(_ kind: AdaptiveEventKind, at date: Date? = nil, factID: Int) -> AdaptiveEvent {
+        let id = UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", factID))!
+        return AdaptiveEvent(
+            kind: kind,
+            family: MovementFamilyID(rawValue: "upper_body"),
+            at: date ?? now,
+            factID: id
         )
     }
 

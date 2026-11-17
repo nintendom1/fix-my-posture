@@ -1,4 +1,5 @@
 import Foundation
+import AdaptiveTraining
 
 // Shared vocabulary for the Extra Personable layer. Foundation only: no UIKit, SwiftUI, or UserNotifications.
 // These types are the contract between the detectors, the planner, the content composer, the trace store,
@@ -10,12 +11,14 @@ enum ObservationFamily: String, Codable, CaseIterable {
     case pattern
     case lapse
     case posture
+    case adaptive
 
     /// Tie-break when two candidates share a salience: achievement wins, posture is lowest.
     var priority: Int {
         switch self {
         case .achievement: 3
         case .lapse: 2
+        case .adaptive: 2
         case .pattern: 1
         case .posture: 0
         }
@@ -259,12 +262,25 @@ struct PersonaHistory: Equatable {
 enum PersonaTrigger: Equatable {
     /// A workout was just saved; trigger-dependent kinds (PRs, comeback, milestones) are evaluated.
     case workoutSaved(WorkoutRecord)
+    /// Adaptive package events are evaluated through the same immediate planner gates.
+    case adaptiveEvents([AdaptiveEvent])
     /// App launch, activation, or a settings or routine change.
     case reconcile
 
     var savedRecord: WorkoutRecord? {
         if case .workoutSaved(let record) = self { return record }
         return nil
+    }
+
+    var shouldEvaluateImmediately: Bool {
+        switch self {
+        case .workoutSaved(_):
+            true
+        case .adaptiveEvents(let events):
+            events.contains { $0.kind != .returnedAfterAbsence }
+        case .reconcile:
+            false
+        }
     }
 }
 

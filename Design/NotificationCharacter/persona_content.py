@@ -27,7 +27,7 @@ TONES = (
     "competitive", "concerned", "warm",
 )
 FAMILIARITIES = ("new", "familiar", "established", "longTerm")
-FAMILIES = {"achievement", "pattern", "lapse", "posture"}
+FAMILIES = {"achievement", "pattern", "lapse", "posture", "adaptive"}
 NEGATIVE_TONES = {"annoyed", "disappointed"}
 TOP_LEVEL_KEYS = (
     "version", "sampleValues", "tokens", "reservedTokens", "tones", "familiarities",

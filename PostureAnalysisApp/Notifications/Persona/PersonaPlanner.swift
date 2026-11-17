@@ -60,7 +60,7 @@ enum PersonaPlanner {
         )
         let decisionID = UUID()
 
-        if context.trigger.savedRecord != nil {
+        if context.trigger.shouldEvaluateImmediately {
             evaluate(
                 detect(context, now, false),
                 slot: now,
