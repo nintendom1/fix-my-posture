@@ -67,8 +67,30 @@ final class WorkoutRecordingReportTests: XCTestCase {
         XCTAssertEqual(lines[0], "FMP workout report · Push-Up · 2027-01-15 08:00 · 0:57 · 211 frames (24 more never reached the coach) · ended: workoutEnded")
         XCTAssertTrue(lines[1].contains("599FCD69-CD80-4E21-978B-CDEA95DD23FC"))
         XCTAssertTrue(report.contains("≥0.4 for 0.6 s"), report)
+        XCTAssertTrue(report.contains("drops after 0.3 s"), report)
         XCTAssertTrue(report.contains("Exercise push_up (floor): required LS RS"))
+        XCTAssertTrue(report.contains("framing drops after 0.3 s missing"), report)
         XCTAssertTrue(report.contains("  tuning: downMaxRatio=0.5 upMinRatio=0.8"))
+    }
+
+    func testHeaderAndExerciseSectionUseRecordedEffectiveFraming() throws {
+        var lines = Self.sampleLines
+        guard let headerLine = lines.first else { return XCTFail("Expected a header line.") }
+        var header = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(headerLine.utf8)) as? [String: Any])
+        var exercises = try XCTUnwrap(header["exercises"] as? [String: [String: Any]])
+        var pushUp = try XCTUnwrap(exercises["push_up"])
+        pushUp["framing"] = ["unreliableAfter": 0.8]
+        exercises["push_up"] = pushUp
+        header["exercises"] = exercises
+        lines[0] = String(decoding: try JSONSerialization.data(withJSONObject: header, options: [.sortedKeys]), as: UTF8.self)
+
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("report-framing-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: file) }
+        try Self.fileText(lines).write(to: file, atomically: true, encoding: .utf8)
+        let report = WorkoutRecordingReport.make(fileURL: file, title: "Push-Up", timeZone: TimeZone(identifier: "UTC")!)
+
+        XCTAssertTrue(report.contains("drops after 0.8 s"), report)
+        XCTAssertTrue(report.contains("Exercise push_up (floor): required LS RS; framing drops after 0.8 s missing"), report)
     }
 
     func testTimelineListsWhatHappenedButNotStartPositionFlips() {

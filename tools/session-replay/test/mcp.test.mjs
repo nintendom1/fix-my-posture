@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "../server.mjs";
-import { ID, arrayText } from "./fixtures.mjs";
+import { ID, arrayText, records } from "./fixtures.mjs";
 import { createStore } from "../lib/store.mjs";
 
 const mcpPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "mcp.mjs");
@@ -23,10 +23,10 @@ async function freePort() {
 
 /** An MCP server over stdio against a temporary repository with one synthetic recording. Without `live`, it points
  * at a closed port, so no test needs to open a socket unless it runs a viewer server. */
-async function start({ maxRows, live = false, root: given } = {}) {
+async function start({ maxRows, live = false, root: given, recordingText = arrayText() } = {}) {
   const root = given ?? await mkdtemp(path.join(tmpdir(), "fmp-mcp-"));
   await mkdir(path.join(root, "diagnostics", "sessions"), { recursive: true });
-  await writeFile(path.join(root, "diagnostics", "sessions", `${ID}.json`), arrayText());
+  await writeFile(path.join(root, "diagnostics", "sessions", `${ID}.json`), recordingText);
   const port = live ? await freePort() : 1;
   const env = { ...process.env, FMP_REPLAY_ROOT: root, FMP_REPLAY_PORT: String(port) };
   if (maxRows) env.FMP_REPLAY_MAX_ROWS = String(maxRows);
@@ -86,6 +86,25 @@ test("overview, query, and events read the recording", async () => {
     const events = await call("fmp_events", { from: 8, to: 10, kinds: ["warn", "voice"] });
     assert.match(events.text, /^2 events/);
     assert.match(events.text, /0:08\.3 \[warn\] Tracking lost — stepBackFloor/);
+  } finally {
+    await stop();
+  }
+});
+
+test("overview lists bridged gaps separately and events classifies them as info", async () => {
+  const items = records().map((record) => structuredClone(record));
+  const frame = items.find((record) => record.k === "f" && record.t === 9);
+  assert.ok(frame, "the synthetic recording has a frame at the bridge time");
+  frame.info = [{ level: "info", type: "bottomDropoutBridged", ts: frame.ts, seconds: 0.5, maximum: 0.8 }];
+  const { call, stop } = await start({ recordingText: arrayText(items) });
+  try {
+    const overview = await call("fmp_session_overview", { session: ID.slice(0, 8) });
+    assert.match(overview.text, /Bridged gaps \(1\)\n- 0:09\.0 Bottom dropout bridged: 0\.50 s \(limit 0\.80 s\)/);
+    assert.match(overview.text, /Other issues \(0\)\nnone/);
+
+    const events = await call("fmp_events", { from: 9, to: 9, kinds: ["info"] });
+    assert.match(events.text, /^1 events/);
+    assert.match(events.text, /0:09\.0 \[info\] Bottom dropout bridged: 0\.50 s \(limit 0\.80 s\)/);
   } finally {
     await stop();
   }

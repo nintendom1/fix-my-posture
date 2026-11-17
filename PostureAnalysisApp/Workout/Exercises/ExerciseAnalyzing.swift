@@ -9,6 +9,13 @@ struct RepEvent: Equatable {
     let sides: Set<BodySide>
 }
 
+/// A short bottom shoulder dropout that an exercise analyzer bridged without rejecting the rep.
+struct BridgedBottomGap: Equatable {
+    let timestamp: TimeInterval
+    let duration: TimeInterval
+    let maximum: TimeInterval
+}
+
 /// Live per-arm signals, shown by Show Measurements for on-device tuning.
 struct ArmReading: Equatable {
     /// The exercise's primary signal, such as wrist height above the shoulder in arm lengths.
@@ -68,6 +75,8 @@ struct ExerciseAnalysis {
     var formReadings: [FormReading] = []
     /// Rep attempts let go on this frame without counting, and why. Diagnostic only: nothing counts from it.
     var rejections: [RepRejection] = []
+    /// Informational tracking gaps accepted by the analyzer on this frame.
+    var bridgedBottomGaps: [BridgedBottomGap] = []
 }
 
 /// How far a rep attempt had got when it was let go.

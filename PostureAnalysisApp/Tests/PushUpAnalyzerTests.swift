@@ -44,6 +44,18 @@ final class PushUpAnalyzerTests: XCTestCase {
         }
     }
 
+    func testOnlyABridgedBottomGapReportsItsDuration() throws {
+        let bridged = runWithGap(0.5, at: .bottom)
+        XCTAssertEqual(bridged.bridgedBottomGaps.count, 1)
+        let gap = try XCTUnwrap(bridged.bridgedBottomGaps.first)
+        XCTAssertEqual(gap.duration, 0.5, accuracy: 0.000_001)
+        XCTAssertEqual(gap.maximum, 0.8, accuracy: 0.000_001)
+
+        XCTAssertTrue(run(motion).bridgedBottomGaps.isEmpty, "A clean rep has no bridged-gap information.")
+        XCTAssertTrue(runWithGap(0.9, at: .bottom).bridgedBottomGaps.isEmpty,
+                      "A rejected gap is not reported as bridged.")
+    }
+
     func testBottomGapLimitRejectsLongerDropouts() {
         let result = runWithGap(0.9, at: .bottom)
         XCTAssertEqual(result.reps, 0)
@@ -112,6 +124,7 @@ final class PushUpAnalyzerTests: XCTestCase {
         var reps = 0
         var forms: [RepForm] = []
         var rejections: [RepRejection] = []
+        var bridgedBottomGaps: [BridgedBottomGap] = []
         var lockedAtRecovery: Bool?
     }
 
@@ -150,6 +163,7 @@ final class PushUpAnalyzerTests: XCTestCase {
                                                       timestamp: time), counting: true)
             result.reps += analysis.repEvents.count
             result.forms += analysis.repForms
+            result.bridgedBottomGaps += analysis.bridgedBottomGaps
         }
         return result
     }
@@ -244,6 +258,7 @@ final class PushUpAnalyzerTests: XCTestCase {
         result.reps += analysis.repEvents.count
         result.forms += analysis.repForms
         result.rejections += analysis.rejections
+        result.bridgedBottomGaps += analysis.bridgedBottomGaps
         return analysis
     }
 

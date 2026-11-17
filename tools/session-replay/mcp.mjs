@@ -325,6 +325,11 @@ async function overview(id) {
     }
     if (s.rejections.length > 40) lines.push(`(the first 40 of ${s.rejections.length})`);
   }
+  if (s.infoEvents.length) {
+    lines.push("", `Bridged gaps (${s.infoEvents.length})`);
+    for (const event of s.infoEvents.slice(0, 40)) lines.push(`- ${clock(event.t)} ${event.title}`);
+    if (s.infoEvents.length > 40) lines.push(`(the first 40 of ${s.infoEvents.length})`);
+  }
   lines.push("", `Tracking losses (${s.losses.length})`);
   if (s.losses.length > 60) lines.push(`(the first 60 of ${s.losses.length})`);
   for (const loss of s.losses.slice(0, 60)) {

@@ -71,6 +71,8 @@ final class PushUpAnalyzer: ExerciseAnalyzing {
             let gap = time - last.time
             if canBridgeBottomGap(from: last, to: measurement.zone, leftWrist: left.wrist, rightWrist: right.wrist,
                                   leftRuler: left.armLength, rightRuler: right.armLength, after: gap) {
+                analysis.bridgedBottomGaps.append(BridgedBottomGap(timestamp: time, duration: gap,
+                                                                   maximum: configuration.maximumBottomGap))
                 if case .active(let movementStart, _) = cycle {
                     cycle = .active(movementStart: movementStart, reachedDown: true)
                 }
