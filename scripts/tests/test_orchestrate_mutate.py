@@ -57,11 +57,12 @@ mutant_present = expected in source
 if mode == "killed" and not mutant_present:
     print("PASS 3 tests, 0 skipped, 0 failed (0.1s)")
 elif mode == "killed":
-    Path(os.environ["FMP_STARTED"]).write_text("started")
     def stop(_signum, _frame):
         Path(os.environ["FMP_ENDED"]).write_text("ended")
         raise SystemExit(0)
+    # The handler goes in before the start marker, or a fast SIGTERM can arrive between the two and kill the runner.
     signal.signal(signal.SIGTERM, stop)
+    Path(os.environ["FMP_STARTED"]).write_text("started")
     while True:
         time.sleep(0.05)
 elif mode == "build":
