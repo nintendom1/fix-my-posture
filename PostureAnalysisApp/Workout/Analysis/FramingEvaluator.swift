@@ -104,9 +104,14 @@ struct FramingEvaluator {
     /// Lowest in-frame position allowed for either wrist, as a fraction of image height from the top; lower asks for
     /// the phone farther away, and nil skips the check. Guidance only, like the shoulder span.
     let maximumWristHeightFraction: CGFloat?
+    /// Shoulders that count as visible below `configuration.minimumConfidence` while both arms are clearly seen, so
+    /// a face-down push-up bottom stays reliable; nil keeps every required joint at the usual confidence. The
+    /// references live as long as the analyzer's: `reset()` keeps them, and `resetSupportedShoulders()` clears them.
+    let supportedShoulders: SupportedShoulderRule?
     let centersInFrame: Bool
     let cameraView: ExerciseCameraView
     let configuration: FramingConfiguration
+    private var shoulderSupport: SupportedShoulders
     private var presentSince: TimeInterval?
     private var lastPresent: TimeInterval?
     private(set) var isReliable = false
@@ -121,7 +126,7 @@ struct FramingEvaluator {
 
     init(requiredJoints: Set<LandmarkType>, anyOfRequiredJoints: [Set<LandmarkType>] = [], headroomArmLengths: CGFloat?,
          sideroomArmLengths: CGFloat? = nil, maximumShoulderSpan: CGFloat? = nil,
-         maximumWristHeightFraction: CGFloat? = nil,
+         maximumWristHeightFraction: CGFloat? = nil, supportedShoulders: SupportedShoulderRule? = nil,
          centersInFrame: Bool = true, cameraView: ExerciseCameraView = .front,
          configuration: FramingConfiguration = FramingConfiguration()) {
         self.requiredJoints = requiredJoints
@@ -130,15 +135,20 @@ struct FramingEvaluator {
         self.sideroomArmLengths = sideroomArmLengths
         self.maximumShoulderSpan = maximumShoulderSpan
         self.maximumWristHeightFraction = maximumWristHeightFraction
+        self.supportedShoulders = supportedShoulders
         self.centersInFrame = centersInFrame
         self.cameraView = cameraView
         self.configuration = configuration
+        shoulderSupport = SupportedShoulders(rule: supportedShoulders, minimumConfidence: configuration.minimumConfidence)
     }
 
     mutating func evaluate(_ frame: PoseFrame) -> FramingStatus {
         let time = frame.timestamp
+        let supported = shoulderSupport.update(frame)
         func visible(_ joints: Set<LandmarkType>) -> Bool {
-            joints.allSatisfy { frame.point($0, minimumConfidence: configuration.minimumConfidence) != nil }
+            joints.allSatisfy {
+                supported.contains($0) || frame.point($0, minimumConfidence: configuration.minimumConfidence) != nil
+            }
         }
         let requiredPresent = visible(requiredJoints)
             && (anyOfRequiredJoints.isEmpty || anyOfRequiredJoints.contains(where: visible))
@@ -162,6 +172,11 @@ struct FramingEvaluator {
         isReliable = false
         isShoulderSpanTooWide = false
         areWristsTooLow = false
+    }
+
+    /// Forgets the supported-shoulder references, as a new analyzer does, so both decide alike on every frame.
+    mutating func resetSupportedShoulders() {
+        shoulderSupport.reset()
     }
 
     /// Distance guidance latches each configured measurement until it clears its hysteresis range. Missing joints
