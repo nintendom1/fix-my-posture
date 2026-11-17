@@ -274,7 +274,8 @@ struct WorkoutFramePipeline {
         return .phoneTiltChanged(false)
     }
 
-    /// Clears per-capture smoothing and framing state without replacing the exercise analyzer.
+    /// Clears per-capture smoothing and framing state without replacing the exercise analyzer. Like the analyzer,
+    /// framing keeps its supported-shoulder references; they expire on their own after a gap.
     mutating func resetTracking() -> [WorkoutEvent] {
         framingEvaluator?.reset()
         offscreenJointEstimator?.reset()
@@ -295,9 +296,12 @@ struct WorkoutFramePipeline {
         return events
     }
 
+    /// Framing's supported-shoulder references restart with the analyzer's, so counting and framing accept the same
+    /// faint shoulders on every frame.
     private mutating func rebuildAnalyzer(epoch: Int) {
         analyzerEpoch = epoch
         analyzer = exercise?.makeAnalyzer(epoch)
+        framingEvaluator?.resetSupportedShoulders()
     }
 
     private func makeFramingEvaluator(for exercise: ExerciseDefinition) -> FramingEvaluator {

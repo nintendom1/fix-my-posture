@@ -342,6 +342,28 @@ final class WorkoutFramePipelineTests: XCTestCase {
         }
     }
 
+    /// Framing's supported-shoulder references restart with each new analyzer and survive a camera restart, as the
+    /// analyzer's do, so counting and framing accept the same faint shoulders.
+    func testPushUpFramingKeepsShoulderReferencesInStepWithTheAnalyzer() {
+        // A new analyzer just before the face-down Down has seen no confident arm, and neither has framing.
+        let newAnalyzer = faceDownPushUp(shoulderConfidence: 0.33, armConfidence: 0.75,
+                                         control: (index: 10, control: .resetAnalyzer(epoch: 2)))
+        XCTAssertEqual(newAnalyzer.reps, 0)
+        // Lost 0.8 s after the last confident frame, through the faint rise.
+        XCTAssertTrue(newAnalyzer.framing.dropFirst(18).prefix(44).allSatisfy {
+            !$0.isReliable && $0.guidance == .stepBackFloor
+        }, "\(newAnalyzer.framing)")
+        XCTAssertTrue(newAnalyzer.counting.contains(false))
+
+        // A camera restart resets framing's reliability but keeps the references, as the analyzer keeps its own.
+        let restarted = faceDownPushUp(shoulderConfidence: 0.33, armConfidence: 0.75,
+                                       control: (index: 10, control: .resetTracking))
+        XCTAssertEqual(restarted.reps, 1)
+        XCTAssertEqual(restarted.framing.dropFirst(10).first?.isReliable, false)
+        XCTAssertTrue(restarted.framing.dropFirst(17).allSatisfy { $0.isReliable && $0.guidance == nil },
+                      "\(restarted.framing)")
+    }
+
     func testLateralSideRoomFeedsFramingReliabilityFromPipeline() {
         let exercise = LateralRaiseExercise.definition()
         let closePose: [LandmarkType: CGPoint] = [
@@ -654,7 +676,10 @@ final class WorkoutFramePipelineTests: XCTestCase {
 
     /// A push-up set at 10 Hz: Up, a confident descent, then a five-second face-down hold and half the press with the
     /// given confidences, then Up.
-    private func faceDownPushUp(shoulderConfidence: Double, armConfidence: Double)
+    /// Frames at 10 Hz: 8 Up, 2 confident descent, 50 face-down Down, 2 face-down rise, and 5 Up. `control` is
+    /// applied just before the frame at its index.
+    private func faceDownPushUp(shoulderConfidence: Double, armConfidence: Double,
+                                control: (index: Int, control: WorkoutFramePipeline.Control)? = nil)
         -> (reps: Int, counting: [Bool], framing: [FramingStatus]) {
         let exercise = PushUpExercise.definition()
         let motion = exercise.guide.motion
@@ -674,6 +699,7 @@ final class WorkoutFramePipelineTests: XCTestCase {
         }
         for (index, pose) in poses.enumerated() {
             let time = Double(index) / 10
+            if let control, control.index == index { _ = pipeline.apply(control.control) }
             let frame = pose.faceDown
                 ? floorPushUpFrame(pose.angles, at: time, shoulderConfidence: shoulderConfidence,
                                    armConfidence: armConfidence)

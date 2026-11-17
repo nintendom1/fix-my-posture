@@ -100,25 +100,13 @@ final class WorkoutSessionReplayTests: XCTestCase {
     /// The push-up phone-distance limits round-trip through the recording header, strict replay runs the recorded
     /// limits, and a recording from before the wrist limit replays without it.
     func testStrictReplayRunsTheRecordedPhoneDistanceLimits() throws {
-        let context = WorkoutRecordingContext(startedAt: Date(timeIntervalSince1970: 1_800_000_000),
-                                              timeZone: TimeZone(secondsFromGMT: 0) ?? .current,
-                                              exercises: [PushUpExercise.definition()], plan: nil,
-                                              settings: WorkoutSettings(), tiltWarningsEnabled: false,
-                                              isCoachMuted: true, isMicMuted: true)
-        let app = WorkoutSessionLines.AppInfo(version: "1", build: "1", configuration: "Test", deviceModel: "synthetic",
-                                              systemVersion: "1")
-        let line = WorkoutSessionLines.header(id: UUID(), context: context, app: app).serialized
-        var header = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any])
+        var header = try Self.pushUpHeader()
         func pushUp(currentBuild: Bool = false) throws -> ExerciseDefinition {
             try XCTUnwrap(WorkoutSessionReplayer.definitions(header, catalog: ExerciseCatalog.all,
                                                              currentBuild: currentBuild)["push_up"])
         }
         func recordPushUp(_ change: (inout [String: Any]) -> Void) throws {
-            var exercises = try XCTUnwrap(header["exercises"] as? [String: Any])
-            var entry = try XCTUnwrap(exercises["push_up"] as? [String: Any])
-            change(&entry)
-            exercises["push_up"] = entry
-            header["exercises"] = exercises
+            try Self.changePushUpEntry(in: &header, change)
         }
 
         XCTAssertEqual(try pushUp().maximumShoulderSpan, 0.23)
@@ -136,6 +124,64 @@ final class WorkoutSessionReplayTests: XCTestCase {
         try recordPushUp { entry in entry["maximumWristHeightFraction"] = nil }
         XCTAssertNil(try pushUp().maximumWristHeightFraction, "An older recording ran without the wrist limit.")
         XCTAssertEqual(try pushUp().maximumShoulderSpan, 0.32)
+    }
+
+    /// Strict replay runs the supported-shoulder rule a push-up recording carries, and a recording from before the
+    /// rule replays without it in counting and framing. Current-build replay always runs it.
+    func testStrictReplayRunsSupportedShouldersOnlyWhenRecorded() throws {
+        var header = try Self.pushUpHeader()
+        func rule(currentBuild: Bool = false) throws -> SupportedShoulderRule? {
+            try XCTUnwrap(WorkoutSessionReplayer.definitions(header, catalog: ExerciseCatalog.all,
+                                                             currentBuild: currentBuild)["push_up"]).supportedShoulders
+        }
+        let standard = try XCTUnwrap(PushUpConfiguration.standard.supportedShoulders)
+        XCTAssertEqual(try rule(), standard, "The header records the rule.")
+
+        try Self.changePushUpEntry(in: &header) { entry in
+            var configuration = try XCTUnwrap(entry["configuration"] as? [String: Any])
+            configuration["supportedShoulderConfidence"] = 0.35
+            entry["configuration"] = configuration
+        }
+        XCTAssertEqual(try rule()?.minimumConfidence, 0.35, "Strict replay runs the recorded floor.")
+
+        try Self.changePushUpEntry(in: &header) { entry in
+            var configuration = try XCTUnwrap(entry["configuration"] as? [String: Any])
+            for name in ["supportedShoulderConfidence", "supportingArmConfidence", "maximumSupportedShoulderDrift"] {
+                configuration[name] = nil
+            }
+            entry["configuration"] = configuration
+        }
+        XCTAssertNil(try rule(), "An older recording ran without supported shoulders.")
+        XCTAssertEqual(try rule(currentBuild: true), standard, "Current-build replay keeps this build's rule.")
+
+        // The analyzer is built from the same rebuilt configuration.
+        let json = try XCTUnwrap(
+            WorkoutSessionReplayer.definitions(header, catalog: ExerciseCatalog.all)["push_up"]?.diagnostics?.configurationJSON)
+        let rebuilt = try JSONDecoder().decode(PushUpConfiguration.self, from: Data(json.utf8))
+        XCTAssertEqual(rebuilt.supportedShoulderConfidence, rebuilt.minimumJointConfidence)
+        XCTAssertNil(rebuilt.supportedShoulders)
+    }
+
+    /// A recording header from this build with the push-up in its catalog.
+    private static func pushUpHeader() throws -> [String: Any] {
+        let context = WorkoutRecordingContext(startedAt: Date(timeIntervalSince1970: 1_800_000_000),
+                                              timeZone: TimeZone(secondsFromGMT: 0) ?? .current,
+                                              exercises: [PushUpExercise.definition()], plan: nil,
+                                              settings: WorkoutSettings(), tiltWarningsEnabled: false,
+                                              isCoachMuted: true, isMicMuted: true)
+        let app = WorkoutSessionLines.AppInfo(version: "1", build: "1", configuration: "Test", deviceModel: "synthetic",
+                                              systemVersion: "1")
+        let line = WorkoutSessionLines.header(id: UUID(), context: context, app: app).serialized
+        return try XCTUnwrap(JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any])
+    }
+
+    private static func changePushUpEntry(in header: inout [String: Any],
+                                          _ change: (inout [String: Any]) throws -> Void) throws {
+        var exercises = try XCTUnwrap(header["exercises"] as? [String: Any])
+        var entry = try XCTUnwrap(exercises["push_up"] as? [String: Any])
+        try change(&entry)
+        exercises["push_up"] = entry
+        header["exercises"] = exercises
     }
 
     func testPhaseLabelsParseBack() {

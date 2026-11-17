@@ -222,8 +222,8 @@ final class PushUpAnalyzerTests: XCTestCase {
         XCTAssertFalse(drifting.update(Self.armsFrame(left(760, 1250), confidences: Self.faint(), at: 1.5))
             .contains(.leftShoulder), "Drift is measured from the last confident shoulder.")
 
-        // A confident shoulder mid-descent becomes the sideways reference, while the Up height stays the highest
-        // confident shoulder.
+        // A confident shoulder mid-descent (elbow about 135°) becomes the sideways reference, while the ceiling stays
+        // at the straight-arm Up shoulder.
         var descending = SupportedShoulders(rule: rule, minimumConfidence: 0.4)
         _ = descending.update(Self.armsFrame(at: 0))
         _ = descending.update(Self.armsFrame(left(700, 1100), at: 0.1))
@@ -243,6 +243,70 @@ final class PushUpAnalyzerTests: XCTestCase {
         var withoutRule = SupportedShoulders(rule: nil, minimumConfidence: 0.4)
         _ = withoutRule.update(Self.armsFrame(at: 0))
         XCTAssertEqual(withoutRule.update(Self.armsFrame(left(600, 1250), confidences: Self.faint(), at: 0.1)), [])
+    }
+
+    func testASupportFloorAtTheUsualMinimumTurnsTheRuleOff() {
+        var configuration = PushUpConfiguration()
+        configuration.supportedShoulderConfidence = 0.399
+        XCTAssertEqual(configuration.supportedShoulders?.minimumConfidence, 0.399)
+        configuration.supportedShoulderConfidence = 0.4
+        XCTAssertNil(configuration.supportedShoulders)
+        XCTAssertNil(PushUpExercise.definition(configuration: configuration).supportedShoulders)
+    }
+
+    func testSupportedShouldersTakeTheCeilingFromTheLatestStraightArm() {
+        let rule = PushUpConfiguration.standard.supportedShoulders
+        let both: Set<LandmarkType> = [.leftShoulder, .rightShoulder]
+        let rightOnly: Set<LandmarkType> = [.rightShoulder]
+
+        // Standing (400 px higher) or kneeling (150 px higher) with straight arms, then the plank Up: a faint shoulder
+        // between the two heights is above the plank Up, so it isn't accepted.
+        let aboveUp: [LandmarkType: CGPoint] = [.leftShoulder: CGPoint(x: 600, y: 900),
+                                                .rightShoulder: CGPoint(x: 400, y: 1250)]
+        for lift in [CGFloat(400), 150] {
+            var shoulders = SupportedShoulders(rule: rule, minimumConfidence: 0.4)
+            _ = shoulders.update(Self.armsFrame(Self.upArms.mapValues { CGPoint(x: $0.x, y: $0.y - lift) }, at: 0))
+            _ = shoulders.update(Self.armsFrame(at: 0.1))
+            XCTAssertEqual(shoulders.update(Self.armsFrame(aboveUp, confidences: Self.faint(), at: 0.2)), rightOnly,
+                           "An earlier shoulder \(lift) px higher doesn't raise the ceiling.")
+            XCTAssertEqual(shoulders.update(Self.armsFrame([.leftShoulder: CGPoint(x: 600, y: 1000)],
+                                                           confidences: Self.faint(), at: 0.3)), both)
+        }
+
+        // Only a straight arm (elbow at least 150°) moves the ceiling, here down to about y 1027.
+        let belowUp: [LandmarkType: CGPoint] = [.leftShoulder: CGPoint(x: 700, y: 1010),
+                                                .rightShoulder: CGPoint(x: 400, y: 1250)]
+        for (angle, expected) in [(150.1, rightOnly), (149.9, both)] {
+            let radians = angle * .pi / 180
+            let shoulder = CGPoint(x: 600 + 200 * CGFloat(sin(radians)), y: 1200 + 200 * CGFloat(cos(radians)))
+            var shoulders = SupportedShoulders(rule: rule, minimumConfidence: 0.4)
+            _ = shoulders.update(Self.armsFrame(at: 0))
+            _ = shoulders.update(Self.armsFrame([.leftShoulder: shoulder], at: 0.1))
+            XCTAssertEqual(shoulders.update(Self.armsFrame(belowUp, confidences: Self.faint(), at: 0.2)), expected,
+                           "left elbow at \(angle)°")
+        }
+    }
+
+    func testEstimatedElbowsAndWristsNeitherSupportNorRefresh() {
+        let rule = PushUpConfiguration.standard.supportedShoulders
+        let both: Set<LandmarkType> = [.leftShoulder, .rightShoulder]
+        let bottom: [LandmarkType: CGPoint] = [.leftShoulder: CGPoint(x: 600, y: 1250),
+                                               .rightShoulder: CGPoint(x: 400, y: 1250)]
+        for joint in [LandmarkType.leftElbow, .rightElbow, .leftWrist, .rightWrist] {
+            let cases: [(Set<LandmarkType>, Set<LandmarkType>)] = [([joint], []), ([], both)]
+            for (estimated, expected) in cases {
+                var shoulders = SupportedShoulders(rule: rule, minimumConfidence: 0.4)
+                _ = shoulders.update(Self.armsFrame(at: 0))
+                let frame = Self.armsFrame(bottom, confidences: Self.faint(joint, at: 0.8), estimated: estimated, at: 0.1)
+                XCTAssertEqual(shoulders.update(frame), expected, "\(joint.rawValue) at 0.8, estimated: \(!estimated.isEmpty)")
+            }
+        }
+
+        // A confident arm with an estimated wrist doesn't refresh its side, so that side expires 0.8 s after Up.
+        var shoulders = SupportedShoulders(rule: rule, minimumConfidence: 0.4)
+        _ = shoulders.update(Self.armsFrame(at: 0))
+        _ = shoulders.update(Self.armsFrame(estimated: [.leftWrist], at: 0.5))
+        XCTAssertEqual(shoulders.update(Self.armsFrame(bottom, confidences: Self.faint(), at: 0.9)), [.rightShoulder])
     }
 
     // MARK: - Helpers
@@ -338,19 +402,23 @@ final class PushUpAnalyzerTests: XCTestCase {
         return result
     }
 
-    /// Straight 400 px arms at Up, shoulders at y 1000 and hands at y 1400; `moved` relocates joints.
+    /// Straight 400 px arms at Up, shoulders at y 1000 and hands at y 1400.
+    private static let upArms: [LandmarkType: CGPoint] = [
+        .leftShoulder: CGPoint(x: 600, y: 1000), .leftElbow: CGPoint(x: 600, y: 1200),
+        .leftWrist: CGPoint(x: 600, y: 1400), .rightShoulder: CGPoint(x: 400, y: 1000),
+        .rightElbow: CGPoint(x: 400, y: 1200), .rightWrist: CGPoint(x: 400, y: 1400)
+    ]
+
+    /// `upArms`, with `moved` relocating joints and `estimated` marking joints placed past the frame edge.
     private static func armsFrame(_ moved: [LandmarkType: CGPoint] = [:], confidences: [LandmarkType: Double] = [:],
-                                  at time: TimeInterval) -> PoseFrame {
-        let up: [LandmarkType: CGPoint] = [
-            .leftShoulder: CGPoint(x: 600, y: 1000), .leftElbow: CGPoint(x: 600, y: 1200),
-            .leftWrist: CGPoint(x: 600, y: 1400), .rightShoulder: CGPoint(x: 400, y: 1000),
-            .rightElbow: CGPoint(x: 400, y: 1200), .rightWrist: CGPoint(x: 400, y: 1400)
-        ]
-        let landmarks = Dictionary(uniqueKeysWithValues: up.map { type, point in
+                                  estimated: Set<LandmarkType> = [], at time: TimeInterval) -> PoseFrame {
+        let landmarks = Dictionary(uniqueKeysWithValues: upArms.map { type, point in
             (type, Landmark(type: type, normalizedLocation: .zero, imageLocation: moved[type] ?? point,
                             confidence: confidences[type] ?? 0.9))
         })
-        return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 1080, imageHeight: 1920), timestamp: time)
+        var frame = PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 1080, imageHeight: 1920), timestamp: time)
+        frame.estimatedJoints = estimated
+        return frame
     }
 
     /// Face-down confidences: faint shoulders and clearly seen arms, with `joint` at `confidence` when given.

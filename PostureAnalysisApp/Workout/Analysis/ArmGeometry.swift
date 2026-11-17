@@ -59,14 +59,18 @@ struct SupportedShoulderRule: Equatable {
     /// Farthest a supported shoulder may sit sideways from the last confident shoulder on its side, in that arm's
     /// length (upper arm + forearm).
     var maximumDrift: CGFloat
+    /// A confident arm with at least this 2D elbow angle sets its side's ceiling (Up, for push-ups).
+    var straightElbowAngle: Double
     /// The last confident shoulder is forgotten after this long without a usable shoulder on its side.
     var maximumGap: TimeInterval
 }
 
 /// Finds the shoulders a `SupportedShoulderRule` accepts below the usual confidence. Each must stay continuous with
-/// the last confidently seen arm on its side: within the drift limit sideways, no higher than the highest confident
-/// shoulder (the Up position for push-ups), and no lower than its own wrist. Supported shoulders keep that reference
-/// alive but never move it, so a slow drift can't walk the reference away.
+/// the last confidently seen arm on its side: within the drift limit sideways, no higher than the shoulder in that
+/// side's most recent confident straight-arm frame (the Up position for push-ups), and no lower than its own wrist.
+/// Supported shoulders keep that reference alive but never move it, so a slow drift can't walk the reference away.
+/// Only joints Vision saw count: an elbow or wrist estimated past the frame edge neither supports a shoulder nor
+/// refreshes a reference.
 struct SupportedShoulders {
     let rule: SupportedShoulderRule?
     /// The usual joint confidence; a whole arm at or above it refreshes that side's reference.
@@ -76,7 +80,8 @@ struct SupportedShoulders {
     private struct Reference {
         var shoulder: CGPoint
         var armLength: CGFloat
-        var highestShoulderY: CGFloat
+        /// The shoulder height in the most recent confident straight-arm frame; nil until one is seen.
+        var ceilingY: CGFloat?
         var lastUsable: TimeInterval
     }
 
@@ -89,16 +94,17 @@ struct SupportedShoulders {
     mutating func update(_ frame: PoseFrame) -> Set<LandmarkType> {
         guard let rule else { return [] }
         let time = frame.timestamp
-        let armsSupport = BodySide.allCases.allSatisfy { side in
-            frame.point(side.elbow, minimumConfidence: rule.armConfidence) != nil
-                && frame.point(side.wrist, minimumConfidence: rule.armConfidence) != nil
+        func seen(_ joint: LandmarkType) -> CGPoint? {
+            frame.estimatedJoints.contains(joint) ? nil : frame.point(joint, minimumConfidence: rule.armConfidence)
         }
+        let armsSupport = BodySide.allCases.allSatisfy { seen($0.elbow) != nil && seen($0.wrist) != nil }
         var supported: Set<LandmarkType> = []
         for side in BodySide.allCases {
-            if let arm = ArmGeometry.arm(side, in: frame, minimumConfidence: minimumConfidence) {
-                let highest = min(references[side]?.highestShoulderY ?? arm.shoulder.y, arm.shoulder.y)
+            if let arm = ArmGeometry.arm(side, in: frame, minimumConfidence: minimumConfidence),
+               frame.estimatedJoints.isDisjoint(with: side.armJoints) {
+                let ceiling = arm.elbowAngle >= rule.straightElbowAngle ? arm.shoulder.y : references[side]?.ceilingY
                 references[side] = Reference(shoulder: arm.shoulder, armLength: arm.armLength,
-                                             highestShoulderY: highest, lastUsable: time)
+                                             ceilingY: ceiling, lastUsable: time)
                 continue
             }
             guard var reference = references[side] else { continue }
@@ -106,11 +112,11 @@ struct SupportedShoulders {
                 references[side] = nil
                 continue
             }
-            guard armsSupport,
+            guard armsSupport, let ceiling = reference.ceilingY,
                   let shoulder = frame.point(side.shoulder, minimumConfidence: rule.minimumConfidence),
-                  let wrist = frame.point(side.wrist, minimumConfidence: rule.armConfidence),
+                  let wrist = seen(side.wrist),
                   abs(shoulder.x - reference.shoulder.x) <= rule.maximumDrift * reference.armLength,
-                  shoulder.y >= reference.highestShoulderY, shoulder.y <= wrist.y else { continue }
+                  shoulder.y >= ceiling, shoulder.y <= wrist.y else { continue }
             reference.lastUsable = time
             references[side] = reference
             supported.insert(side.shoulder)

@@ -161,7 +161,8 @@ struct WorkoutSessionReplayer {
             try checkDrift(entry, exercise)
             var rebuilt = exercise
             if let configuration = entry["configuration"] as? [String: Any], let diagnostics = exercise.diagnostics {
-                rebuilt = try diagnostics.rebuild(JSONSerialization.data(withJSONObject: configuration))
+                rebuilt = try diagnostics.rebuild(JSONSerialization.data(
+                    withJSONObject: withoutLaterRules(configuration, for: exercise)))
             }
             definitions[id] = recordedPhoneDistance(entry, over: rebuilt)
         }
@@ -180,11 +181,24 @@ struct WorkoutSessionReplayer {
             }
             var rebuilt = variant
             if let configuration = entry["configuration"] as? [String: Any], let diagnostics = variant.diagnostics {
-                rebuilt = try diagnostics.rebuild(JSONSerialization.data(withJSONObject: configuration))
+                rebuilt = try diagnostics.rebuild(JSONSerialization.data(
+                    withJSONObject: withoutLaterRules(configuration, for: variant)))
             }
             definitions[key] = recordedPhoneDistance(entry, over: rebuilt)
         }
         return definitions
+    }
+
+    /// Rules newer than the recording stay off. A push-up recording from before supported shoulders lacks
+    /// `supportedShoulderConfidence`; raising that floor to the recorded minimum joint confidence leaves no shoulder to
+    /// support, which turns the rule off for counting and framing alike.
+    private static func withoutLaterRules(_ configuration: [String: Any],
+                                          for exercise: ExerciseDefinition) -> [String: Any] {
+        guard exercise.id == .pushUp, configuration["supportedShoulderConfidence"] == nil else { return configuration }
+        var configuration = configuration
+        configuration["supportedShoulderConfidence"] = configuration["minimumJointConfidence"]
+            ?? PushUpConfiguration.standard.minimumJointConfidence
+        return configuration
     }
 
     /// The phone-distance limits the recording ran with. The header omits an unset limit, and recordings from before

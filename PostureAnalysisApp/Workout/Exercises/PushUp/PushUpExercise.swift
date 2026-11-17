@@ -59,10 +59,14 @@ struct PushUpConfiguration: Codable {
 
     static let standard = PushUpConfiguration()
 
-    /// The last confident shoulder is kept as long as the analyzer bridges a bottom dropout.
-    var supportedShoulders: SupportedShoulderRule {
-        SupportedShoulderRule(minimumConfidence: supportedShoulderConfidence, armConfidence: supportingArmConfidence,
-                              maximumDrift: maximumSupportedShoulderDrift, maximumGap: maximumBottomGap)
+    /// Arms as straight as Up set the ceiling, and the last confident shoulder is kept as long as the analyzer bridges
+    /// a bottom dropout. A floor at or above `minimumJointConfidence` leaves nothing to support, so there's no rule.
+    var supportedShoulders: SupportedShoulderRule? {
+        guard supportedShoulderConfidence < minimumJointConfidence else { return nil }
+        return SupportedShoulderRule(minimumConfidence: supportedShoulderConfidence,
+                                     armConfidence: supportingArmConfidence,
+                                     maximumDrift: maximumSupportedShoulderDrift, straightElbowAngle: upMinElbowAngle,
+                                     maximumGap: maximumBottomGap)
     }
 }
 

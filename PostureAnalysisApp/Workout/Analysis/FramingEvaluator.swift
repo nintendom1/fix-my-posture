@@ -105,7 +105,8 @@ struct FramingEvaluator {
     /// the phone farther away, and nil skips the check. Guidance only, like the shoulder span.
     let maximumWristHeightFraction: CGFloat?
     /// Shoulders that count as visible below `configuration.minimumConfidence` while both arms are clearly seen, so
-    /// a face-down push-up bottom stays reliable; nil keeps every required joint at the usual confidence.
+    /// a face-down push-up bottom stays reliable; nil keeps every required joint at the usual confidence. The
+    /// references live as long as the analyzer's: `reset()` keeps them, and `resetSupportedShoulders()` clears them.
     let supportedShoulders: SupportedShoulderRule?
     let centersInFrame: Bool
     let cameraView: ExerciseCameraView
@@ -171,6 +172,10 @@ struct FramingEvaluator {
         isReliable = false
         isShoulderSpanTooWide = false
         areWristsTooLow = false
+    }
+
+    /// Forgets the supported-shoulder references, as a new analyzer does, so both decide alike on every frame.
+    mutating func resetSupportedShoulders() {
         shoulderSupport.reset()
     }
 
