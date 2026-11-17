@@ -122,7 +122,7 @@ final class WorkoutSessionReplayTests: XCTestCase {
         }
 
         XCTAssertEqual(try pushUp().maximumShoulderSpan, 0.23)
-        XCTAssertEqual(try pushUp().maximumWristHeightFraction, 0.64, "The header records the wrist limit.")
+        XCTAssertNil(try pushUp().maximumWristHeightFraction, "Push-ups set no wrist limit.")
 
         try recordPushUp { entry in
             entry["maximumShoulderSpan"] = 0.32
@@ -130,8 +130,8 @@ final class WorkoutSessionReplayTests: XCTestCase {
         }
         XCTAssertEqual(try pushUp().maximumShoulderSpan, 0.32, "Strict replay runs the recorded limits.")
         XCTAssertEqual(try pushUp().maximumWristHeightFraction, 0.7)
-        XCTAssertEqual(try pushUp(currentBuild: true).maximumWristHeightFraction, 0.64,
-                       "Current-build replay keeps this build's limit.")
+        XCTAssertNil(try pushUp(currentBuild: true).maximumWristHeightFraction,
+                     "Current-build replay keeps this build's limits.")
 
         try recordPushUp { entry in entry["maximumWristHeightFraction"] = nil }
         XCTAssertNil(try pushUp().maximumWristHeightFraction, "An older recording ran without the wrist limit.")

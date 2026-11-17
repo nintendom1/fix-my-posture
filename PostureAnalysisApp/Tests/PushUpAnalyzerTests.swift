@@ -363,10 +363,11 @@ final class PushUpAnalyzerTests: XCTestCase {
     }
 
     func testWristRoomIsJudgedByTheLowerWrist() {
-        // Only the lower wrist is past the limit; the two wrists' average (0.63) is inside it.
+        // Push-ups set no wrist limit, so the generic check is exercised with an explicit 0.64. Only the lower wrist is
+        // past the limit; the two wrists' average (0.63) is inside it.
         let wrists: [(left: CGFloat, right: CGFloat)] = [(0.56, 0.70), (0.70, 0.56)]
         for (left, right) in wrists {
-            var framing = Self.framing(for: PushUpExercise.definition())
+            var framing = Self.framing(for: PushUpExercise.definition(), wristLimit: 0.64)
             let status = framing.evaluate(Self.plank(shoulderSpan: 0.19, wristHeightFraction: left,
                                                      rightWristHeightFraction: right, at: 0))
             XCTAssertEqual(status.guidance, .movePhoneFartherFloor, "left wrist \(left), right wrist \(right)")
@@ -374,7 +375,7 @@ final class PushUpAnalyzerTests: XCTestCase {
     }
 
     func testHandsMustStayHighEnoughAndWristGuidanceUsesHysteresis() {
-        var framing = Self.framing(for: PushUpExercise.definition())
+        var framing = Self.framing(for: PushUpExercise.definition(), wristLimit: 0.64)
         let wristHeights: [(CGFloat, FramingGuidance?)] = [
             (0.639, nil), (0.641, .movePhoneFartherFloor), (0.73, .movePhoneFartherFloor),
             (0.63, .movePhoneFartherFloor),
@@ -393,23 +394,24 @@ final class PushUpAnalyzerTests: XCTestCase {
         XCTAssertNil(squat.maximumShoulderSpan)
         XCTAssertNil(squat.maximumWristHeightFraction)
         XCTAssertEqual(PushUpExercise.definition().maximumShoulderSpan, 0.23)
-        XCTAssertEqual(PushUpExercise.definition().maximumWristHeightFraction, 0.64)
+        XCTAssertNil(PushUpExercise.definition().maximumWristHeightFraction)
     }
 
-    func testNonPushUpFramingIsUnchangedByTheSameLowHandPose() {
+    func testLowHandsDoNotHoldPushUpOrOtherFraming() {
+        // On device the hands sat 0.72-0.78 down the frame at every distance, so push-ups set no wrist limit.
         let pose = Self.plank(shoulderSpan: 0.18, wristHeightFraction: 0.73, at: 0)
         var pushUpFraming = Self.framing(for: PushUpExercise.definition())
         var shoulderPressFraming = Self.framing(for: ShoulderPressExercise.definition())
 
-        XCTAssertEqual(pushUpFraming.evaluate(pose).guidance, .movePhoneFartherFloor)
+        XCTAssertNil(pushUpFraming.evaluate(pose).guidance)
         XCTAssertNil(shoulderPressFraming.evaluate(pose).guidance)
     }
 
-    private static func framing(for exercise: ExerciseDefinition) -> FramingEvaluator {
+    private static func framing(for exercise: ExerciseDefinition, wristLimit: CGFloat? = nil) -> FramingEvaluator {
         FramingEvaluator(requiredJoints: exercise.requiredJoints, anyOfRequiredJoints: exercise.anyOfRequiredJoints,
                          headroomArmLengths: exercise.headroomArmLengths, sideroomArmLengths: exercise.sideroomArmLengths,
                          maximumShoulderSpan: exercise.maximumShoulderSpan,
-                         maximumWristHeightFraction: exercise.maximumWristHeightFraction,
+                         maximumWristHeightFraction: wristLimit ?? exercise.maximumWristHeightFraction,
                          cameraView: exercise.cameraView)
     }
 

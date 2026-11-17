@@ -90,11 +90,11 @@ enum PushUpExercise {
             // Too-close setups measured 0.25-0.30 with wrists at 0.71-0.73 at Ready (the body or face was lost on
             // most reps), and 0.29-0.32 with wrists at 0.58 mid-set. Seen from the floor, the span is narrower at
             // Down than at Up (0.17 vs 0.19 far, 0.21 vs 0.25 close), so it is widest in the Ready plank. These
-            // limits pass the far setup with margin and hold every close one. Each warning clears 0.02 below its
-            // limit, so the span warning clears below 0.21.
+            // limit passes the far setup with margin and holds every close one; it clears 0.02 below, at 0.21.
+            // No wrist-height limit: on device the hands stayed 0.72-0.78 down the frame at every distance (it
+            // follows the phone's tilt, not its distance), so "move the phone farther" could never clear it, and
+            // the span alone already holds every too-close setup above.
             maximumShoulderSpan: 0.23,
-            // Leaves room below the hands for the descent.
-            maximumWristHeightFraction: 0.64,
             framingUnreliableAfter: configuration.maximumBottomGap,
             countsArmsIndependently: false,
             setupLine: "Lay the phone on the floor a long step in front of your hands, tilted up to see you, and get into a plank facing it.",

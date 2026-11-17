@@ -291,9 +291,9 @@ Rear lunges are filmed side-on with the whole body in view. Framing accepts eith
 
 ## Push-up rep rule
 
-Push-ups are filmed by a phone lying on the floor a long step in front of the hands, tilted up to face the head (`ExerciseCameraView.floor`). The hands sit in the lower middle of the frame, with room below them for the descent, and the shoulders rise and fall above them. Thresholds live in `PushUpConfiguration`.
+Push-ups are filmed by a phone lying on the floor a long step in front of the hands, tilted up to face the head (`ExerciseCameraView.floor`). The hands sit in the lower part of the frame, and the shoulders rise and fall above them. Thresholds live in `PushUpConfiguration`.
 
-- Distance: while setting up, either of two checks holds setup with "Move the phone farther from your hands, so you stay in view at the bottom." One is shoulders spanning more than 23% of the image width (`ExerciseDefinition.maximumShoulderSpan`). The other is the lower wrist sitting more than 64% of the way down the unmirrored portrait image (`ExerciseDefinition.maximumWristHeightFraction`). Each warning clears 0.02 inside its limit (`FramingConfiguration.shoulderSpanClearance`), so the span must drop below 21% and the lower wrist must rise above the 62% line. A value near a limit doesn't flicker. If the prompt shows when rest ends, the coach sets up again ("Rest is up. Move the phone…") instead of starting on a hold.
+- Distance: while setting up, shoulders spanning more than 23% of the image width (`ExerciseDefinition.maximumShoulderSpan`) hold setup with "Move the phone farther from your hands, so you stay in view at the bottom." The warning clears 0.02 inside the limit (`FramingConfiguration.shoulderSpanClearance`), so the span must drop below 21%, and a value near the limit doesn't flicker. If the prompt shows when rest ends, the coach sets up again ("Rest is up. Move the phone…") instead of starting on a hold. Push-ups set no wrist-height limit (`ExerciseDefinition.maximumWristHeightFraction` stays nil): on device the hands sat 72–78% down the frame at every distance, because their height follows the phone's tilt, so moving the phone could never clear it.
 - In recordings, a far setup that tracked through the set measured a 0.19 span with the lower wrist at 0.56. Too-close Ready positions measured 0.25–0.30 with wrists at 0.71–0.73, and Vision lost the body or face on most of their reps. Seen from the floor, the span is narrower at Down than at Up (0.17 vs 0.19 far, 0.21 vs 0.25 close), so it is widest in the Ready plank.
 - Both checks are guidance only: neither affects tracking reliability, so a set in progress keeps counting. Saying "start" still begins a set.
 
@@ -721,7 +721,7 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - With your shoulders about a fifth of the frame width apart and your hands a little below the middle of the screen, no distance prompt appears and the coach says "Looks good…".
     - The ghost figure rises from your hands. Holding the plank fills the Hold ring.
     - Move the phone closer until your shoulders span about a quarter of the frame width: the coach says "Move the phone farther from your hands…", doesn't say "Looks good…", and the Hold ring doesn't fill. Move it back: the prompt clears and Ready returns.
-    - Lean the phone back further until your hands sit in the bottom third of the screen, with your shoulders still about a fifth of the width apart: the same prompt appears, and Ready doesn't return until your hands are back near the middle of the screen.
+    - With your shoulders about a fifth of the width apart, Ready passes wherever your hands sit vertically in the frame.
     - Ten push-ups to the Down line count exactly 10. Shallow ones get "Go a little lower."
     - Say "start" with your hands near the bottom edge of the frame; reps still count.
     - A brief shoulder dropout at Down still counts once; a dropout during lowering, raising, or after moving the hands resets the attempt.
