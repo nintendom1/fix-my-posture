@@ -88,9 +88,11 @@ enum PushUpExercise {
             // Local recordings, as medians of shoulder span / image width and lower wrist y / image height (from the
             // top, unmirrored portrait pixels). A far setup that tracked through the set measured 0.19 and 0.56.
             // Too-close setups measured 0.25-0.30 with wrists at 0.71-0.73 at Ready (the body or face was lost on
-            // most reps), and 0.29-0.32 with wrists at 0.58 mid-set. These limits pass the far setup with margin
-            // and hold every close one; each warning clears 0.02 below its limit.
-            maximumShoulderSpan: 0.22,
+            // most reps), and 0.29-0.32 with wrists at 0.58 mid-set. Seen from the floor, the span is narrower at
+            // Down than at Up (0.17 vs 0.19 far, 0.21 vs 0.25 close), so it is widest in the Ready plank. These
+            // limits pass the far setup with margin and hold every close one. Each warning clears 0.02 below its
+            // limit, so the span warning clears below 0.21.
+            maximumShoulderSpan: 0.23,
             // Leaves room below the hands for the descent.
             maximumWristHeightFraction: 0.64,
             framingUnreliableAfter: configuration.maximumBottomGap,

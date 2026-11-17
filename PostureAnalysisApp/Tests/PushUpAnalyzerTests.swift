@@ -330,9 +330,9 @@ final class PushUpAnalyzerTests: XCTestCase {
         let pushUp = PushUpExercise.definition()
         var framing = Self.framing(for: pushUp)
         // A shoulder span over the setup limit gives distance guidance.
-        var status = framing.evaluate(Self.plank(shoulderSpan: 0.26, at: 0))
+        var status = framing.evaluate(Self.plank(shoulderSpan: 0.25, at: 0))
         XCTAssertEqual(status.guidance, .movePhoneFartherFloor)
-        status = framing.evaluate(Self.plank(shoulderSpan: 0.26, at: 0.7))
+        status = framing.evaluate(Self.plank(shoulderSpan: 0.25, at: 0.7))
         XCTAssertTrue(status.isReliable, "Too close holds setup but never stops counting mid-set.")
         XCTAssertEqual(status.guidance, .movePhoneFartherFloor)
         XCTAssertEqual(FramingGuidance.movePhoneFartherFloor.spokenText,
@@ -346,9 +346,9 @@ final class PushUpAnalyzerTests: XCTestCase {
 
     func testTheDistanceWarningClearsOnlyWellBelowTheLimit() {
         var framing = Self.framing(for: PushUpExercise.definition())
-        let spans: [(CGFloat, FramingGuidance?)] = [(0.219, nil), (0.221, .movePhoneFartherFloor),
-                                                     (0.201, .movePhoneFartherFloor), (0.199, nil),
-                                                     (0.201, nil), (0.221, .movePhoneFartherFloor)]
+        let spans: [(CGFloat, FramingGuidance?)] = [(0.229, nil), (0.231, .movePhoneFartherFloor),
+                                                     (0.211, .movePhoneFartherFloor), (0.209, nil),
+                                                     (0.211, nil), (0.231, .movePhoneFartherFloor)]
         for (index, (span, expected)) in spans.enumerated() {
             XCTAssertEqual(framing.evaluate(Self.plank(shoulderSpan: span, at: Double(index) / 10)).guidance, expected,
                            "span \(span)")
@@ -357,9 +357,20 @@ final class PushUpAnalyzerTests: XCTestCase {
 
     func testWorkingLikeSetupPassesShoulderAndWristLimits() {
         var framing = Self.framing(for: PushUpExercise.definition())
-        let status = framing.evaluate(Self.plank(shoulderSpan: 0.18, wristHeightFraction: 0.56, at: 0))
+        let status = framing.evaluate(Self.plank(shoulderSpan: 0.19, wristHeightFraction: 0.56, at: 0))
 
         XCTAssertNil(status.guidance)
+    }
+
+    func testWristRoomIsJudgedByTheLowerWrist() {
+        // Only the lower wrist is past the limit; the two wrists' average (0.63) is inside it.
+        let wrists: [(left: CGFloat, right: CGFloat)] = [(0.56, 0.70), (0.70, 0.56)]
+        for (left, right) in wrists {
+            var framing = Self.framing(for: PushUpExercise.definition())
+            let status = framing.evaluate(Self.plank(shoulderSpan: 0.19, wristHeightFraction: left,
+                                                     rightWristHeightFraction: right, at: 0))
+            XCTAssertEqual(status.guidance, .movePhoneFartherFloor, "left wrist \(left), right wrist \(right)")
+        }
     }
 
     func testHandsMustStayHighEnoughAndWristGuidanceUsesHysteresis() {
@@ -381,7 +392,7 @@ final class PushUpAnalyzerTests: XCTestCase {
         let squat = AirSquatExercise.definition()
         XCTAssertNil(squat.maximumShoulderSpan)
         XCTAssertNil(squat.maximumWristHeightFraction)
-        XCTAssertEqual(PushUpExercise.definition().maximumShoulderSpan, 0.22)
+        XCTAssertEqual(PushUpExercise.definition().maximumShoulderSpan, 0.23)
         XCTAssertEqual(PushUpExercise.definition().maximumWristHeightFraction, 0.64)
     }
 
@@ -402,18 +413,20 @@ final class PushUpAnalyzerTests: XCTestCase {
                          cameraView: exercise.cameraView)
     }
 
-    /// A centered top-of-plank pose seen from the floor, straight arms, with the shoulders `shoulderSpan` of the width apart.
+    /// A centered top-of-plank pose seen from the floor, straight arms, with the shoulders `shoulderSpan` of the width
+    /// apart. The right wrist sits at `rightWristHeightFraction` when given, otherwise level with the left.
     private static func plank(shoulderSpan: CGFloat, wristHeightFraction: CGFloat = 0.56,
-                              at time: TimeInterval) -> PoseFrame {
+                              rightWristHeightFraction: CGFloat? = nil, at time: TimeInterval) -> PoseFrame {
         let width: CGFloat = 1080, height: CGFloat = 1920
         let half = shoulderSpan * width / 2
         let shoulderY = height * 0.41
-        let wristY = height * wristHeightFraction
-        let elbowY = (shoulderY + wristY) / 2
+        let leftWristY = height * wristHeightFraction
+        let rightWristY = height * (rightWristHeightFraction ?? wristHeightFraction)
         let points: [LandmarkType: CGPoint] = [
             .leftShoulder: CGPoint(x: 540 + half, y: shoulderY), .rightShoulder: CGPoint(x: 540 - half, y: shoulderY),
-            .leftElbow: CGPoint(x: 540 + half, y: elbowY), .rightElbow: CGPoint(x: 540 - half, y: elbowY),
-            .leftWrist: CGPoint(x: 540 + half, y: wristY), .rightWrist: CGPoint(x: 540 - half, y: wristY)
+            .leftElbow: CGPoint(x: 540 + half, y: (shoulderY + leftWristY) / 2),
+            .rightElbow: CGPoint(x: 540 - half, y: (shoulderY + rightWristY) / 2),
+            .leftWrist: CGPoint(x: 540 + half, y: leftWristY), .rightWrist: CGPoint(x: 540 - half, y: rightWristY)
         ]
         let landmarks = Dictionary(uniqueKeysWithValues: points.map { type, point in
             (type, Landmark(type: type,

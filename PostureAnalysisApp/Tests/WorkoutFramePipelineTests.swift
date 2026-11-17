@@ -367,7 +367,7 @@ final class WorkoutFramePipelineTests: XCTestCase {
         XCTAssertTrue(fartherStatuses.contains { $0.isReliable && $0.guidance == nil })
     }
 
-    func testFloorPushUpWristRoomGuidanceFlowsThroughPipelineOnlyForPushUps() {
+    func testFloorPushUpWristRoomGuidanceFlowsThroughPipelineOnlyForPushUps() throws {
         let points: [LandmarkType: CGPoint] = [
             .leftShoulder: CGPoint(x: 637, y: 787), .rightShoulder: CGPoint(x: 443, y: 787),
             .leftElbow: CGPoint(x: 637, y: 1090), .rightElbow: CGPoint(x: 443, y: 1090),
@@ -386,8 +386,9 @@ final class WorkoutFramePipelineTests: XCTestCase {
             return status
         }.last
 
-        XCTAssertEqual(pushUpStatus?.guidance, .movePhoneFartherFloor)
-        XCTAssertNil(shoulderPressStatus?.guidance)
+        XCTAssertEqual(try XCTUnwrap(pushUpStatus, "Push-up framing reported a status.").guidance,
+                       .movePhoneFartherFloor)
+        XCTAssertNil(try XCTUnwrap(shoulderPressStatus, "Shoulder press framing reported a status.").guidance)
     }
 
     func testLateralRaiseCalibratedGhostAndDumbbellsFitAtAcceptedSideRoomDistance() throws {

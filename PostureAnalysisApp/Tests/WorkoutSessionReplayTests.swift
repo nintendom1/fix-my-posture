@@ -121,7 +121,7 @@ final class WorkoutSessionReplayTests: XCTestCase {
             header["exercises"] = exercises
         }
 
-        XCTAssertEqual(try pushUp().maximumShoulderSpan, 0.22)
+        XCTAssertEqual(try pushUp().maximumShoulderSpan, 0.23)
         XCTAssertEqual(try pushUp().maximumWristHeightFraction, 0.64, "The header records the wrist limit.")
 
         try recordPushUp { entry in
