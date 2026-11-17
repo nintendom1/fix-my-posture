@@ -61,22 +61,29 @@ final class WorkoutVoiceController: VoiceControlling {
     private var pendingBonus: BonusPhraseMatch?
     private var checkTimer: Cancellable?
     private var dictation: MarkerDictation?
+    private var deferredMarkers: [PendingMarker] = []
+    private var deferredMarkerDelivery: Cancellable?
 
     var acceptsMarkers = false {
         didSet {
             guard acceptsMarkers != oldValue else { return }
-            if !acceptsMarkers, dictation != nil {
-                // The recording ended mid-note: there's nothing left to mark, and the note's words must not run as
-                // commands, so its transcript and recognition task go too.
-                dictation = nil
-                resetTranscript()
-                if isRecognizing { recognizer.restartTask() }
-            }
             recognizer.setContextualStrings(vocabulary)
+            if !acceptsMarkers {
+                let wasDictating = dictation != nil
+                let interrupted = takePendingMarkers()
+                // Retire the note task before its words can be heard as commands after recording ends.
+                if wasDictating, isRecognizing { recognizer.restartTask() }
+                interrupted.forEach { deliver($0) }
+            }
         }
     }
 
     private var vocabulary: [String] { parser.vocabulary + (acceptsMarkers ? MarkerPhraseParser.vocabulary : []) }
+
+    private struct PendingMarker {
+        let note: String?
+        let heardAt: TimeInterval
+    }
 
     /// A marker being dictated: when its trigger was heard, and its note so far.
     private struct MarkerDictation {
@@ -155,11 +162,11 @@ final class WorkoutVoiceController: VoiceControlling {
 
     /// Stops listening and releases the microphone, for backgrounding, closing, or interruptions.
     func disable(status newStatus: Status = .off) {
-        let interrupted = takeDictation()
+        let interrupted = takePendingMarkers()
         wantsListening = false
         shouldResumeAfterCoachSpeech = false
         stopRecognizing()
-        if let interrupted { deliver(interrupted) }
+        interrupted.forEach { deliver($0) }
         audio?.stopListening()
         if status.isUsable || status == .requestingPermission { status = newStatus }
     }
@@ -168,11 +175,11 @@ final class WorkoutVoiceController: VoiceControlling {
     /// capture is running.
     func setMuted(_ muted: Bool) {
         if muted {
-            let interrupted = takeDictation()
+            let interrupted = takePendingMarkers()
             wantsListening = false
             shouldResumeAfterCoachSpeech = false
             stopRecognizing()
-            if let interrupted { deliver(interrupted) }
+            interrupted.forEach { deliver($0) }
             audio?.stopListening()
             status = .muted
         } else if status == .muted {
@@ -197,9 +204,10 @@ final class WorkoutVoiceController: VoiceControlling {
             // Synchronous, before the audio session is reconfigured for ducking.
             stopRecognizing()
             if status == .listening { status = .coachSpeaking }
-            // Delivered on the next turn: its "Marked." mustn't start while the coach is starting this line.
+            // Persist on the next turn: its "Marked." mustn't start while the coach is starting this line.
             if let interrupted {
-                _ = scheduler.schedule(after: 0) { [weak self] in self?.deliver(interrupted) }
+                deferredMarkers.append(interrupted)
+                scheduleDeferredMarkerDelivery()
             }
         } else if wantsListening,
                   shouldResumeAfterCoachSpeech || status == .coachSpeaking || status == .listening {
@@ -266,6 +274,7 @@ final class WorkoutVoiceController: VoiceControlling {
         resetTranscript()
         isRecognizing = true
         recognizer.start()
+        guard isRecognizing else { return }
         checkTimer?.cancel()
         checkTimer = scheduler.repeating(every: Self.checkInterval) { [weak self] in self?.checkTranscript() }
     }
@@ -286,11 +295,14 @@ final class WorkoutVoiceController: VoiceControlling {
         case .listening:
             if wantsListening, !isCoachSpeaking { status = .listening }
         case .unavailable(let reason):
+            let interrupted = takePendingMarkers()
+            // The recognizer has already stopped at this terminal state; preserve its existing stop/start call path.
             isRecognizing = false
             checkTimer?.cancel()
             checkTimer = nil
             audio?.stopListening()
             status = .unavailable(reason)
+            interrupted.forEach { deliver($0) }
         case .idle:
             break
         }
@@ -411,14 +423,36 @@ final class WorkoutVoiceController: VoiceControlling {
     }
 
     /// Ends the marker being dictated, if any, returning its note and when its trigger was heard.
-    private func takeDictation() -> (note: String?, heardAt: TimeInterval)? {
+    private func takeDictation() -> PendingMarker? {
         guard let dictation else { return nil }
         self.dictation = nil
         resetTranscript()
-        return (dictation.note, dictation.startedAt)
+        return PendingMarker(note: dictation.note, heardAt: dictation.startedAt)
     }
 
-    private func deliver(_ marker: (note: String?, heardAt: TimeInterval)) {
+    /// Drains both an active dictation and coach-interrupted markers before their recording closes.
+    private func takePendingMarkers() -> [PendingMarker] {
+        let active = takeDictation()
+        deferredMarkerDelivery?.cancel()
+        deferredMarkerDelivery = nil
+        let deferred = deferredMarkers
+        deferredMarkers.removeAll()
+        return deferred + [active].compactMap { $0 }
+    }
+
+    private func scheduleDeferredMarkerDelivery() {
+        guard deferredMarkerDelivery == nil, !deferredMarkers.isEmpty else { return }
+        deferredMarkerDelivery = scheduler.schedule(after: 0) { [weak self] in
+            guard let self else { return }
+            self.deferredMarkerDelivery = nil
+            guard !self.deferredMarkers.isEmpty else { return }
+            let marker = self.deferredMarkers.removeFirst()
+            self.deliver(marker)
+            self.scheduleDeferredMarkerDelivery()
+        }
+    }
+
+    private func deliver(_ marker: PendingMarker) {
         onHeard?(marker.note.map { "Mark: \($0)" } ?? "Mark")
         onCommand?(.mark(note: marker.note, heardSecondsAgo: clock() - marker.heardAt))
     }

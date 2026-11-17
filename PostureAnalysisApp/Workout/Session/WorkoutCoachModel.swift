@@ -1104,6 +1104,8 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
 
     private func endRecording(_ reason: WorkoutRecordingEnd) {
         guard let recorder, recorder.isRecording else { return }
+        // Markers interrupted by coach speech or listening teardown must reach the writer before it closes.
+        voice?.acceptsMarkers = false
         recordState()
         let now = Date()
         let saved = WorkoutRecord(session: session, startedAt: now, endedAt: now) != nil
@@ -1112,7 +1114,6 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         markerConfirmationExpiry?.cancel()
         markerConfirmationExpiry = nil
         recordingHUD = nil
-        voice?.acceptsMarkers = false
     }
 
     /// Speaks through the coach unless `muted`, and records the line either way.

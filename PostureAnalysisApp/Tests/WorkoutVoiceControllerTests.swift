@@ -89,15 +89,30 @@ final class WorkoutVoiceControllerTests: XCTestCase {
         XCTAssertTrue(recognizer.contextualStrings.contains("mark that"))
     }
 
-    func testARecordingEndingMidNoteDropsTheMarkerAndRetiresItsWords() {
+    func testARecordingEndingMidNoteFinishesTheMarkerAndRetiresItsWords() {
         let controller = makeController()
         recognizer.hear("note end workout")
         let restarts = recognizer.restartCount
         controller.acceptsMarkers = false
         XCTAssertEqual(recognizer.restartCount, restarts + 1, "The note's task is replaced, so its words can't run as commands.")
-        XCTAssertTrue(commands.isEmpty)
+        guard case .mark(let note, _) = commands.first else { return XCTFail("\(commands)") }
+        XCTAssertEqual(note, "end workout")
         recognizer.hear("pause")
-        XCTAssertEqual(commands, [.pause], "Nothing is left to mark, and commands work again.")
+        XCTAssertEqual(commands.last, .pause, "Nothing is left to mark, and commands work again.")
+    }
+
+    func testRecognitionBecomingUnavailableFinishesTheNoteAndRetryStartsClean() {
+        let controller = makeController()
+        recognizer.hear("note the last rep")
+
+        recognizer.emit(.unavailable("recognition failed"))
+
+        guard case .mark(let note, _) = commands.first else { return XCTFail("\(commands)") }
+        XCTAssertEqual(note, "the last rep")
+        controller.retry()
+        recognizer.hear("pause")
+        XCTAssertEqual(commands.count, 2)
+        XCTAssertEqual(commands.last, .pause, "A retry starts a clean utterance after the marker was delivered.")
     }
 
     func testANoteContinuesAcrossTaskRestartsWithoutAFinalResult() {
