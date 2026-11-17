@@ -33,7 +33,7 @@ final class ExerciseCatalogTests: XCTestCase {
     }
 
     func testSingleViewDefinitionsIgnoreSameAndUnsupportedViews() throws {
-        let exercise = try XCTUnwrap(ExerciseCatalog.definition(for: .hammerCurl))
+        let exercise = try XCTUnwrap(ExerciseCatalog.definition(for: .airSquat))
         XCTAssertFalse(exercise.hasViewChoice)
         XCTAssertEqual(exercise.views, [exercise.cameraView])
 
@@ -51,7 +51,10 @@ final class ExerciseCatalogTests: XCTestCase {
     }
 
     func testCatalogEveryViewIncludesOnlyTheCurrentDefinitions() {
-        XCTAssertEqual(ExerciseCatalog.everyView.count, ExerciseCatalog.all.count)
+        let expectedCount = ExerciseCatalog.all.reduce(0) { count, exercise in
+            count + (exercise.hasViewChoice ? exercise.views.count : 1)
+        }
+        XCTAssertEqual(ExerciseCatalog.everyView.count, expectedCount)
     }
 
     func testEveryExerciseHasOneBundledSquarePhotograph() throws {
