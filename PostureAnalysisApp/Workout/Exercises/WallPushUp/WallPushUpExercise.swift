@@ -104,7 +104,7 @@ enum WallPushUpExercise {
             headroomArmLengths: nil,
             centersInFrame: false,
             countsArmsIndependently: false,
-            setupLine: "Wall push-ups, two sets of 6 to 10. Stand an arm's length from a wall, side-on to the phone, and place your hands on the wall at shoulder height.",
+            setupLine: "Stand an arm's length from a wall, side-on to the phone, and place your hands on the wall at shoulder height.",
             voiceAliases: ["wall push-up", "wall push-ups", "wall pushup", "wall pushups", "wall press"],
             guide: guide(shallow: configuration.shallow),
             coachingCues: [

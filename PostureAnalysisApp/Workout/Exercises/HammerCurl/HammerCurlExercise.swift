@@ -90,7 +90,7 @@ enum HammerCurlExercise {
             ],
             headroomArmLengths: nil,
             countsArmsIndependently: true,
-            setupLine: "Hammer curls, two sets of 10. Face the phone and let the dumbbells hang at your sides with straight arms.",
+            setupLine: "Face the phone and let the dumbbells hang at your sides with straight arms.",
             voiceAliases: ["hammer curl", "hammer curls", "curl", "curls", "dumbbell curls"],
             guide: guide,
             coachingCues: coachingCues,

@@ -16,7 +16,7 @@ enum WorkoutGoldenTraces {
         t=10.00 camera running
         t=10.00 input opened
         t=10.00 control exercise dumbbell_row epoch=1
-        t=10.00 speak "Workout coach ready. One-arm dumbbell rows, two sets of 8 to 10 each arm. Stand side-on to the phone with your left arm nearer it, bend forward, and rest your other hand on a bench."
+        t=10.00 speak "Workout coach ready. One-arm dumbbell row, 2 sets of 1 each arm. Stand side-on to the phone with your left arm nearer it, bend forward, and rest your other hand on a bench."
         > voice status listening
         t=10.00 mic listening
         t=10.00 input voiceControl true
@@ -161,7 +161,7 @@ enum WorkoutGoldenTraces {
         t=10.00 camera running
         t=10.00 input opened
         t=10.00 control exercise air_squat epoch=1
-        t=10.00 speak "Workout coach ready. Air squats, two sets of 15. Face the phone and step back until your whole body is in view, feet about shoulder-width apart."
+        t=10.00 speak "Workout coach ready. Air squat, 2 sets of 15. Face the phone and step back until your whole body is in view, feet about shoulder-width apart."
         > voice status listening
         t=10.00 mic listening
         t=10.00 input voiceControl true
@@ -376,7 +376,7 @@ enum WorkoutGoldenTraces {
         t=10.00 camera running
         t=10.00 input opened
         t=10.00 control exercise air_squat epoch=1
-        t=10.00 speak "Workout coach ready. Air squats, two sets of 15. Face the phone and step back until your whole body is in view, feet about shoulder-width apart."
+        t=10.00 speak "Workout coach ready. Air squat, 1 set of 3. Face the phone and step back until your whole body is in view, feet about shoulder-width apart."
         > voice status listening
         t=10.00 mic listening
         t=10.00 input voiceControl true
@@ -423,7 +423,7 @@ enum WorkoutGoldenTraces {
         t=22.10 input startPosition true
         t=22.70 input framing reliable
         t=82.00 state ready wall_push_up item=2 set=1 reps=0 counting=false
-        t=82.00 speak "Rest is up. Wall push-ups, two sets of 6 to 10. Stand an arm's length from a wall, side-on to the phone, and place your hands on the wall at shoulder height."
+        t=82.00 speak "Rest is up. Wall push-up, 1 set of 2. Stand an arm's length from a wall, side-on to the phone, and place your hands on the wall at shoulder height."
         t=82.10 control sessionPhase ready
         > frames still wall_push_up 10 frames @0.1 (1.0s)
         t=83.10 state exercising wall_push_up item=2 set=1 reps=0 counting=true
@@ -486,7 +486,7 @@ enum WorkoutGoldenTraces {
         t=10.00 camera running
         t=10.00 input opened
         t=10.00 control exercise air_squat epoch=1
-        t=10.00 speak "Workout coach ready. Air squats, two sets of 15. Face the phone and step back until your whole body is in view, feet about shoulder-width apart."
+        t=10.00 speak "Workout coach ready. Air squat, 2 sets of 4. Face the phone and step back until your whole body is in view, feet about shoulder-width apart."
         > frames still air_squat 10 frames @0.1 (1.0s)
         t=10.10 input framing lost
         t=10.20 input startPosition true
@@ -623,7 +623,7 @@ enum WorkoutGoldenTraces {
         t=10.00 camera running
         t=10.00 input opened
         t=10.00 control exercise air_squat epoch=1
-        t=10.00 speak muted "Workout coach ready. Air squats, two sets of 15. Face the phone and step back until your whole body is in view, feet about shoulder-width apart."
+        t=10.00 speak muted "Workout coach ready. Air squat, 1 set of 3. Face the phone and step back until your whole body is in view, feet about shoulder-width apart."
         > voice status listening
         t=10.00 mic listening
         t=10.00 input voiceControl true
@@ -701,14 +701,14 @@ enum WorkoutGoldenTraces {
         t=10.00 camera running
         t=10.00 input opened
         t=10.00 control exercise air_squat epoch=1
-        t=10.00 speak "Workout coach ready. Air squats, two sets of 15. Face the phone and step back until your whole body is in view, feet about shoulder-width apart."
+        t=10.00 speak "Workout coach ready. Air squat, 1 set of 3. Face the phone and step back until your whole body is in view, feet about shoulder-width apart."
         > voice status listening
         t=10.00 mic listening
         t=10.00 input voiceControl true
         t=10.00 speak "Say “what can I say” anytime to see voice commands." (status)
         > voice heard "repeat that" -> repeatLast
         t=10.00 command repeatLast (voice "repeat that")
-        t=10.00 repeat last="Workout coach ready. Air squats, two sets of 15. Face the phone and step back until your whole body is in view, feet about shoulder-width apart."
+        t=10.00 repeat last="Workout coach ready. Air squat, 1 set of 3. Face the phone and step back until your whole body is in view, feet about shoulder-width apart."
         > frames still air_squat 10 frames @0.1 (1.0s)
         t=10.10 input framing lost
         t=10.20 input startPosition true
@@ -799,7 +799,7 @@ enum WorkoutGoldenTraces {
         t=10.00 camera running
         t=10.00 input opened
         t=10.00 control exercise air_squat epoch=1
-        t=10.00 speak "Workout coach ready. Air squats, two sets of 15. Face the phone and step back until your whole body is in view, feet about shoulder-width apart."
+        t=10.00 speak "Workout coach ready. Air squat, 1 set of 4. Face the phone and step back until your whole body is in view, feet about shoulder-width apart."
         > voice status listening
         t=10.00 mic listening
         t=10.00 input voiceControl true
@@ -892,7 +892,7 @@ enum WorkoutGoldenTraces {
         t=10.00 camera running
         t=10.00 input opened
         t=10.00 control exercise air_squat epoch=1
-        t=10.00 speak "Workout coach ready. Air squats, two sets of 15. Face the phone and step back until your whole body is in view, feet about shoulder-width apart."
+        t=10.00 speak "Workout coach ready. Air squat, 2 sets of 15. Face the phone and step back until your whole body is in view, feet about shoulder-width apart."
         > voice status listening
         t=10.00 mic listening
         t=10.00 input voiceControl true
@@ -987,7 +987,7 @@ enum WorkoutGoldenTraces {
         t=10.00 input opened
         t=10.00 state ready shoulder_press set=1 reps=0 counting=false
         t=10.00 control exercise shoulder_press epoch=1
-        t=10.00 speak "Workout coach ready. Dumbbell shoulder press, two sets of 8 to 10. Face the phone and hold a dumbbell in each hand just above your shoulders. Tap Start when you're ready."
+        t=10.00 speak "Workout coach ready. Dumbbell shoulder press, 2 sets of 15 seconds. Face the phone and hold a dumbbell in each hand just above your shoulders. Tap Start when you're ready."
         > voice status listening
         t=10.00 mic listening
         t=10.00 input voiceControl true
@@ -1055,7 +1055,7 @@ enum WorkoutGoldenTraces {
         t=10.00 camera running
         t=10.00 input opened
         t=10.00 control exercise wall_push_up epoch=1
-        t=10.00 speak "Workout coach ready. Wall push-ups, two sets of 6 to 10. Stand an arm's length from a wall, side-on to the phone, and place your hands on the wall at shoulder height."
+        t=10.00 speak "Workout coach ready. Wall push-up, 1 set of 2. Stand an arm's length from a wall, side-on to the phone, and place your hands on the wall at shoulder height."
         > voice status listening
         t=10.00 mic listening
         t=10.00 input voiceControl true
@@ -1104,7 +1104,7 @@ enum WorkoutGoldenTraces {
         t=18.10 listen acceptsBonus false
         t=18.10 input startBonus amount=1
         t=18.10 state ready wall_push_up item=2 set=1 reps=0 counting=false
-        t=18.10 speak "One more. Wall push-ups, two sets of 6 to 10. Stand an arm's length from a wall, side-on to the phone, and place your hands on the wall at shoulder height."
+        t=18.10 speak "One more. Wall push-up, 1 set of 1. Stand an arm's length from a wall, side-on to the phone, and place your hands on the wall at shoulder height."
         > frames still wall_push_up 10 frames @0.1 (1.0s)
         t=18.20 control sessionPhase ready
         t=18.20 input startPosition false
@@ -1174,7 +1174,7 @@ enum WorkoutGoldenTraces {
         t=10.00 camera running
         t=10.00 input opened
         t=10.00 control exercise wall_push_up epoch=1
-        t=10.00 speak "Workout coach ready. Wall push-ups, two sets of 6 to 10. Stand an arm's length from a wall, side-on to the phone, and place your hands on the wall at shoulder height."
+        t=10.00 speak "Workout coach ready. Wall push-up, 1 set of 2. Stand an arm's length from a wall, side-on to the phone, and place your hands on the wall at shoulder height."
         > voice status listening
         t=10.00 mic listening
         t=10.00 input voiceControl true
@@ -1258,7 +1258,7 @@ enum WorkoutGoldenTraces {
         t=10.00 camera running
         t=10.00 input opened
         t=10.00 control exercise wall_push_up epoch=1
-        t=10.00 speak "Workout coach ready. Wall push-ups, two sets of 6 to 10. Stand an arm's length from a wall, side-on to the phone, and place your hands on the wall at shoulder height."
+        t=10.00 speak "Workout coach ready. Wall push-up, 1 set of 5. Stand an arm's length from a wall, side-on to the phone, and place your hands on the wall at shoulder height."
         > voice status listening
         t=10.00 mic listening
         t=10.00 input voiceControl true
@@ -1304,7 +1304,7 @@ enum WorkoutGoldenTraces {
         t=14.40 listen acceptsEffort true
         t=14.40 input startEasierSwap wall_push_up reducedRange=true amount=2
         t=14.40 state ready wall_push_up item=2 set=1 reps=0 counting=false
-        t=14.40 speak "Let's try an easier version. Wall push-ups, two sets of 6 to 10. Stand an arm's length from a wall, side-on to the phone, and place your hands on the wall at shoulder height."
+        t=14.40 speak "Let's try an easier version. Shallow wall push-up, 1 set of 2. Stand an arm's length from a wall, side-on to the phone, and place your hands on the wall at shoulder height."
         > frames still wall_push_up(reduced) 10 frames @0.1 (1.0s)
         t=14.50 control sessionPhase ready
         t=14.50 input startPosition false
@@ -1380,7 +1380,7 @@ enum WorkoutGoldenTraces {
         t=10.00 camera running
         t=10.00 input opened
         t=10.00 control exercise wall_push_up epoch=1
-        t=10.00 speak "Workout coach ready. Wall push-ups, two sets of 6 to 10. Stand an arm's length from a wall, side-on to the phone, and place your hands on the wall at shoulder height."
+        t=10.00 speak "Workout coach ready. Wall push-up, 1 set of 2. Stand an arm's length from a wall, side-on to the phone, and place your hands on the wall at shoulder height."
         > voice status listening
         t=10.00 mic listening
         t=10.00 input voiceControl true
@@ -1450,7 +1450,7 @@ enum WorkoutGoldenTraces {
         t=10.00 camera running
         t=10.00 input opened
         t=10.00 control exercise air_squat epoch=1
-        t=10.00 speak "Workout coach ready. Air squats, two sets of 15. Face the phone and step back until your whole body is in view, feet about shoulder-width apart."
+        t=10.00 speak "Workout coach ready. Air squat, 2 sets of 3. Face the phone and step back until your whole body is in view, feet about shoulder-width apart."
         > frames still air_squat 10 frames @0.1 (1.0s)
         t=10.10 input framing lost
         t=10.20 input startPosition true

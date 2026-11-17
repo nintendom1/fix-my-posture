@@ -88,7 +88,7 @@ enum AirSquatExercise {
             ],
             headroomArmLengths: nil,
             countsArmsIndependently: false,
-            setupLine: "Air squats, two sets of 15. Face the phone and step back until your whole body is in view, feet about shoulder-width apart.",
+            setupLine: "Face the phone and step back until your whole body is in view, feet about shoulder-width apart.",
             voiceAliases: ["air squats", "air squat", "squats", "squat", "bodyweight squats"],
             guide: guide,
             coachingCues: coachingCues,

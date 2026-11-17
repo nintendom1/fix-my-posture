@@ -99,7 +99,7 @@ enum TricepsExtensionExercise {
             ],
             headroomArmLengths: 1.05,
             countsArmsIndependently: false,
-            setupLine: "Band triceps extension, two sets of 10. Stand side-on to the phone with one end of the band under your feet, and hold the other end with both hands behind your head.",
+            setupLine: "Stand side-on to the phone with one end of the band under your feet, and hold the other end with both hands behind your head.",
             voiceAliases: ["band triceps extension", "triceps extension", "triceps extensions", "tricep extension",
                            "tricep extensions", "overhead triceps", "triceps"],
             guide: guide,

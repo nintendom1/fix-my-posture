@@ -90,7 +90,7 @@ enum PushUpExercise {
             maximumShoulderSpan: 0.32,
             framingUnreliableAfter: configuration.maximumBottomGap,
             countsArmsIndependently: false,
-            setupLine: "Push-ups, two sets of 10. Lay the phone on the floor a long step in front of your hands, tilted up to see you, and get into a plank facing it.",
+            setupLine: "Lay the phone on the floor a long step in front of your hands, tilted up to see you, and get into a plank facing it.",
             voiceAliases: ["push ups", "pushups", "push up", "press ups"],
             guide: guide,
             coachingCues: [

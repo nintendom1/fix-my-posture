@@ -81,7 +81,7 @@ enum LateralRaiseExercise {
             headroomArmLengths: nil,
             sideroomArmLengths: 1.1,
             countsArmsIndependently: false,
-            setupLine: "Lateral Raise, two sets of 10. Face the phone and hold a dumbbell in each hand at your sides.",
+            setupLine: "Face the phone and hold a dumbbell in each hand at your sides.",
             voiceAliases: [
                 "lateral raise", "lateral raises", "side raise", "side raises", "side lateral raise", "dumbbell lateral raise"
             ],

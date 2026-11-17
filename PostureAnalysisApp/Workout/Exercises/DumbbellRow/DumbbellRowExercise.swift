@@ -86,7 +86,7 @@ enum DumbbellRowExercise {
             ],
             headroomArmLengths: nil,
             countsArmsIndependently: false,
-            setupLine: "One-arm dumbbell rows, two sets of 8 to 10 each arm. Stand side-on to the phone with your left arm nearer it, bend forward, and rest your other hand on a bench.",
+            setupLine: "Stand side-on to the phone with your left arm nearer it, bend forward, and rest your other hand on a bench.",
             voiceAliases: ["one arm dumbbell row", "one arm row", "dumbbell row", "dumbbell rows", "rows", "row"],
             guide: guide,
             coachingCues: coachingCues,

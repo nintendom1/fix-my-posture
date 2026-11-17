@@ -73,7 +73,7 @@ enum GluteBridgeExercise {
             ],
             headroomArmLengths: nil,
             countsArmsIndependently: false,
-            setupLine: "Glute bridges, two sets of 12. Lie on your back side-on to the upright phone, knees bent, with your whole body in view.",
+            setupLine: "Lie on your back side-on to the upright phone, knees bent, with your whole body in view.",
             voiceAliases: ["glute bridge", "glute bridges", "hip bridge", "hip bridges", "bridge", "bridges"],
             guide: guide,
             coachingCues: [

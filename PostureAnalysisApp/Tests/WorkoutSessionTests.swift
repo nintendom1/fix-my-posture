@@ -5,6 +5,86 @@ import XCTest
 final class WorkoutSessionTests: XCTestCase {
     private let press = ShoulderPressExercise.definition()
 
+    func testCatalogSetupLinesContainNoDose() {
+        for exercise in ExerciseCatalog.all {
+            let line = exercise.setupLine
+            let message = "\(exercise.id.rawValue): \(line)"
+            XCTAssertNil(line.range(of: #"\bsets?\s+of\b"#, options: [.regularExpression, .caseInsensitive]), message)
+            XCTAssertNil(line.range(of: #"\breps?\b"#, options: [.regularExpression, .caseInsensitive]), message)
+            XCTAssertNil(line.range(of: #"^\s*(?:\d+|zero|one|two|three|four|five|six|seven|eight|nine|ten)\b"#,
+                                    options: [.regularExpression, .caseInsensitive]), message)
+        }
+    }
+
+    func testPlanDoseIsSpokenAtStartNextExerciseAndRestEnd() throws {
+        let curl = HammerCurlExercise.definition()
+        let plan = WorkoutPlan(name: "One set", items: [
+            WorkoutPlanItem(id: UUID(), exerciseID: press.id, sets: 1, targetReps: 2...2),
+            WorkoutPlanItem(id: UUID(), exerciseID: curl.id, sets: 1, targetReps: 3...3)
+        ])
+        var session = WorkoutSession(exercises: [press, curl], initialExercise: nil, plan: plan)
+
+        let intro = spoken(session.handle(.opened, at: 0))
+        XCTAssertTrue(intro.first?.contains("Dumbbell shoulder press, 1 set of 2.") == true, "\(intro)")
+        XCTAssertFalse(intro.joined(separator: " ").contains("two sets"), "\(intro)")
+        _ = session.handle(.framingChanged(FramingStatus(isReliable: true, guidance: nil)), at: 1)
+        _ = session.handle(.command(.start), at: 2)
+        _ = session.handle(.repCompleted(rep(epoch: session.analyzerEpoch)), at: 3)
+        let nextIntro = spoken(session.handle(.repCompleted(rep(epoch: session.analyzerEpoch)), at: 4))
+        XCTAssertTrue(nextIntro.joined(separator: " ").contains("Up next: hammer curl, 1 set of 3. Rest up."), "\(nextIntro)")
+        XCTAssertFalse(nextIntro.joined(separator: " ").contains("two sets"), "\(nextIntro)")
+
+        let restEndsAt = try XCTUnwrap(session.restEndsAt)
+        let restEnd = spoken(session.handle(.tick, at: restEndsAt + 1))
+        XCTAssertTrue(restEnd.first?.contains("Rest is up. Hammer curl, 1 set of 3.") == true, "\(restEnd)")
+        XCTAssertFalse(restEnd.joined(separator: " ").contains("two sets"), "\(restEnd)")
+    }
+
+    func testThreeSetPlanIntroUsesItsActiveSetCount() {
+        let plan = WorkoutPlan(name: "Three sets", items: [
+            WorkoutPlanItem(id: UUID(), exerciseID: press.id, sets: 3, targetReps: 6...8)
+        ])
+        var session = WorkoutSession(exercises: [press], initialExercise: nil, plan: plan)
+
+        let intro = spoken(session.handle(.opened, at: 0))
+
+        XCTAssertTrue(intro.first?.contains("Dumbbell shoulder press, 3 sets of 6 to 8.") == true, "\(intro)")
+        XCTAssertFalse(intro.joined(separator: " ").contains("two sets"), "\(intro)")
+    }
+
+    func testStandaloneSetupIntroUsesDefaultDose() {
+        var session = WorkoutSession(exercises: [press], initialExercise: press.id)
+
+        let intro = spoken(session.handle(.opened, at: 0))
+
+        XCTAssertTrue(intro.first?.contains("Dumbbell shoulder press, 2 sets of 8 to 10.") == true, "\(intro)")
+    }
+
+    func testSetupDoseSpeechHandlesTimedHoldsAndEachSide() {
+        var hold = press
+        hold.sets = 1
+        hold.doseUnit = .seconds
+        hold.targetReps = 20...30
+        hold.autoCompleteReps = 30
+        var holdSession = WorkoutSession(exercises: [hold], initialExercise: hold.id)
+        let holdIntro = spoken(holdSession.handle(.opened, at: 0))
+        XCTAssertTrue(holdIntro.first?.contains("Dumbbell shoulder press, 1 set of 20 to 30 seconds.") == true,
+                      "\(holdIntro)")
+
+        var row = DumbbellRowExercise.definition()
+        row.sets = 1
+        var rowSession = WorkoutSession(exercises: [row], initialExercise: row.id)
+        let rowIntro = spoken(rowSession.handle(.opened, at: 0))
+        XCTAssertTrue(rowIntro.first?.contains("One-arm dumbbell row, 1 set of 8 to 10 each arm.") == true,
+                      "\(rowIntro)")
+
+        var lunge = RearLungeExercise.definition()
+        lunge.sets = 1
+        var lungeSession = WorkoutSession(exercises: [lunge], initialExercise: lunge.id)
+        let lungeIntro = spoken(lungeSession.handle(.opened, at: 0))
+        XCTAssertTrue(lungeIntro.first?.contains("Rear lunge, 1 set of 8 each leg.") == true, "\(lungeIntro)")
+    }
+
     func testHoldingStartPositionAutoStartsSet() {
         var session = readySession()
         _ = session.handle(.startPositionChanged(true), at: 2)
