@@ -99,8 +99,7 @@ struct FramingEvaluator {
     /// Horizontal room needed at each shoulder, in measured arm lengths; nil skips the check.
     let sideroomArmLengths: CGFloat?
     /// Widest the shoulders may span, as a fraction of image width, before the phone is too close; nil skips the
-    /// check. Guidance only: it holds setup but never affects reliability, because the shoulders widen as the body
-    /// nears the phone during every rep.
+    /// check. Guidance only: it holds setup but never affects reliability, so a set in progress keeps counting.
     let maximumShoulderSpan: CGFloat?
     /// Lowest in-frame position allowed for either wrist, as a fraction of image height from the top; lower asks for
     /// the phone farther away, and nil skips the check. Guidance only, like the shoulder span.
