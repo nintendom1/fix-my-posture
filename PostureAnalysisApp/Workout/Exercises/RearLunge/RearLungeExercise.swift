@@ -72,7 +72,7 @@ enum RearLungeExercise {
             ],
             headroomArmLengths: nil,
             countsArmsIndependently: false,
-            setupLine: "Dumbbell rear lunges, two sets of 8 each leg. Stand side-on to the phone with your whole body in view, holding the dumbbells at your sides.",
+            setupLine: "Stand side-on to the phone with your whole body in view, holding the dumbbells at your sides.",
             voiceAliases: [
                 "rear lunge", "rear lunges", "reverse lunge", "reverse lunges",
                 "dumbbell lunge", "lunges", "lunge"

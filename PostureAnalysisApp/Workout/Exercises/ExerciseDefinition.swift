@@ -77,7 +77,8 @@ struct ExerciseDefinition: Identifiable {
     var centersInFrame: Bool = true
     /// Each arm counts separately; displayed reps are the reps both arms completed.
     let countsArmsIndependently: Bool
-    /// Spoken when the exercise is selected.
+    /// Spoken when the exercise is selected. Describe only placement and starting position; WorkoutSession adds
+    /// the spoken name and active dose.
     let setupLine: String
     /// Lowercase names a user might say to select this exercise. They feed the voice parser and the
     /// recognizer's contextual hints.
@@ -238,12 +239,22 @@ struct ExerciseDefinition: Identifiable {
         doseUnit == .seconds ? "\(targetLabel) s" : "\(targetLabel) reps"
     }
 
-    /// "10" for reps; "20 seconds" for a timed hold, since a bare number would read as reps.
+    /// "10" for reps; "1 second" or "20 seconds" for a timed hold, since a bare number would read as reps.
     var spokenTarget: String {
+        if doseUnit == .seconds, targetReps.lowerBound == targetReps.upperBound {
+            return amountPhrase(targetReps.upperBound)
+        }
         let range = targetReps.lowerBound == targetReps.upperBound
             ? "\(targetReps.upperBound)"
             : "\(targetReps.lowerBound) to \(targetReps.upperBound)"
         return doseUnit == .seconds ? "\(range) seconds" : range
+    }
+
+    /// "1 set of 8 to 10", "2 sets of 20 seconds", or "1 set of 8 each arm".
+    var spokenDosePhrase: String {
+        let setCount = sets == 1 ? "1 set" : "\(sets) sets"
+        let side = perSide ? " each \(sideLimb.rawValue)" : ""
+        return "\(setCount) of \(spokenTarget)\(side)"
     }
 
     /// A set's amount as spoken or shown: "1 rep", "3 reps", or "20 seconds".

@@ -18,7 +18,7 @@ enum SpeechActivityGoldenTraces {
         t=10.00 state ready shoulder_press set=1 reps=0 counting=false
         t=10.00 control exercise shoulder_press epoch=1
         t=10.00 listen coachSpeaking true
-        t=10.00 speak "Workout coach ready. Dumbbell shoulder press, two sets of 8 to 10. Face the phone and hold a dumbbell in each hand just above your shoulders. Tap Start when you're ready."
+        t=10.00 speak "Workout coach ready. Dumbbell shoulder press, 1 set of 1 second. Face the phone and hold a dumbbell in each hand just above your shoulders. Tap Start when you're ready."
         t=10.00 listen coachSpeaking false
         > voice status listening
         t=10.00 mic listening

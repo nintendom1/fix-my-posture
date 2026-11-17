@@ -93,7 +93,7 @@ enum DumbbellShrugExercise {
             ],
             headroomArmLengths: nil,
             countsArmsIndependently: false,
-            setupLine: "Dumbbell shrugs, two sets of 12. Face the phone with your head in view and hold a dumbbell in each hand at your sides.",
+            setupLine: "Face the phone with your head in view and hold a dumbbell in each hand at your sides.",
             voiceAliases: ["dumbbell shrug", "dumbbell shrugs", "shrug", "shrugs", "shoulder shrugs"],
             guide: guide,
             coachingCues: [

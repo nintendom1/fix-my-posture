@@ -524,7 +524,12 @@ struct WorkoutSession {
         }
         enterSetup(at: now)
         let begin = needsFraming ? "" : " \(beginPrompt)."
-        return newAnalyzer() + [.speak(Utterance(text: "Workout coach ready. \(exercise.setupLine)\(begin)"))]
+        return newAnalyzer() + [.speak(Utterance(text: "Workout coach ready. \(setupAnnouncement(for: exercise))\(begin)"))]
+    }
+
+    private func setupAnnouncement(for exercise: ExerciseDefinition) -> String {
+        let name = exercise.spokenName.prefix(1).uppercased() + String(exercise.spokenName.dropFirst())
+        return "\(name), \(exercise.spokenDosePhrase). \(exercise.setupLine)"
     }
 
     /// Framing for camera-counted exercises (straight to Ready when framing is already good); Ready for
@@ -763,9 +768,8 @@ struct WorkoutSession {
             restDoneAnnounced = false
             restLeadsToNextExercise = true
             isRestingBeforeNextExercise = true
-            let target = "\(next.sets == 1 ? "1 set" : "\(next.sets) sets") of \(next.spokenTarget)"
             let name = item.isOptional ? "optional \(next.spokenName)" : next.spokenName
-            return [.speak(Utterance(text: "\(lead) Up next: \(name), \(target). Rest up."))]
+            return [.speak(Utterance(text: "\(lead) Up next: \(name), \(next.spokenDosePhrase). Rest up."))]
         }
         enterSetup(at: now)
         restEndsAt = nil
@@ -773,7 +777,7 @@ struct WorkoutSession {
         restLeadsToNextExercise = false
         isRestingBeforeNextExercise = false
         let begin = needsFraming ? "" : " \(beginPrompt)."
-        return [.speak(Utterance(text: "\(lead) \(next.setupLine)\(begin)"))]
+        return [.speak(Utterance(text: "\(lead) \(setupAnnouncement(for: next))\(begin)"))]
     }
 
     /// Inserts a one-set bonus right after the finished occurrence `bonus.after` and sets it up, without a rest. The
@@ -918,7 +922,7 @@ struct WorkoutSession {
         } else {
             enterSetup(at: now)
             let begin = needsFraming ? "" : " \(beginPrompt)."
-            effects.append(.speak(Utterance(text: "\(next.setupLine)\(begin)")))
+            effects.append(.speak(Utterance(text: "\(setupAnnouncement(for: next))\(begin)")))
         }
         return effects
     }
@@ -1065,7 +1069,8 @@ struct WorkoutSession {
                 restDurationSeconds = nil
                 enterSetup(at: now)
                 let begin = needsFraming ? "" : " \(beginPrompt)."
-                return [.speak(Utterance(text: "Rest is up. \(exercise?.setupLine ?? "")\(begin)"))]
+                let setup = exercise.map { setupAnnouncement(for: $0) } ?? ""
+                return [.speak(Utterance(text: "Rest is up. \(setup)\(begin)"))]
             }
             // Tracked but badly placed (say, the phone moved too close): set up again, as for Ready, before an
             // automatic start. Out of view, the usual prompt below applies.

@@ -105,7 +105,7 @@ enum SitToStandExercise {
             ],
             headroomArmLengths: nil,
             countsArmsIndependently: false,
-            setupLine: "Sit-to-stands, two sets of 5 to 10. Put a sturdy chair behind you, face the phone, and step back until your whole body is in view, head to feet.",
+            setupLine: "Put a sturdy chair behind you, face the phone, and step back until your whole body is in view, head to feet.",
             voiceAliases: ["sit to stand", "sit-to-stand", "sit to stands", "chair stand", "chair stands",
                            "chair squat", "chair squats"],
             guide: guide(partial: configuration.partial),

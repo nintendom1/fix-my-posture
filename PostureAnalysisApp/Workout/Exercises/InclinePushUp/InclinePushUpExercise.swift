@@ -54,7 +54,7 @@ enum InclinePushUpExercise {
             headroomArmLengths: nil,
             centersInFrame: false,
             countsArmsIndependently: false,
-            setupLine: "Incline push-ups, two sets of 6 to 10. Put your hands on a sturdy bench, table, or counter, walk your feet back until your body is one straight line, and stand side-on to the phone.",
+            setupLine: "Put your hands on a sturdy bench, table, or counter, walk your feet back until your body is one straight line, and stand side-on to the phone.",
             voiceAliases: ["incline push-up", "incline push-ups", "incline pushup", "incline pushups",
                            "bench push-up", "bench push-ups"],
             guide: guide,

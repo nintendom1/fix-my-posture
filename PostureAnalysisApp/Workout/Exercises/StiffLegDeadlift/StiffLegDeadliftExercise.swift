@@ -77,7 +77,7 @@ enum StiffLegDeadliftExercise {
             ],
             headroomArmLengths: nil,
             countsArmsIndependently: false,
-            setupLine: "Stiff-legged dumbbell deadlifts, two sets of 8 to 10. Stand side-on to the phone with your whole body in view, holding the dumbbells in front of your thighs.",
+            setupLine: "Stand side-on to the phone with your whole body in view, holding the dumbbells in front of your thighs.",
             voiceAliases: [
                 "stiff legged deadlift", "stiff leg deadlift", "stiff-legged deadlift",
                 "dumbbell deadlift", "deadlift", "deadlifts"
