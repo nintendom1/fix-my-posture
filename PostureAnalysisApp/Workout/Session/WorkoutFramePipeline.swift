@@ -301,13 +301,17 @@ struct WorkoutFramePipeline {
     }
 
     private func makeFramingEvaluator(for exercise: ExerciseDefinition) -> FramingEvaluator {
-        FramingEvaluator(requiredJoints: exercise.requiredJoints,
-                         anyOfRequiredJoints: exercise.anyOfRequiredJoints,
-                         headroomArmLengths: exercise.headroomArmLengths,
-                         sideroomArmLengths: exercise.sideroomArmLengths,
-                         maximumShoulderSpan: exercise.maximumShoulderSpan,
-                         centersInFrame: exercise.centersInFrame,
-                         cameraView: exercise.cameraView, configuration: framingConfiguration)
+        var configuration = framingConfiguration
+        if let grace = exercise.framingUnreliableAfter {
+            configuration.unreliableAfter = max(configuration.unreliableAfter, grace)
+        }
+        return FramingEvaluator(requiredJoints: exercise.requiredJoints,
+                                anyOfRequiredJoints: exercise.anyOfRequiredJoints,
+                                headroomArmLengths: exercise.headroomArmLengths,
+                                sideroomArmLengths: exercise.sideroomArmLengths,
+                                maximumShoulderSpan: exercise.maximumShoulderSpan,
+                                centersInFrame: exercise.centersInFrame,
+                                cameraView: exercise.cameraView, configuration: configuration)
     }
 
     private mutating func updateGuideMetrics(_ frame: PoseFrame, for exercise: ExerciseDefinition) {

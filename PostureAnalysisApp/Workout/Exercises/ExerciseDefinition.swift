@@ -70,6 +70,9 @@ struct ExerciseDefinition: Identifiable {
     var sideroomArmLengths: CGFloat? = nil
     /// Widest the shoulders may span in setup, as a fraction of image width; wider asks for the phone farther away.
     var maximumShoulderSpan: CGFloat? = nil
+    /// Optional grace before a brief framing loss suspends counting. Exercise analyzers still decide whether a gap
+    /// can preserve an attempt.
+    var framingUnreliableAfter: TimeInterval? = nil
     /// Whether setup guidance asks the user to center their body in the frame.
     var centersInFrame: Bool = true
     /// Each arm counts separately; displayed reps are the reps both arms completed.
@@ -138,6 +141,7 @@ struct ExerciseDefinition: Identifiable {
         headroomArmLengths: CGFloat?,
         sideroomArmLengths: CGFloat? = nil,
         maximumShoulderSpan: CGFloat? = nil,
+        framingUnreliableAfter: TimeInterval? = nil,
         centersInFrame: Bool = true,
         countsArmsIndependently: Bool,
         setupLine: String,
@@ -174,6 +178,7 @@ struct ExerciseDefinition: Identifiable {
         self.headroomArmLengths = headroomArmLengths
         self.sideroomArmLengths = sideroomArmLengths
         self.maximumShoulderSpan = maximumShoulderSpan
+        self.framingUnreliableAfter = framingUnreliableAfter
         self.centersInFrame = centersInFrame
         self.countsArmsIndependently = countsArmsIndependently
         self.setupLine = setupLine

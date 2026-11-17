@@ -11,7 +11,7 @@ final class PushUpAnalyzer: ExerciseAnalyzing {
     let epoch: Int
     private let configuration: PushUpConfiguration
     private var tracker: HysteresisPhaseTracker
-    private var lastSample: TimeInterval?
+    private var lastSample: Sample?
     private var recentArms: [CGFloat] = []
     private var smoothedWristY: CGFloat?
     private var locked: Reference?
@@ -28,6 +28,22 @@ final class PushUpAnalyzer: ExerciseAnalyzing {
     private struct Reference {
         var wristY: CGFloat
         var ruler: CGFloat
+    }
+
+    private struct Sample {
+        var time: TimeInterval
+        var zone: MovementZone
+        var leftWrist: CGPoint
+        var rightWrist: CGPoint
+        var leftRuler: CGFloat
+        var rightRuler: CGFloat
+    }
+
+    private struct Measurement {
+        var leftRatio: Double
+        var rightRatio: Double
+        var ratio: Double
+        var zone: MovementZone
     }
 
     init(epoch: Int, configuration: PushUpConfiguration = .standard) {
@@ -47,34 +63,41 @@ final class PushUpAnalyzer: ExerciseAnalyzing {
             return analysis
         }
         let time = frame.timestamp
-        if let last = lastSample, time - last > configuration.maximumSampleGap {
-            if case .active(_, let reachedDown) = cycle, let lost = RepRejection.lost(at: time, .trackingGap(
-                seconds: time - last, maximum: configuration.maximumSampleGap,
-                stage: .of(reachedEnd: reachedDown, zones: [tracker.lastZone ?? .bottom]))) {
-                analysis.rejections.append(lost)
-            }
-            tracker.reset()
-            cycle = .awaitingStart
-            locked = nil
-            awayFromStartSince = nil
-            formMonitor.invalidate()
-        }
-        lastSample = time
+        var live = liveReference(left: left, right: right)
+        var reference = locked ?? live
+        var measurement = measure(left: left, right: right, reference: reference)
 
-        let arms: [BodySide: ArmPoints] = [.left: left, .right: right]
-        let live = liveReference(left: left, right: right)
-        let reference = locked ?? live
-        var ratios: [Double] = []
-        for (side, arm) in arms {
-            let ratio = Double((reference.wristY - arm.shoulder.y) / reference.ruler)
-            ratios.append(ratio)
-            analysis.readings[side] = ArmReading(signal: ratio, elbowAngle: arm.elbowAngle, zone: classify(ratio, arm.elbowAngle))
+        if let last = lastSample, time - last.time > configuration.maximumSampleGap {
+            let gap = time - last.time
+            if canBridgeBottomGap(from: last, to: measurement.zone, leftWrist: left.wrist, rightWrist: right.wrist,
+                                  leftRuler: left.armLength, rightRuler: right.armLength, after: gap) {
+                if case .active(let movementStart, _) = cycle {
+                    cycle = .active(movementStart: movementStart, reachedDown: true)
+                }
+            } else {
+                if case .active(_, let reachedDown) = cycle,
+                   let lost = RepRejection.lost(at: time, .trackingGap(
+                    seconds: gap, maximum: configuration.maximumSampleGap,
+                    stage: .of(reachedEnd: reachedDown, zones: [tracker.lastZone ?? .bottom]))) {
+                    analysis.rejections.append(lost)
+                }
+                resetAfterTrackingGap()
+                live = liveReference(left: left, right: right)
+                reference = locked ?? live
+                measurement = measure(left: left, right: right, reference: reference)
+            }
         }
-        let ratio = ratios.reduce(0, +) / Double(ratios.count)
-        let elbowAngle = (left.elbowAngle + right.elbowAngle) / 2
-        let zone = classify(ratio, elbowAngle)
+
+        analysis.readings[.left] = ArmReading(signal: measurement.leftRatio, elbowAngle: left.elbowAngle,
+                                               zone: classify(measurement.leftRatio, left.elbowAngle))
+        analysis.readings[.right] = ArmReading(signal: measurement.rightRatio, elbowAngle: right.elbowAngle,
+                                                zone: classify(measurement.rightRatio, right.elbowAngle))
+        let ratio = measurement.ratio
+        let zone = measurement.zone
         let newlyConfirmed = tracker.update(zone)
         updateLock(zone: zone, live: live, at: time)
+        lastSample = Sample(time: time, zone: zone, leftWrist: left.wrist, rightWrist: right.wrist,
+                            leftRuler: left.armLength, rightRuler: right.armLength)
 
         lastThresholds = [.left: makeThresholds(left: left, right: right, reference: reference)]
         analysis.thresholds = lastThresholds
@@ -115,6 +138,40 @@ final class PushUpAnalyzer: ExerciseAnalyzing {
             cycle = .active(movementStart: movementStart, reachedDown: reachedDown)
         }
         return analysis
+    }
+
+    private func measure(left: ArmPoints, right: ArmPoints, reference: Reference) -> Measurement {
+        let leftRatio = Double((reference.wristY - left.shoulder.y) / reference.ruler)
+        let rightRatio = Double((reference.wristY - right.shoulder.y) / reference.ruler)
+        let ratio = (leftRatio + rightRatio) / 2
+        let zone = classify(ratio, (left.elbowAngle + right.elbowAngle) / 2)
+        return Measurement(leftRatio: leftRatio, rightRatio: rightRatio, ratio: ratio, zone: zone)
+    }
+
+    private func canBridgeBottomGap(from last: Sample, to zone: MovementZone, leftWrist: CGPoint,
+                                    rightWrist: CGPoint, leftRuler: CGFloat, rightRuler: CGFloat,
+                                    after gap: TimeInterval) -> Bool {
+        guard gap <= configuration.maximumBottomGap + 0.000_001,
+              last.zone == .top, zone == .top,
+              last.leftRuler > 0, last.rightRuler > 0 else { return false }
+        let wristLimit = (last.leftRuler + last.rightRuler) / 2 * configuration.maximumBottomWristShift
+        let leftRulerChange = abs(Double(leftRuler - last.leftRuler)) / Double(last.leftRuler)
+        let rightRulerChange = abs(Double(rightRuler - last.rightRuler)) / Double(last.rightRuler)
+        return ArmGeometry.distance(last.leftWrist, leftWrist) <= wristLimit
+            && ArmGeometry.distance(last.rightWrist, rightWrist) <= wristLimit
+            && leftRulerChange <= configuration.maximumBottomRulerChange
+            && rightRulerChange <= configuration.maximumBottomRulerChange
+    }
+
+    private func resetAfterTrackingGap() {
+        tracker.reset()
+        cycle = .awaitingStart
+        locked = nil
+        awayFromStartSince = nil
+        recentArms.removeAll()
+        smoothedWristY = nil
+        lastThresholds = [:]
+        formMonitor.invalidate()
     }
 
     /// Up is the start (`.bottom`); Down is the counted end (`.top`).

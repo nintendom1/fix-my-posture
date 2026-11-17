@@ -29,6 +29,12 @@ struct PushUpConfiguration: Codable {
     var confirmationSamples = 2
     var minimumRepDuration: TimeInterval = 0.8
     var maximumSampleGap: TimeInterval = 0.28
+    /// A longer gap is allowed only between two deep samples with planted wrists and a stable ruler.
+    var maximumBottomGap: TimeInterval = 0.8
+    /// Allowed wrist movement during a bottom dropout, as a fraction of the last arm ruler.
+    var maximumBottomWristShift: CGFloat = 0.15
+    /// Allowed ruler change during a bottom dropout, as a fraction of the last measured ruler.
+    var maximumBottomRulerChange: Double = 0.2
     var minimumJointConfidence: Double = 0.4
     var rulerWindow = 10
     var wristSmoothing: CGFloat = 0.4
@@ -82,6 +88,7 @@ enum PushUpExercise {
             // Recordings lost the whole body before the bottom of every rep at 34% or more, and kept it at 30%
             // or less: with the phone near the face, Vision stops seeing a body.
             maximumShoulderSpan: 0.32,
+            framingUnreliableAfter: configuration.maximumBottomGap,
             countsArmsIndependently: false,
             setupLine: "Push-ups, two sets of 10. Lay the phone on the floor a long step in front of your hands, tilted up to see you, and get into a plank facing it.",
             voiceAliases: ["push ups", "pushups", "push up", "press ups"],
