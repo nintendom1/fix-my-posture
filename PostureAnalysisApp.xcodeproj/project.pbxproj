@@ -500,6 +500,7 @@
 		A10000012B00000000000510 /* AdaptiveInvitationSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000510 /* AdaptiveInvitationSheet.swift */; };
 		A10000012B00000000000511 /* AdaptiveInvitationPolicyTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000511 /* AdaptiveInvitationPolicyTests.swift */; };
 		A10000012B00000000000512 /* TrainTodayHeroTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000512 /* TrainTodayHeroTests.swift */; };
+		A10000012B00000000000513 /* PushUpMovement.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000513 /* PushUpMovement.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1008,6 +1009,7 @@
 		B10000012B00000000000510 /* AdaptiveInvitationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveInvitationSheet.swift; sourceTree = "<group>"; };
 		B10000012B00000000000511 /* AdaptiveInvitationPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveInvitationPolicyTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000512 /* TrainTodayHeroTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainTodayHeroTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000513 /* PushUpMovement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushUpMovement.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -2110,6 +2112,7 @@
 				B10000012B00000000000502 /* MovementPresets.swift */,
 				B10000012B00000000000503 /* MovementScenario.swift */,
 				B10000012B00000000000505 /* MovementLabRunner.swift */,
+				B10000012B00000000000513 /* PushUpMovement.swift */,
 			);
 			path = MovementLab;
 			sourceTree = "<group>";
@@ -2706,6 +2709,7 @@
 				A10000012B00000000000506 /* MovementLabRegressionTests.swift in TestSources */,
 				A10000012B00000000000511 /* AdaptiveInvitationPolicyTests.swift in TestSources */,
 				A10000012B00000000000512 /* TrainTodayHeroTests.swift in TestSources */,
+				A10000012B00000000000513 /* PushUpMovement.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

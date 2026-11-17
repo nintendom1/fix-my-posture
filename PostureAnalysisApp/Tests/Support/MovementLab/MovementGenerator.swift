@@ -67,7 +67,8 @@ enum MovementGenerator {
             }
         }
 
-        let motion = exercise.guide.motion
+        let motion = scenario.exercise == .pushUp ? PushUpMovement.motion : exercise.guide.motion
+        let plantedJoints = exercise.plantedJoints
         guard let pauses = MovementSequenceDurations.pauseSegments(in: scenario.mutations) else {
             return invalid(["Pause timeline values must be finite and nonnegative."])
         }
@@ -119,15 +120,30 @@ enum MovementGenerator {
                 motionTime = max(0, guideTime - startTime)
             }
 
-            let referenceFrame = ReadyPoseFixtures.demoFrame(exercise, motionTime: motionTime,
+            let referenceFrame: PoseFrame
+            if scenario.exercise == .pushUp {
+                let referenceLocations = ExerciseDemoFigureView.pose(
+                    for: motion.sample(at: motionTime), forearmPlane: motion.forearmPlane,
+                    cameraView: exercise.cameraView
+                ).jointLocations
+                let referencePose = ReadyPoseFixtures.pose(for: Set(referenceLocations.keys),
+                                                            reference: referenceLocations, exercise: exercise)
+                referenceFrame = PoseFrame(pose: referencePose, timestamp: startingTimestamp + elapsed)
+            } else {
+                referenceFrame = ReadyPoseFixtures.demoFrame(exercise, motionTime: motionTime,
                                                               at: startingTimestamp + elapsed)
+            }
             var renderedSample = motion.sample(at: motionTime)
             for mutation in scenario.mutations {
                 guard case .depthScale(let scale, let selectedReps) = mutation,
                       let repIndex, selectedReps == nil || selectedReps?.contains(repIndex) == true else { continue }
-                renderedSample.legs.hipDrop *= scale
-                guard renderedSample.legs.hipDrop.isFinite else {
-                    return invalid(["Depth-scaled guide geometry is not finite at repetition \(repIndex ?? 0)."])
+                if scenario.exercise == .pushUp {
+                    renderedSample = PushUpMovement.applyingDepthScale(to: renderedSample, scale: scale)
+                } else {
+                    renderedSample.legs.hipDrop *= scale
+                    guard renderedSample.legs.hipDrop.isFinite else {
+                        return invalid(["Depth-scaled guide geometry is not finite at repetition \(repIndex ?? 0)."])
+                    }
                 }
             }
             let renderedLocations = ExerciseDemoFigureView.pose(
@@ -189,18 +205,18 @@ enum MovementGenerator {
                 return invalid(["Mutated guide coordinates must remain finite before projection."])
             }
 
-            // 4. Constrained edits project onto the rendered guide's bone lengths and keep both ankles planted.
+            // 4. Constrained edits project onto the rendered pose's bone lengths and keep its planted joints fixed.
             if scenario.mode == .constrained {
                 let requestedPoints = points
-                for ankle in [LandmarkType.leftAnkle, .rightAnkle] {
-                    if targetJoints.contains(ankle), let requested = requestedPoints[ankle],
-                       let planted = guidePoints[ankle], ArmGeometry.distance(requested, planted) > 0.01 {
-                        return invalid(["Constrained projection cannot move planted landmark \(ankle.rawValue)."])
+                for joint in orderedLandmarks(in: plantedJoints) {
+                    if targetJoints.contains(joint), let requested = requestedPoints[joint],
+                       let planted = guidePoints[joint], ArmGeometry.distance(requested, planted) > 0.01 {
+                        return invalid(["Constrained projection cannot move planted landmark \(joint.rawValue)."])
                     }
-                    if let planted = guidePoints[ankle] { points[ankle] = planted }
+                    if let planted = guidePoints[joint] { points[joint] = planted }
                 }
                 if let reason = constrain(&points, reference: guidePoints, requested: requestedPoints,
-                                          planted: [.leftAnkle, .rightAnkle], targetJoints: targetJoints,
+                                          planted: plantedJoints, targetJoints: targetJoints,
                                           exactTargetJoints: exactTargetJoints) {
                     invalidReasons.append(reason)
                     return invalid(invalidReasons)

@@ -147,6 +147,20 @@ test("coverage aggregates the newest result per scenario id and revision and mar
   assert.doesNotMatch(passedOnly, /class="coverage-cell not-tested"/);
 });
 
+test("scenario coverage discovers Push-Up from stored plans", () => {
+  const airSquat = scenario("squat-case");
+  const pushUp = scenario("push-up-case", 1, {
+    exercise: "push_up", category: "tracking", purpose: "Bottom shoulder dropout.",
+    mutations: [{ kind: "dropout", joints: ["leftShoulder", "rightShoulder"], from: 4, to: 4.3 }],
+  });
+  const model = buildCoverageModel([storedRun("mixed-run", "2026-11-08T12:00:00Z", [airSquat, pushUp])]);
+  assert.deepEqual(model.exercises, ["air_squat", "push_up"]);
+  const pushUpCell = model.cells.find((item) => item.exercise === "push_up" && item.category === "tracking");
+  assert.equal(pushUpCell.scenarios.length, 1);
+  assert.equal(pushUpCell.scenarios[0].id, "push-up-case");
+  assert.match(renderCoverageMatrix(model), /Push Up/);
+});
+
 test("keyframes follow each mutation peak, event, or window boundary and label event types", () => {
   const records = coverageRecords({ bottomY: 250, asymmetry: 35 });
   const cases = [

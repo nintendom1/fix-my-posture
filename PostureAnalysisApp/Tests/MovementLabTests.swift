@@ -331,6 +331,11 @@ final class MovementLabTests: XCTestCase {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             planData = try encoder.encode(plan)
+        } else if planPathOrPreset == "push_up" {
+            plan = MovementPresets.pushUp()
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            planData = try encoder.encode(plan)
         } else {
             XCTFail("Unknown Movement Lab preset '\(planPathOrPreset)'.")
             return
@@ -410,7 +415,8 @@ final class MovementLabTests: XCTestCase {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let manifest = MovementLabPresetManifest(presets: [
-            MovementLabPresetEntry(id: "air_squat", plan: MovementPresets.airSquat())
+            MovementLabPresetEntry(id: "air_squat", plan: MovementPresets.airSquat()),
+            MovementLabPresetEntry(id: "push_up", plan: MovementPresets.pushUp())
         ])
         try writeAtomically(try encoder.encode(manifest), to: output)
     }

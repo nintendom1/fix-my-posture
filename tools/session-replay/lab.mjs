@@ -25,8 +25,10 @@ function usage() {
   return [
     "Usage:",
     "  node tools/session-replay/lab.mjs presets [--exercise air_squat] [--sim ID]",
+    "  node tools/session-replay/lab.mjs presets --exercise push_up [--sim ID]",
     "  node tools/session-replay/lab.mjs run <plan.json> [--sim ID] [--mode pipeline|coach]",
     "  node tools/session-replay/lab.mjs run --preset air_squat [--sim ID] [--mode pipeline|coach]",
+    "  node tools/session-replay/lab.mjs run --preset push_up [--sim ID] [--mode pipeline|coach]",
     "  node tools/session-replay/lab.mjs inspect <run-id> [--scenario ID] [--window START-END] [--full]",
   ].join("\n");
 }
@@ -53,9 +55,9 @@ async function run(args) {
     process.stdout.write(`${appendRunID(result.text, result.runID)}\n`);
     return;
   }
-  if (args[0]?.startsWith("--")) throw new Error("run expects a plan path or --preset air_squat.");
+  if (args[0]?.startsWith("--")) throw new Error("run expects a plan path or --preset air_squat or push_up.");
   planPath = args[0];
-  if (!planPath) throw new Error("run requires a plan JSON path or --preset air_squat.");
+  if (!planPath) throw new Error("run requires a plan JSON path or --preset air_squat or push_up.");
   const values = options(args.slice(1), new Set(["--sim", "--mode"]));
   const result = await runPlan({ root, planPath: path.resolve(process.cwd(), planPath),
     sim: values["--sim"] ?? DEFAULT_SIMULATOR, mode: values["--mode"] ?? "pipeline" });
