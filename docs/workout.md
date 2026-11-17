@@ -39,6 +39,8 @@ History stores timed sets with `reps: 0` and the held duration in `seconds`; sum
 
 `ExerciseGuide` is the shared movement description: it supplies guide steps, Read Aloud text, start instructions, threshold descriptions, and motion keyframes. `FigureShape` adds body changes such as torso pitch, stride, hip lift, and shoulder lift. The guide and ghost use the same resolved samples.
 
+`WorkoutGhostGeometryTests` requires a solved top hip angle of at least 175° for the supine bridge ghost across tested proportions, foot distances, and facing directions.
+
 - **Guide.** The first-use sheet appears before camera permission is requested and is remembered per exercise (`workoutCoach.guideSeen.<id>`). Its figure loops through start, working, and return poses; **Start Workout** or swiping down continues to setup. **Read Aloud** speaks the steps. Reduce Motion shows start and top poses side by side. The camera toolbar reopens the guide; capture stops while it is open, and an active set remains paused after returning.
 - **Ghost.** The translucent figure shows through setup, Ready, and rest; a Saved Set previews its next exercise during rest. It loops at the ideal framing position before tracking begins, fits the user after 0.6 s of steady tracking, and returns after 1 s without needed tracking. Each glide takes 0.4 s. Reduce Motion shows still start and top poses without gliding. `WorkoutGhostGeometry` builds it and `GhostCalibration` fits it. Every Ready-valid pose must calibrate; size from Ready-guaranteed joints or a fallback, and let optional joints refine but never suppress it ([exercise guidance invariant](../AGENTS.md#workout-exercise-guidance)).
 - **Side-body figures.** Ready needs one side's shoulder, hip, knee, and ankle for body sizing. A two-bone solver places knees from hip, ankle, thigh, and shin lengths; stride adds the rear leg. Tracked elbows and wrists refine arm lengths, with a leg-scaled guide arm as fallback. Near limbs use the guide's left labels and a split-stance rear leg uses right labels, even when Vision tracks the user's right side.
@@ -67,6 +69,7 @@ A **Saved Set** is an ordered sequence of exercises, each occurrence with its ow
   - When rest ends, the coach repeats the next exercise's name and active dose with its placement and starting-position setup. Counting waits for "start", Start, or holding its start position. The first time an exercise appears, its guide opens.
   - An exercise that appears again later counts its own sets. When the next occurrence is the same exercise from the same camera view, such as a shallow floor then its full-range sample in Today's Session, it keeps its framing and can count at once.
   - A bonus set (`WorkoutPlanItem.isBonus`) is inserted right after its item while the workout runs, with one set of one rep or five seconds, and is set up like any occurrence, with no rest. The HUD reads "Bonus" for it instead of an exercise number, the saved entry is named "Bonus: <name>", and a bonus nobody did anything in leaves no entry. **Another Round** drops it. See [Bonus reps](adaptive-training.md#bonus-reps).
+  - In Today's Session, an accepted easier swap inserts after the main item without rest; any prescribed harder sample remains after the swap. **Another Round** removes inserted easier-swap items along with bonuses, restoring the prescription for the new round.
 - **Skipping.** Long-press **Next set** in the camera edge toolbar for **Skip to Next Exercise**, or say "next exercise", "skip exercise", or "skip this exercise" (destructive, so it must be said on its own) to move to the next occurrence. Any sets finished there are kept, and the occurrence is recorded as skipped rather than completed.
 - **Changing exercise.** **Change exercise** in the camera edge toolbar opens the existing chooser, which warns that choosing another exercise leaves the Saved Set and skips the rest of it. Naming an exercise directly mid-set asks you to use "next exercise" or "change exercise" instead.
 - **Completion.** After the last occurrence, the completion card lists each occurrence: its sets and reps, "Skipped" (with any sets done first), or "Not reached". **Another Round** runs the whole Saved Set again, and the end-of-workout summary lists the same.
@@ -155,7 +158,7 @@ Estimates feed framing reliability and counting during a set, so a hand that lea
 
 Analyzer rules use unmirrored geometry. A checkpoint is confirmed only after that rule's required consecutive samples; readings between its thresholds keep the last confirmed checkpoint. A rep starts at its listed start position, reaches the counted end, and returns to start. Each rule gives its thresholds, sample count, and minimum duration. Unless a rule says otherwise, a frame gap over 0.28 s rejects the active attempt; a pause or tracking loss also resets counting. Floor push-ups have a separate bottom-shoulder dropout bridge.
 
-`WorkoutSession.repCount` is the smaller of the left and right totals. One-side-at-a-time exercises run left then right without rest, and rest after both; whole-body and paired movements credit both totals so one rep advances the displayed count. Hammer curls track each arm independently and display the smaller total.
+`WorkoutSession.repCount` is the smaller of the left and right totals. One-side-at-a-time exercises run left then right without rest, and rest after both; whole-body and paired movements credit both totals so one rep advances the displayed count. Hammer curls track each arm independently and display the smaller total. Wall and incline push-ups share `PlantedPushUpAnalyzer`: a gap over 0.28 s clears the cycle, locked ruler, recent arm-length samples, form state, and threshold lines before reacquisition.
 
 ## Shoulder press rep rule
 
@@ -262,6 +265,7 @@ Shrugs are filmed from the front. Framing requires the nose, both shoulders, elb
 - Threshold lines: one **Rest ↓** and one **Top ↑** segment across both shoulders, measured down from the smoothed nose, so they show exactly what counts.
 - Validation: the guide reads `lift` 0.000 at Rest and 0.167 at Top (a 0.22 upper-arm lift on a figure whose shoulders are 92 units apart). It counts exactly one rep per loop at ½× and 2× scale, with upper arm or forearm ±15%, and with either move duration ±15%. The guide raises no cues.
 - The set completes automatically at 12. There is no target-range announcement.
+- `DumbbellShrugAnalyzerTests` checks distance changes of 0.75× and 1.33× between reps: relaxed lift stays within 0.02 of zero and the next shrug counts.
 
 ## Stiff-legged dumbbell deadlift rep rule
 
@@ -304,6 +308,8 @@ Push-ups are filmed by a phone lying on the floor a long step in front of the ha
 
 ## Wall push-up rep rule
 
+The shared wall/incline gap reset is described in [Shared rep tracking](#shared-rep-tracking).
+
 Stand about an arm's length from a wall with your feet hip-width apart, side-on to the phone. Place both hands on the wall at shoulder height. The phone tracks the more-confident complete arm when it first appears and holds that choice through brief occlusions. If that arm is gone for longer than a tracking gap (0.28 s), for example because you turned around, tracking resets and the visible arm takes over; a half-finished rep is not carried over, so the next rep starts from a fresh Up. Framing accepts either side's shoulder, elbow, and wrist; the hip and ankle are optional for the body-line cue. Side views do not receive centering guidance. Both hands stay planted, and the exercise credits both sides for each rep.
 
 - Signals: `e` is the 2D elbow angle. `h` is the horizontal shoulder-to-wrist distance divided by upper-arm plus forearm length. The arm ruler is the longest measured length over the last second and locks at Up. It first locks on a confirmed Up, then refreshes only at a settled, straighter return (`h ≥ 0.9`, `e ≥ 160°`); a return just inside the Up line cannot ratchet it.
@@ -315,6 +321,8 @@ Stand about an arm's length from a wall with your feet hip-width apart, side-on 
 - The guide shows standing side-on with hands fixed at the wall and the body in one straight line. It starts when straight arms are held for 1 s. The set is 2 × 6–10 with 45 s rest, and completes at 10. Its Library thumbnail uses the `figure.strengthtraining.functional` placeholder until a photo is approved.
 
 ## Incline push-up rep rule
+
+The shared wall/incline gap reset is described in [Shared rep tracking](#shared-rep-tracking).
 
 Put both hands on the edge of a sturdy bench, table, or counter, a little wider than your shoulders. Walk your feet back until your body is one straight line about 30–45° from the floor, and stand side-on to the phone. A higher surface is easier. Framing and arm selection follow the wall push-up rule. There is no reduced-range variant.
 
@@ -496,9 +504,19 @@ and a CPU-heavy observer. The trace must remain byte-for-byte identical in all t
 pins callback/action order, save delivery through the non-View helper called by the view, adaptive forwarding, semantic
 mapping from observed transitions, and the DEBUG per-model re-entrancy guard.
 
+## Effort and offer flow
+
+An eligible finished item opens an effort card. For multiple sets, its amount is labeled **each set**; the controls change the amount by 1 rep or 5 seconds and never below zero. Starting another set, ending the workout, or leaving closes the open card; a preselected Too Hard answer is recorded, otherwise closing without a choice is unrated. If another item finishes while a card is open, the prior card settles before the new one opens. An unfinished eligible item at workout end is recorded once as `.endedWorkout`, without a rating card. See [Evidence mapping](adaptive-training.md#evidence-mapping) for the facts sent to the package.
+
 ## Voice control
 
 The microphone and speech-recognition prompts follow the camera prompt, in that order. Without voice, the touch controls keep working and prompts say "Tap" instead of "Say".
+
+### Effort and offer answers
+
+While an effort card is open, answers are parsed from the raw transcript before `VoiceCommandParser`, because it treats "okay" as filler. An answer must be one of the listed phrases plus polite filler only; commands, negations, and other words leave the card open. Final transcripts answer immediately; a partial answer waits for final recognition or 0.6 s without a change. Too Hard aliases are "too hard", "this is too hard", "too difficult", and "it's too hard"; the same `TooHardPhrases` list feeds the Too Hard command. Effort aliases also include "that was too hard", "okay"/"ok"/"fine"/"good"/"that was okay", and "easy"/"too easy"/"that was easy".
+
+For a bonus offer, "one more"/"one more rep"/"sure"/"yes" accepts; "I'm done"/"I am done"/"no thanks"/"no"/"done" declines. It uses the same raw-transcript precedence and final-or-0.6-second settle rule. Both an accept and decline in one transcript ("yes no") is rejected as an answer, as is a command such as "yes, end workout".
 
 - **Commands.** Start ("begin", "let's go"). Pause ("stop", "hold on", "wait"; "stop workout" also pauses; "wait" alone runs after 1 s, in case it was "weight"). Resume ("continue", "keep going"). Start over ("restart set", "reset set"). Next set ("finish set", "end set"). Change exercise ("switch exercise"), or name one ("switch to shoulder press", "dumbbell press instead"; aliases come from `ExerciseDefinition.voiceAliases`). Cancel ("never mind"). How many reps. Which set. Repeat that ("say that again"). Voice commands ("what can I say", "help", "show commands"). Close ("done", "go back"). Mute ("mute coach", "be quiet") and unmute ("talk to me") the coach. Weights ("my weights are 17.5 pounds", "add weight seventeen point five pounds", "weight 8 kilograms", "using the red band"). Stop listening ("mute microphone"). End workout ("finish workout", "quit workout").
 - **Parsing.** `VoiceCommandParser` lowercases and strips punctuation and apostrophes, then takes the longest known phrase (the most recent on ties). Destructive commands (end workout, restart set, next set, change or select exercise) count only when they're nearly the whole utterance: at most 2 extra words, not counting fillers such as "please", "okay", "coach", and "let's". A match that could still become a different command ("start" → "start over") waits for a final result or for the transcript to settle for 0.6 s; anything else runs immediately.
@@ -567,7 +585,7 @@ Every new camera-tracked exercise ships with full guidance, even when the reques
 For a self-reported exercise, use this lighter checklist: add the guide and Read Aloud steps, a demo figure where possible, presentation metadata, documentation, and a placeholder thumbnail until an approved photo is ready. Do not add a ghost, analyzer, or threshold lines.
 
 1. One folder under `Workout/Exercises` (definition, configuration, analyzer) and one line in `ExerciseCatalog`.
-2. Guide: follow [Workout Exercise Guidance](../AGENTS.md#workout-exercise-guidance). Add the exercise's steps, Read Aloud, start instruction, motion keyframes, and needed `FigureShape` values; ensure `ExerciseDemoFigureView.bounds(for:cameraView:)` fits the full motion.
+2. Guide: follow [Workout Exercise Guidance](../AGENTS.md#workout-exercise-guidance). Add the exercise's steps, Read Aloud, start instruction, motion keyframes, and needed `FigureShape` values; make the first `ArmMotion` keyframe the start pose; ensure `ExerciseDemoFigureView.bounds(for:cameraView:)` fits the full motion.
 3. Setup ghost: follow the [Ready-joint sizing invariant](../AGENTS.md#workout-exercise-guidance). `ReadyGhostInvariantTests` checks every catalog exercise. Use a fallback in `WorkoutFramePipeline.metricsReference` or `WorkoutGhostGeometry`; don't tighten framing or add required joints just for ghost sizing.
 4. Threshold lines that match the movement's direction. Don't assume "top" means higher wrists.
 5. Validate the thresholds by running the guide's own demonstration through the analyzer. Expect exactly one rep per loop at any scale and proportions, with a scale-invariant ruler such as arm length. Report any deviation from the planned thresholds.

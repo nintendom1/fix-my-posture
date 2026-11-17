@@ -164,6 +164,8 @@ The engine checks its in-memory profile, then the stored cache, then replays all
 
 The coordinator saves the engine's prescription and prepares its workout plan; the workout screen reports what happened. The app does not decide which rung or dose is easier or harder. See [Workout Coach](workout.md) for the plan, effort card, voice phrases, and saved-workout flow.
 
+`AdaptiveTrainingCoordinator.todaySessionPlanID` is fixed at `70DA0000-0000-4000-8000-000000000001`; it matches no routine. Each plan item's ID is its corresponding prescription-item ID, and evidence carries that item ID and the prescription ID. `start` resolves the main exercise and dose unit before saving; an unresolvable or wrong-unit main item produces no prescription or launch. An unresolvable harder sample is removed from the prescription before it is issued. Only a successful `start` opens the `.todaySession` route, which reads the prepared launch. Today's Session does not enter routine rotation or consume the one-time Up Next override; only a saved routine workout clears that override.
+
 ## Train and the invitation
 
 When the coordinator is available, Train reads `TodaySessionStatus` and formats that answer for the hero. The app does
@@ -180,11 +182,13 @@ allows the invitation to appear at the next app activation unless it is still sn
 
 ## Effort card
 
-The screen and voice flow are documented in [Workout Coach](workout.md). WorkoutOutcomeAdapter maps the user's answer and work observed by the coach into evidence; the app reports outcomes, while the package decides progression.
+The card and voice flow are documented in [Effort and offer flow](workout.md#effort-and-offer-flow) and [Effort and offer answers](workout.md#effort-and-offer-answers). `WorkoutOutcomeAdapter` maps the user's answer and work observed by the coach into evidence; the app reports outcomes, while the package decides progression.
 
 ### Evidence mapping
 
 midSetTooHard records the user's explicit flag separately from tracker data. It does not itself choose a prescription; policy decisions use the effort, confirmed work, and completion facts. Bonus evidence records the offered dose (one rep or five seconds), acceptance, completed amount, and optional rating. The policy adds bonusRecordedOnly; a bonus never changes capacity.
+
+Manual work produces evidence only for an active family whose current rung matches both the exercise ID and its reduced-range state. The card's correction is applied to each set; a new finished item settles an already-open card first. Ending the workout records unfinished eligible work once as `.endedWorkout`, without a rating. Analyzer rejection reasons are empty because `WorkoutSession` does not retain them.
 
 | Field | Value |
 |---|---|
@@ -210,11 +214,13 @@ midSetTooHard records the user's explicit flag separately from tracker data. It 
 
 ## Bonus reps
 
-Only a Today's Session main item marked to offer a bonus can add bonus evidence. The offer follows a full-dose Easy rating; declining is neutral. The app records accepted/declined status, completed work, and any bonus rating, but V1 never uses those facts to move capacity. See [Workout Coach](workout.md) for the offer, timing, voice phrases, and saved entry.
+Only an unflagged Today's Session main item marked to offer a bonus can earn one: it must finish at its full dose and receive an Easy rating. Manual work, harder samples, skipped or stopped items, easier swaps, and bonus items cannot earn one. The prescribed item's Easy evidence waits until the bonus is declined or settled, then is written once with the bonus result. Declining adds no bonus work. If an accepted bonus has no work, its completed amount is nil, not confirmed zero; an unanswered camera count or an uncorrected count after tracking loss also remains unconfirmed. Camera work is confirmed only after an unchanged count is rated with tracking intact; a correction, self-reported set, or timed hold is user-confirmed.
+
+The reducer accepts one bonus after its completed item only while no later item has started (rest before the next item is okay). It inserts one set of the same exercise and range without rest. If the user chooses **Stop here** on the bonus, its card opens with Too Hard preselected; the prescribed item's Easy answer remains unchanged. See [Effort and offer flow](workout.md#effort-and-offer-flow) and [Effort and offer answers](workout.md#effort-and-offer-answers) for the screen and spoken answers. V1 records bonus evidence but never uses it to change capacity.
 
 ## Mid-set Too hard
 
-The user's flag is kept as midSetTooHard, regardless of what happens next or what the tracker reports. The set continues unless the user chooses an option. Stopping early can produce .stoppedEarly; taking an easier version records .switchedToEasier. In either case, the workout adapter reports the resulting facts and the package applies its Too Hard policy. See [Workout Coach](workout.md) for the button, choices, and phrase precedence.
+The user's flag is kept as midSetTooHard, regardless of what happens next or what the tracker reports. The set continues unless the user chooses an option. Stopping early can produce .stoppedEarly; taking an easier version records .switchedToEasier. In either case, the workout adapter reports the resulting facts and the package applies its Too Hard policy. See [Effort and offer flow](workout.md#effort-and-offer-flow), [Effort and offer answers](workout.md#effort-and-offer-answers), and [Saved Sets](workout.md#saved-sets) for the button, choices, phrase precedence, insertion, and round behavior.
 
 ## Calibration
 
@@ -294,6 +300,6 @@ Settings shows setup status, active areas and their current exercise and dose, p
 
 ## Debug view and export
 
-The debug page and export contain a read-only `AdaptiveSnapshot`: current prescription and rationale, bounded recent evidence, counts, Today's Session status, replayed profile and events, and the facts needed to interpret them. Exports contain no photos, frames, device IDs, or account IDs. Dates use round-trip-safe ISO-8601 UTC with nine fractional digits; keys are sorted, and encoding and writing run off the main thread.
+The debug page and export contain a read-only `AdaptiveSnapshot`: current prescription and rationale, bounded recent evidence, counts, Today's Session status, replayed profile and events, and the facts needed to interpret them. Exports contain no photos, frames, device IDs, or account IDs. Dates encode as round-trip-safe ISO-8601 UTC with nine fractional digits; replay accepts zero through nine fractional digits, including none. Keys are sorted, and encoding and writing run off the main thread.
 
-Run `make adaptive-replay FILE="export.json"` to replay recorded parameters. Add `PARAMS="parameters.json"` to compare candidate `PolicyParameters`. The report lists changed prescriptions and transitions by fact ID, family, and occurrence; it does not write facts or modify the export.
+Run `make adaptive-replay FILE="export.json"` to replay recorded parameters. Add `PARAMS="parameters.json"` to compare candidate `PolicyParameters`. The report lists changed prescriptions and transitions by fact ID, family, and occurrence; an added transition reads `none → <decision>`, and a removed one reads `<decision> → none`. It does not write facts or modify the export.
