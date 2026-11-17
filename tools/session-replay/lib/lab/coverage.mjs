@@ -4,7 +4,7 @@ const CATEGORIES = Object.freeze([
 const STATUSES = Object.freeze(["passed", "failed", "inconclusive", "invalid", "not tested", "planned"]);
 
 function scenarioKey(scenario) {
-  return `${scenario.id}\u0000${scenario.revision}`;
+  return `${scenario.exercise}\u0000${scenario.id}\u0000${scenario.revision}`;
 }
 
 function runTime(run) {
@@ -64,8 +64,8 @@ export function buildCoverageModel(runs = []) {
       if (typeof result?.scenarioID !== "string") continue;
       const scenario = planScenarios.get(result.scenarioID);
       const revision = Number.isInteger(result.revision) ? result.revision : scenario?.revision;
-      if (!Number.isInteger(revision)) continue;
-      const key = scenarioKey({ id: result.scenarioID, revision });
+      if (!scenario || typeof scenario.exercise !== "string" || !Number.isInteger(revision)) continue;
+      const key = scenarioKey({ exercise: scenario.exercise, id: result.scenarioID, revision });
       const candidate = { result, run, runID };
       if (newer(run, results.get(key)?.run)) results.set(key, candidate);
     }
