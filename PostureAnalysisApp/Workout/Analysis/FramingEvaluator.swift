@@ -166,6 +166,20 @@ struct FramingEvaluator {
         return FramingStatus(isReliable: isReliable, guidance: guidance(for: frame, requiredPresent: requiredPresent))
     }
 
+    /// Starts a freshly rebuilt view evaluator as reliable when its actual required joints are already visible.
+    /// Otherwise the regular `reliableAfter` delay remains in effect.
+    mutating func prime(with frame: PoseFrame) {
+        func visible(_ joints: Set<LandmarkType>) -> Bool {
+            joints.allSatisfy { frame.point($0, minimumConfidence: configuration.minimumConfidence) != nil }
+        }
+        let requiredPresent = visible(requiredJoints)
+            && (anyOfRequiredJoints.isEmpty || anyOfRequiredJoints.contains(where: visible))
+        guard requiredPresent else { return }
+        presentSince = frame.timestamp
+        lastPresent = frame.timestamp
+        isReliable = true
+    }
+
     mutating func reset() {
         presentSince = nil
         lastPresent = nil

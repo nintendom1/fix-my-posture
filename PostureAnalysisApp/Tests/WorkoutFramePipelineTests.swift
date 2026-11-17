@@ -31,7 +31,9 @@ final class WorkoutFramePipelineTests: XCTestCase {
         for index in 0...15 {
             _ = pipeline.process(frame: frame(motion: motion, at: Double(index) / 10), at: Double(index) / 10)
         }
-        pipeline.viewChanged(to: .side, analyzerEpoch: 2)
+        var sideView = exercise
+        sideView.cameraView = .side
+        pipeline.exerciseChanged(to: sideView, analyzerEpoch: 2)
 
         var events: [WorkoutEvent] = []
         let end = motion.duration
@@ -41,6 +43,119 @@ final class WorkoutFramePipelineTests: XCTestCase {
         }
 
         XCTAssertFalse(events.contains { if case .repCompleted = $0 { true } else { false } })
+    }
+
+    func testStanceDetectorDoesNotRunForASingleViewExercise() {
+        let exercise = ShoulderPressExercise.definition()
+        var pipeline = WorkoutFramePipeline(exercise: exercise)
+        pipeline.collectsDiagnostics = true
+
+        let output = pipeline.process(frame: frame(motion: exercise.guide.motion, at: 0), at: 0)
+
+        XCTAssertNil(output.diagnostics?.stance)
+        XCTAssertFalse(output.events.contains { if case .stanceObserved = $0 { true } else { false } })
+    }
+
+    func testStanceDetectorRunsForAnExerciseWithAViewChoice() {
+        let exercise = makeViewChoiceHammerCurl(id: ExerciseID(rawValue: "stance.pipeline"))
+        var pipeline = WorkoutFramePipeline(exercise: exercise)
+        pipeline.collectsDiagnostics = true
+        let raw = frameWithShoulderRatio(0.5, motion: exercise.guide.motion, at: 0)
+
+        let output = pipeline.process(frame: raw, at: 0)
+
+        XCTAssertEqual(output.diagnostics?.stance, .facing)
+    }
+
+    func testSameIdViewChangePrimesFramingAndKeepsCountingAtTheNewEpoch() throws {
+        let exercise = makeViewChoiceHammerCurl(id: ExerciseID(rawValue: "same.id.view"))
+        var pipeline = WorkoutFramePipeline(exercise: exercise, analyzerEpoch: 1, isCounting: true)
+        pipeline.setSessionPhase(.exercising)
+        pipeline.collectsDiagnostics = true
+
+        for index in 0...6 {
+            let time = Double(index) / 10
+            _ = pipeline.process(frame: frame(motion: exercise.guide.motion, at: time), at: time)
+        }
+        let sideView = exercise.inView(.side)
+        XCTAssertEqual(sideView.id, exercise.id)
+        pipeline.exerciseChanged(to: sideView, analyzerEpoch: 2)
+
+        let output = pipeline.process(frame: frame(motion: sideView.guide.motion, at: 0.7), at: 0.7)
+        let observation = try XCTUnwrap(output.events.compactMap { event -> FormObservation? in
+            guard case .formObserved(let value) = event else { return nil }
+            return value
+        }.first)
+
+        XCTAssertEqual(observation.epoch, 2)
+        XCTAssertTrue(output.diagnostics?.framing?.isReliable ?? false)
+        XCTAssertTrue(output.diagnostics?.counting ?? false)
+        XCTAssertTrue(pipeline.isCounting)
+        XCTAssertFalse(output.events.contains {
+            guard case .framingChanged(let status) = $0 else { return false }
+            return !status.isReliable
+        })
+    }
+
+    func testIdChangeStillResetsFramingAndSeedsTheNewExerciseView() {
+        let exercise = makeViewChoiceHammerCurl(id: ExerciseID(rawValue: "old.choice"))
+        var pipeline = WorkoutFramePipeline(exercise: exercise, analyzerEpoch: 1, isCounting: true)
+        pipeline.setSessionPhase(.exercising)
+        pipeline.collectsDiagnostics = true
+
+        var settledSide = false
+        for index in 0...12 {
+            let time = Double(index) / 10
+            let output = pipeline.process(frameWithShoulderRatio(0.3, motion: exercise.guide.motion, at: time), at: time)
+            settledSide = settledSide || output.events.contains {
+                guard case .stanceObserved(let observation) = $0 else { return false }
+                return observation.settled == .sideOn
+            }
+        }
+        XCTAssertTrue(settledSide)
+        let newExercise = makeViewChoiceHammerCurl(id: ExerciseID(rawValue: "new.choice"))
+        pipeline.exerciseChanged(to: newExercise, analyzerEpoch: 2)
+
+        let first = pipeline.process(frame: frameWithShoulderRatio(0.5, motion: newExercise.guide.motion, at: 1.3), at: 1.3)
+        XCTAssertTrue(first.events.contains {
+            guard case .framingChanged(let status) = $0 else { return false }
+            return !status.isReliable
+        })
+        XCTAssertTrue(first.events.contains {
+            guard case .formObserved(let observation) = $0 else { return false }
+            return observation.epoch == 2
+        })
+
+        var stanceEvents: [StanceDetector.Observation] = []
+        for index in 14...25 {
+            let time = Double(index) / 10
+            let output = pipeline.process(frameWithShoulderRatio(0.5, motion: newExercise.guide.motion, at: time), at: time)
+            stanceEvents += output.events.compactMap { event in
+                guard case .stanceObserved(let observation) = event else { return nil }
+                return observation
+            }
+        }
+        XCTAssertTrue(stanceEvents.isEmpty, "A new exercise starts settled at its configured front view.")
+    }
+
+    func testStanceEventsAreLastAndOnlyEmittedWhenObservationChanges() {
+        let exercise = makeViewChoiceHammerCurl(id: ExerciseID(rawValue: "stance.events"))
+        var pipeline = WorkoutFramePipeline(exercise: exercise, analyzerEpoch: 1, isCounting: true)
+        pipeline.collectsDiagnostics = true
+
+        let turning = pipeline.process(frameWithShoulderRatio(0.4, motion: exercise.guide.motion, at: 0), at: 0)
+        let stillTurning = pipeline.process(frameWithShoulderRatio(0.4, motion: exercise.guide.motion, at: 0.1), at: 0.1)
+        let beganTurning = pipeline.process(frameWithShoulderRatio(0.4, motion: exercise.guide.motion, at: 0.2), at: 0.2)
+        let unchanged = pipeline.process(frameWithShoulderRatio(0.4, motion: exercise.guide.motion, at: 0.3), at: 0.3)
+        let returned = pipeline.process(frameWithShoulderRatio(0.5, motion: exercise.guide.motion, at: 0.4), at: 0.4)
+        let stillReturned = pipeline.process(frameWithShoulderRatio(0.5, motion: exercise.guide.motion, at: 0.711), at: 0.711)
+
+        XCTAssertFalse(turning.events.contains { if case .stanceObserved = $0 { true } else { false } })
+        XCTAssertFalse(stillTurning.events.contains { if case .stanceObserved = $0 { true } else { false } })
+        XCTAssertEqual(beganTurning.events.last, .stanceObserved(StanceDetector.Observation(settled: .facing, turning: true)))
+        XCTAssertFalse(unchanged.events.contains { if case .stanceObserved = $0 { true } else { false } })
+        XCTAssertFalse(returned.events.contains { if case .stanceObserved = $0 { true } else { false } })
+        XCTAssertEqual(stillReturned.events.last, .stanceObserved(StanceDetector.Observation(settled: .facing, turning: false)))
     }
 
     func testChangingExerciseRebuildsAnalyzerWithoutCompletingOldRep() {
@@ -655,6 +770,30 @@ final class WorkoutFramePipelineTests: XCTestCase {
         return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: width, imageHeight: height), timestamp: time)
     }
 
+    private func frameWithShoulderRatio(_ ratio: Double, motion: ArmMotion, at time: TimeInterval) -> PoseFrame {
+        var result = frame(motion: motion, at: time)
+        guard let left = result.point(.leftShoulder, minimumConfidence: 0.3),
+              let right = result.point(.rightShoulder, minimumConfidence: 0.3),
+              let leftHip = result.point(.leftHip, minimumConfidence: 0.3),
+              let rightHip = result.point(.rightHip, minimumConfidence: 0.3) else { return result }
+        let shoulderMidpoint = ArmGeometry.midpoint(left, right)
+        let hipMidpoint = ArmGeometry.midpoint(leftHip, rightHip)
+        let torsoLength = ArmGeometry.distance(shoulderMidpoint, hipMidpoint)
+        guard torsoLength > 1 else { return result }
+        let width = torsoLength * CGFloat(ratio)
+        let target = [CGPoint(x: shoulderMidpoint.x - width / 2, y: shoulderMidpoint.y),
+                      CGPoint(x: shoulderMidpoint.x + width / 2, y: shoulderMidpoint.y)]
+
+        for (joint, point) in zip([LandmarkType.leftShoulder, .rightShoulder], target) {
+            guard var landmark = result.pose[joint] else { return result }
+            landmark.imageLocation = point
+            landmark.normalizedLocation = CoordinateConverter.imagePixelToNormalized(
+                pixel: point, imageWidth: result.pose.imageWidth, imageHeight: result.pose.imageHeight)
+            result.pose.landmarks[joint] = landmark
+        }
+        return result
+    }
+
     private func pressFrame(_ motion: ArmMotion, at time: TimeInterval) -> PoseFrame {
         let sample = motion.sample(at: time)
         let reference = ExerciseDemoFigureView.pose(for: sample.angles, legs: sample.legs,
@@ -758,4 +897,52 @@ final class WorkoutFramePipelineTests: XCTestCase {
     private func emptyFrame(at time: TimeInterval) -> PoseFrame {
         PoseFrame(pose: BodyPose(landmarks: [:], imageWidth: 1080, imageHeight: 1920), timestamp: time)
     }
+}
+
+private func makeViewChoiceHammerCurl(id: ExerciseID,
+                                      cameraView: ExerciseCameraView = .front) -> ExerciseDefinition {
+    let base = HammerCurlExercise.definition()
+    return ExerciseDefinition(
+        id: id,
+        displayName: base.displayName,
+        presentation: base.presentation,
+        spokenName: base.spokenName,
+        sets: base.sets,
+        targetReps: base.targetReps,
+        autoCompleteReps: base.autoCompleteReps,
+        targetRangeAnnouncementReps: base.targetRangeAnnouncementReps,
+        restSeconds: base.restSeconds,
+        requiredJoints: base.requiredJoints,
+        focusSegments: base.focusSegments,
+        headroomArmLengths: base.headroomArmLengths,
+        sideroomArmLengths: base.sideroomArmLengths,
+        maximumShoulderSpan: base.maximumShoulderSpan,
+        maximumWristHeightFraction: base.maximumWristHeightFraction,
+        supportedShoulders: base.supportedShoulders,
+        framingUnreliableAfter: base.framingUnreliableAfter,
+        centersInFrame: base.centersInFrame,
+        countsArmsIndependently: base.countsArmsIndependently,
+        setupLine: base.setupLine,
+        voiceAliases: base.voiceAliases,
+        guide: base.guide,
+        coachingCues: base.coachingCues,
+        reminders: base.reminders,
+        motionEnvelope: base.motionEnvelope,
+        cameraView: cameraView,
+        anyOfRequiredJoints: base.anyOfRequiredJoints,
+        startsByHolding: base.startsByHolding,
+        perSide: base.perSide,
+        sideLimb: base.sideLimb,
+        warnsAboutTilt: base.warnsAboutTilt,
+        equipment: base.equipment,
+        plantedJoints: base.plantedJoints,
+        tracking: base.tracking,
+        doseUnit: base.doseUnit,
+        makeAnalyzer: { epoch in base.makeAnalyzer(epoch) },
+        diagnostics: base.diagnostics,
+        reducedRange: base.reducedRange,
+        views: [.front, .side],
+        buildView: { selectedView in
+            makeViewChoiceHammerCurl(id: id, cameraView: selectedView)
+        })
 }

@@ -134,6 +134,28 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertEqual(inMemory.viewPreference(for: exerciseID), .auto)
     }
 
+    @MainActor
+    func testWorkoutCoachFactorySeedsStoredViewPreferenceForSupportedExercise() throws {
+        let suiteName = "PreferencesStoreTests.FactoryViewPreference.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = UserDefaultsPreferences(defaults: defaults)
+        preferences.workoutCoachCoachMuted = true
+        let exercise = CameraViewTestFixture.hammerCurl()
+        preferences.setViewPreference(.locked(.sideOn), for: exercise.id)
+        let catalog = CameraViewTestCatalog(all: [exercise])
+        let factory = WorkoutCoachFactory(preferences: preferences, exerciseCatalog: catalog, routines: nil)
+
+        let model = factory.makeWorkout(exerciseID: exercise.id, routineID: nil)
+
+        XCTAssertEqual(model.session.viewPreference(for: exercise.id), .locked(.sideOn))
+        XCTAssertEqual(model.session.exercise?.cameraView, .side)
+
+        model.send(.setCameraView(.locked(.facing)))
+        XCTAssertEqual(preferences.viewPreference(for: exercise.id), .locked(.facing))
+        XCTAssertEqual(model.session.exercise?.cameraView, .front)
+    }
+
     func testAdaptiveInvitationPreferencesDefaultAndRoundTrip() throws {
         let suiteName = "PreferencesStoreTests.AdaptiveInvitation.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))

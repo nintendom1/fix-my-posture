@@ -178,6 +178,9 @@ struct WorkoutSession {
     let settings: WorkoutSettings
     private(set) var phase: WorkoutPhase
     private(set) var exerciseID: ExerciseID?
+    private(set) var viewPreferences: [ExerciseID: ExerciseViewPreference]
+    private(set) var settledStance: BodyStance?
+    private(set) var isTurning: Bool
     private(set) var progress: [ExerciseID: ExerciseProgress] = [:]
     private(set) var sideReps: [BodySide: Int] = [.left: 0, .right: 0]
     private(set) var framing = FramingStatus.lost
@@ -243,6 +246,9 @@ struct WorkoutSession {
          settings: WorkoutSettings = WorkoutSettings()) {
         self.exercises = exercises
         self.settings = settings
+        viewPreferences = settings.viewPreferences
+        settledStance = nil
+        isTurning = false
         // Occurrences whose exercise isn't available are skipped.
         let usable = plan.flatMap { plan in plan.items.firstIndex { item in exercises.contains { $0.id == item.exerciseID } } }
         self.plan = usable == nil ? nil : plan
@@ -256,22 +262,53 @@ struct WorkoutSession {
         coaching = Self.scheduler(for: exercise)
     }
 
-    /// The selected exercise, with the plan occurrence's sets and reps when following a plan.
-    var exercise: ExerciseDefinition? {
+    /// The selected exercise before its live view and plan dose are applied.
+    private var resolvedExercise: ExerciseDefinition? {
         guard let id = exerciseID, let base = exercises.first(where: { $0.id == id }) else { return nil }
         if let item = currentPlanItem, item.exerciseID == id {
-            return item.resolved(from: base).withTarget(sets: item.sets, reps: item.targetReps)
+            return item.resolved(from: base)
         }
         return base
     }
 
-    /// The stored camera-view preference for an exercise, defaulting to automatic selection.
-    func viewPreference(for id: ExerciseID) -> ExerciseViewPreference {
-        settings.viewPreferences[id] ?? .auto
+    /// The selected exercise, with its active view and then the plan occurrence's dose applied.
+    var exercise: ExerciseDefinition? {
+        guard let base = resolvedExercise else { return nil }
+        let viewed = base.inView(activeView)
+        guard let item = currentPlanItem, item.exerciseID == base.id else { return viewed }
+        return viewed.withTarget(sets: item.sets, reps: item.targetReps)
     }
 
-    /// Reserved for a future stable tag for the active camera view.
-    var cameraViewTag: String? { nil }
+    /// The stored camera-view preference for an exercise, defaulting to automatic selection.
+    func viewPreference(for id: ExerciseID) -> ExerciseViewPreference {
+        viewPreferences[id] ?? .auto
+    }
+
+    /// The selected view follows a lock first, then the last settled stance, then its usual view.
+    private var activeView: ExerciseCameraView {
+        guard let base = resolvedExercise, base.hasViewChoice, let id = exerciseID else {
+            return resolvedExercise?.usualView ?? .front
+        }
+        switch viewPreference(for: id) {
+        case .locked(let stance):
+            return base.view(for: stance) ?? base.usualView
+        case .auto:
+            return settledStance.flatMap(base.view(for:)) ?? base.usualView
+        }
+    }
+
+    /// A compact indication of an automatically selected or locked camera view.
+    var cameraViewTag: String? {
+        guard let base = resolvedExercise, base.hasViewChoice, let id = exerciseID else { return nil }
+        switch viewPreference(for: id) {
+        case .auto:
+            return activeView == base.usualView ? nil : "Side-on"
+        case .locked(.facing):
+            return "Front, locked"
+        case .locked(.sideOn):
+            return "Side-on, locked"
+        }
+    }
 
     /// The exercise's hold-to-start choice combined with the workout-wide preference.
     var effectiveStartsByHolding: Bool {
@@ -400,8 +437,17 @@ struct WorkoutSession {
         case .formObserved(let observation):
             guard observation.epoch == analyzerEpoch, phase == .exercising, isCounting else { return [] }
             return tipEffects(coaching.update(observation, speaking: isCoachSpeaking, at: now))
-        case .stanceObserved:
-            return []
+        case .stanceObserved(let observation):
+            guard phase != .choosingExercise else { return [] }
+            guard let exercise, exercise.hasViewChoice, let id = exerciseID else {
+                settledStance = nil
+                isTurning = false
+                return []
+            }
+            let previousView = activeView
+            settledStance = observation.settled
+            isTurning = viewPreference(for: id) == .auto && observation.turning
+            return previousView == activeView ? [] : viewChanged(at: now)
         case .coachSpeakingChanged(let speaking):
             isCoachSpeaking = speaking
             return []
@@ -517,8 +563,22 @@ struct WorkoutSession {
             guard exercise.equipment != .bodyweight else { return hint("\(exercise.displayName) doesn't use weights.") }
             currentWeights[exercise.id] = weight
             return [.speak(Utterance(text: "\(weight.spokenLabel).", isInstruction: false))]
-        case .setCameraView:
-            return []
+        case .setCameraView(let preference):
+            guard let exercise, let id = exerciseID else { return hint(exerciseChoicePrompt) }
+            guard exercise.hasViewChoice else { return hint("\(exercise.displayName) has one camera view.") }
+            let previousView = activeView
+            viewPreferences[id] = preference
+            var effects = previousView == activeView ? [] : viewChanged(at: now)
+            effects.append(.rememberViewPreference(id, preference))
+            let confirmation: String
+            switch preference {
+            case .locked(.facing): confirmation = "Front view, locked."
+            case .locked(.sideOn): confirmation = "Side-on view, locked."
+            case .auto:
+                confirmation = activeView == .side ? "Auto view, side-on for now." : "Auto view, front for now."
+            }
+            effects.append(.speak(Utterance(text: confirmation, isInstruction: false)))
+            return effects
         case .repCount:
             return [.speak(Utterance(text: repCountReply(at: now), isInstruction: false))]
         case .whichSet:
@@ -772,6 +832,10 @@ struct WorkoutSession {
         let previous = exercise
         planIndex = index
         exerciseID = item.exerciseID
+        if exercise?.hasViewChoice != true {
+            settledStance = nil
+            isTurning = false
+        }
         // This occurrence counts its own sets, even when the exercise appeared earlier.
         var record = progress[item.exerciseID, default: ExerciseProgress()]
         record.roundStart = record.setReps.count
@@ -934,20 +998,25 @@ struct WorkoutSession {
         sideReps = [.left: 0, .right: 0]
         clearHold()
         exerciseID = id
+        if exercise?.hasViewChoice != true {
+            settledStance = nil
+            isTurning = false
+        }
         restEndsAt = nil
         restDurationSeconds = nil
         framing = .lost
         guidanceChangedAt = nil
         lastSpokenGuidance = nil
         var effects = setCounting(false) + newAnalyzer() + clearFeedback()
-        coaching = Self.scheduler(for: next)
-        if completedSets(for: id) >= next.setEntries {
+        let selected = exercise ?? next
+        coaching = Self.scheduler(for: selected)
+        if completedSets(for: id) >= selected.setEntries {
             phase = .exerciseComplete
-            effects.append(.speak(Utterance(text: "\(next.displayName) is already done. \(completePrompt)")))
+            effects.append(.speak(Utterance(text: "\(selected.displayName) is already done. \(completePrompt)")))
         } else {
             enterSetup(at: now)
             let begin = needsFraming ? "" : " \(beginPrompt)."
-            effects.append(.speak(Utterance(text: "\(setupAnnouncement(for: next))\(begin)")))
+            effects.append(.speak(Utterance(text: "\(setupAnnouncement(for: selected))\(begin)")))
         }
         return effects
     }
@@ -1056,6 +1125,7 @@ struct WorkoutSession {
     private mutating func tick(at now: TimeInterval) -> [WorkoutEffect] {
         switch phase {
         case .framing:
+            guard !isTurning else { return [] }
             guard let guidance = framing.guidance, let changedAt = guidanceChangedAt,
                   now - changedAt >= Self.guidanceSettleTime else { return [] }
             let repeatDue = lastGuidanceSpokenAt.map { now - $0 >= Self.guidanceRepeatInterval } ?? true
@@ -1076,7 +1146,7 @@ struct WorkoutSession {
                     return [.speak(Utterance(text: "\(Int(Self.holdCountdownSeconds)) seconds.", isInstruction: false))]
                 }
             }
-            if needsFraming, !framing.isReliable, !trackingLossAnnounced, let lostAt = trackingLostAt,
+            if !isTurning, needsFraming, !framing.isReliable, !trackingLossAnnounced, let lostAt = trackingLostAt,
                now - lostAt >= Self.trackingLossGrace {
                 trackingLossAnnounced = true
                 let guidance = framing.guidance?.spokenText ?? FramingGuidance.stepIntoView.spokenText
@@ -1137,6 +1207,23 @@ struct WorkoutSession {
     private mutating func newAnalyzer() -> [WorkoutEffect] {
         analyzerEpoch += 1
         return [.resetAnalyzer(epoch: analyzerEpoch)]
+    }
+
+    /// Starts a fresh analyzer for the new geometry while leaving the active set and its progress intact.
+    private mutating func viewChanged(at now: TimeInterval) -> [WorkoutEffect] {
+        var effects = newAnalyzer()
+        if let exercise, !exercise.perSide {
+            let count = repCount
+            sideReps = [.left: count, .right: count]
+        }
+        startPositionSince = nil
+        coaching = Self.scheduler(for: exercise)
+        effects.append(.clearFeedback)
+        if phase == .framing || phase == .ready {
+            let line = exercise?.cameraView == .side ? "Side-on view." : "Front view."
+            effects.append(.speak(Utterance(text: line)))
+        }
+        return effects
     }
 
     private mutating func setCounting(_ counting: Bool) -> [WorkoutEffect] {

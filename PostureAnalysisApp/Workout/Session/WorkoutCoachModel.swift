@@ -714,8 +714,8 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
                 setActiveTip(nil)
             case .showTip(let tip):
                 setActiveTip(tip)
-            case .rememberViewPreference:
-                break
+            case .rememberViewPreference(let id, let preference):
+                preferences.setViewPreference(preference, for: id)
             case .stopCaptureAndVoice:
                 stopTicks()
                 stopCapture()

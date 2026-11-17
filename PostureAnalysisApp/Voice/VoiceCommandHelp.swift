@@ -46,6 +46,11 @@ enum VoiceCommandHelp {
                                                          (.nextExercise, "In a Saved Set, skips to the next exercise.")])
                 + exerciseEntries
                 + entries([(.cancel, "Backs out of changing exercise, or closes this list.")])),
+            Section(title: "Camera view", entries: entries([
+                (.setCameraView(.locked(.sideOn)), "Locks the exercise to a side-on camera view."),
+                (.setCameraView(.locked(.facing)), "Locks the exercise to a front camera view."),
+                (.setCameraView(.auto), "Chooses the camera view from your stance when the exercise supports it.")
+            ])),
             Section(title: "Info", entries: entries([
                 (.repCount, "Says your reps so far."),
                 (.whichSet, "Says which set you're on."),

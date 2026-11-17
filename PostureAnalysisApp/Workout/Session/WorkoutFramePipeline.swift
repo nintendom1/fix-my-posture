@@ -64,10 +64,13 @@ struct WorkoutFramePipeline {
     private var analyzer: ExerciseAnalyzing?
     private var framingEvaluator: FramingEvaluator?
     private var offscreenJointEstimator: OffscreenJointEstimator?
+    private var stanceDetector = StanceDetector()
     private var ghostCalibrationGate = GhostCalibrationGate()
     private var lastFramingStatus: FramingStatus?
     private var smoother = LandmarkSmoother()
     private var lastStartPositionHeld = false
+    private var shouldReportStartPositionRelease = false
+    private var shouldPrimeFraming = false
     private var emphasizedJoints: Set<LandmarkType> = []
     private(set) var sessionPhase: WorkoutPhase = .framing
     private var tiltDetector = PhoneTiltDetector()
@@ -129,8 +132,23 @@ struct WorkoutFramePipeline {
         let counted = sessionPhase == .exercising ? completed : frame
 
         var events: [WorkoutEvent] = []
+        var stanceReading: StanceDetector.Reading?
+        var stanceObservationChange: StanceDetector.Observation?
+        if exercise.hasViewChoice {
+            stanceReading = StanceDetector.reading(of: frame, configuration: .standard)
+            let previousObservation = stanceDetector.observation
+            let observation = stanceDetector.update(frame)
+            if observation != previousObservation {
+                stanceObservationChange = observation
+            }
+        }
+
         var framing: FramingStatus?
         if var evaluator = framingEvaluator {
+            if shouldPrimeFraming {
+                evaluator.prime(with: counted)
+                shouldPrimeFraming = false
+            }
             let status = evaluator.evaluate(counted)
             framingEvaluator = evaluator
             framing = status
@@ -145,6 +163,11 @@ struct WorkoutFramePipeline {
                     isCounting = status.isReliable
                 }
             }
+        }
+
+        if shouldReportStartPositionRelease {
+            events.append(.startPositionChanged(false))
+            shouldReportStartPositionRelease = false
         }
 
         updateGuideMetrics(frame, for: exercise)
@@ -196,15 +219,20 @@ struct WorkoutFramePipeline {
         } else if !calibrated {
             ghostFitOverlay = nil
         }
+        if let stanceObservationChange {
+            events.append(.stanceObserved(stanceObservationChange))
+        }
         return output(events: events, diagnostics: collectsDiagnostics
-            ? FrameDiagnostics(analyzedFrame: counted, framing: framing, counting: analyzedCounting, analysis: analyzed)
+            ? FrameDiagnostics(analyzedFrame: counted, framing: framing, counting: analyzedCounting,
+                               analysis: analyzed, stance: stanceReading)
             : nil)
     }
 
     /// Rebuilds framing and counting state when a new exercise or camera view is selected.
     mutating func exerciseChanged(to exercise: ExerciseDefinition?, analyzerEpoch: Int) {
-        let trackingChanged = self.exercise?.id != exercise?.id
-            || self.exercise?.cameraView != exercise?.cameraView
+        let idChanged = self.exercise?.id != exercise?.id
+        let viewChanged = !idChanged && self.exercise?.cameraView != exercise?.cameraView
+        let trackingChanged = idChanged || viewChanged
         self.exercise = exercise
 
         if trackingChanged {
@@ -213,7 +241,6 @@ struct WorkoutFramePipeline {
                 OffscreenJointEstimator(joints: $0.focusJoints, plantedJoints: $0.plantedJoints,
                                         configuration: offscreenConfiguration)
             }
-            lastFramingStatus = nil
             smoother.reset()
             readings = [:]
             thresholds = [:]
@@ -221,21 +248,22 @@ struct WorkoutFramePipeline {
             overlay = nil
             ghostCalibrationGate.reset()
             ghostFitOverlay = nil
-            lastStartPositionHeld = false
+            if idChanged {
+                lastFramingStatus = nil
+                lastStartPositionHeld = false
+                shouldReportStartPositionRelease = false
+                shouldPrimeFraming = false
+                stanceDetector.reset(seed: exercise?.cameraView.stance)
+            } else {
+                guideMetrics = nil
+                shouldReportStartPositionRelease = shouldReportStartPositionRelease || lastStartPositionHeld
+                lastStartPositionHeld = false
+                shouldPrimeFraming = exercise != nil
+            }
             rebuildAnalyzer(epoch: analyzerEpoch)
         } else if self.analyzerEpoch != analyzerEpoch || (exercise != nil && analyzer == nil) {
             rebuildAnalyzer(epoch: analyzerEpoch)
         }
-    }
-
-    /// A camera-view change also starts a fresh analyzer, even when the exercise id is unchanged.
-    mutating func viewChanged(to cameraView: ExerciseCameraView, analyzerEpoch: Int) {
-        guard var exercise, exercise.cameraView != cameraView else {
-            if self.analyzerEpoch != analyzerEpoch { rebuildAnalyzer(epoch: analyzerEpoch) }
-            return
-        }
-        exercise.cameraView = cameraView
-        exerciseChanged(to: exercise, analyzerEpoch: analyzerEpoch)
     }
 
     mutating func resetAnalyzer(epoch: Int) {
@@ -279,6 +307,8 @@ struct WorkoutFramePipeline {
     /// Clears per-capture smoothing and framing state without replacing the exercise analyzer. Like the analyzer,
     /// framing keeps its supported-shoulder references; they expire on their own after a gap.
     mutating func resetTracking() -> [WorkoutEvent] {
+        let previousStance = stanceDetector.observation
+        stanceDetector.reset(seed: previousStance.settled)
         framingEvaluator?.reset()
         offscreenJointEstimator?.reset()
         lastFramingStatus = nil
@@ -294,6 +324,9 @@ struct WorkoutFramePipeline {
         if lastStartPositionHeld {
             lastStartPositionHeld = false
             events.append(.startPositionChanged(false))
+        }
+        if stanceDetector.observation != previousStance {
+            events.append(.stanceObserved(stanceDetector.observation))
         }
         return events
     }
