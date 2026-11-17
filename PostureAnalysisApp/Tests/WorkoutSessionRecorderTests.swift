@@ -31,6 +31,10 @@ final class WorkoutSessionRecorderTests: XCTestCase {
         let pushUpFraming = try XCTUnwrap(pushUp["framing"] as? [String: Any])
         XCTAssertEqual(pushUpFraming["unreliableAfter"] as? Double, 0.8)
         XCTAssertNotNil((header["cueScheduler"] as? [String: Any])?["cueCooldown"])
+        XCTAssertNil((header["settings"] as? [String: Any])?["viewPreferences"])
+        let hammerCurl = try XCTUnwrap(exercises["hammer_curl"] as? [String: Any])
+        XCTAssertEqual(hammerCurl["cameraView"] as? String, "front")
+        XCTAssertEqual((exercises["hammer_curl.side"] as? [String: Any])?["cameraView"] as? String, "side")
 
         XCTAssertTrue(recorder.isRecording)
         XCTAssertEqual(store.summaries[id]?.isComplete, false)
@@ -63,6 +67,38 @@ final class WorkoutSessionRecorderTests: XCTestCase {
         let wristIndex = try XCTUnwrap(LandmarkType.allCases.firstIndex(of: .rightWrist))
         XCTAssertEqual(line["lo"] as? [[Double]], [[Double(wristIndex), 612, 300.4, 0.145]])
         XCTAssertEqual(line["pitch"] as? Double, 3.21)
+    }
+
+    func testStanceIsRecordedOnlyWhenTheViewChoicePipelineProvidesIt() throws {
+        let hammerCurl = try XCTUnwrap(ExerciseCatalog.all.first { $0.id == .hammerCurl })
+        XCTAssertTrue(hammerCurl.hasViewChoice)
+        let frame = PoseFrame(pose: BodyPose(landmarks: [:], imageWidth: 1080, imageHeight: 1920), timestamp: 1)
+        func output(for exercise: ExerciseDefinition) -> WorkoutFramePipeline.FrameOutput {
+            var pipeline = WorkoutFramePipeline()
+            pipeline.collectsDiagnostics = true
+            pipeline.exerciseChanged(to: exercise, analyzerEpoch: 1)
+            return pipeline.process(frame: frame, at: 1)
+        }
+        let singleViewOutput = output(for: ShoulderPressExercise.definition())
+        let choiceOutput = output(for: hammerCurl)
+        XCTAssertNil(singleViewOutput.diagnostics?.stance)
+        XCTAssertNotNil(choiceOutput.diagnostics?.stance)
+
+        let store = MemoryWorkoutRecordingStore()
+        let recorder = makeRecorder(store)
+        recorder.begin(context(exercises: [ShoulderPressExercise.definition(), hammerCurl]), at: 0)
+        recorder.recordFrame(frame, output: singleViewOutput, pitchDegrees: nil, at: 1)
+        recorder.recordFrame(frame, output: choiceOutput, pitchDegrees: nil, at: 2)
+        let observation = StanceDetector.Observation(settled: .sideOn, turning: true)
+        let event = try XCTUnwrap(WorkoutRecordingEvent(input: .stanceObserved(observation)))
+        recorder.recordEvent(event, at: 2)
+
+        let frames = writer(store).objects(kind: "f")
+        XCTAssertNil(frames.first?["st"])
+        XCTAssertEqual(frames.dropFirst().first?["st"] as? String, choiceOutput.diagnostics?.stance?.rawValue)
+        let stance = try XCTUnwrap(writer(store).objects(kind: "e").first { $0["type"] as? String == "stance" })
+        XCTAssertEqual(stance["settled"] as? String, "side")
+        XCTAssertEqual(stance["turning"] as? Bool, true)
     }
 
     func testFrameLineRecordsBridgedBottomGapAsInformationalData() throws {
@@ -121,12 +157,38 @@ final class WorkoutSessionRecorderTests: XCTestCase {
         recorder.recordState(snapshot, at: 1)
         recorder.recordState(snapshot, at: 2)
         snapshot.repCount = 1
+        snapshot.view = "side"
         recorder.recordState(snapshot, at: 3)
 
         let states = writer(store).objects(kind: "state")
         XCTAssertEqual(states.count, 2)
         XCTAssertEqual(states.last?["reps"] as? Int, 1)
         XCTAssertEqual(states.last?["t"] as? Double, 3)
+        XCTAssertNil(states.first?["view"])
+        XCTAssertEqual(states.last?["view"] as? String, "side")
+    }
+
+    func testSingleViewHeaderHasNoAdditionalExerciseEntries() throws {
+        let store = MemoryWorkoutRecordingStore()
+        let recorder = makeRecorder(store)
+        recorder.begin(context(exercises: [ShoulderPressExercise.definition()]), at: 0)
+
+        let header = try XCTUnwrap(writer(store).objects.first)
+        let exercises = try XCTUnwrap(header["exercises"] as? [String: Any])
+        XCTAssertEqual(Set(exercises.keys), Set(["shoulder_press"]))
+        XCTAssertNil((header["settings"] as? [String: Any])?["viewPreferences"])
+    }
+
+    func testNonemptyViewPreferencesAreWrittenInTheHeader() throws {
+        let hammerCurl = try XCTUnwrap(ExerciseCatalog.all.first { $0.id == .hammerCurl })
+        let settings = WorkoutSettings(viewPreferences: [.hammerCurl: .locked(.sideOn)])
+        let store = MemoryWorkoutRecordingStore()
+        let recorder = makeRecorder(store)
+        recorder.begin(context(exercises: [hammerCurl], settings: settings), at: 0)
+
+        let header = try XCTUnwrap(writer(store).objects.first)
+        XCTAssertEqual((header["settings"] as? [String: Any])?["viewPreferences"] as? [String: String],
+                       ["hammer_curl": "side"])
     }
 
     func testAudioDiagnosticsRecordRouteReasonsSessionOperationsAndInterruptions() throws {
@@ -274,10 +336,11 @@ final class WorkoutSessionRecorderTests: XCTestCase {
         store.writers[id]!
     }
 
-    private func context() -> WorkoutRecordingContext {
+    private func context(exercises: [ExerciseDefinition] = ExerciseCatalog.all,
+                         settings: WorkoutSettings = WorkoutSettings()) -> WorkoutRecordingContext {
         WorkoutRecordingContext(startedAt: Date(timeIntervalSince1970: 1_800_000_000),
                                 timeZone: TimeZone(identifier: "America/Los_Angeles")!,
-                                exercises: ExerciseCatalog.all, plan: nil, settings: WorkoutSettings(),
+                                exercises: exercises, plan: nil, settings: settings,
                                 tiltWarningsEnabled: true, isCoachMuted: false, isMicMuted: false)
     }
 

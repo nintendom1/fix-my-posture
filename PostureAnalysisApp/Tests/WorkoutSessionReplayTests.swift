@@ -28,6 +28,110 @@ final class WorkoutSessionReplayTests: XCTestCase {
         }
     }
 
+    func testStrictReplayReproducesAViewSwitchDuringTheSet() throws {
+        let exercise = try XCTUnwrap(ExerciseCatalog.all.first { $0.id == .hammerCurl })
+        XCTAssertTrue(exercise.hasViewChoice)
+        let store = MemoryWorkoutRecordingStore()
+        let recorder = WorkoutSessionRecorder(store: store)
+        let harness = WorkoutCoachHarness.make(preferences: InMemoryPreferences(), initialExercise: exercise.id,
+                                               recorder: recorder)
+        harness.model.onAppear(isApplicationActive: true)
+        harness.camera.emit(.running)
+        var time = 0.0
+        for _ in 0..<10 { emit(exercise, at: &time, harness) }
+        harness.model.send(.start)
+        for _ in 0..<5 { emit(exercise, at: &time, harness) }
+        XCTAssertEqual(harness.model.session.phase, .exercising)
+        let repsBeforeSwitch = harness.model.session.repCount
+        harness.model.send(.setCameraView(.locked(.sideOn)))
+        XCTAssertEqual(harness.model.session.phase, .exercising)
+        XCTAssertEqual(harness.model.session.repCount, repsBeforeSwitch)
+
+        let sideView = exercise.inView(.side)
+        while time < exercise.guide.motion.duration * 2 + 1 { emit(sideView, at: &time, harness) }
+        let lines = store.writer(for: recorder.id).lines
+        let text = "[\n" + lines.joined(separator: ",\n") + "\n]\n"
+        let file = try WorkoutSessionFile(text: text)
+        XCTAssertTrue(file.records.contains { $0.record["k"] as? String == "pipe"
+            && $0.record["control"] as? String == "exercise"
+            && $0.record["cameraView"] as? String == "side" }, "The recording contains the mid-set side view.")
+
+        let frames = try WorkoutSessionReplayer.replay(file)
+        for frame in frames where frame.recorded != frame.replayed {
+            XCTFail("line \(frame.line): recorded \(frame.recorded), replayed \(frame.replayed)")
+        }
+        XCTAssertGreaterThan(frames.reduce(0) { $0 + $1.recorded.reps.count }, 0,
+                             "The harness recording counted reps across the view switch.")
+    }
+
+    func testMissingAlternateHeaderEntryFallsBackToThisBuildsView() throws {
+        let exercise = try XCTUnwrap(ExerciseCatalog.all.first { $0.id == .hammerCurl })
+        XCTAssertTrue(exercise.hasViewChoice)
+        let header: [String: Any] = ["exercises": [exercise.id.rawValue: ["cameraView": exercise.usualView.rawValue]]]
+        let definitions = try WorkoutSessionReplayer.definitions(header, catalog: [exercise])
+        let control = try WorkoutSessionReplayer.control(
+            ["control": "exercise", "exercise": exercise.id.rawValue, "cameraView": "side", "epoch": 2],
+            line: 3, exercises: definitions)
+        guard case .exercise(let selected?, _) = control else {
+            return XCTFail("The recorded alternate view resolves to a definition.")
+        }
+        XCTAssertEqual(selected.cameraView, .side)
+    }
+
+    func testStrictReplayChecksDriftAgainstTheSelectedViewEntry() throws {
+        let exercise = try XCTUnwrap(ExerciseCatalog.all.first { $0.id == .hammerCurl })
+        let side = exercise.inView(.side)
+        // The side view needs either arm (no fixed required joints), so a recorded extra joint is drift.
+        let required = (side.requiredJoints.map(\.rawValue) + [LandmarkType.leftHip.rawValue]).sorted()
+        let header: [String: Any] = ["exercises": [
+            exercise.id.rawValue: ["cameraView": exercise.usualView.rawValue],
+            "\(exercise.id.rawValue).side": ["cameraView": "side", "required": required],
+        ]]
+
+        do {
+            _ = try WorkoutSessionReplayer.definitions(header, catalog: [exercise])
+            XCTFail("The recorded side-view joints must match that view's definition.")
+        } catch let error as ReplayError {
+            guard case .definitionDrift(let field, let id) = error else {
+                return XCTFail("Expected side-view definition drift, got \(error).")
+            }
+            XCTAssertEqual(field, "required")
+            XCTAssertEqual(id, exercise.id.rawValue)
+        }
+    }
+
+    func testUnsupportedCameraViewIsReportedForAnExerciseWithoutThatView() throws {
+        let exercise = ShoulderPressExercise.definition()
+        let definitions = try WorkoutSessionReplayer.definitions(["exercises": [:]], catalog: [exercise])
+        do {
+            _ = try WorkoutSessionReplayer.control(
+                ["control": "exercise", "exercise": exercise.id.rawValue, "cameraView": "side", "epoch": 1],
+                line: 4, exercises: definitions)
+            XCTFail("A single-view exercise cannot replay the side view.")
+        } catch let error as ReplayError {
+            guard case .unsupportedCameraView(let view, let id, let line) = error else {
+                return XCTFail("Expected unsupported view, got \(error).")
+            }
+            XCTAssertEqual(view, "side")
+            XCTAssertEqual(id, exercise.id.rawValue)
+            XCTAssertEqual(line, 4)
+        }
+    }
+
+    func testCurrentBuildReplayIgnoresRecordedAlternateViewConfiguration() throws {
+        let exercise = try XCTUnwrap(ExerciseCatalog.all.first { $0.id == .hammerCurl })
+        XCTAssertTrue(exercise.hasViewChoice)
+        let current = exercise.inView(.side)
+        var headerEntry: [String: Any] = ["cameraView": "side"]
+        if current.diagnostics != nil { headerEntry["configuration"] = ["confirmationSamples": -100] }
+        let header: [String: Any] = ["exercises": [exercise.id.rawValue: ["cameraView": exercise.usualView.rawValue],
+                                                        "\(exercise.id.rawValue).side": headerEntry]]
+
+        let definitions = try WorkoutSessionReplayer.definitions(header, catalog: [exercise], currentBuild: true)
+        XCTAssertEqual(definitions["\(exercise.id.rawValue).side"]?.diagnostics?.configurationJSON,
+                       current.diagnostics?.configurationJSON)
+    }
+
     func testOnlyACutOffFinalRecordIsTolerated() throws {
         let start = """
         [

@@ -58,8 +58,7 @@ enum WorkoutSessionLines {
             ("confidenceFloor", .double(RealtimePoseProcessing.liveConfidenceFloor)),
             ("settings", settings(context)),
             ("plan", context.plan.map(plan)),
-            ("exercises", .object(context.exercises.map { (key: $0.id.rawValue, value: exercise($0)) }
-                                    + reducedRangeVariants(context))),
+            ("exercises", .object(exerciseEntries(context))),
             ("framing", .raw(ExerciseDiagnostics.json(FramingConfiguration()))),
             ("offscreen", .raw(ExerciseDiagnostics.json(OffscreenJointConfiguration()))),
             ("cueScheduler", .raw(ExerciseDiagnostics.json(CoachingCueScheduler.Configuration()))),
@@ -77,6 +76,9 @@ enum WorkoutSessionLines {
             ("restPolicy", rest),
             ("weightUnit", .string(context.settings.weightUnit.rawValue)),
             ("startByHolding", .bool(context.settings.startByHolding)),
+            ("viewPreferences", context.settings.viewPreferences.isEmpty ? nil : .object(
+                context.settings.viewPreferences.sorted { $0.key.rawValue < $1.key.rawValue }
+                    .map { (key: $0.key.rawValue, value: .string($0.value.rawValue)) })),
             ("tiltWarnings", .bool(context.tiltWarningsEnabled)),
             ("coachMuted", .bool(context.isCoachMuted)),
             ("micMuted", .bool(context.isMicMuted))
@@ -105,14 +107,34 @@ enum WorkoutSessionLines {
     /// names in its `variant` field.
     static let reducedRangeVariant = "reducedRange"
 
+    private static func exerciseEntries(_ context: WorkoutRecordingContext) -> [(key: String, value: DiagnosticJSON)] {
+        let usual = context.exercises.map { (key: $0.id.rawValue, value: exercise($0)) }
+        let alternateViews = context.exercises.flatMap { base in
+            guard base.hasViewChoice else { return [(key: String, value: DiagnosticJSON)]() }
+            return base.views.filter { $0 != base.usualView }.map { view in
+                (key: "\(base.id.rawValue).\(view.rawValue)", value: exercise(base.inView(view)))
+            }
+        }
+        return usual + alternateViews + reducedRangeVariants(context)
+    }
+
     /// One `exercises` entry per smaller-range variant the plan runs, such as `wall_push_up.reducedRange`, so replay
     /// rebuilds that variant's own configuration rather than the full range's.
     private static func reducedRangeVariants(_ context: WorkoutRecordingContext) -> [(key: String, value: DiagnosticJSON)] {
         guard let plan = context.plan else { return [] }
-        return context.exercises.compactMap { base in
+        return context.exercises.flatMap { base in
             guard plan.items.contains(where: { $0.exerciseID == base.id && $0.reducedRange }),
-                  let variant = base.reducedRange?() else { return nil }
-            return (key: "\(base.id.rawValue).\(reducedRangeVariant)", value: exercise(variant))
+                  let variant = base.reducedRange?() else { return [(key: String, value: DiagnosticJSON)]() }
+            var entries = [(key: "\(base.id.rawValue).\(reducedRangeVariant)", value: exercise(variant))]
+            if base.hasViewChoice {
+                for view in base.views where view != base.usualView {
+                    let viewedVariant = base.inView(view).reducedRange?() ?? variant.inView(view)
+                    guard viewedVariant.cameraView == view else { continue }
+                    entries.append((key: "\(base.id.rawValue).\(view.rawValue).\(reducedRangeVariant)",
+                                    value: exercise(viewedVariant)))
+                }
+            }
+            return entries
         }
     }
 
@@ -202,6 +224,7 @@ enum WorkoutSessionLines {
         if frame.deliveryDelay > 0 { members.append(("delay", .rounded(frame.deliveryDelay, places: 3))) }
         members.append(("p", .bool(output != nil)))
         if let diagnostics { members.append(("cnt", .bool(diagnostics.counting))) }
+        if let stance = diagnostics?.stance { members.append(("st", .string(stance.rawValue))) }
         if imageSizeChanged {
             members.append(("wh", [.double(Double(frame.pose.imageWidth)), .double(Double(frame.pose.imageHeight))]))
         }
@@ -295,7 +318,7 @@ enum WorkoutSessionLines {
     }
 
     static func state(_ snapshot: WorkoutStateSnapshot, restEndsT: TimeInterval?, t: TimeInterval) -> DiagnosticJSON {
-        .object(
+        var fields: [(String, DiagnosticJSON?)] = [
             ("k", "state"), ("t", time(t)),
             ("phase", .string(snapshot.phase)),
             ("ex", snapshot.exerciseID.map { .string($0) } ?? .null),
@@ -316,7 +339,9 @@ enum WorkoutSessionLines {
             ("coachMuted", .bool(snapshot.isCoachMuted)),
             ("micMuted", .bool(snapshot.isMicMuted)),
             ("camera", .string(snapshot.cameraStatus))
-        )
+        ]
+        fields.append(("view", snapshot.view.map { .string($0) }))
+        return .object(fields.compactMap { key, value in value.map { (key: key, value: $0) } })
     }
 
     static func event(_ event: WorkoutRecordingEvent, t: TimeInterval) -> DiagnosticJSON {

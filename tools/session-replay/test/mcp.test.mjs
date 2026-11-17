@@ -113,6 +113,30 @@ test("overview lists bridged gaps separately and events classifies them as info"
   }
 });
 
+test("overview and events list side-view exercise entries and stance", async () => {
+  const items = records().map((record) => structuredClone(record));
+  items[0].exercises.hammer_curl = { name: "Hammer Curl", cameraView: "front", required: ["leftElbow"], focus: ["leftElbow"] };
+  items[0].exercises["hammer_curl.side"] = {
+    name: "Hammer Curl", cameraView: "side", required: ["leftElbow", "leftWrist"], focus: ["leftElbow", "leftWrist"],
+  };
+  items.push(
+    { k: "pipe", t: 17.5, control: "exercise", exercise: "hammer_curl", cameraView: "front", epoch: 2 },
+    { k: "pipe", t: 18.5, control: "exercise", exercise: "hammer_curl", cameraView: "side", epoch: 3 },
+    { k: "e", t: 18.75, type: "stance", settled: "side", turning: false },
+  );
+  items.sort((a, b) => (a.k === "header" ? -1 : b.k === "header" ? 1 : (a.t ?? 0) - (b.t ?? 0)));
+  const { call, stop } = await start({ recordingText: arrayText(items) });
+  try {
+    const overview = await call("fmp_session_overview", { session: ID.slice(0, 8) });
+    assert.match(overview.text, /^- hammer_curl \(side\) 0:18\.5–0:20\.5: required LE LW/m);
+    const events = await call("fmp_events", { from: 18.75, to: 18.75, kinds: ["info"] });
+    assert.match(events.text, /^1 events/);
+    assert.match(events.text, /0:18\.8 \[info\] Stance — settled=side · turning=false/);
+  } finally {
+    await stop();
+  }
+});
+
 test("queries are kept to a useful size", async () => {
   const { call, request, stop } = await start({ maxRows: 100 });
   try {

@@ -117,8 +117,7 @@ export class Session {
     const lastTimes = [this.frames.at(-1)?.t, this.states.at(-1)?.t, this.events.at(-1)?.t, this.end?.t].filter((t) => t != null);
     this.duration = lastTimes.length ? Math.max(...lastTimes) : 0;
     this.imageSize = size ?? [1080, 1920];
-    this.exerciseSpans = this.#spans(this.pipes.filter((p) => p.control === "exercise" && p.exercise),
-      (p) => p.exercise);
+    this.exerciseSpans = this.#exerciseSpans();
     this.phaseSpans = this.#spans(this.states, (s) => s.phase);
     this.framingSpans = this.#framingSpans();
     this.losses = this.#losses();
@@ -140,7 +139,7 @@ export class Session {
   /** The Saved Set's name, or the exercises done. */
   get title() {
     if (this.header.plan?.name) return this.header.plan.name;
-    const names = [...new Set(this.exerciseSpans.map((span) => this.exercises[span.label]?.name ?? span.label))];
+    const names = [...new Set(this.exerciseSpans.map((span) => this.exercises[span.entryKey]?.name ?? span.label))];
     return names.join(", ") || "Workout";
   }
   get isComplete() { return this.end != null; }
@@ -153,6 +152,24 @@ export class Session {
       if (spans.length && spans.at(-1).label === label) continue;
       if (spans.length) spans.at(-1).end = record.t;
       spans.push({ start: record.t, end: this.duration, label });
+    }
+    return spans;
+  }
+
+  /** Exercise spans keep the recorded view entry, while their label remains the stable exercise id. */
+  #exerciseSpans() {
+    const spans = [];
+    for (const pipe of this.pipes.filter((item) => item.control === "exercise" && item.exercise)) {
+      const id = pipe.exercise;
+      const usualView = this.exercises[id]?.cameraView ?? pipe.cameraView;
+      const view = pipe.cameraView != null && pipe.cameraView !== usualView ? pipe.cameraView : null;
+      const viewKey = view ? `${id}.${view}` : id;
+      const candidate = view && pipe.variant ? `${viewKey}.${pipe.variant}` : viewKey;
+      const entryKey = this.exercises[candidate] ? candidate : this.exercises[viewKey] ? viewKey : id;
+      const previous = spans.at(-1);
+      if (previous && previous.entryKey === entryKey && previous.view === view) continue;
+      if (previous) previous.end = pipe.t;
+      spans.push({ start: pipe.t, end: this.duration, label: id, entryKey, ...(view ? { view } : {}) });
     }
     return spans;
   }
@@ -249,6 +266,9 @@ export class Session {
         case "camera.running": case "app.foreground": case "interruptionEnded": case "opened":
           add(event.t, "info", event.type);
           break;
+        case "stance":
+          add(event.t, "info", "Stance", `settled=${event.settled ?? "none"} · turning=${Boolean(event.turning)}`);
+          break;
         default: break;
       }
     }
@@ -293,7 +313,11 @@ export class Session {
     const index = lastAtOrBefore(this.exerciseSpans, t, (span) => span.start);
     return (this.exerciseSpans[index] ?? this.exerciseSpans[0])?.label ?? null;
   }
-  exerciseAt(t) { return this.exercises[this.exerciseIDAt(t)] ?? null; }
+  exerciseEntryKeyAt(t) {
+    const index = lastAtOrBefore(this.exerciseSpans, t, (span) => span.start);
+    return (this.exerciseSpans[index] ?? this.exerciseSpans[0])?.entryKey ?? this.exerciseIDAt(t);
+  }
+  exerciseAt(t) { return this.exercises[this.exerciseEntryKeyAt(t)] ?? null; }
   /** The exercise framing recorded with the exercise, falling back to session framing for legacy recordings. */
   framingFor(exerciseID) {
     const exercise = this.exercises[exerciseID] ?? {};
@@ -463,7 +487,7 @@ export function renderExcerpt(session, { from = 0, to = session.duration, option
   lines.push(`# FMP replay excerpt · ${name}${started ? ` · ${started}` : ""}`);
   lines.push(`Recording ${session.id} · window ${clock(from)}–${clock(to)} (${(to - from).toFixed(1)} s) · `
     + (options.rate ? `${options.rate} Hz` : "events only") + ` · ${options.label ?? "custom"}`);
-  const framing = session.framingFor(session.exerciseIDAt(from));
+  const framing = session.framingFor(session.exerciseEntryKeyAt(from));
   lines.push(`Joints are unmirrored image pixels (${session.imageSize.join("×")}, origin top-left). `
     + `Framing needs required joints at ≥${framing.minimumConfidence ?? 0.4} for ${framing.reliableAfter ?? 0.6} s and drops `
     + `after ${framing.unreliableAfter ?? 0.3} s missing; joints under ${session.header.confidenceFloor ?? 0.3} are dropped before analysis.`);
@@ -483,15 +507,17 @@ export function renderExcerpt(session, { from = 0, to = session.duration, option
     }
   }
 
-  const exerciseIDs = [...new Set(session.exerciseSpans.filter((s) => s.start <= to && s.end >= from).map((s) => s.label))];
-  if (exerciseIDs.length) {
+  const exerciseKeys = [...new Set(session.exerciseSpans.filter((s) => s.start <= to && s.end >= from).map((s) => s.entryKey))];
+  if (exerciseKeys.length) {
     lines.push("", "## Exercise");
-    for (const id of exerciseIDs) {
-      const exercise = session.exercises[id] ?? {};
-      const exerciseFraming = session.framingFor(id);
+    for (const key of exerciseKeys) {
+      const exercise = session.exercises[key] ?? {};
+      const span = session.exerciseSpans.find((item) => item.entryKey === key);
+      const id = span?.label ?? key;
+      const exerciseFraming = session.framingFor(key);
       const required = (exercise.required ?? []).map(shortJoint).join(" ") || "none";
       const anyOf = (exercise.anyOfRequired ?? []).map((set) => set.map(shortJoint).join(" "));
-      lines.push(`${id} (${exercise.cameraView ?? "?"}): required ${required}${anyOf.length ? `; or one of [${anyOf.join("] [")}]` : ""}`
+      lines.push(`${id} (${span?.view ?? exercise.cameraView ?? "?"}): required ${required}${anyOf.length ? `; or one of [${anyOf.join("] [")}]` : ""}`
         + (exercise.framing ? `; framing drops after ${exerciseFraming.unreliableAfter ?? 0.3} s missing` : ""));
       if (options.tuning && exercise.configuration) {
         lines.push("tuning: " + Object.keys(exercise.configuration).sort()
@@ -507,6 +533,7 @@ export function renderExcerpt(session, { from = 0, to = session.duration, option
     lines.push(`phase ${start.phase} · exercise ${startExercise ?? start.ex ?? "none"} · set ${start.set}${start.side ? ` ${start.side}` : ""}`
       + ` · reps ${start.reps}${sides} · counting ${start.counting ? "on" : "off"}${start.epoch != null ? ` · analyzer epoch ${start.epoch}` : ""}`
       + ` · framing ${startFrame?.fr ? (startFrame.fr.ok ? "reliable" : `lost${startFrame.fr.g ? ` (${startFrame.fr.g})` : ""}`) : "unknown"}`
+      + (start.view ? ` · view ${start.view}` : "")
       + `${start.tilted ? " · phone tilted" : ""}${start.tip ? ` · tip ${start.tip}` : ""}`);
   } else {
     lines.push("Before the first state record.");
@@ -516,7 +543,9 @@ export function renderExcerpt(session, { from = 0, to = session.duration, option
     const pipeline = session.pipes.filter((pipe) => inWindow(pipe.t)).map((pipe) => ({
       t: pipe.t, title: `Pipeline: ${pipe.control}`,
       detail: pipe.control === "counting" ? (pipe.counting ? "on" : "off")
-        : pipe.control === "exercise" ? `${pipe.exercise ?? "none"}, epoch ${pipe.epoch}`
+        : pipe.control === "exercise" ? `${pipe.exercise ?? "none"}`
+          + (pipe.cameraView && pipe.cameraView !== (session.exercises[pipe.exercise]?.cameraView ?? pipe.cameraView)
+            ? ` (${pipe.cameraView})` : "") + `, epoch ${pipe.epoch}`
         : pipe.control === "resetAnalyzer" ? `epoch ${pipe.epoch}` : pipe.control === "sessionPhase" ? pipe.phase : "",
     }));
     const events = session.timeline.filter((item) => inWindow(item.t)).concat(pipeline).sort((a, b) => a.t - b.t);
@@ -527,10 +556,10 @@ export function renderExcerpt(session, { from = 0, to = session.duration, option
   const frames = sampleFrames(session, from, to, options.rate);
   if (frames.length) {
     // Every exercise in the window brings its focus joints; an exercise column says which one each row belongs to.
-    const focus = new Set(exerciseIDs.flatMap((id) => session.exercises[id]?.focus ?? []));
+    const focus = new Set(exerciseKeys.flatMap((key) => session.exercises[key]?.focus ?? []));
     const joints = options.joints === "all" ? session.jointOrder
       : options.joints === "focus" ? (focus.size ? session.jointOrder.filter((name) => focus.has(name)) : session.focusJoints(from)) : [];
-    const multipleExercises = exerciseIDs.length > 1;
+    const multipleExercises = exerciseKeys.length > 1;
     const columns = ["t"];
     if (multipleExercises) columns.push("ex");
     if (options.framing) columns.push("frm", "cnt", "g");

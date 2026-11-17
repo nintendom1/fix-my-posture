@@ -38,6 +38,20 @@ final class ExerciseDiagnosticsTests: XCTestCase {
         }
     }
 
+    func testEveryViewOfViewChoiceExercisesRebuildsToTheSameView() throws {
+        for base in ExerciseCatalog.all where base.hasViewChoice {
+            for view in base.views {
+                let exercise = base.inView(view)
+                let diagnostics = try XCTUnwrap(exercise.diagnostics,
+                                                "\(exercise.id.rawValue) (\(view.rawValue)) has no diagnostics")
+                let rebuilt = try diagnostics.rebuild(Data(diagnostics.configurationJSON.utf8))
+                XCTAssertEqual(rebuilt.id, exercise.id)
+                XCTAssertEqual(rebuilt.cameraView, view)
+                XCTAssertEqual(rebuilt.diagnostics?.configurationJSON, diagnostics.configurationJSON)
+            }
+        }
+    }
+
     func testSharedConfigurationsEncodeWithSortedKeys() {
         let json = ExerciseDiagnostics.json(FramingConfiguration())
         XCTAssertTrue(json.hasPrefix(#"{"centerTolerance""#), json)
