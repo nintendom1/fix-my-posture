@@ -97,6 +97,47 @@ final class WorkoutSessionReplayTests: XCTestCase {
         XCTAssertEqual(replayPartial.diagnostics?.configurationJSON, partial.diagnostics?.configurationJSON)
     }
 
+    /// The push-up phone-distance limits round-trip through the recording header, strict replay runs the recorded
+    /// limits, and a recording from before the wrist limit replays without it.
+    func testStrictReplayRunsTheRecordedPhoneDistanceLimits() throws {
+        let context = WorkoutRecordingContext(startedAt: Date(timeIntervalSince1970: 1_800_000_000),
+                                              timeZone: TimeZone(secondsFromGMT: 0) ?? .current,
+                                              exercises: [PushUpExercise.definition()], plan: nil,
+                                              settings: WorkoutSettings(), tiltWarningsEnabled: false,
+                                              isCoachMuted: true, isMicMuted: true)
+        let app = WorkoutSessionLines.AppInfo(version: "1", build: "1", configuration: "Test", deviceModel: "synthetic",
+                                              systemVersion: "1")
+        let line = WorkoutSessionLines.header(id: UUID(), context: context, app: app).serialized
+        var header = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any])
+        func pushUp(currentBuild: Bool = false) throws -> ExerciseDefinition {
+            try XCTUnwrap(WorkoutSessionReplayer.definitions(header, catalog: ExerciseCatalog.all,
+                                                             currentBuild: currentBuild)["push_up"])
+        }
+        func recordPushUp(_ change: (inout [String: Any]) -> Void) throws {
+            var exercises = try XCTUnwrap(header["exercises"] as? [String: Any])
+            var entry = try XCTUnwrap(exercises["push_up"] as? [String: Any])
+            change(&entry)
+            exercises["push_up"] = entry
+            header["exercises"] = exercises
+        }
+
+        XCTAssertEqual(try pushUp().maximumShoulderSpan, 0.22)
+        XCTAssertEqual(try pushUp().maximumWristHeightFraction, 0.64, "The header records the wrist limit.")
+
+        try recordPushUp { entry in
+            entry["maximumShoulderSpan"] = 0.32
+            entry["maximumWristHeightFraction"] = 0.7
+        }
+        XCTAssertEqual(try pushUp().maximumShoulderSpan, 0.32, "Strict replay runs the recorded limits.")
+        XCTAssertEqual(try pushUp().maximumWristHeightFraction, 0.7)
+        XCTAssertEqual(try pushUp(currentBuild: true).maximumWristHeightFraction, 0.64,
+                       "Current-build replay keeps this build's limit.")
+
+        try recordPushUp { entry in entry["maximumWristHeightFraction"] = nil }
+        XCTAssertNil(try pushUp().maximumWristHeightFraction, "An older recording ran without the wrist limit.")
+        XCTAssertEqual(try pushUp().maximumShoulderSpan, 0.32)
+    }
+
     func testPhaseLabelsParseBack() {
         let phases: [WorkoutPhase] = [.choosingExercise, .framing, .ready, .exercising, .paused(.user), .paused(.background),
                                       .paused(.interruption), .resting, .changingExercise(previous: .exercising),

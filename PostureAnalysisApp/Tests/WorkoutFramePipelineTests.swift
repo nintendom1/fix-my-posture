@@ -367,6 +367,29 @@ final class WorkoutFramePipelineTests: XCTestCase {
         XCTAssertTrue(fartherStatuses.contains { $0.isReliable && $0.guidance == nil })
     }
 
+    func testFloorPushUpWristRoomGuidanceFlowsThroughPipelineOnlyForPushUps() {
+        let points: [LandmarkType: CGPoint] = [
+            .leftShoulder: CGPoint(x: 637, y: 787), .rightShoulder: CGPoint(x: 443, y: 787),
+            .leftElbow: CGPoint(x: 637, y: 1090), .rightElbow: CGPoint(x: 443, y: 1090),
+            .leftWrist: CGPoint(x: 637, y: 1402), .rightWrist: CGPoint(x: 443, y: 1402)
+        ]
+        let pose = measurementFrame(points, at: 0)
+        var pushUpPipeline = WorkoutFramePipeline(exercise: PushUpExercise.definition())
+        var shoulderPressPipeline = WorkoutFramePipeline(exercise: ShoulderPressExercise.definition())
+
+        let pushUpStatus = pushUpPipeline.process(frame: pose, at: 0).events.compactMap { event -> FramingStatus? in
+            guard case .framingChanged(let status) = event else { return nil }
+            return status
+        }.last
+        let shoulderPressStatus = shoulderPressPipeline.process(frame: pose, at: 0).events.compactMap { event -> FramingStatus? in
+            guard case .framingChanged(let status) = event else { return nil }
+            return status
+        }.last
+
+        XCTAssertEqual(pushUpStatus?.guidance, .movePhoneFartherFloor)
+        XCTAssertNil(shoulderPressStatus?.guidance)
+    }
+
     func testLateralRaiseCalibratedGhostAndDumbbellsFitAtAcceptedSideRoomDistance() throws {
         let exercise = LateralRaiseExercise.definition()
         let imageSize = CGSize(width: 1080, height: 1920)

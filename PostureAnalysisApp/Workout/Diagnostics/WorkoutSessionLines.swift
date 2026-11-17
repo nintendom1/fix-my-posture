@@ -137,6 +137,7 @@ enum WorkoutSessionLines {
             ("headroomArmLengths", .number(exercise.headroomArmLengths)),
             ("sideroomArmLengths", .number(exercise.sideroomArmLengths)),
             ("maximumShoulderSpan", .number(exercise.maximumShoulderSpan)),
+            ("maximumWristHeightFraction", .number(exercise.maximumWristHeightFraction)),
             ("framing", .raw(ExerciseDiagnostics.json(ExerciseDiagnostics.effectiveFramingConfiguration(for: exercise)))),
             ("centersInFrame", .bool(exercise.centersInFrame)),
             ("perSide", .bool(exercise.perSide)),

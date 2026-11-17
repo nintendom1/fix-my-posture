@@ -716,10 +716,10 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - The summary and completion card list "Set 1 L", "Set 1 R", and so on.
 - [ ] **34.** Push-ups:
     - Lay the phone on the floor a long step in front of your hands, propped to lean back, and get into a plank facing it. No tilt warning appears.
-    - With the phone close enough that your shoulders fill about a third of the screen, the coach says "Move the phone farther from your hands…" and waits; moving it back clears the prompt.
+    - Keep your shoulders under about a quarter of the frame width and both hands high enough to leave room below for the descent. If either limit is exceeded, the coach says "Move the phone farther from your hands…" and waits; moving it back clears the prompt.
     - The ghost figure rises from your hands. Holding the plank fills the Hold ring.
     - Ten push-ups to the Down line count exactly 10. Shallow ones get "Go a little lower."
-    - With your hands at the bottom edge of the frame, reps still count.
+    - Keep both hands above the bottom edge of the frame so they stay visible through the descent.
     - A brief shoulder dropout at Down still counts once; a dropout during lowering, raising, or after moving the hands resets the attempt.
     - Dropping fast gets "Lower with control."
 - [ ] **35.** Wall Push-Up, side-on:
