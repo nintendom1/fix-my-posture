@@ -57,6 +57,9 @@ enum WorkoutCommand: Equatable {
     /// Done records it, and no remaining set is scheduled. Touch only (the Too hard offer's "Stop here"), and only
     /// outside a plan; a plan item skips its remaining sets with `nextExercise`.
     case stopItem
+    /// Drops a marker on the workout's recording, placed when its trigger was heard, with an optional dictated note.
+    /// Voice only, while recording; the coach records it, so the workout itself is unaffected.
+    case mark(note: String?, heardSecondsAgo: TimeInterval)
 }
 
 struct Utterance: Equatable {
@@ -502,7 +505,7 @@ struct WorkoutSession {
             return [.repeatLastInstruction]
         case .help:
             return [.speak(Utterance(text: helpText, isInstruction: false))]
-        case .closeHelp, .muteCoach, .tooHard:
+        case .closeHelp, .muteCoach, .tooHard, .mark:
             return []
         case .unmuteCoach:
             return [.speak(Utterance(text: "Coach voice on.", isInstruction: false))]

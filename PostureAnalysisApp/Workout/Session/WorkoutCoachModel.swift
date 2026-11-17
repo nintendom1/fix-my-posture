@@ -51,6 +51,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     /// The "Too hard?" offer during a set; nil when none is open. It never pauses or stops the set: it closes when the
     /// set ends, or when it is dismissed.
     private(set) var tooHardOffer: TooHardOfferState?
+    var isRecording: Bool { recordingHUD != nil }
     /// Shared with the saved history record, so a recording and its workout can be matched.
     let workoutID: UUID
 
@@ -293,6 +294,10 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         let phrase = source == .voice ? lastHeardPhrase : nil
         lastHeardPhrase = nil
         recorder?.recordEvent(.command(command, source: source, phrase: phrase), at: clock.now)
+        if case .mark(let note, let secondsAgo) = command {
+            dropMarker(WorkoutMarkerRequest(source: .voice, note: note, heardAt: clock.now - secondsAgo))
+            return
+        }
         switch command {
         case .help:
             presentHelp(true)
@@ -1084,6 +1089,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         guard recorder.isRecording else { return }
         framePipeline.collectsDiagnostics = true
         recordingHUD = WorkoutRecordingHUD(markerCount: 0, confirmation: nil)
+        voice?.acceptsMarkers = true
         recordState()
     }
 
@@ -1098,6 +1104,8 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
 
     private func endRecording(_ reason: WorkoutRecordingEnd) {
         guard let recorder, recorder.isRecording else { return }
+        // Markers interrupted by coach speech or listening teardown must reach the writer before it closes.
+        voice?.acceptsMarkers = false
         recordState()
         let now = Date()
         let saved = WorkoutRecord(session: session, startedAt: now, endedAt: now) != nil

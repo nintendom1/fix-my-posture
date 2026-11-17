@@ -1838,11 +1838,12 @@ private final class TooHardRecorder: AdaptiveEvidenceRecording {
 private final class TooHardScriptedRecognizer: SpeechRecognizing {
     var onTranscript: ((String, Bool) -> Void)?
     var onStateChanged: ((SpeechRecognizerState) -> Void)?
+    var onTaskStarted: (() -> Void)?
 
     func setContextualStrings(_ strings: [String]) {}
-    func start() {}
+    func start() { onTaskStarted?() }
     func stop() {}
-    func restartTask() {}
+    func restartTask() { onTaskStarted?() }
     func reconfigureInput() {}
     func rebuild() {}
 
