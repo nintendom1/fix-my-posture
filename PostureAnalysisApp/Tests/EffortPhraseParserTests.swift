@@ -264,12 +264,16 @@ private struct EveryPhraseIsPause: VoiceCommandParsing {
 private final class ScriptedRecognizer: SpeechRecognizing {
     var onTranscript: ((String, Bool) -> Void)?
     var onStateChanged: ((SpeechRecognizerState) -> Void)?
+    var onTaskStarted: (() -> Void)?
     private(set) var restartCount = 0
 
     func setContextualStrings(_ strings: [String]) {}
-    func start() {}
+    func start() { onTaskStarted?() }
     func stop() {}
-    func restartTask() { restartCount += 1 }
+    func restartTask() {
+        restartCount += 1
+        onTaskStarted?()
+    }
     func reconfigureInput() {}
     func rebuild() {}
 

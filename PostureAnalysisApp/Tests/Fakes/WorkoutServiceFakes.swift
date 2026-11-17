@@ -91,8 +91,12 @@ final class FakeSpeechCoach: SpeechCoaching {
 final class FakeSpeechRecognizer: SpeechRecognizing {
     var onTranscript: ((_ text: String, _ isFinal: Bool) -> Void)?
     var onStateChanged: ((SpeechRecognizerState) -> Void)?
+    var onTaskStarted: (() -> Void)?
     private(set) var contextualStrings: [String] = []
     private(set) var calls: [String] = []
+    private(set) var startCount = 0
+    private(set) var stopCount = 0
+    private(set) var restartCount = 0
     var reportsListeningOnStart = true
     var trace: WorkoutTraceRecorder?
 
@@ -101,20 +105,25 @@ final class FakeSpeechRecognizer: SpeechRecognizing {
     }
 
     func start() {
+        startCount += 1
         calls.append("start")
         trace?.record("recognizer start")
+        onTaskStarted?()
         if reportsListeningOnStart { onStateChanged?(.listening) }
     }
 
     func stop() {
+        stopCount += 1
         calls.append("stop")
         trace?.record("recognizer stop")
         onStateChanged?(.idle)
     }
 
     func restartTask() {
+        restartCount += 1
         calls.append("restartTask")
         trace?.record("recognizer restartTask")
+        onTaskStarted?()
     }
 
     func reconfigureInput() {
@@ -131,9 +140,26 @@ final class FakeSpeechRecognizer: SpeechRecognizing {
         onTranscript?(text, isFinal)
     }
 
+    func hear(_ text: String, final isFinal: Bool = false) {
+        transcribe(text, isFinal: isFinal)
+    }
+
+    /// Simulates the recognizer refreshing its request without a final transcript.
+    func rollOver() {
+        onTaskStarted?()
+    }
+
     func emit(_ state: SpeechRecognizerState) {
         onStateChanged?(state)
     }
+}
+
+@MainActor
+struct GrantedVoicePermissions: VoicePermissionProviding {
+    var microphone: VoicePermissionStatus { .granted }
+    var speechRecognition: VoicePermissionStatus { .granted }
+    func requestMicrophone(_ completion: @escaping @MainActor (Bool) -> Void) { completion(true) }
+    func requestSpeechRecognition(_ completion: @escaping @MainActor (Bool) -> Void) { completion(true) }
 }
 
 @MainActor

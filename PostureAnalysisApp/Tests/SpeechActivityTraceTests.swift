@@ -340,14 +340,6 @@ private struct ModelAudioSubject {
     }
 }
 
-@MainActor
-private struct GrantedVoicePermissions: VoicePermissionProviding {
-    var microphone: VoicePermissionStatus { .granted }
-    var speechRecognition: VoicePermissionStatus { .granted }
-    func requestMicrophone(_ completion: @escaping @MainActor (Bool) -> Void) { completion(true) }
-    func requestSpeechRecognition(_ completion: @escaping @MainActor (Bool) -> Void) { completion(true) }
-}
-
 private final class TraceAudioSessioning: AudioSessioning {
     private(set) var category = AVAudioSession.Category.playback.rawValue
     private(set) var mode = AVAudioSession.Mode.default.rawValue
