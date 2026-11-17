@@ -93,12 +93,15 @@ test("overview, query, and events read the recording", async () => {
 
 test("overview lists bridged gaps separately and events classifies them as info", async () => {
   const items = records().map((record) => structuredClone(record));
+  items[0].exercises.push_up.framing = { ...items[0].framing, unreliableAfter: 0.8 };
   const frame = items.find((record) => record.k === "f" && record.t === 9);
   assert.ok(frame, "the synthetic recording has a frame at the bridge time");
   frame.info = [{ level: "info", type: "bottomDropoutBridged", ts: frame.ts, seconds: 0.5, maximum: 0.8 }];
   const { call, stop } = await start({ recordingText: arrayText(items) });
   try {
     const overview = await call("fmp_session_overview", { session: ID.slice(0, 8) });
+    assert.match(overview.text, /Framing needs .* unreliable after 0\.8 s missing/);
+    assert.match(overview.text, /^- push_up \(floor\).*framing drops after 0\.8 s missing$/m);
     assert.match(overview.text, /Bridged gaps \(1\)\n- 0:09\.0 Bottom dropout bridged: 0\.50 s \(limit 0\.80 s\)/);
     assert.match(overview.text, /Other issues \(0\)\nnone/);
 

@@ -296,15 +296,18 @@ async function overview(id) {
   lines.push(`FMP recording ${s.id} · ${s.title} · ${header.startedAt ?? "?"} · ${durationLabel(s.duration)} · ${s.frames.length} frames`
     + `${s.end?.seqGaps ? ` (${s.end.seqGaps} more never reached the coach)` : ""} · ${s.isComplete ? `ended: ${s.end.reason}` : "incomplete"}`);
   lines.push(`Device: ${header.device?.model ?? "?"} iOS ${header.device?.os ?? "?"} · app ${header.app?.version ?? "?"} (${header.app?.build ?? "?"}, ${header.app?.configuration ?? "?"})`);
-  const framing = header.framing ?? {};
+  const firstExerciseID = s.exerciseIDAt(0);
+  const framing = s.framingFor(firstExerciseID);
   lines.push(`Framing needs required joints ≥${framing.minimumConfidence ?? 0.4} for ${framing.reliableAfter ?? 0.6} s; unreliable after ${framing.unreliableAfter ?? 0.3} s missing; joints under ${header.confidenceFloor ?? 0.3} are dropped.`);
   lines.push("", "Exercises");
   for (const exerciseID of [...new Set(s.exerciseSpans.map((span) => span.label))]) {
     const exercise = s.exercises[exerciseID] ?? {};
     const spans = s.exerciseSpans.filter((span) => span.label === exerciseID).map((span) => `${clock(span.start)}–${clock(span.end)}`).join(", ");
     const anyOf = (exercise.anyOfRequired ?? []).map((set) => set.map(shortJoint).join(" "));
+    const exerciseFraming = s.framingFor(exerciseID);
     lines.push(`- ${exerciseID} (${exercise.cameraView ?? "?"}) ${spans}: required ${(exercise.required ?? []).map(shortJoint).join(" ") || "none"}`
-      + `${anyOf.length ? ` or one of [${anyOf.join("] [")}]` : ""}; focus ${(exercise.focus ?? []).map(shortJoint).join(" ")}`);
+      + `${anyOf.length ? ` or one of [${anyOf.join("] [")}]` : ""}; focus ${(exercise.focus ?? []).map(shortJoint).join(" ")}`
+      + (exercise.framing ? `; framing drops after ${exerciseFraming.unreliableAfter ?? 0.3} s missing` : ""));
     if (exercise.configuration) {
       lines.push(`  tuning: ${Object.keys(exercise.configuration).sort().map((key) => `${key}=${exercise.configuration[key]}`).join(" ")}`);
     }

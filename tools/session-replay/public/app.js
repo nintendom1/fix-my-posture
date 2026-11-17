@@ -171,6 +171,9 @@ function buildTimeline() {
   $("framingLane").innerHTML = views.framingLane(session);
   $("repLane").innerHTML = views.repLane(session);
   $("issueLane").innerHTML = views.issueLane(session);
+  const hasInfoEvents = session.infoEvents.length > 0;
+  $("infoLabel").hidden = !hasInfoEvents;
+  $("infoLane").hidden = !hasInfoEvents;
   $("infoLane").innerHTML = views.infoLane(session);
   const charts = views.charts(session, state.series.sampled, state.series.signalRange);
   $("signalChart").innerHTML = charts.signal;

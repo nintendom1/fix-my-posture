@@ -239,8 +239,9 @@ enum WorkoutRecordingReport {
             let anyOf = (definition["anyOfRequired"] as? [[String]] ?? []).map { $0.map(Self.short).joined(separator: " ") }
             var line = "Exercise \(id) (\(definition["cameraView"] as? String ?? "?")): required \(required.isEmpty ? "none" : required)"
             if !anyOf.isEmpty { line += "; or all of one of [\(anyOf.joined(separator: "] ["))]" }
-            let exerciseFraming = definition["framing"] as? [String: Any] ?? sessionFraming
-            line += "; framing drops after \(number(exerciseFraming["unreliableAfter"] ?? sessionFraming["unreliableAfter"] ?? 0.3)) s missing"
+            if let exerciseFraming = definition["framing"] as? [String: Any] {
+                line += "; framing drops after \(number(exerciseFraming["unreliableAfter"] ?? sessionFraming["unreliableAfter"] ?? 0.3)) s missing"
+            }
             lines.append(line)
             if let configuration = definition["configuration"] as? [String: Any] {
                 lines.append("  tuning: " + configuration.keys.sorted().map { "\($0)=\(number(configuration[$0] ?? ""))" }

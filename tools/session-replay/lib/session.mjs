@@ -291,6 +291,11 @@ export class Session {
     return (this.exerciseSpans[index] ?? this.exerciseSpans[0])?.label ?? null;
   }
   exerciseAt(t) { return this.exercises[this.exerciseIDAt(t)] ?? null; }
+  /** The exercise framing recorded with the exercise, falling back to session framing for legacy recordings. */
+  framingFor(exerciseID) {
+    const exercise = this.exercises[exerciseID] ?? {};
+    return { ...(this.header.framing ?? {}), ...(exercise.framing ?? {}) };
+  }
 
   /** The exercise's focus joints in joint order, or every joint. */
   focusJoints(t) {
@@ -455,9 +460,7 @@ export function renderExcerpt(session, { from = 0, to = session.duration, option
   lines.push(`# FMP replay excerpt · ${name}${started ? ` · ${started}` : ""}`);
   lines.push(`Recording ${session.id} · window ${clock(from)}–${clock(to)} (${(to - from).toFixed(1)} s) · `
     + (options.rate ? `${options.rate} Hz` : "events only") + ` · ${options.label ?? "custom"}`);
-  const sessionFraming = session.header.framing ?? {};
-  const exerciseAtWindowStart = session.exercises[session.exerciseIDAt(from)] ?? {};
-  const framing = { ...sessionFraming, ...(exerciseAtWindowStart.framing ?? {}) };
+  const framing = session.framingFor(session.exerciseIDAt(from));
   lines.push(`Joints are unmirrored image pixels (${session.imageSize.join("×")}, origin top-left). `
     + `Framing needs required joints at ≥${framing.minimumConfidence ?? 0.4} for ${framing.reliableAfter ?? 0.6} s and drops `
     + `after ${framing.unreliableAfter ?? 0.3} s missing; joints under ${session.header.confidenceFloor ?? 0.3} are dropped before analysis.`);
@@ -482,11 +485,11 @@ export function renderExcerpt(session, { from = 0, to = session.duration, option
     lines.push("", "## Exercise");
     for (const id of exerciseIDs) {
       const exercise = session.exercises[id] ?? {};
-      const exerciseFraming = { ...sessionFraming, ...(exercise.framing ?? {}) };
+      const exerciseFraming = session.framingFor(id);
       const required = (exercise.required ?? []).map(shortJoint).join(" ") || "none";
       const anyOf = (exercise.anyOfRequired ?? []).map((set) => set.map(shortJoint).join(" "));
       lines.push(`${id} (${exercise.cameraView ?? "?"}): required ${required}${anyOf.length ? `; or one of [${anyOf.join("] [")}]` : ""}`
-        + `; framing drops after ${exerciseFraming.unreliableAfter ?? 0.3} s missing`);
+        + (exercise.framing ? `; framing drops after ${exerciseFraming.unreliableAfter ?? 0.3} s missing` : ""));
       if (options.tuning && exercise.configuration) {
         lines.push("tuning: " + Object.keys(exercise.configuration).sort()
           .map((key) => `${key}=${exercise.configuration[key]}`).join(" "));

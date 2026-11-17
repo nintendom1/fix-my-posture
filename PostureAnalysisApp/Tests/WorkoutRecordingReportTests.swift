@@ -69,7 +69,7 @@ final class WorkoutRecordingReportTests: XCTestCase {
         XCTAssertTrue(report.contains("≥0.4 for 0.6 s"), report)
         XCTAssertTrue(report.contains("drops after 0.3 s"), report)
         XCTAssertTrue(report.contains("Exercise push_up (floor): required LS RS"))
-        XCTAssertTrue(report.contains("framing drops after 0.3 s missing"), report)
+        XCTAssertTrue(report.contains("Exercise push_up (floor): required LS RS\n"), report)
         XCTAssertTrue(report.contains("  tuning: downMaxRatio=0.5 upMinRatio=0.8"))
     }
 

@@ -92,7 +92,7 @@ test("an excerpt has the window, notes, tuning, events, and a frame table", () =
   assert.ok(estimateTokens(text) > 100 && estimateTokens(text) < 2000);
 });
 
-test("bridged bottom gaps are informational and excerpts use exercise framing with legacy fallback", () => {
+test("bridged bottom gaps are informational and legacy excerpts keep their previous output", () => {
   const items = records().map((record) => structuredClone(record));
   items[0].exercises.push_up.framing = { ...items[0].framing, unreliableAfter: 0.8 };
   const frame = items.find((record) => record.k === "f" && record.t === 9);
@@ -109,8 +109,21 @@ test("bridged bottom gaps are informational and excerpts use exercise framing wi
 
   const legacy = Session.fromText(arrayText());
   const legacyExcerpt = renderExcerpt(legacy, { from: 8.5, to: 9.5, options: PRESETS.flow });
-  assert.match(legacyExcerpt, /drops after 0\.3 s missing/);
-  assert.doesNotMatch(legacyExcerpt, /Bottom dropout bridged/);
+  assert.equal(legacyExcerpt, [
+    "# FMP replay excerpt · Push-Up · 2027-01-15 08:00",
+    "Recording 599FCD69-CD80-4E21-978B-CDEA95DD23FC · window 0:08.5–0:09.5 (1.0 s) · events only · Session flow",
+    "Joints are unmirrored image pixels (1080×1920, origin top-left). Framing needs required joints at ≥0.4 for 0.6 s and drops after 0.3 s missing; joints under 0.3 are dropped before analysis.",
+    "",
+    "## Exercise",
+    "push_up (floor): required LS RS",
+    "",
+    "## State at the window start",
+    "phase exercising · exercise push_up · set 1 · reps 0 · counting off · framing lost",
+    "",
+    "## Events (2)",
+    "0:08.6 Coach says — “I can't see you.”",
+    "0:09.4 Tracking reliable",
+  ].join("\n") + "\n", "legacy output matches d2263e3");
   assert.equal(legacy.infoEvents.length, 0);
 });
 
