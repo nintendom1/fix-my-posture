@@ -497,13 +497,20 @@ The tip is measured on one line (up to 320 pt) and as a compact, wrapped tip (up
 - Ducking only takes effect when the session activates, and other audio only returns when it deactivates. So before speaking, listening stops, the session is cycled with `.duckOthers`, and the coach speaks. When the queue drains, `endDucking()` deactivates with `.notifyOthersOnDeactivation`, restores the non-ducking category, and re-activates for listening. It retries briefly if deactivation reports busy.
 - `endDucking()` is idempotent and runs on every exit path: speech finished or cancelled, the watchdog, activation errors, interruptions, backgrounding, leaving the screen, and ending the workout. If the app crashes, iOS releases its audio session, which restores other audio.
 
-## Dormant and internal workout observation
+## Workout observation and adaptive persona delivery
 
-**Dormant and internal:** `WorkoutObserving` is a read-only, nonthrowing seam for downstream presentation. Its
-callbacks receive value types only, including a value identifying a newly opened Too Hard, effort, or bonus offer.
-`WorkoutCoachFactory` explicitly passes no observer, and production attaches none. **Dormant and internal:**
-`WorkoutPresentationEvent` values and `WorkoutPresentationMapper` map the same observer stream to semantic events;
-production has no mapper consumer.
+`WorkoutObserving` remains a read-only, nonthrowing seam for workout-model presentation callbacks. Its callbacks receive
+value types only, including a value identifying a newly opened Too Hard, effort, or bonus offer. `WorkoutCoachFactory`
+still passes no observer to `WorkoutCoachModel`; `WorkoutPresentationEvent` and `WorkoutPresentationMapper` remain
+dormant internal presentation tools.
+
+Adaptive engine events use the same protocol's `adaptiveEventsDidOccur` callback through a separate production
+connection: `AppEnvironment` attaches `WorkoutReminderCoordinator` as `AdaptiveTrainingCoordinator`'s observer.
+Calibration and recalibration events enter the persona planner immediately. Workout-bound events wait for a successful
+history save and are correlated by their event time within the saved record's start/end interval. The live
+`tinySessionPrescribed` event may precede the saved Today's Session start by up to five seconds. The reminder
+coordinator evaluates adaptive and saved-workout observations together at the existing acknowledgment step;
+unmatched buffered events are dropped at save and never schedule during a workout.
 
 Callbacks run after their production action. Speech and repeat callbacks follow the speech call. Tip callbacks follow
 the tip state update and expiry scheduling; offer callbacks follow opening the offer and updating voice routing.

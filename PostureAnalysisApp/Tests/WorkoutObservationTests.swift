@@ -267,11 +267,16 @@ final class WorkoutObservationTests: XCTestCase {
 
         let beforeProbe = observer.calls.filter { if case .saved = $0 { return true }; return false }
         let probeHistory = ObservationHistoryRepository(order: WorkoutObservationActionLog())
+        var didCaptureEndTime = false
         _ = WorkoutCoachHistory.save(
-            session: harness.model.session, startedAt: Self.date(0), endedAt: Self.date(10),
+            session: harness.model.session, startedAt: Self.date(0), endedAt: {
+                didCaptureEndTime = true
+                return Self.date(10)
+            },
             workoutID: harness.model.workoutID, savesHistory: false, history: probeHistory,
             preferences: InMemoryPreferences(), reminders: nil, notifying: harness.model
         )
+        XCTAssertTrue(didCaptureEndTime)
         XCTAssertTrue(probeHistory.records.isEmpty)
         XCTAssertEqual(observer.calls.filter { if case .saved = $0 { return true }; return false }, beforeProbe)
 
@@ -346,6 +351,56 @@ final class WorkoutObservationTests: XCTestCase {
         XCTAssertLessThan(sessionCompleted, effortEasy)
         XCTAssertLessThan(effortEasy, bonusOffered)
         XCTAssertLessThan(bonusOffered, bonusAccepted)
+    }
+
+    func testCloseWithAnOpenEffortCardFinalizesBeforeSaveAndUsesOneAcknowledgment() async throws {
+        let rig = try makeCloseDeliveryRig()
+        rig.harness.model.onAppear(isApplicationActive: true)
+        rig.harness.model.send(.start)
+        rig.harness.model.send(.nextSet)
+        XCTAssertNotNil(rig.harness.model.effortCard)
+
+        let scheduled = expectation(description: "single acknowledgment after close")
+        rig.scheduler.onScheduleAcknowledgment = { scheduled.fulfill() }
+        let record = try XCTUnwrap(saveAsViewDoesBeforeClosing(rig))
+        rig.harness.model.send(.closeWorkout)
+        await fulfillment(of: [scheduled], timeout: 2)
+
+        XCTAssertEqual(rig.history.records.count, 1)
+        XCTAssertEqual(rig.scheduler.acknowledgmentHistory.count, 1)
+        XCTAssertEqual(rig.scheduler.acknowledgments.count, 1)
+        XCTAssertTrue(rig.scheduler.immediatePersonaRequests.isEmpty)
+        XCTAssertEqual(rig.scheduler.acknowledgments.first?.title, "Title adaptive.sessionCompleted")
+        let traces = rig.traces.state.sent + rig.traces.state.suppressed
+        let completion = try XCTUnwrap(traces.first { $0.observation.contentKey == "adaptive.sessionCompleted" })
+        XCTAssertEqual(completion.delivery, .foldedReplace)
+        XCTAssertEqual(record.endedAt, rig.endedAt)
+    }
+
+    func testCloseWithAPendingBonusFinalizesBeforeSaveAndUsesOneAcknowledgment() async throws {
+        let rig = try makeCloseDeliveryRig()
+        rig.harness.model.onAppear(isApplicationActive: true)
+        rig.harness.model.send(.start)
+        rig.harness.model.send(.nextSet)
+        rig.harness.model.rateEffort(.easy)
+        XCTAssertNotNil(rig.harness.model.bonusOffer)
+
+        let scheduled = expectation(description: "single acknowledgment after close")
+        rig.scheduler.onScheduleAcknowledgment = { scheduled.fulfill() }
+        let record = try XCTUnwrap(saveAsViewDoesBeforeClosing(rig))
+        rig.harness.model.send(.closeWorkout)
+        await fulfillment(of: [scheduled], timeout: 2)
+
+        XCTAssertEqual(rig.history.records.count, 1)
+        XCTAssertEqual(rig.scheduler.acknowledgmentHistory.count, 1)
+        XCTAssertEqual(rig.scheduler.acknowledgments.count, 1)
+        XCTAssertTrue(rig.scheduler.immediatePersonaRequests.isEmpty)
+        XCTAssertEqual(rig.scheduler.acknowledgments.first?.title, "Title adaptive.bonusDeclined")
+        let traces = rig.traces.state.sent + rig.traces.state.suppressed
+        let declined = try XCTUnwrap(traces.first { $0.observation.contentKey == "adaptive.bonusDeclined" })
+        XCTAssertEqual(declined.delivery, .foldedReplace)
+        XCTAssertTrue(traces.contains { $0.observation.contentKey == "adaptive.sessionCompleted" })
+        XCTAssertEqual(record.endedAt, rig.endedAt)
     }
 
 #if DEBUG
@@ -431,6 +486,106 @@ final class WorkoutObservationTests: XCTestCase {
     private static func uuid(_ value: UInt8) -> UUID {
         UUID(uuid: (0, 0, 0, 0, 0, 0, 0x40, 0, 0x80, 0, 0, 0, 0, 0, 0, value))
     }
+
+    private func makeCloseDeliveryRig() throws -> CloseDeliveryRig {
+        let exercise = Self.reportedExercise(sets: 1)
+        let start = Date(timeIntervalSince1970: 900)
+        let evidenceDate = Date(timeIntervalSince1970: 1_000)
+        let endedAt = evidenceDate.addingTimeInterval(1)
+        let history = CloseDeliveryHistory()
+        let preferences = InMemoryPreferences()
+        var settings = PersonaFixtures.reminderSettings
+        settings.hour = 18
+        preferences.workoutReminderSettings = settings
+        preferences.extraPersonableEnabled = true
+
+        let scheduler = MemoryWorkoutReminderScheduler()
+        let traces = MemoryPersonaTraceStore()
+        let personaCatalog = PersonaFixtures.catalog(
+            keys: PersonaFixtures.contentKeys + AdaptiveEventDetector.contentKeys
+        )
+        let reminders = WorkoutReminderCoordinator(
+            preferences: preferences, routines: nil, workoutHistory: history,
+            exerciseCatalog: LiveExerciseCatalog(), router: AppRouter(), scheduler: scheduler,
+            scenarioCatalog: try NotificationScenarioCatalog.bundled(), now: { endedAt },
+            calendar: PersonaFixtures.calendar, personaCatalog: personaCatalog, personaTraces: traces,
+            isAppActive: { true }
+        )
+
+        let variant = VariantID(rawValue: "push.close_integration_press")
+        let ladders = ProgressionCatalog(version: "close-integration-1", families: [
+            MovementFamily(id: .push, debugName: "Close integration", rungs: [
+                ProgressionRung(id: variant, exerciseID: exercise.id.rawValue,
+                                doseRange: .reps(1...5), isFloor: true),
+            ]),
+        ])
+        let exerciseCatalog = CloseExerciseCatalog(exercises: [exercise])
+        let bridge = ExerciseVariantBridge(exercises: exerciseCatalog, ladders: ladders)
+        let calibrationDate = Date(timeIntervalSince1970: 500)
+        let calibration = CalibrationSessionRecord(
+            id: Self.uuid(1), kind: .initial, startedAt: calibrationDate, endedAt: calibrationDate,
+            status: .committed, families: [.push], equipment: [],
+            startingPoints: [CalibrationStart(family: .push, start: RungDose(variant: variant, dose: .reps(1)))]
+        )
+        let store = InMemoryAdaptiveTrainingStore(facts: AdaptiveFacts(calibrations: [calibration]))
+        let engine = AdaptiveTrainingEngine(
+            store: store, builtExerciseIDs: bridge.availability(equipment: []).builtExerciseIDs,
+            calendar: PersonaFixtures.calendar, catalog: ladders
+        )
+        let adaptive = AdaptiveTrainingCoordinator(engine: engine, bridge: bridge, observer: reminders)
+        let launch = try XCTUnwrap(adaptive.start(asOf: start))
+        let harness = WorkoutCoachHarness.make(
+            preferences: preferences, exercises: [exercise], initialExercise: exercise.id,
+            plan: launch.plan, adaptive: adaptive, todayLaunch: launch
+        )
+        return CloseDeliveryRig(
+            harness: harness, store: store, scheduler: scheduler, traces: traces, history: history,
+            reminders: reminders, preferences: preferences, startedAt: start, endedAt: endedAt
+        )
+    }
+
+    /// This is the lazy save path used by the view: evidence must exist before it captures `endedAt`.
+    private func saveAsViewDoesBeforeClosing(_ rig: CloseDeliveryRig) -> WorkoutRecord? {
+        WorkoutCoachHistory.save(
+            session: rig.harness.model.session, startedAt: rig.startedAt,
+            endedAt: {
+                XCTAssertEqual(rig.store.facts.evidence.count, 1, "close evidence is finalized before end-time capture")
+                return rig.endedAt
+            },
+            workoutID: rig.harness.model.workoutID, savesHistory: true, history: rig.history,
+            preferences: rig.preferences, reminders: rig.reminders, notifying: rig.harness.model
+        )
+    }
+}
+
+@MainActor
+private struct CloseDeliveryRig {
+    let harness: WorkoutCoachHarness
+    let store: InMemoryAdaptiveTrainingStore
+    let scheduler: MemoryWorkoutReminderScheduler
+    let traces: MemoryPersonaTraceStore
+    let history: CloseDeliveryHistory
+    let reminders: WorkoutReminderCoordinator
+    let preferences: InMemoryPreferences
+    let startedAt: Date
+    let endedAt: Date
+}
+
+@MainActor
+private struct CloseExerciseCatalog: ExerciseCatalogProviding {
+    let exercises: [ExerciseDefinition]
+    var all: [ExerciseDefinition] { exercises }
+    func exercise(_ id: ExerciseID) -> ExerciseDefinition? { exercises.first { $0.id == id } }
+}
+
+@MainActor
+private final class CloseDeliveryHistory: WorkoutHistoryRepository {
+    private(set) var records: [WorkoutRecord] = []
+
+    func list() throws -> [WorkoutRecord] { records }
+    func save(_ record: WorkoutRecord) throws { records.append(record) }
+    func updateWeights(for record: WorkoutRecord) throws { }
+    func delete(id: UUID) throws { records.removeAll { $0.id == id } }
 }
 
 @MainActor

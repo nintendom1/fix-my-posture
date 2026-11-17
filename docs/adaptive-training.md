@@ -224,10 +224,14 @@ either `bonusAccepted` or `bonusDeclined`. A transition after absence produces `
 The engine's `record`, `save`, `commit`, `abandon`, `removeFamily`, and `changeEquipment` return the events derived for
 their fact. `AdaptiveTrainingCoordinator` forwards each nonempty result, in engine order, to its optional
 `WorkoutObserving` observer after the successful operation; after a successful tiny-session issue it forwards the
-single live `tinySessionPrescribed` event as well. **Dormant and internal:** production attaches no observer, so
-nothing in the app reacts to these events yet. Replay-derived events appear in the developer snapshot and export (see
-[Debug view and export](#debug-view-and-export)); the live tiny-session event does not.
-Persona and notification reactions are planned in #112 (Persona Reactions for Adaptive Training Events).
+single live `tinySessionPrescribed` event as well. In production, `AppEnvironment` attaches
+`WorkoutReminderCoordinator` as this observer. Calibration and recalibration events go through the immediate persona
+planner gate. Workout-bound events are held for the existing post-save acknowledgment and evaluated only when their
+timestamps correlate with the saved record: evidence events fall inside its start/end interval, while a tiny-session
+prescription may precede the start by up to five seconds and must match a Today's Session plan. Unmatched buffered
+events are discarded when a workout is saved; events from a workout with no matching save are never evaluated.
+Replay-derived events appear in the developer snapshot and export (see [Debug view and export](#debug-view-and-export));
+the live tiny-session event does not. Persona wording and delivery cannot change adaptive state.
 
 ### Cache
 

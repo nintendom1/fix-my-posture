@@ -262,19 +262,30 @@ struct PersonaHistory: Equatable {
 enum PersonaTrigger: Equatable {
     /// A workout was just saved; trigger-dependent kinds (PRs, comeback, milestones) are evaluated.
     case workoutSaved(WorkoutRecord)
+    /// Adaptive workout events correlated with the saved record; both saved-record and adaptive detectors run.
+    case workoutSavedWithAdaptiveEvents(WorkoutRecord, [AdaptiveEvent])
     /// Adaptive package events are evaluated through the same immediate planner gates.
     case adaptiveEvents([AdaptiveEvent])
     /// App launch, activation, or a settings or routine change.
     case reconcile
 
     var savedRecord: WorkoutRecord? {
-        if case .workoutSaved(let record) = self { return record }
-        return nil
+        switch self {
+        case .workoutSaved(let record), .workoutSavedWithAdaptiveEvents(let record, _): record
+        case .adaptiveEvents, .reconcile: nil
+        }
+    }
+
+    var adaptiveEventBatch: [AdaptiveEvent] {
+        switch self {
+        case .adaptiveEvents(let events), .workoutSavedWithAdaptiveEvents(_, let events): events
+        case .workoutSaved, .reconcile: []
+        }
     }
 
     var shouldEvaluateImmediately: Bool {
         switch self {
-        case .workoutSaved(_):
+        case .workoutSaved(_), .workoutSavedWithAdaptiveEvents(_, _):
             true
         case .adaptiveEvents(let events):
             events.contains { $0.kind != .returnedAfterAbsence }
