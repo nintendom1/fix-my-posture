@@ -1,7 +1,6 @@
 import AVFoundation
 import Foundation
 
-@MainActor
 protocol AudioSessioning: AnyObject {
     var outputs: [String] { get }
     var inputs: [String] { get }
@@ -15,7 +14,6 @@ protocol AudioSessioning: AnyObject {
     func setActive(_ active: Bool, options: AVAudioSession.SetActiveOptions) throws
 }
 
-@MainActor
 private final class SystemAudioSession: AudioSessioning {
     private let session: AVAudioSession
 
@@ -45,7 +43,16 @@ private final class SystemAudioSession: AudioSessioning {
 enum WorkoutAudioNotificationTranslator {
     static func routeEvents(userInfo: [AnyHashable: Any], outputs: [String],
                             inputs: [String]) -> [AudioSessionEvent] {
-        guard let reason = integer(userInfo[AVAudioSessionRouteChangeReasonKey]), reason >= 0 else { return [] }
+        routeEvents(reason: routeReason(userInfo: userInfo), outputs: outputs, inputs: inputs)
+    }
+
+    static func routeReason(userInfo: [AnyHashable: Any]) -> Int? {
+        guard let reason = integer(userInfo[AVAudioSessionRouteChangeReasonKey]), reason >= 0 else { return nil }
+        return reason
+    }
+
+    static func routeEvents(reason: Int?, outputs: [String], inputs: [String]) -> [AudioSessionEvent] {
+        guard let reason, reason >= 0 else { return [] }
         var events: [AudioSessionEvent] = [
             .routeDiagnostic(reason: reason, outputs: outputs, inputs: inputs)
         ]
@@ -105,54 +112,313 @@ enum WorkoutAudioNotificationTranslator {
 final class WorkoutAudioSession: AudioSessionControlling {
     typealias Event = AudioSessionEvent
 
-    private let session: any AudioSessioning
+    private let worker: WorkoutAudioSessionWorker
     private var observers: [NSObjectProtocol] = []
     private(set) var isDucking = false
     private(set) var isActive = false
     private(set) var isRecordingEnabled = false
-    /// Re-activate after speech so the microphone keeps listening.
-    private var keepsActive = false
+    /// Intent is tracked separately because a queued session operation has not completed yet.
+    private var requestedDucking = false
+    private var duckingGeneration = 0
     var onEvent: ((Event) -> Void)?
-    private var restoreAttempt = 0
     private let timing: AudioWorkTiming?
+    private var pendingOperations: [PendingOperation] = []
+    private var isProcessingOperation = false
 
     /// Deactivation can report busy while the synthesizer releases output; retry briefly so other
     /// audio is never left lowered.
-    static let restoreRetryDelay: TimeInterval = 0.25
-    static let maximumRestoreAttempts = 4
+    static let restoreRetryDelay = AudioSessionRestorePolicy.retryDelay
+    static let maximumRestoreAttempts = AudioSessionRestorePolicy.maximumAttempts
 
     init(timing: AudioWorkTiming? = nil, session: (any AudioSessioning)? = nil) {
         self.timing = timing
-        self.session = session ?? SystemAudioSession()
+        worker = WorkoutAudioSessionWorker(session: session ?? SystemAudioSession())
         observe(AVAudioSession.interruptionNotification) { [weak self] notification in
             guard let self,
                   let events = WorkoutAudioNotificationTranslator.interruptionEvents(
                     userInfo: notification.userInfo ?? [:]) else { return }
-            if events.contains(.interruptionBegan) {
-                // The system already deactivated the session; just forget the ducked state.
+            let interruptionBegan = events.contains(.interruptionBegan)
+            if interruptionBegan {
+                // The system already deactivated the session; queue the matching state transition.
                 self.isDucking = false
                 self.isActive = false
+                self.requestedDucking = false
+                self.duckingGeneration += 1
             }
-            events.forEach { self.onEvent?($0) }
+            self.enqueue(.interruption(events: events, began: interruptionBegan))
         }
         observe(AVAudioSession.routeChangeNotification) { [weak self] notification in
             guard let self else { return }
-            let events = WorkoutAudioNotificationTranslator.routeEvents(
-                userInfo: notification.userInfo ?? [:], outputs: self.session.outputs, inputs: self.session.inputs)
-            // Our own category changes also post route changes; only device changes matter here.
-            events.forEach { self.onEvent?($0) }
+            let reason = WorkoutAudioNotificationTranslator.routeReason(userInfo: notification.userInfo ?? [:])
+            self.enqueue(.routeChange(reason: reason))
         }
         observe(AVAudioSession.mediaServicesWereResetNotification) { [weak self] _ in
             guard let self else { return }
             self.isDucking = false
             self.isActive = false
-            self.configureBaseCategory()
-            self.onEvent?(.mediaServicesReset)
+            self.requestedDucking = false
+            self.duckingGeneration += 1
+            self.enqueue(.mediaServicesWereReset(recordingEnabled: self.isRecordingEnabled))
         }
     }
 
     deinit {
         observers.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
+    /// Sets the non-ducking category without activating, so nothing is interrupted.
+    func configureBaseCategory() {
+        enqueue(.configureBaseCategory(recordingEnabled: isRecordingEnabled))
+    }
+
+    func setRecordingEnabled(_ enabled: Bool) {
+        guard enabled != isRecordingEnabled else { return }
+        isRecordingEnabled = enabled
+        enqueue(.setRecordingEnabled(enabled))
+    }
+
+    /// Compatibility entry point. Production callers use the completion form so recognition starts
+    /// only after the background session activation has finished.
+    func activateForListening() -> Bool {
+        activateForListening { _ in }
+        return true
+    }
+
+    func activateForListening(completion: @escaping @MainActor (Bool) -> Void) {
+        enqueue(.activateForListening) { result in completion(result.activationSucceeded ?? false) }
+    }
+
+    /// Stops keeping the session active for the microphone and releases it unless the coach is speaking.
+    func stopListening() {
+        enqueue(.stopListening)
+    }
+
+    /// Lowers other audio. Listening must already be stopped. Speech starts after the request completes.
+    func beginDucking() {
+        requestBeginDucking(completion: nil)
+    }
+
+    func beginDucking(completion: @escaping @MainActor () -> Void) {
+        requestBeginDucking(completion: completion)
+    }
+
+    private func requestBeginDucking(completion: (@MainActor () -> Void)?) {
+        if requestedDucking {
+            if let completion { enqueue(.barrier) { _ in completion() } }
+            return
+        }
+        requestedDucking = true
+        duckingGeneration += 1
+        enqueue(.beginDucking, duckingGeneration: duckingGeneration) { _ in completion?() }
+    }
+
+    /// Restores other audio, then re-activates for listening if needed. Idempotent; safe from every
+    /// completion, error, and teardown path.
+    func endDucking() {
+        requestEndDucking(completion: nil)
+    }
+
+    func endDucking(completion: @escaping @MainActor () -> Void) {
+        requestEndDucking(completion: completion)
+    }
+
+    private func requestEndDucking(completion: (@MainActor () -> Void)?) {
+        guard requestedDucking else {
+            if let completion { enqueue(.barrier) { _ in completion() } }
+            return
+        }
+        requestedDucking = false
+        duckingGeneration += 1
+        enqueue(.endDucking, duckingGeneration: duckingGeneration) { _ in completion?() }
+    }
+
+    /// Ends ducking and releases the session when leaving the workout.
+    func deactivate() {
+        requestedDucking = false
+        duckingGeneration += 1
+        enqueue(.deactivate, duckingGeneration: duckingGeneration)
+    }
+
+    func deactivate(completion: @escaping @MainActor () -> Void) {
+        requestedDucking = false
+        duckingGeneration += 1
+        enqueue(.deactivate, duckingGeneration: duckingGeneration) { _ in completion() }
+    }
+
+    /// Waits until all session requests made before this call have completed.
+    func waitForPendingSessionWork() async {
+        await withCheckedContinuation { continuation in
+            enqueue(.barrier) { _ in continuation.resume() }
+        }
+    }
+
+    private func enqueue(_ command: AudioSessionCommand,
+                         duckingGeneration operationGeneration: Int? = nil,
+                         completion: (@MainActor (AudioSessionWorkerResult) -> Void)? = nil) {
+        pendingOperations.append(PendingOperation(command: command, duckingGeneration: operationGeneration,
+                                                   completion: completion))
+        processNextOperation()
+    }
+
+    private func processNextOperation() {
+        guard !isProcessingOperation, !pendingOperations.isEmpty else { return }
+        isProcessingOperation = true
+        let operation = pendingOperations.removeFirst()
+        Task { [self] in
+            let result = await worker.perform(operation.command)
+            self.isDucking = result.isDucking
+            self.isActive = result.isActive
+            if let operationGeneration = operation.duckingGeneration,
+               operationGeneration == self.duckingGeneration {
+                self.requestedDucking = result.isDucking
+            }
+            result.measurements.forEach {
+                self.timing?.record($0.step, duration: $0.duration, executionContext: $0.executionContext)
+            }
+            result.events.forEach { self.onEvent?($0) }
+            if result.didReactivate { self.onEvent?(.reactivated) }
+            operation.completion?(result)
+            if result.shouldRetry { self.scheduleRestoreRetry() }
+            self.isProcessingOperation = false
+            self.processNextOperation()
+        }
+    }
+
+    private func scheduleRestoreRetry() {
+        // A scheduled restoration is accepted work too; keep its owner alive until the retry enters the pump.
+        Task { [self] in
+            let delay = UInt64(Self.restoreRetryDelay * 1_000_000_000)
+            try? await Task.sleep(nanoseconds: delay)
+            guard !Task.isCancelled else { return }
+            enqueue(.retryRestore)
+        }
+    }
+
+    private func observe(_ name: Notification.Name, handler: @escaping @MainActor (Notification) -> Void) {
+        // The system posts these from the shared AVAudioSession, never from the injected wrapper.
+        observers.append(NotificationCenter.default.addObserver(forName: name, object: AVAudioSession.sharedInstance(),
+                                                                queue: .main) { notification in
+            MainActor.assumeIsolated { handler(notification) }
+        })
+    }
+}
+
+private struct PendingOperation {
+    let command: AudioSessionCommand
+    let duckingGeneration: Int?
+    let completion: (@MainActor (AudioSessionWorkerResult) -> Void)?
+}
+
+private enum AudioSessionCommand: Sendable {
+    case configureBaseCategory(recordingEnabled: Bool)
+    case setRecordingEnabled(Bool)
+    case activateForListening
+    case stopListening
+    case beginDucking
+    case endDucking
+    case deactivate
+    case interruption(events: [AudioSessionEvent], began: Bool)
+    case mediaServicesWereReset(recordingEnabled: Bool)
+    case routeChange(reason: Int?)
+    case retryRestore
+    case barrier
+}
+
+private struct AudioSessionMeasurement: Sendable {
+    let step: AudioWorkStep
+    let duration: TimeInterval
+    let executionContext: AudioWorkExecutionContext
+}
+
+private struct AudioSessionWorkerResult: Sendable {
+    let isDucking: Bool
+    let isActive: Bool
+    let activationSucceeded: Bool?
+    let didReactivate: Bool
+    let shouldRetry: Bool
+    let events: [AudioSessionEvent]
+    let measurements: [AudioSessionMeasurement]
+}
+
+/// Owns every AVAudioSession read and mutation. The MainActor facade submits one request at a time,
+/// preserving caller order while this actor performs blocking framework work away from the UI executor.
+private actor WorkoutAudioSessionWorker {
+    private let session: any AudioSessioning
+    private var isDucking = false
+    private var isActive = false
+    private var isRecordingEnabled = false
+    private var keepsActive = false
+    private var restoreAttempt = 0
+    private var events: [AudioSessionEvent] = []
+    private var measurements: [AudioSessionMeasurement] = []
+    private var shouldRetry = false
+    private var didReactivate = false
+    private var activationSucceeded: Bool?
+
+    init(session: any AudioSessioning) {
+        self.session = session
+    }
+
+    func perform(_ command: AudioSessionCommand) -> AudioSessionWorkerResult {
+        events = []
+        measurements = []
+        shouldRetry = false
+        didReactivate = false
+        activationSucceeded = nil
+
+        switch command {
+        case .configureBaseCategory(let recordingEnabled):
+            isRecordingEnabled = recordingEnabled
+            configureBaseCategory()
+        case .setRecordingEnabled(let enabled):
+            isRecordingEnabled = enabled
+            if !isDucking { configureBaseCategory() }
+        case .activateForListening:
+            activationSucceeded = measured(.activateForListening) { activateSessionForListening() }
+        case .stopListening:
+            keepsActive = false
+            guard !isDucking, isActive else { break }
+            measured(.stopListening) {
+                _ = setActive(false, options: .notifyOthersOnDeactivation)
+                isActive = false
+            }
+        case .beginDucking:
+            guard !isDucking else { break }
+            measured(.beginDucking) { duck() }
+        case .endDucking:
+            endDucking()
+        case .deactivate:
+            keepsActive = false
+            endDucking()
+            measured(.deactivate) {
+                _ = setActive(false, options: .notifyOthersOnDeactivation)
+                isActive = false
+            }
+        case .interruption(let interruptionEvents, let began):
+            if began {
+                isDucking = false
+                isActive = false
+            }
+            events += interruptionEvents
+        case .mediaServicesWereReset(let recordingEnabled):
+            isRecordingEnabled = recordingEnabled
+            isDucking = false
+            isActive = false
+            configureBaseCategory()
+            events.append(.mediaServicesReset)
+        case .routeChange(let reason):
+            events += WorkoutAudioNotificationTranslator.routeEvents(
+                reason: reason, outputs: session.outputs, inputs: session.inputs)
+        case .retryRestore:
+            guard !isDucking, restoreAttempt > 0 else { break }
+            restoreOtherAudio()
+        case .barrier:
+            break
+        }
+
+        return AudioSessionWorkerResult(isDucking: isDucking, isActive: isActive,
+                                        activationSucceeded: activationSucceeded, didReactivate: didReactivate,
+                                        shouldRetry: shouldRetry, events: events, measurements: measurements)
     }
 
     private var category: AVAudioSession.Category { isRecordingEnabled ? .playAndRecord : .playback }
@@ -162,20 +428,8 @@ final class WorkoutAudioSession: AudioSessionControlling {
         isRecordingEnabled ? [.mixWithOthers, .defaultToSpeaker, .allowBluetoothA2DP] : [.mixWithOthers]
     }
 
-    /// Sets the non-ducking category without activating, so nothing is interrupted.
-    func configureBaseCategory() {
+    private func configureBaseCategory() {
         try? setCategory(category, mode: .default, options: baseOptions)
-    }
-
-    func setRecordingEnabled(_ enabled: Bool) {
-        guard enabled != isRecordingEnabled else { return }
-        isRecordingEnabled = enabled
-        if !isDucking { configureBaseCategory() }
-    }
-
-    /// Activates the recording category for listening. Returns false if the session can't activate.
-    func activateForListening() -> Bool {
-        measured(.activateForListening) { activateSessionForListening() }
     }
 
     private func activateSessionForListening() -> Bool {
@@ -185,32 +439,14 @@ final class WorkoutAudioSession: AudioSessionControlling {
         return setActive(true)
     }
 
-    /// Stops keeping the session active for the microphone and releases it unless the coach is speaking.
-    func stopListening() {
-        keepsActive = false
-        guard !isDucking, isActive else { return }
-        measured(.stopListening) {
-            _ = setActive(false, options: .notifyOthersOnDeactivation)
-            isActive = false
-        }
-    }
-
-    /// Lowers other audio. Listening must already be stopped. Speech still plays if this fails.
-    func beginDucking() {
-        guard !isDucking else { return }
-        measured(.beginDucking) { duck() }
-    }
-
     private func duck() {
         restoreAttempt = 0
-        // Ducking applies on activation, so an already-active listening session is cycled first.
         if isActive {
             _ = setActive(false)
             isActive = false
         }
         do {
             try setCategory(category, mode: .default, options: baseOptions.union(.duckOthers))
-            // Marked before activation so endDucking always restores the category.
             isDucking = true
             guard setActive(true) else { throw AudioSessionActivationError.failed }
             isActive = true
@@ -219,9 +455,7 @@ final class WorkoutAudioSession: AudioSessionControlling {
         }
     }
 
-    /// Restores other audio, then re-activates for listening if needed. Idempotent; safe from every
-    /// completion, error, and teardown path.
-    func endDucking() {
+    private func endDucking() {
         guard isDucking else { return }
         isDucking = false
         restoreAttempt = 0
@@ -229,59 +463,50 @@ final class WorkoutAudioSession: AudioSessionControlling {
     }
 
     private func restoreOtherAudio() {
-        let reactivatedLate = measured(.restoreOtherAudio) { attemptRestore() }
-        // After the timing, so the recognizer work it triggers is timed on its own.
-        if reactivatedLate { onEvent?(.reactivated) }
+        let outcome = measured(.restoreOtherAudio) { attemptRestore() }
+        shouldRetry = shouldRetry || outcome.shouldRetry
+        didReactivate = didReactivate || outcome.didReactivate
+        if !outcome.shouldRetry { restoreAttempt = 0 }
     }
 
-    /// Returns true when a retry reactivated the session for listening.
-    private func attemptRestore() -> Bool {
+    private func attemptRestore() -> RestoreOutcome {
         do {
             try performSetActive(false, options: .notifyOthersOnDeactivation)
             isActive = false
             configureBaseCategory()
             if keepsActive {
-                _ = setActive(true)
-                return restoreAttempt > 0
+                let activated = setActive(true)
+                return RestoreOutcome(shouldRetry: false,
+                                      didReactivate: activated && restoreAttempt > 0)
             }
         } catch {
             restoreAttempt += 1
-            guard restoreAttempt < Self.maximumRestoreAttempts else {
+            guard restoreAttempt < AudioSessionRestorePolicy.maximumAttempts else {
                 configureBaseCategory()
-                return false
+                return RestoreOutcome(shouldRetry: false, didReactivate: false)
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + Self.restoreRetryDelay) { [weak self] in
-                MainActor.assumeIsolated {
-                    // A new utterance started ducking again; it will restore when it finishes.
-                    guard let self, !self.isDucking, self.restoreAttempt > 0 else { return }
-                    self.restoreOtherAudio()
-                }
-            }
+            return RestoreOutcome(shouldRetry: true, didReactivate: false)
         }
-        return false
-    }
-
-    /// Ends ducking and releases the session when leaving the workout.
-    func deactivate() {
-        keepsActive = false
-        endDucking()
-        measured(.deactivate) {
-            _ = setActive(false, options: .notifyOthersOnDeactivation)
-            isActive = false
-        }
+        return RestoreOutcome(shouldRetry: false, didReactivate: false)
     }
 
     private func measured<T>(_ step: AudioWorkStep, _ work: () -> T) -> T {
-        timing.map { $0.measure(step, work) } ?? work()
+        let start = ProcessInfo.processInfo.systemUptime
+        defer {
+            measurements.append(AudioSessionMeasurement(step: step,
+                                                         duration: ProcessInfo.processInfo.systemUptime - start,
+                                                         executionContext: .worker))
+        }
+        return work()
     }
 
     private func setCategory(_ category: AVAudioSession.Category, mode: AVAudioSession.Mode,
                              options: AVAudioSession.CategoryOptions) throws {
-        onEvent?(.sessionOperation(operation: "setCategory", active: nil,
-                                   category: category.rawValue, mode: mode.rawValue,
-                                   categoryOptions: categoryOptionNames(options), activeOptions: [],
-                                   isOtherAudioPlaying: session.isOtherAudioPlaying,
-                                   secondaryAudioShouldBeSilenced: session.secondaryAudioShouldBeSilenced))
+        events.append(.sessionOperation(operation: "setCategory", active: nil,
+                                        category: category.rawValue, mode: mode.rawValue,
+                                        categoryOptions: categoryOptionNames(options), activeOptions: [],
+                                        isOtherAudioPlaying: session.isOtherAudioPlaying,
+                                        secondaryAudioShouldBeSilenced: session.secondaryAudioShouldBeSilenced))
         try session.setCategory(category, mode: mode, options: options)
     }
 
@@ -296,21 +521,13 @@ final class WorkoutAudioSession: AudioSessionControlling {
     }
 
     private func performSetActive(_ active: Bool, options: AVAudioSession.SetActiveOptions) throws {
-        onEvent?(.sessionOperation(operation: "setActive", active: active,
-                                   category: session.category, mode: session.mode,
-                                   categoryOptions: categoryOptionNames(session.categoryOptions),
-                                   activeOptions: activeOptionNames(options),
-                                   isOtherAudioPlaying: session.isOtherAudioPlaying,
-                                   secondaryAudioShouldBeSilenced: session.secondaryAudioShouldBeSilenced))
+        events.append(.sessionOperation(operation: "setActive", active: active,
+                                        category: session.category, mode: session.mode,
+                                        categoryOptions: categoryOptionNames(session.categoryOptions),
+                                        activeOptions: activeOptionNames(options),
+                                        isOtherAudioPlaying: session.isOtherAudioPlaying,
+                                        secondaryAudioShouldBeSilenced: session.secondaryAudioShouldBeSilenced))
         try session.setActive(active, options: options)
-    }
-
-    private func observe(_ name: Notification.Name, handler: @escaping @MainActor (Notification) -> Void) {
-        // The system posts these from the shared AVAudioSession, never from the injected `session` wrapper.
-        observers.append(NotificationCenter.default.addObserver(forName: name, object: AVAudioSession.sharedInstance(),
-                                                                queue: .main) { notification in
-            MainActor.assumeIsolated { handler(notification) }
-        })
     }
 
     private func categoryOptionNames(_ options: AVAudioSession.CategoryOptions) -> [String] {
@@ -330,7 +547,16 @@ final class WorkoutAudioSession: AudioSessionControlling {
     private func activeOptionNames(_ options: AVAudioSession.SetActiveOptions) -> [String] {
         options.contains(.notifyOthersOnDeactivation) ? ["notifyOthersOnDeactivation"] : []
     }
+}
 
+private struct RestoreOutcome {
+    let shouldRetry: Bool
+    let didReactivate: Bool
+}
+
+private enum AudioSessionRestorePolicy {
+    static let retryDelay: TimeInterval = 0.25
+    static let maximumAttempts = 4
 }
 
 private enum AudioSessionActivationError: Error {

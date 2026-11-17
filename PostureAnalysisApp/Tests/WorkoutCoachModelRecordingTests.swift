@@ -339,7 +339,7 @@ final class WorkoutCoachModelRecordingTests: XCTestCase {
         ])
     }
 
-    func testWorkoutAudioSessionPreservesCategoryOptionsAndActivationSequence() throws {
+    func testWorkoutAudioSessionPreservesCategoryOptionsAndActivationSequence() async throws {
         let session = RecordingAudioSessioning()
         let audio = WorkoutAudioSession(session: session)
         var operations: [AudioSessionEvent] = []
@@ -350,8 +350,12 @@ final class WorkoutCoachModelRecordingTests: XCTestCase {
         let duckingOptions = baseOptions.union(.duckOthers)
 
         audio.setRecordingEnabled(true)
-        XCTAssertTrue(audio.activateForListening())
+        let activated = await withCheckedContinuation { continuation in
+            audio.activateForListening { continuation.resume(returning: $0) }
+        }
+        XCTAssertTrue(activated)
         audio.beginDucking()
+        await audio.waitForPendingSessionWork()
 
         XCTAssertEqual(session.calls, [
             .setCategory(category: AVAudioSession.Category.playAndRecord.rawValue,
@@ -374,7 +378,7 @@ final class WorkoutCoachModelRecordingTests: XCTestCase {
 
     /// The system posts audio notifications from the shared session, not from the injected wrapper, so an observer
     /// filtered on the wrapper would silently miss every interruption and route change.
-    func testSystemAudioNotificationsReachTheSessionWithAnInjectedWrapper() throws {
+    func testSystemAudioNotificationsReachTheSessionWithAnInjectedWrapper() async throws {
         let audio = WorkoutAudioSession(session: RecordingAudioSessioning())
         var events: [AudioSessionEvent] = []
         audio.onEvent = { event in
@@ -390,6 +394,7 @@ final class WorkoutCoachModelRecordingTests: XCTestCase {
             name: AVAudioSession.interruptionNotification, object: AVAudioSession.sharedInstance(),
             userInfo: [AVAudioSessionInterruptionTypeKey:
                         NSNumber(value: AVAudioSession.InterruptionType.began.rawValue)])
+        await audio.waitForPendingSessionWork()
 
         XCTAssertEqual(events, [
             .routeDiagnostic(reason: Int(AVAudioSession.RouteChangeReason.newDeviceAvailable.rawValue),
@@ -475,7 +480,12 @@ final class WorkoutCoachModelRecordingTests: XCTestCase {
 
         let work = try XCTUnwrap(store.writer(for: recorder.id).events(type: "audio.work").last)
         XCTAssertEqual(work["step"] as? String, "restoreOtherAudio")
+        XCTAssertEqual(work["execution"] as? String, "main")
         XCTAssertGreaterThanOrEqual(work["ms"] as? Double ?? 0, 10)
+
+        timing.record(.restoreOtherAudio, duration: 0.012, executionContext: .worker)
+        let workerWork = try XCTUnwrap(store.writer(for: recorder.id).events(type: "audio.work").last)
+        XCTAssertEqual(workerWork["execution"] as? String, "worker")
     }
 
     func testWithoutARecordingAudioWorkIsNotTimed() {
@@ -492,7 +502,6 @@ final class WorkoutCoachModelRecordingTests: XCTestCase {
     }
 }
 
-@MainActor
 private final class RecordingAudioSessioning: AudioSessioning {
     enum Call: Equatable {
         case setCategory(category: String, mode: String, options: AVAudioSession.CategoryOptions)

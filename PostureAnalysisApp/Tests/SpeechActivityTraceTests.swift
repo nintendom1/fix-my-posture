@@ -8,9 +8,15 @@ final class SpeechActivityTraceTests: XCTestCase {
         assertTrace(SpeechActivityGoldenTraces.shortTimedHold, makeShortTimedHoldTrace)
     }
 
-    func testControllerAndAudioSessionRespondInOrderToCoachSpeakingState() {
-        assertTrace(SpeechActivityGoldenTraces.controllerAudioResponseToCoachSpeakingState,
-                    makeControllerAudioResponseTrace)
+    func testControllerAndAudioSessionRespondInOrderToCoachSpeakingState() async {
+        let actual = await makeControllerAudioResponseTrace(observer: nil)
+        let repeated = await makeControllerAudioResponseTrace(observer: nil)
+        XCTAssertEqual(repeated, actual, "The audio session trace must be deterministic.")
+        let recordingTrace = await makeControllerAudioResponseTrace(observer: WorkoutObservationRecorder())
+        XCTAssertEqual(recordingTrace, actual, "A recording observer changed the audio session trace.")
+        let expected = SpeechActivityGoldenTraces.controllerAudioResponseToCoachSpeakingState
+            .components(separatedBy: "\n")
+        XCTAssertEqual(actual, expected)
     }
 
     func testModelInterruptionStopsVoiceBeforeSpeechAndResumeHonorsSystemDecision() {
@@ -173,13 +179,35 @@ final class SpeechActivityTraceTests: XCTestCase {
         return trace.finish()
     }
 
-    private func makeControllerAudioResponseTrace(observer _: (any WorkoutObserving)?) -> [String] {
+    private func makeControllerAudioResponseTrace(observer _: (any WorkoutObserving)?) async -> [String] {
         let trace = WorkoutTraceRecorder()
         let clock = ManualClock()
         let scheduler = ManualScheduler(clock: clock)
         trace.now = { clock.now }
-        let recorder = TraceAudioSessioning(trace: trace)
+        let recorder = TraceAudioSessioning()
         let audio = WorkoutAudioSession(session: recorder)
+        audio.onEvent = { event in
+            guard case .sessionOperation(let operation, let active, let category, let mode,
+                                         let categoryOptionNames, let activeOptionNames, _, _) = event else { return }
+            if operation == "setCategory" {
+                let known: [(String, AVAudioSession.CategoryOptions)] = [
+                    ("duckOthers", .duckOthers), ("mixWithOthers", .mixWithOthers),
+                    ("defaultToSpeaker", .defaultToSpeaker), ("allowBluetoothHFP", .allowBluetooth),
+                    ("allowBluetoothA2DP", .allowBluetoothA2DP), ("allowAirPlay", .allowAirPlay),
+                    ("interruptSpokenAudioAndMixWithOthers", .interruptSpokenAudioAndMixWithOthers)
+                ]
+                var options: AVAudioSession.CategoryOptions = []
+                for name in categoryOptionNames {
+                    if let option = known.first(where: { $0.0 == name })?.1 { options.insert(option) }
+                }
+                let names = categoryOptionNames.sorted().joined(separator: ",")
+                trace.record("audio category \(category) mode=\(mode) optionsRaw=\(options.rawValue) names=\(names)")
+            } else if let active {
+                let option = activeOptionNames.contains("notifyOthersOnDeactivation")
+                    ? " notifyOthersOnDeactivation" : ""
+                trace.record("audio active \(active)\(option)")
+            }
+        }
         let recognizer = FakeSpeechRecognizer()
         recognizer.trace = trace
         let permissions = GrantedVoicePermissions()
@@ -192,26 +220,45 @@ final class SpeechActivityTraceTests: XCTestCase {
             scheduler: scheduler
         )
         controller.onHeard = { trace.record("heard \(WorkoutTraceRecorder.quoted($0))") }
+        var responseContinuation: CheckedContinuation<Void, Never>?
         controller.onCommand = { command in
             trace.record("command \(WorkoutTraceRecorder.describe(command))")
             trace.input("test supplies coach-speaking state: response begins")
             controller.setCoachSpeaking(true)
-            audio.beginDucking()
-            trace.input("test supplies coach-speaking state: response ends")
-            audio.endDucking()
-            controller.setCoachSpeaking(false)
+            Task { @MainActor in
+                await self.beginDucking(audio)
+                trace.input("test supplies coach-speaking state: response ends")
+                await self.endDucking(audio)
+                controller.setCoachSpeaking(false)
+                await audio.waitForPendingSessionWork()
+                responseContinuation?.resume()
+                responseContinuation = nil
+            }
         }
 
         controller.enable()
+        await audio.waitForPendingSessionWork()
         trace.input("test supplies coach-speaking state: greeting begins")
         controller.setCoachSpeaking(true)
-        audio.beginDucking()
+        await beginDucking(audio)
         trace.input("test supplies coach-speaking state: greeting ends")
-        audio.endDucking()
+        await endDucking(audio)
         controller.setCoachSpeaking(false)
-        recognizer.transcribe("start", isFinal: true)
+        await audio.waitForPendingSessionWork()
+        await withCheckedContinuation { continuation in
+            responseContinuation = continuation
+            recognizer.transcribe("start", isFinal: true)
+        }
 
         return trace.finish()
+    }
+
+    private func beginDucking(_ audio: WorkoutAudioSession) async {
+        await withCheckedContinuation { continuation in audio.beginDucking { continuation.resume() } }
+    }
+
+    private func endDucking(_ audio: WorkoutAudioSession) async {
+        await withCheckedContinuation { continuation in audio.endDucking { continuation.resume() } }
     }
 
     private func makeModelAudioSubject() -> ModelAudioSubject {
@@ -301,9 +348,7 @@ private struct GrantedVoicePermissions: VoicePermissionProviding {
     func requestSpeechRecognition(_ completion: @escaping @MainActor (Bool) -> Void) { completion(true) }
 }
 
-@MainActor
 private final class TraceAudioSessioning: AudioSessioning {
-    private let trace: WorkoutTraceRecorder
     private(set) var category = AVAudioSession.Category.playback.rawValue
     private(set) var mode = AVAudioSession.Mode.default.rawValue
     private(set) var categoryOptions: AVAudioSession.CategoryOptions = [.mixWithOthers]
@@ -312,32 +357,15 @@ private final class TraceAudioSessioning: AudioSessioning {
     let isOtherAudioPlaying = true
     let secondaryAudioShouldBeSilenced = false
 
-    init(trace: WorkoutTraceRecorder) {
-        self.trace = trace
-    }
-
     func setCategory(_ category: AVAudioSession.Category, mode: AVAudioSession.Mode,
                      options: AVAudioSession.CategoryOptions) throws {
-        let optionsText = Self.categoryOptionNames(options).joined(separator: ",")
-        trace.record("audio category \(category.rawValue) mode=\(mode.rawValue) " +
-                     "optionsRaw=\(options.rawValue) names=\(optionsText)")
         self.category = category.rawValue
         self.mode = mode.rawValue
         categoryOptions = options
     }
 
     func setActive(_ active: Bool, options: AVAudioSession.SetActiveOptions) throws {
-        let option = options.contains(.notifyOthersOnDeactivation) ? " notifyOthersOnDeactivation" : ""
-        trace.record("audio active \(active)\(option)")
-    }
-
-    private static func categoryOptionNames(_ options: AVAudioSession.CategoryOptions) -> [String] {
-        let known: [(AVAudioSession.CategoryOptions, String)] = [
-            (.duckOthers, "duckOthers"), (.mixWithOthers, "mixWithOthers"),
-            (.defaultToSpeaker, "defaultToSpeaker"), (.allowBluetooth, "allowBluetooth"),
-            (.allowBluetoothA2DP, "allowBluetoothA2DP"), (.allowAirPlay, "allowAirPlay"),
-            (.interruptSpokenAudioAndMixWithOthers, "interruptSpokenAudioAndMixWithOthers")
-        ]
-        return known.compactMap { options.contains($0.0) ? $0.1 : nil }.sorted()
+        _ = active
+        _ = options
     }
 }

@@ -45,6 +45,9 @@ final class WorkoutVoiceController: VoiceControlling {
     private var wantsListening = false
     private var isCoachSpeaking = false
     private var isRecognizing = false
+    private var isActivating = false
+    private var shouldResumeAfterCoachSpeech = false
+    private var activationGeneration = 0
     private var transcript = ""
     private var transcriptChangedAt: TimeInterval = 0
     private var pending: VoiceCommandMatch?
@@ -104,6 +107,7 @@ final class WorkoutVoiceController: VoiceControlling {
     /// Stops listening and releases the microphone, for backgrounding, closing, or interruptions.
     func disable(status newStatus: Status = .off) {
         wantsListening = false
+        shouldResumeAfterCoachSpeech = false
         stopRecognizing()
         audio?.stopListening()
         if status.isUsable || status == .requestingPermission { status = newStatus }
@@ -114,6 +118,7 @@ final class WorkoutVoiceController: VoiceControlling {
     func setMuted(_ muted: Bool) {
         if muted {
             wantsListening = false
+            shouldResumeAfterCoachSpeech = false
             stopRecognizing()
             audio?.stopListening()
             status = .muted
@@ -131,10 +136,15 @@ final class WorkoutVoiceController: VoiceControlling {
     func setCoachSpeaking(_ speaking: Bool) {
         isCoachSpeaking = speaking
         if speaking {
+            if isActivating || isRecognizing || status == .listening || status == .coachSpeaking {
+                shouldResumeAfterCoachSpeech = true
+            }
             // Synchronous, before the audio session is reconfigured for ducking.
             stopRecognizing()
             if status == .listening { status = .coachSpeaking }
-        } else if wantsListening, status == .coachSpeaking || status == .listening {
+        } else if wantsListening,
+                  shouldResumeAfterCoachSpeech || status == .coachSpeaking || status == .listening {
+            shouldResumeAfterCoachSpeech = false
             startRecognizing()
         }
     }
@@ -169,15 +179,31 @@ final class WorkoutVoiceController: VoiceControlling {
     // MARK: - Recognition
 
     private func startRecognizing() {
-        guard wantsListening, !isRecognizing else { return }
+        guard wantsListening, !isRecognizing, !isActivating else { return }
         guard !isCoachSpeaking else {
             status = .coachSpeaking
             return
         }
-        guard audio?.activateForListening() ?? true else {
-            status = .unavailable("The microphone couldn't start. Tap to try again.")
+        guard let audio else {
+            startRecognizerAfterActivation()
             return
         }
+        isActivating = true
+        activationGeneration += 1
+        let generation = activationGeneration
+        audio.activateForListening { [weak self] succeeded in
+            guard let self, self.activationGeneration == generation else { return }
+            self.isActivating = false
+            guard self.wantsListening, !self.isCoachSpeaking else { return }
+            guard succeeded else {
+                self.status = .unavailable("The microphone couldn't start. Tap to try again.")
+                return
+            }
+            self.startRecognizerAfterActivation()
+        }
+    }
+
+    private func startRecognizerAfterActivation() {
         resetTranscript()
         isRecognizing = true
         recognizer.start()
@@ -186,6 +212,8 @@ final class WorkoutVoiceController: VoiceControlling {
     }
 
     private func stopRecognizing() {
+        activationGeneration += 1
+        isActivating = false
         checkTimer?.cancel()
         checkTimer = nil
         resetTranscript()

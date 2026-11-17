@@ -151,6 +151,8 @@ final class FakeAudioSession: AudioSessionControlling {
     var onEvent: ((AudioSessionEvent) -> Void)?
     private(set) var calls: [Call] = []
     var listeningActivationSucceeds = true
+    var defersListeningActivation = false
+    private var pendingActivationCompletion: (@MainActor (Bool) -> Void)?
     /// Golden traces only: every call is also written here.
     var trace: WorkoutTraceRecorder?
 
@@ -163,9 +165,21 @@ final class FakeAudioSession: AudioSessionControlling {
         trace?.record("audio recordingEnabled \(enabled)")
     }
     func activateForListening() -> Bool {
-        calls.append(.activateForListening)
-        trace?.record("audio activateForListening -> \(listeningActivationSucceeds)")
+        recordListeningActivation()
         return listeningActivationSucceeds
+    }
+    func activateForListening(completion: @escaping @MainActor (Bool) -> Void) {
+        recordListeningActivation()
+        if defersListeningActivation {
+            pendingActivationCompletion = completion
+        } else {
+            completion(listeningActivationSucceeds)
+        }
+    }
+    func completePendingListeningActivation() {
+        let completion = pendingActivationCompletion
+        pendingActivationCompletion = nil
+        completion?(listeningActivationSucceeds)
     }
     func stopListening() {
         calls.append(.stopListening)
@@ -186,6 +200,11 @@ final class FakeAudioSession: AudioSessionControlling {
 
     func emit(_ event: AudioSessionEvent) {
         onEvent?(event)
+    }
+
+    private func recordListeningActivation() {
+        calls.append(.activateForListening)
+        trace?.record("audio activateForListening -> \(listeningActivationSucceeds)")
     }
 }
 

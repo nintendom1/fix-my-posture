@@ -19,6 +19,28 @@ final class VoiceListeningParityTests: XCTestCase {
         XCTAssertEqual(subject.controller.status, .listening)
     }
 
+    func testCoachSpeechDuringPendingListeningActivationResumesAfterSpeechEnds() {
+        let subject = makeSubject()
+        subject.audio.defersListeningActivation = true
+
+        subject.controller.enable()
+        XCTAssertEqual(subject.controller.status, .off)
+        XCTAssertEqual(subject.audio.calls, [.recordingEnabled(true), .activateForListening])
+
+        subject.controller.setCoachSpeaking(true)
+        subject.audio.completePendingListeningActivation()
+        XCTAssertEqual(subject.recognizer.calls, [], "The cancelled activation must not start recognition during speech.")
+
+        subject.audio.defersListeningActivation = false
+        subject.controller.setCoachSpeaking(false)
+
+        XCTAssertEqual(subject.audio.calls, [
+            .recordingEnabled(true), .activateForListening, .activateForListening
+        ])
+        XCTAssertEqual(subject.recognizer.calls, ["start"])
+        XCTAssertEqual(subject.controller.status, .listening)
+    }
+
     func testAmbiguousStartUsesDefaultSettleBoundary() {
         let subject = makeSubject()
         subject.controller.enable()

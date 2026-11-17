@@ -197,11 +197,12 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         session = WorkoutSession(exercises: exercises, initialExercise: initialExercise, plan: plan, settings: settings)
         now = clock.now
         audio?.onEvent = { [weak self] event in self?.handleAudio(event) }
-        // Only recordings use the timings: they show what a main-thread stall around coach speech is made of.
+        // Only recordings use the timings: they show the duration and execution context of coach audio work.
         if recorder != nil {
-            audioTiming?.onMeasured = { [weak self] step, seconds in
+            audioTiming?.onMeasured = { [weak self] step, seconds, executionContext in
                 guard let self else { return }
-                self.recorder?.recordEvent(.audioWork(step, seconds: seconds), at: self.clock.now)
+                self.recorder?.recordEvent(.audioWork(step, seconds: seconds,
+                                                       executionContext: executionContext), at: self.clock.now)
             }
         }
         speech.onActivityChanged = { [weak self] speaking in
