@@ -8,7 +8,7 @@
 
 `WorkoutSession` emits value-only `Utterance` effects. `WorkoutCoachModel` sends them to `SpeechCoach`, which keeps at most two pending lines and remembers the last instruction. Before ducking audio, it marks speech active so listening stops; after the queue drains, it restores audio through the shared session owner, then marks speech inactive so listening can resume.
 
-`SpeechCoach` uses `SystemSpeechSynthesizer` by default. The wrapper forwards speak, stop, speaking state, and start/finish/cancel callbacks to `AVSpeechSynthesizer`; callbacks arrive asynchronously on the main queue. `SpeechCoachQueueTests` covers queueing, interruption, repeat, watchdog, activity, ducking, restoration order, and wrapper callback timing through the real coach and a fake synthesizer. The injected watchdog scheduler is for tests; production uses a Foundation timer.
+`SpeechCoach` uses `SystemSpeechSynthesizer` by default. The wrapper forwards speak, stop, speaking state, and start/finish/cancel callbacks to `AVSpeechSynthesizer`; callbacks arrive asynchronously on the main queue. Its watchdog is `max(1, words / 2.5) + 5` seconds and is rearmed when playback starts. If deactivation reports busy, `WorkoutAudioSession` retries restoration every 0.25 seconds, up to four attempts. `SpeechCoachQueueTests` covers queueing, interruption, repeat, watchdog, activity, ducking, restoration order, and wrapper callback timing through the real coach and a fake synthesizer. The injected watchdog scheduler is for tests; production uses a Foundation timer.
 
 ## Dormant and internal contracts
 
@@ -16,6 +16,8 @@
 
 **Dormant and internal:** `SoundCueID`, `AudioPriority`, `BackgroundMusicPlaying`, and `SoundEffectPlaying` define vocabulary and contracts only. There are no players or production callers. The policy labels describe speech above effects above music, with recognition pausing effects and music and speech ducking lower-priority audio.
 
+Any future audio-coordinator wiring must stay behind a feature switch that is off by default and preserve current behavior.
+
 ## Prerecorded speech
 
-The production backend remains system text-to-speech. A future clip player must preserve `SpeechCoach` queue, interruption, repeat, and completion behavior, and use the shared audio-session owner. It may need a sibling protocol because `SpeechSynthesizing` accepts `AVSpeechUtterance`.
+The production backend remains system text-to-speech. [Issue #129](https://github.com/nintendom1/fix-my-posture/issues/129) tracks replacing it with prerecorded clips and no live text-to-speech fallback; scope includes the clip catalog, cue resolution, assets, and playback durations. Any backend must stay behind a feature switch that is off by default, preserve `SpeechCoach` queue, interruption, repeat, and completion behavior, and use the shared audio-session owner. It may need a sibling protocol because `SpeechSynthesizing` accepts `AVSpeechUtterance`.

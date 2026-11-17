@@ -29,7 +29,7 @@ Device builds use `make ios`. [validation.md](validation.md) documents photo war
 
 | Area | Current guarantee | Coverage and remaining gap |
 |---|---|---|
-| Navigation | Four tabs keep independent navigation paths. Settings, workouts, Today's Session, calibration, and Live Posture Check use full-screen presentation. See [design.md](design.md). | Route and shell tests cover route ownership and tab roots; presented covers and the no-store screen are not rendered by tests. |
+| Navigation | Four tabs keep independent navigation paths. Settings, workouts, Today's Session, calibration, and Live Posture Check use full-screen presentation. See [design.md](design.md). | `AppRouteTests` and `RouteParityTests` cover route ownership and presentation flows; presented covers and the no-store screen are not rendered by tests. |
 | Workout Coach | `WorkoutSession` is a reducer. Analyzers, framing, coaching, speech, and recording feed its value-based effects. See [workout.md](workout.md). | Session, analyzer, replay, and golden-trace tests cover behaviour. The SwiftUI history-saved lifecycle guard remains untested. |
 | Speech and audio | `SpeechCoach` uses system text-to-speech. `WorkoutAudioSession` is the only workout `AVAudioSession` owner. Other audio contracts are marked Dormant and internal. See [audio.md](audio.md) and [workout.md](workout.md). | Queue and audio parity tests use fakes. Real speech timing, recognition, audio routes, and OS interruptions require device checks. |
 | Posture analysis | Geometry uses aspect-correct pixel coordinates. Live camera results are generation-checked and remain local. See [geometry.md](geometry.md) and [realtime.md](realtime.md). | Geometry and camera lifecycle tests use synthetic poses and injected capture. Vision accuracy, camera capture, and latency require a device. |
@@ -37,6 +37,14 @@ Device builds use `make ios`. [validation.md](validation.md) documents photo war
 | Persistence | Versioned SwiftData stores migrate V1 to V2. Repository writes are explicit; assessment photos are separate files. See [persistence.md](persistence.md). | Migration, repository, and preference tests cover storage. The persistence-unavailable screen is untested. |
 | Adaptive training | `Packages/AdaptiveTraining` is Foundation-only and owns progression decisions. App integration stays behind adapters in `PostureAnalysisApp/AdaptiveTraining/`. The app coordinator forwards derived events, including `tinySessionPrescribed`, to the production `WorkoutReminderCoordinator`. It buffers workout-bound events until a saved workout and evaluates calibration events immediately when reminder settings and authorization allow. See [adaptive-training.md](adaptive-training.md) and [persona.md](persona.md). | Package, adapter, and persona tests cover decisions and delivery. |
 | Narrative | `Packages/Narrative` is a Foundation-only runtime and is not linked into the app. See [narrative.md](narrative.md). | Package tests cover the runtime and the app-project boundary. |
+
+Focused test map:
+
+- Routes: [AppRouteTests](../PostureAnalysisApp/Tests/AppRouteTests.swift) and [RouteParityTests](../PostureAnalysisApp/Tests/RouteParityTests.swift).
+- Speech/audio: [SpeechCoachQueueTests](../PostureAnalysisApp/Tests/SpeechCoachQueueTests.swift), [AudioSessionParityTests](../PostureAnalysisApp/Tests/AudioSessionParityTests.swift), [AudioWorkTimingTests](../PostureAnalysisApp/Tests/AudioWorkTimingTests.swift), and [VoiceListeningParityTests](../PostureAnalysisApp/Tests/VoiceListeningParityTests.swift).
+- Storage: [AppModelContainerTests](../PostureAnalysisApp/Tests/AppModelContainerTests.swift), [SchemaMigrationTests](../PostureAnalysisApp/Tests/SchemaMigrationTests.swift), and [PersistenceRepositoryTests](../PostureAnalysisApp/Tests/PersistenceRepositoryTests.swift).
+
+`VoiceListeningParityTests` covers manual retry through fakes, not the real recognizer's automatic error-backoff timer in [OnDeviceSpeechRecognizer.swift](../PostureAnalysisApp/Voice/OnDeviceSpeechRecognizer.swift). `AudioSessionParityTests` records the first busy restoration retry but does not wait through the full retry sequence in [WorkoutAudioSession.swift](../PostureAnalysisApp/Voice/WorkoutAudioSession.swift); neither timer path is injectable in tests.
 
 ## Documentation update matrix
 
@@ -75,11 +83,11 @@ The speech seam supports existing behaviour. The workout model's observer is nil
 | Contract | Current guarantee | Required before activation |
 |---|---|---|
 | Workout observer and presentation events (`PostureAnalysisApp/Workout/Session/WorkoutObserving.swift`, `PostureAnalysisApp/Workout/Presentation/WorkoutPresentationEvent.swift`) | `WorkoutCoachModel` receives no observer in production. `AdaptiveTrainingCoordinator` sends adaptive events to `WorkoutReminderCoordinator`, which defers workout-bound events until history is saved and evaluates calibration milestones immediately. The semantic mapper is test-only. | Keep workout-model callbacks opt-in and preserve observer-free golden traces; test the production adaptive-event path and save correlation. |
-| Audio coordinator (`PostureAnalysisApp/Voice/AudioCoordinating.swift`) | `WorkoutAudioCoordinator` forwards to its supplied owner; `WorkoutAudioSession` remains the only system owner. | Add explicit wiring and parity tests without adding another `AVAudioSession` owner. |
+| Audio coordinator (`PostureAnalysisApp/Voice/AudioCoordinating.swift`) | `WorkoutAudioCoordinator` forwards to its supplied owner; `WorkoutAudioSession` remains the only system owner. | Require an off-by-default feature switch and parity tests before wiring, without adding another `AVAudioSession` owner. |
 | Sound cues and music/effect contracts (`PostureAnalysisApp/Voice/SoundCue.swift`) | Stable vocabulary and policy labels only; no players or production callers. | Add policy-aware players, an opt-in switch, and audio-focus tests. |
 | Narrative runtime and presentation (`Packages/Narrative/`) | Validates scripts and runs a pure value runtime. The app does not link or present it. | Define app, asset, audio, and persistence ownership; add opt-in integration and isolation tests. |
 
-`SpeechSynthesizing` is the active backend seam. `SpeechCoach` defaults to the system wrapper, and its queue behaviour is tested through the injected synthesizer. A prerecorded backend must preserve queue, repeat, cancellation, callback order, and shared-session ownership; a sibling protocol may be needed because the seam accepts `AVSpeechUtterance`.
+`SpeechSynthesizing` is the active backend seam. `SpeechCoach` defaults to the system wrapper, and its queue behaviour is tested through the injected synthesizer. Any future speech backend requires an off-by-default feature switch and must preserve queue, repeat, cancellation, callback order, and shared-session ownership; a sibling protocol may be needed because the seam accepts `AVSpeechUtterance`. See [audio.md](audio.md#prerecorded-speech) for the #129 clip scope.
 
 ## Known limits
 

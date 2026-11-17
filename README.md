@@ -23,7 +23,9 @@ make ios-devices
 cp ios.local.env.example ios.local.env
 ```
 
-Set `IOS_DEVICE`, `IOS_TEAM_ID` (your 10-character Apple development team ID), and a unique `IOS_BUNDLE_ID` in the ignored `ios.local.env`. Run `make ios` to build, sign, install, and launch the Debug app. Keep the bundle ID the same when updating the app so it uses the existing app container. Signing may contact Apple for provisioning assets; posture processing stays on-device. `bash scripts/run-ios.sh` runs the same installer directly.
+For first-time signing, add your Apple account in Xcode → Settings → Accounts. In the app target's **Signing & Capabilities**, enable automatic signing, choose a team (a Personal Team works), and set a unique bundle identifier. Copy the 10-character `DEVELOPMENT_TEAM` from the target's build settings or `project.pbxproj` into `IOS_TEAM_ID`. For an initial run from Xcode, in **Build Settings** override Debug's **Code Signing Allowed** to `YES` and **Code Signing Identity** to `Apple Development`, select your iPhone, and press **Cmd + R** once to establish signing and device registration. `make ios` supplies these signing overrides automatically.
+
+Set `IOS_DEVICE`, `IOS_TEAM_ID` (your 10-character Apple development team ID), and the same unique `IOS_BUNDLE_ID` in the ignored `ios.local.env`. Run `make ios` to build, sign, install, and launch the Debug app. Keep the bundle ID the same when updating the app so it uses the existing app container. Signing may contact Apple for provisioning assets; posture processing stays on-device. `bash scripts/run-ios.sh` runs the same installer directly.
 
 ## Validate
 
@@ -69,7 +71,7 @@ See [Design/AppIcon/README.md](Design/AppIcon/README.md) to export the app icon 
 
 ## Limits
 
-The posture measurements are geometric observations, not medical advice or diagnoses. Live tracking needs a physical camera, adequate lighting, and a visible body. Live measurements are not saved or compared with stored baselines; see [Realtime posture check](docs/realtime.md).
+The posture measurements are geometric observations, not medical advice or diagnoses. Live tracking needs a physical camera, adequate lighting, and a visible body. Live measurements are not saved or compared with stored baselines; see [Realtime posture check](docs/realtime.md). Voice commands are English-only, require on-device recognition, and can mishear in noise or speaker music; headphones can help, and touch controls remain available. See [Voice control](docs/workout.md#voice-control).
 
 ## Agent workflow index
 
