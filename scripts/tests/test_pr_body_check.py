@@ -119,6 +119,14 @@ class PrBodyCheckTests(unittest.TestCase):
         result = self.run_checker("--file", "-", input_text=GOOD_PR_BODY)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_inline_code_comment_opener_does_not_hide_required_sections(self) -> None:
+        body = GOOD_PR_BODY.replace(
+            "- Update the behavior.",
+            "- Handle the `<!--` token and `` `<!--` ``.",
+        )
+        result = self.run_checker("--file", "-", input_text=body)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_bad_heading_shape_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             body_path = Path(directory) / "body.md"

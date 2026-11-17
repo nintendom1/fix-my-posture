@@ -22,8 +22,30 @@ THEMATIC_BREAK_PATTERN = re.compile(
 )
 
 
+def _backtick_run_end(line: str, start: int) -> int:
+    """Return the first index after a backtick run beginning at start."""
+    end = start
+    while end < len(line) and line[end] == "`":
+        end += 1
+    return end
+
+
+def _matching_backtick_end(line: str, start: int, run_length: int) -> int | None:
+    """Return the end of the next matching backtick run on this line."""
+    cursor = start
+    while cursor < len(line):
+        tick = line.find("`", cursor)
+        if tick == -1:
+            return None
+        end = _backtick_run_end(line, tick)
+        if end - tick == run_length:
+            return end
+        cursor = end
+    return None
+
+
 def _remove_html_comments(line: str, in_comment: bool) -> tuple[str, bool]:
-    """Remove HTML comments while preserving text outside each comment."""
+    """Remove HTML comments, treating matched inline-code spans as literal text."""
     visible: list[str] = []
     cursor = 0
 
@@ -36,12 +58,29 @@ def _remove_html_comments(line: str, in_comment: bool) -> tuple[str, bool]:
             in_comment = False
             continue
 
-        start = line.find("<!--", cursor)
-        if start == -1:
+        comment_start = line.find("<!--", cursor)
+        backtick_start = line.find("`", cursor)
+        if backtick_start != -1 and (
+            comment_start == -1 or backtick_start < comment_start
+        ):
+            visible.append(line[cursor:backtick_start])
+            run_end = _backtick_run_end(line, backtick_start)
+            closing_end = _matching_backtick_end(
+                line, run_end, run_end - backtick_start
+            )
+            if closing_end is None:
+                visible.append(line[backtick_start:run_end])
+                cursor = run_end
+            else:
+                visible.append(line[backtick_start:closing_end])
+                cursor = closing_end
+            continue
+
+        if comment_start == -1:
             visible.append(line[cursor:])
             break
-        visible.append(line[cursor:start])
-        cursor = start + 4
+        visible.append(line[cursor:comment_start])
+        cursor = comment_start + 4
         in_comment = True
 
     return "".join(visible), in_comment
