@@ -28,6 +28,14 @@ struct AppShellView: View {
         .fullScreenCover(item: fullScreenRouteBinding) { route in
             fullScreenDestination(for: route)
         }
+        .sheet(isPresented: adaptiveInvitationBinding, onDismiss: {
+            environment.adaptiveInvitation.sheetDidDismiss()
+        }) {
+            AdaptiveInvitationSheet(
+                onAccept: environment.adaptiveInvitation.accept,
+                onNotNow: environment.adaptiveInvitation.notNow
+            )
+        }
         .environment(\.appRouter, environment.router)
         .environment(\.preferences, environment.preferences)
         .environment(\.appRepositories, environment.repositories)
@@ -37,10 +45,15 @@ struct AppShellView: View {
         .modelContainer(environment.modelContainer!)
         .task {
             environment.workoutReminderCoordinator.reconcile()
+            environment.adaptiveInvitation.evaluate(now: Date())
         }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             environment.workoutReminderCoordinator.reconcile()
+            environment.adaptiveInvitation.evaluate(now: Date())
+        }
+        .onChange(of: router.presentedFullScreenRoute) { _, route in
+            environment.adaptiveInvitation.fullScreenRouteDidChange(to: route)
         }
     }
 
@@ -199,6 +212,15 @@ struct AppShellView: View {
             set: { route in
                 if route == nil { router.dismissFullScreen() }
                 else if let route { router.open(route) }
+            }
+        )
+    }
+
+    private var adaptiveInvitationBinding: Binding<Bool> {
+        Binding(
+            get: { environment.adaptiveInvitation.isPresented },
+            set: { isPresented in
+                if !isPresented { environment.adaptiveInvitation.notNow() }
             }
         )
     }

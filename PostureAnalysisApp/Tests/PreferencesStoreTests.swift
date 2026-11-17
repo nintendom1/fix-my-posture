@@ -109,6 +109,30 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertEqual(defaults.object(forKey: PreferenceKey.showAlignmentTargets) as? Bool, false)
     }
 
+    func testAdaptiveInvitationPreferencesDefaultAndRoundTrip() throws {
+        let suiteName = "PreferencesStoreTests.AdaptiveInvitation.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = UserDefaultsPreferences(defaults: defaults)
+
+        XCTAssertNil(preferences.adaptiveInvitationSnoozedUntil)
+        XCTAssertEqual(preferences.adaptiveInvitationDismissCount, 0)
+
+        let snoozedUntil = Date(timeIntervalSince1970: 1_800_000_000.25)
+        preferences.adaptiveInvitationSnoozedUntil = snoozedUntil
+        preferences.adaptiveInvitationDismissCount = 2
+
+        let reloaded = UserDefaultsPreferences(defaults: defaults)
+        XCTAssertEqual(reloaded.adaptiveInvitationSnoozedUntil, snoozedUntil)
+        XCTAssertEqual(reloaded.adaptiveInvitationDismissCount, 2)
+        XCTAssertEqual(defaults.object(forKey: PreferenceKey.adaptiveInvitationSnoozedUntil) as? Double,
+                       snoozedUntil.timeIntervalSince1970)
+        XCTAssertEqual(defaults.object(forKey: PreferenceKey.adaptiveInvitationDismissCount) as? Int, 2)
+
+        reloaded.adaptiveInvitationSnoozedUntil = nil
+        XCTAssertNil(defaults.object(forKey: PreferenceKey.adaptiveInvitationSnoozedUntil))
+    }
+
     func testRestPolicyClampsAndRoundTrips() throws {
         let suiteName = "PreferencesStoreTests.RestPolicy.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
