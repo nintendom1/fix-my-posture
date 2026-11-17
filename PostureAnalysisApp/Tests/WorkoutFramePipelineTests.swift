@@ -342,6 +342,16 @@ final class WorkoutFramePipelineTests: XCTestCase {
         }
     }
 
+    func testPushUpKeepsCountingWhenTheFaceStaysDownThroughLockout() {
+        let pressed = faceDownPushUp(shoulderConfidence: 0.33, armConfidence: 0.75, faintLockout: 0.5)
+        XCTAssertEqual(pressed.reps, 1)
+        XCTAssertTrue(pressed.rejections.isEmpty, "\(pressed.rejections)")
+        XCTAssertEqual(pressed.counting.count, 74)
+        XCTAssertTrue(pressed.counting.allSatisfy { $0 }, "Counting stays on while the face stays down at Up.")
+        XCTAssertTrue(pressed.framing.dropFirst(7).allSatisfy { $0.isReliable && $0.guidance == nil },
+                      "\(pressed.framing)")
+    }
+
     /// Framing's supported-shoulder references restart with each new analyzer and survive a camera restart, as the
     /// analyzer's do, so counting and framing accept the same faint shoulders.
     func testPushUpFramingKeepsShoulderReferencesInStepWithTheAnalyzer() {
@@ -676,25 +686,30 @@ final class WorkoutFramePipelineTests: XCTestCase {
 
     /// A push-up set at 10 Hz: Up, a confident descent, then a five-second face-down hold and half the press with the
     /// given confidences, then Up.
-    /// Frames at 10 Hz: 8 Up, 2 confident descent, 50 face-down Down, 2 face-down rise, and 5 Up. `control` is
-    /// applied just before the frame at its index.
-    private func faceDownPushUp(shoulderConfidence: Double, armConfidence: Double,
+    /// Frames at 10 Hz: 8 Up, 2 confident descent, 50 face-down Down, 2 face-down rise, and 5 Up. With a
+    /// `faintLockout`, 2 confident straight-arm frames a little below Up (elbows at 152°) open the descent, and the
+    /// face-down rise goes on through Up for that long. `control` is applied just before the frame at its index.
+    private func faceDownPushUp(shoulderConfidence: Double, armConfidence: Double, faintLockout: TimeInterval = 0,
                                 control: (index: Int, control: WorkoutFramePipeline.Control)? = nil)
-        -> (reps: Int, counting: [Bool], framing: [FramingStatus]) {
+        -> (reps: Int, rejections: [RepRejection], counting: [Bool], framing: [FramingStatus]) {
         let exercise = PushUpExercise.definition()
         let motion = exercise.guide.motion
         let up = motion.sample(at: 0).angles
+        let nearUp = ArmAngles(upperArmElevation: -76, forearmElevation: -104)
         let middle = motion.sample(at: 1.75).angles
         let down = motion.sample(at: 2.5).angles
+        let lockoutFrames = Int((faintLockout * 10).rounded())
         var pipeline = WorkoutFramePipeline(exercise: exercise, analyzerEpoch: 1, isCounting: true)
         pipeline.setSessionPhase(.exercising)
         pipeline.collectsDiagnostics = true
         var reps = 0
+        var rejections: [RepRejection] = []
         var counting: [Bool] = []
         var framing: [FramingStatus] = []
         var poses: [(angles: ArmAngles, faceDown: Bool)] = []
-        for (angles, faceDown, count) in [(up, false, 8), (middle, false, 2), (down, true, 50), (middle, true, 2),
-                                          (up, false, 5)] {
+        for (angles, faceDown, count) in [(up, false, 8), (nearUp, false, lockoutFrames > 0 ? 2 : 0),
+                                          (middle, false, 2), (down, true, 50), (middle, true, 2),
+                                          (up, true, lockoutFrames), (up, false, 5)] {
             poses += Array(repeating: (angles: angles, faceDown: faceDown), count: count)
         }
         for (index, pose) in poses.enumerated() {
@@ -708,10 +723,11 @@ final class WorkoutFramePipelineTests: XCTestCase {
             reps += output.events.filter { if case .repCompleted = $0 { true } else { false } }.count
             if let diagnostics = output.diagnostics {
                 counting.append(diagnostics.counting)
+                rejections += diagnostics.analysis?.rejections ?? []
                 if let status = diagnostics.framing { framing.append(status) }
             }
         }
-        return (reps, counting, framing)
+        return (reps, rejections, counting, framing)
     }
 
     private func floorPushUpFrame(_ angles: ArmAngles, at time: TimeInterval,

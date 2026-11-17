@@ -59,18 +59,19 @@ struct SupportedShoulderRule: Equatable {
     /// Farthest a supported shoulder may sit sideways from the last confident shoulder on its side, in that arm's
     /// length (upper arm + forearm).
     var maximumDrift: CGFloat
-    /// A confident arm with at least this 2D elbow angle sets its side's ceiling (Up, for push-ups).
+    /// Confident arms with at least this 2D elbow angle set their side's ceiling (Up, for push-ups).
     var straightElbowAngle: Double
     /// The last confident shoulder is forgotten after this long without a usable shoulder on its side.
     var maximumGap: TimeInterval
 }
 
 /// Finds the shoulders a `SupportedShoulderRule` accepts below the usual confidence. Each must stay continuous with
-/// the last confidently seen arm on its side: within the drift limit sideways, no higher than the shoulder in that
-/// side's most recent confident straight-arm frame (the Up position for push-ups), and no lower than its own wrist.
-/// Supported shoulders keep that reference alive but never move it, so a slow drift can't walk the reference away.
-/// Only joints Vision saw count: an elbow or wrist estimated past the frame edge neither supports a shoulder nor
-/// refreshes a reference.
+/// the last confidently seen arm on its side: within the drift limit sideways, no higher than the highest shoulder in
+/// that side's latest run of confident straight-arm frames (the Up position for push-ups), and no lower than its own
+/// wrist. A confident bent arm ends the run, and the next straight arm starts a new one, so an earlier standing or
+/// kneeling high stops limiting the height once a bend and a plank Up follow. Supported shoulders keep that reference
+/// alive but never move it, so a slow drift can't walk the reference away. Only joints Vision saw count: an elbow or
+/// wrist estimated past the frame edge neither supports a shoulder nor refreshes a reference.
 struct SupportedShoulders {
     let rule: SupportedShoulderRule?
     /// The usual joint confidence; a whole arm at or above it refreshes that side's reference.
@@ -80,8 +81,10 @@ struct SupportedShoulders {
     private struct Reference {
         var shoulder: CGPoint
         var armLength: CGFloat
-        /// The shoulder height in the most recent confident straight-arm frame; nil until one is seen.
+        /// The highest shoulder (smallest y) in the latest run of confident straight-arm frames; nil until one is seen.
         var ceilingY: CGFloat?
+        /// Whether the last confident arm was straight, so a straight arm now continues the run.
+        var straight: Bool
         var lastUsable: TimeInterval
     }
 
@@ -100,15 +103,24 @@ struct SupportedShoulders {
         let armsSupport = BodySide.allCases.allSatisfy { seen($0.elbow) != nil && seen($0.wrist) != nil }
         var supported: Set<LandmarkType> = []
         for side in BodySide.allCases {
+            let live = references[side].flatMap { time - $0.lastUsable <= rule.maximumGap + 0.000_001 ? $0 : nil }
             if let arm = ArmGeometry.arm(side, in: frame, minimumConfidence: minimumConfidence),
                frame.estimatedJoints.isDisjoint(with: side.armJoints) {
-                let ceiling = arm.elbowAngle >= rule.straightElbowAngle ? arm.shoulder.y : references[side]?.ceilingY
+                let straight = arm.elbowAngle >= rule.straightElbowAngle
+                // A bent arm keeps a live ceiling. A straight arm extends the run or, after a bend, starts a new one.
+                let ceiling: CGFloat?
+                if !straight {
+                    ceiling = live?.ceilingY
+                } else if let live, live.straight, let highest = live.ceilingY {
+                    ceiling = min(highest, arm.shoulder.y)
+                } else {
+                    ceiling = arm.shoulder.y
+                }
                 references[side] = Reference(shoulder: arm.shoulder, armLength: arm.armLength,
-                                             ceilingY: ceiling, lastUsable: time)
+                                             ceilingY: ceiling, straight: straight, lastUsable: time)
                 continue
             }
-            guard var reference = references[side] else { continue }
-            guard time - reference.lastUsable <= rule.maximumGap + 0.000_001 else {
+            guard var reference = live else {
                 references[side] = nil
                 continue
             }

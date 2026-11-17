@@ -153,6 +153,14 @@ final class PushUpAnalyzerTests: XCTestCase {
         XCTAssertEqual(result.bridgedBottomGaps.count, 1)
     }
 
+    func testFaintShouldersCountThroughAFaceDownLockout() {
+        // Straight arms a little below Up while lowering don't lower the ceiling, so the faint press reaches Up and
+        // confirms it before the face comes back.
+        let result = runFaceDownHold(faintLockout: 0.5)
+        XCTAssertEqual(result.reps, 1)
+        XCTAssertTrue(result.rejections.isEmpty, "\(result.rejections)")
+    }
+
     func testEightFaceDownPushUpsCountEight() {
         let result = runFaceDownHold(seconds: 1, reps: 8)
         XCTAssertEqual(result.reps, 8)
@@ -254,36 +262,69 @@ final class PushUpAnalyzerTests: XCTestCase {
         XCTAssertNil(PushUpExercise.definition(configuration: configuration).supportedShoulders)
     }
 
-    func testSupportedShouldersTakeTheCeilingFromTheLatestStraightArm() {
+    func testSupportedShouldersTakeTheCeilingFromTheLatestStraightArmRun() {
         let rule = PushUpConfiguration.standard.supportedShoulders
         let both: Set<LandmarkType> = [.leftShoulder, .rightShoulder]
         let rightOnly: Set<LandmarkType> = [.rightShoulder]
 
-        // Standing (400 px higher) or kneeling (150 px higher) with straight arms, then the plank Up: a faint shoulder
-        // between the two heights is above the plank Up, so it isn't accepted.
+        // Standing (400 px higher) or kneeling (150 px higher) with straight arms, then a bend and the plank Up: a
+        // faint shoulder between the two heights is above the plank Up, so it isn't accepted. Without the bend the
+        // straight-arm run goes on, and its highest shoulder stays the ceiling.
         let aboveUp: [LandmarkType: CGPoint] = [.leftShoulder: CGPoint(x: 600, y: 900),
                                                 .rightShoulder: CGPoint(x: 400, y: 1250)]
         for lift in [CGFloat(400), 150] {
-            var shoulders = SupportedShoulders(rule: rule, minimumConfidence: 0.4)
-            _ = shoulders.update(Self.armsFrame(Self.upArms.mapValues { CGPoint(x: $0.x, y: $0.y - lift) }, at: 0))
-            _ = shoulders.update(Self.armsFrame(at: 0.1))
-            XCTAssertEqual(shoulders.update(Self.armsFrame(aboveUp, confidences: Self.faint(), at: 0.2)), rightOnly,
-                           "An earlier shoulder \(lift) px higher doesn't raise the ceiling.")
-            XCTAssertEqual(shoulders.update(Self.armsFrame([.leftShoulder: CGPoint(x: 600, y: 1000)],
-                                                           confidences: Self.faint(), at: 0.3)), both)
+            for (bends, expected) in [(true, rightOnly), (false, both)] {
+                var shoulders = SupportedShoulders(rule: rule, minimumConfidence: 0.4)
+                _ = shoulders.update(Self.armsFrame(Self.upArms.mapValues { CGPoint(x: $0.x, y: $0.y - lift) }, at: 0))
+                if bends { _ = shoulders.update(Self.armsFrame(Self.elbows(at: 120), at: 0.1)) }
+                _ = shoulders.update(Self.armsFrame(at: 0.2))
+                XCTAssertEqual(shoulders.update(Self.armsFrame(aboveUp, confidences: Self.faint(), at: 0.3)), expected,
+                               "An earlier shoulder \(lift) px higher, bend between: \(bends)")
+                XCTAssertEqual(shoulders.update(Self.armsFrame([.leftShoulder: CGPoint(x: 600, y: 1000)],
+                                                               confidences: Self.faint(), at: 0.4)), both)
+            }
         }
 
-        // Only a straight arm (elbow at least 150°) moves the ceiling, here down to about y 1027.
-        let belowUp: [LandmarkType: CGPoint] = [.leftShoulder: CGPoint(x: 700, y: 1010),
+        // Straight arms lowering from Up (elbows still at 150.1°, shoulders near y 1027) keep the Up ceiling, so a
+        // face-down press can reach Up again with faint shoulders.
+        let belowUp: [LandmarkType: CGPoint] = [.leftShoulder: CGPoint(x: 650, y: 1010),
                                                 .rightShoulder: CGPoint(x: 400, y: 1250)]
+        var lowering = SupportedShoulders(rule: rule, minimumConfidence: 0.4)
+        _ = lowering.update(Self.armsFrame(at: 0))
+        _ = lowering.update(Self.armsFrame(Self.elbows(at: 150.1), at: 0.1))
+        XCTAssertEqual(lowering.update(Self.armsFrame(belowUp, confidences: Self.faint(), at: 0.2)), both)
+        XCTAssertEqual(lowering.update(Self.armsFrame(Self.upArms, confidences: Self.faint(), at: 0.3)), both,
+                       "A faint shoulder back at Up is accepted.")
+
+        // After a bend, the first straight arm (elbow at least 150°) starts a new run, here at about y 1027. A
+        // higher straight arm later in the run raises the ceiling again.
         for (angle, expected) in [(150.1, rightOnly), (149.9, both)] {
-            let radians = angle * .pi / 180
-            let shoulder = CGPoint(x: 600 + 200 * CGFloat(sin(radians)), y: 1200 + 200 * CGFloat(cos(radians)))
             var shoulders = SupportedShoulders(rule: rule, minimumConfidence: 0.4)
             _ = shoulders.update(Self.armsFrame(at: 0))
-            _ = shoulders.update(Self.armsFrame([.leftShoulder: shoulder], at: 0.1))
-            XCTAssertEqual(shoulders.update(Self.armsFrame(belowUp, confidences: Self.faint(), at: 0.2)), expected,
-                           "left elbow at \(angle)°")
+            _ = shoulders.update(Self.armsFrame(Self.elbows(at: 120), at: 0.1))
+            _ = shoulders.update(Self.armsFrame(Self.elbows(at: angle), at: 0.2))
+            XCTAssertEqual(shoulders.update(Self.armsFrame(belowUp, confidences: Self.faint(), at: 0.3)), expected,
+                           "elbows at \(angle)° after a bend")
+        }
+        var raised = SupportedShoulders(rule: rule, minimumConfidence: 0.4)
+        _ = raised.update(Self.armsFrame(at: 0))
+        _ = raised.update(Self.armsFrame(Self.elbows(at: 120), at: 0.1))
+        _ = raised.update(Self.armsFrame(Self.elbows(at: 150.1), at: 0.2))
+        _ = raised.update(Self.armsFrame(at: 0.3))
+        XCTAssertEqual(raised.update(Self.armsFrame(belowUp, confidences: Self.faint(), at: 0.4)), both)
+    }
+
+    func testABentArmInheritsOnlyALiveCeiling() {
+        let rule = PushUpConfiguration.standard.supportedShoulders
+        let both: Set<LandmarkType> = [.leftShoulder, .rightShoulder]
+        let bent = Self.elbows(at: 120)
+        // A confident bent arm keeps the Up ceiling only while that side's reference is live (0.8 s).
+        for (gap, expected) in [(0.8, both), (0.81, Set<LandmarkType>())] {
+            var shoulders = SupportedShoulders(rule: rule, minimumConfidence: 0.4)
+            _ = shoulders.update(Self.armsFrame(at: 0))
+            _ = shoulders.update(Self.armsFrame(bent, at: gap))
+            XCTAssertEqual(shoulders.update(Self.armsFrame(bent, confidences: Self.faint(), at: gap + 0.1)), expected,
+                           "a bent arm \(gap) s after Up")
         }
     }
 
@@ -369,15 +410,19 @@ final class PushUpAnalyzerTests: XCTestCase {
 
     /// Each rep at 10 Hz: Up, a confident descent, then a face-down Down hold of `hold` seconds and the first half of
     /// the press with faint shoulders, then Up. Face-down frames use the given confidences and shoulder shift, and
-    /// hold frames whose index is in `dropout` lose the shoulders entirely.
+    /// hold frames whose index is in `dropout` lose the shoulders entirely. With a `faintLockout`, the descent opens
+    /// with two confident straight-arm frames a little below Up (elbows at 152°), and the faint shoulders go on
+    /// through Up for that long.
     private func runFaceDownHold(seconds hold: TimeInterval = 5, shoulderConfidence: Double = 0.33,
                                  confidences: [LandmarkType: Double] = [:], shoulderShift: CGFloat = 0,
-                                 dropout: Range<Int> = 0..<0, reps: Int = 1) -> Run {
+                                 dropout: Range<Int> = 0..<0, faintLockout: TimeInterval = 0, reps: Int = 1) -> Run {
         let analyzer = PushUpAnalyzer(epoch: 3)
         var result = Run()
         let up = motion.sample(at: 0).angles
+        let nearUp = ArmAngles(upperArmElevation: -76, forearmElevation: -104)
         let middle = motion.sample(at: 1.75).angles
         let down = motion.sample(at: 2.5).angles
+        let lockoutFrames = Int((faintLockout * 10).rounded())
         var sample = 0
         func feed(_ angles: ArmAngles, faceDown: Bool = false, shoulders: Double? = nil) {
             let time = Double(sample) / 10
@@ -392,11 +437,13 @@ final class PushUpAnalyzerTests: XCTestCase {
         }
         for _ in 0..<reps {
             for _ in 0..<5 { feed(up) }
+            if lockoutFrames > 0 { for _ in 0..<2 { feed(nearUp) } }
             for _ in 0..<2 { feed(middle) }
             for index in 0..<Int((hold * 10).rounded()) {
                 feed(down, faceDown: true, shoulders: dropout.contains(index) ? 0.2 : nil)
             }
             for _ in 0..<2 { feed(middle, faceDown: true) }
+            for _ in 0..<lockoutFrames { feed(up, faceDown: true) }
             for _ in 0..<3 { feed(up) }
         }
         return result
@@ -408,6 +455,14 @@ final class PushUpAnalyzerTests: XCTestCase {
         .leftWrist: CGPoint(x: 600, y: 1400), .rightShoulder: CGPoint(x: 400, y: 1000),
         .rightElbow: CGPoint(x: 400, y: 1200), .rightWrist: CGPoint(x: 400, y: 1400)
     ]
+
+    /// Shoulders that bend both `upArms` elbows to `angle` degrees, swinging each upper arm outward.
+    private static func elbows(at angle: Double) -> [LandmarkType: CGPoint] {
+        let radians = angle * .pi / 180
+        let outward = 200 * CGFloat(sin(radians))
+        let y = 1200 + 200 * CGFloat(cos(radians))
+        return [.leftShoulder: CGPoint(x: 600 + outward, y: y), .rightShoulder: CGPoint(x: 400 - outward, y: y)]
+    }
 
     /// `upArms`, with `moved` relocating joints and `estimated` marking joints placed past the frame edge.
     private static func armsFrame(_ moved: [LandmarkType: CGPoint] = [:], confidences: [LandmarkType: Double] = [:],
