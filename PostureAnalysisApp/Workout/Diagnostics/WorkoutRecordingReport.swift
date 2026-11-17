@@ -98,9 +98,13 @@ enum WorkoutRecordingReport {
 
         // Pass 1: everything except frames.
         WorkoutRecordingFile.forEachLine(in: fileURL) { line in
-            if let time = WorkoutRecordingFile.frameTime(line) {
+            if let object = WorkoutRecordingFile.object(line), object["k"] as? String == "f" {
+                let time = object["t"] as? Double ?? 0
                 frameCount += 1
                 lastTime = max(lastTime, time)
+                for info in object["info"] as? [[String: Any]] ?? [] {
+                    if let text = analysisInfoText(info) { add(time, text) }
+                }
                 return
             }
             guard let object = WorkoutRecordingFile.object(line), let kind = object["k"] as? String else { return }
@@ -220,7 +224,9 @@ enum WorkoutRecordingReport {
         facts.append(end == nil ? "incomplete" : "ended: \(end?["reason"] as? String ?? "?")")
         lines.append("FMP workout report · " + facts.joined(separator: " · "))
         lines.append("Recording \(header["id"] as? String ?? "?"); the full file comes over with `make diagnostics`.")
-        let framing = header["framing"] as? [String: Any] ?? [:]
+        let sessionFraming = header["framing"] as? [String: Any] ?? [:]
+        let firstExercise = Self.unique(exerciseSegments.map(\.id)).first.flatMap { exercises[$0] }
+        let framing = firstExercise?["framing"] as? [String: Any] ?? sessionFraming
         let size = ((header["camera"] as? [String: Any])?["analysisHz"] as? Int).map { "\($0) Hz" } ?? "10 Hz"
         lines.append("Joints: unmirrored image pixels, origin top-left, analyzed at \(size). Cells are confidence then x,y. "
             + "Framing needs required joints at ≥\(number(framing["minimumConfidence"] ?? 0.4)) for "
@@ -233,6 +239,9 @@ enum WorkoutRecordingReport {
             let anyOf = (definition["anyOfRequired"] as? [[String]] ?? []).map { $0.map(Self.short).joined(separator: " ") }
             var line = "Exercise \(id) (\(definition["cameraView"] as? String ?? "?")): required \(required.isEmpty ? "none" : required)"
             if !anyOf.isEmpty { line += "; or all of one of [\(anyOf.joined(separator: "] ["))]" }
+            if let exerciseFraming = definition["framing"] as? [String: Any] {
+                line += "; framing drops after \(number(exerciseFraming["unreliableAfter"] ?? sessionFraming["unreliableAfter"] ?? 0.3)) s missing"
+            }
             lines.append(line)
             if let configuration = definition["configuration"] as? [String: Any] {
                 lines.append("  tuning: " + configuration.keys.sorted().map { "\($0)=\(number(configuration[$0] ?? ""))" }
@@ -289,6 +298,13 @@ enum WorkoutRecordingReport {
             // Start-position flips, tip clears, and the like are too frequent to help here.
             return nil
         }
+    }
+
+    private static func analysisInfoText(_ info: [String: Any]) -> String? {
+        guard info["level"] as? String == "info", info["type"] as? String == "bottomDropoutBridged" else { return nil }
+        let seconds = number(info["seconds"] ?? "?")
+        let maximum = number(info["maximum"] ?? "?")
+        return "Bottom dropout bridged: \(seconds) s (limit \(maximum) s)"
     }
 
     private static func columnHeader(_ joints: [String]) -> String {

@@ -302,6 +302,7 @@ Push-ups are filmed by a phone lying on the floor a long step in front of the ha
 
 - Signal: `h` = how far the shoulders sit above the planted hands, in arm lengths (upper arm + forearm), averaged over both arms, plus the average 2D elbow angle. The arms stand roughly upright in the image, so the longest recent arm length, locked at the top, is a full ruler at any distance.
 - Up (the start) when `h ≥ 0.8` and the elbows are at least 150°. Down (the counted end) when `h ≤ 0.5` and the elbows are at most 110°. A rep is up → down → up within at least 0.8 s. The lines are drawn across the shoulders as **Up ↑** and **Down ↓**.
+- A shoulder dropout at the bottom can bridge up to 0.8 s when both the last and first visible samples are Down, each planted wrist moves no more than 0.15 arm rulers, and each arm ruler changes no more than 20%. The gap itself confirms Down, even when only one pre-gap sample crossed the line. Push-ups keep framing reliable through the same 0.8 s; other exercises keep their existing 0.3 s grace. A longer gap, a gap during descent or ascent, or moved wrists/rulers rejects the attempt and clears the cycle, locked reference, ruler history, and form monitor. The user must return to Up before another rep can begin.
 - Validation: the guide's floor-view demonstration reads 1.00 at 180° up and 0.42 at 50° down, whatever the arm proportions. It counts exactly one rep per loop at ½×/2×, mirrored, and with either segment ±15%.
 - **Floor-view support**:
   - The guide figure plants its hands on a floor line, with the shoulders above them by the arm pose.
@@ -787,6 +788,7 @@ Simulator tests cannot validate the camera, Vision detections, speech, or audio 
     - The ghost figure rises from your hands. Holding the plank fills the Hold ring.
     - Ten push-ups to the Down line count exactly 10. Shallow ones get "Go a little lower."
     - With your hands at the bottom edge of the frame, reps still count.
+    - A brief shoulder dropout at Down still counts once; a dropout during lowering, raising, or after moving the hands resets the attempt.
     - Dropping fast gets "Lower with control."
 - [ ] **35.** Wall Push-Up, side-on:
     - Stand an arm's length from a wall with your feet hip-width apart, hands on the wall at shoulder height, and turn side-on to the phone. Framing accepts either side's shoulder, elbow, wrist, and hip; the ankle is optional.

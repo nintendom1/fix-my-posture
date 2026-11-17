@@ -24,6 +24,7 @@ const api = {
 const FILTERS = {
   All: () => true,
   Issues: (item) => ["warn", "cue", "marker", "note"].includes(item.kind),
+  Info: (item) => item.kind === "info",
   Reps: (item) => item.kind === "rep" || item.kind === "analyzer",
   Voice: (item) => item.kind === "voice" || item.title.startsWith("Command"),
   Notes: (item) => item.kind === "note" || item.kind === "marker",
@@ -170,6 +171,10 @@ function buildTimeline() {
   $("framingLane").innerHTML = views.framingLane(session);
   $("repLane").innerHTML = views.repLane(session);
   $("issueLane").innerHTML = views.issueLane(session);
+  const hasInfoEvents = session.infoEvents.length > 0;
+  $("infoLabel").hidden = !hasInfoEvents;
+  $("infoLane").hidden = !hasInfoEvents;
+  $("infoLane").innerHTML = views.infoLane(session);
   const charts = views.charts(session, state.series.sampled, state.series.signalRange);
   $("signalChart").innerHTML = charts.signal;
   $("angleChart").innerHTML = charts.angle;

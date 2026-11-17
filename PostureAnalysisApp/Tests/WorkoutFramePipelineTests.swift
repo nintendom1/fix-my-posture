@@ -274,6 +274,59 @@ final class WorkoutFramePipelineTests: XCTestCase {
         XCTAssertTrue(pipeline.isCounting)
     }
 
+    func testPushUpCountsThroughABriefBottomFramingLoss() {
+        let exercise = PushUpExercise.definition()
+        let motion = exercise.guide.motion
+        let up = motion.sample(at: 0).angles
+        let middle = motion.sample(at: 1.75).angles
+        let down = motion.sample(at: 2.5).angles
+        var pipeline = WorkoutFramePipeline(exercise: exercise, analyzerEpoch: 1, isCounting: true)
+        pipeline.setSessionPhase(.exercising)
+        pipeline.collectsDiagnostics = true
+        var repCount = 0
+        var countingFrames: [Bool] = []
+
+        func send(_ angles: ArmAngles, at time: TimeInterval, shoulderConfidence: Double = 0.9) {
+            let output = pipeline.process(frame: floorPushUpFrame(angles, at: time,
+                                                                   shoulderConfidence: shoulderConfidence), at: time)
+            repCount += output.events.filter { if case .repCompleted = $0 { true } else { false } }.count
+            if let diagnostics = output.diagnostics { countingFrames.append(diagnostics.counting) }
+        }
+
+        for index in 0...6 { send(up, at: Double(index) / 10) }
+        send(middle, at: 0.7)
+        send(down, at: 0.8)
+        for index in 9...14 { send(down, at: Double(index) / 10, shoulderConfidence: 0.2) }
+        send(down, at: 1.5)
+        send(down, at: 1.6)
+        send(middle, at: 1.7)
+        send(up, at: 1.8)
+        send(up, at: 1.9)
+
+        XCTAssertEqual(repCount, 1)
+        XCTAssertEqual(countingFrames.count, 20)
+        XCTAssertTrue(countingFrames.allSatisfy { $0 }, "The 0.7 s bottom loss stays inside push-up framing grace.")
+    }
+
+    func testPushUpFramingGraceStopsAfterTheConfiguredBottomGapLimit() {
+        let exercise = PushUpExercise.definition()
+        var pipeline = WorkoutFramePipeline(exercise: exercise, analyzerEpoch: 1, isCounting: true)
+        pipeline.setSessionPhase(.exercising)
+        pipeline.collectsDiagnostics = true
+        for index in 0...6 {
+            let time = Double(index) / 10
+            _ = pipeline.process(frame: floorPushUpFrame(exercise.guide.motion.sample(at: 0).angles, at: time), at: time)
+        }
+
+        let withinGrace = pipeline.process(frame: floorPushUpFrame(exercise.guide.motion.sample(at: 0).angles,
+                                                                    at: 1.3, shoulderConfidence: 0.2), at: 1.3)
+        let afterLimit = pipeline.process(frame: floorPushUpFrame(exercise.guide.motion.sample(at: 0).angles,
+                                                                  at: 1.5, shoulderConfidence: 0.2), at: 1.5)
+
+        XCTAssertEqual(withinGrace.diagnostics?.counting, true)
+        XCTAssertEqual(afterLimit.diagnostics?.counting, false)
+    }
+
     func testLateralSideRoomFeedsFramingReliabilityFromPipeline() {
         let exercise = LateralRaiseExercise.definition()
         let closePose: [LandmarkType: CGPoint] = [
@@ -557,6 +610,31 @@ final class WorkoutFramePipelineTests: XCTestCase {
                             confidence: 0.9))
         })
         return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: width, imageHeight: height), timestamp: time)
+    }
+
+    private func floorPushUpFrame(_ angles: ArmAngles, at time: TimeInterval,
+                                  shoulderConfidence: Double = 0.9) -> PoseFrame {
+        var joints: [LandmarkType: (CGPoint, Double)] = [:]
+        for side in BodySide.allCases {
+            guard let hand = ExerciseDemoFigureView.floorHands[side] else { continue }
+            let arm = ArmMotion.place(shoulder: .zero, outward: side == .left ? 1 : -1,
+                                      upperArm: ExerciseDemoFigureView.upperArm,
+                                      forearm: ExerciseDemoFigureView.forearm, angles: angles)
+            let shoulder = CGPoint(x: hand.x - arm.wrist.x, y: hand.y - arm.wrist.y)
+            let elbow = CGPoint(x: shoulder.x + arm.elbow.x, y: shoulder.y + arm.elbow.y)
+            for (joint, point, confidence) in [(side.shoulder, shoulder, shoulderConfidence),
+                                                (side.elbow, elbow, 0.9), (side.wrist, hand, 0.9)] {
+                let pixel = CGPoint(x: point.x + 300, y: point.y + 200)
+                joints[joint] = (pixel, confidence)
+            }
+        }
+        let landmarks = Dictionary(uniqueKeysWithValues: joints.map { type, value in
+            (type, Landmark(type: type,
+                            normalizedLocation: CoordinateConverter.imagePixelToNormalized(
+                                pixel: value.0, imageWidth: 1080, imageHeight: 1920),
+                            imageLocation: value.0, confidence: value.1))
+        })
+        return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 1080, imageHeight: 1920), timestamp: time)
     }
 
     private func emptyFrame(at time: TimeInterval) -> PoseFrame {

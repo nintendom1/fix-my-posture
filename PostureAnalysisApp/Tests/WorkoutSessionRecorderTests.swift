@@ -27,6 +27,9 @@ final class WorkoutSessionRecorderTests: XCTestCase {
         XCTAssertEqual(configuration["topMinElbowAngle"] as? Double, 140)
         XCTAssertEqual(press["cameraView"] as? String, "front")
         XCTAssertNotNil((header["framing"] as? [String: Any])?["reliableAfter"])
+        let pushUp = try XCTUnwrap(exercises["push_up"] as? [String: Any])
+        let pushUpFraming = try XCTUnwrap(pushUp["framing"] as? [String: Any])
+        XCTAssertEqual(pushUpFraming["unreliableAfter"] as? Double, 0.8)
         XCTAssertNotNil((header["cueScheduler"] as? [String: Any])?["cueCooldown"])
 
         XCTAssertTrue(recorder.isRecording)
@@ -60,6 +63,30 @@ final class WorkoutSessionRecorderTests: XCTestCase {
         let wristIndex = try XCTUnwrap(LandmarkType.allCases.firstIndex(of: .rightWrist))
         XCTAssertEqual(line["lo"] as? [[Double]], [[Double(wristIndex), 612, 300.4, 0.145]])
         XCTAssertEqual(line["pitch"] as? Double, 3.21)
+    }
+
+    func testFrameLineRecordsBridgedBottomGapAsInformationalData() throws {
+        let store = MemoryWorkoutRecordingStore()
+        let recorder = makeRecorder(store)
+        recorder.begin(context(), at: 100)
+
+        let frame = PoseFrame(pose: BodyPose(landmarks: [:], imageWidth: 1080, imageHeight: 1920), timestamp: 4521.8)
+        var analysis = ExerciseAnalysis()
+        analysis.bridgedBottomGaps = [BridgedBottomGap(timestamp: 4521.8, duration: 0.5, maximum: 0.8)]
+        let diagnostics = WorkoutFramePipeline.FrameDiagnostics(analyzedFrame: frame, framing: nil,
+                                                                 counting: true, analysis: analysis)
+        let output = WorkoutFramePipeline.FrameOutput(events: [], overlay: nil, ghostFitOverlay: nil,
+                                                       guideMetrics: nil, readings: [:], thresholds: [:],
+                                                       formReadings: [], diagnostics: diagnostics)
+        recorder.recordFrame(frame, output: output, pitchDegrees: nil, at: 101.8)
+
+        let line = try XCTUnwrap(writer(store).objects(kind: "f").first)
+        let info = try XCTUnwrap((line["info"] as? [[String: Any]])?.first)
+        XCTAssertEqual(info["level"] as? String, "info")
+        XCTAssertEqual(info["type"] as? String, "bottomDropoutBridged")
+        XCTAssertEqual(info["ts"] as? Double, 4521.8)
+        XCTAssertEqual(info["seconds"] as? Double, 0.5)
+        XCTAssertEqual(info["maximum"] as? Double, 0.8)
     }
 
     func testImageSizeAndSequenceGapsAreTracked() throws {

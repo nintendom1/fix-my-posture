@@ -125,6 +125,9 @@ export class Session {
     this.reps = this.#classifyReps();
     this.rejections = this.frames.flatMap((frame) => (Array.isArray(frame.rej) ? frame.rej : [])
       .map((rejection) => ({ ...rejection, t: frame.t, text: describeRejection(rejection) })));
+    this.infoEvents = this.frames.flatMap((frame) => (Array.isArray(frame.info) ? frame.info : [])
+      .filter((event) => event?.level === "info" && event?.type === "bottomDropoutBridged")
+      .map((event) => ({ ...event, t: frame.t, code: event.type, title: describeBridgedBottomGap(event) })));
     this.timeline = this.#timeline();
   }
 
@@ -221,7 +224,7 @@ export class Session {
   /** The event log: what happened, in order, with a kind for coloring and filtering. */
   #timeline() {
     const items = [];
-    const add = (t, kind, title, detail = "") => items.push({ t, kind, title, detail });
+    const add = (t, kind, title, detail = "", code = undefined) => items.push({ t, kind, title, detail, code });
     for (const event of this.events) {
       switch (event.type) {
         case "command":
@@ -258,6 +261,7 @@ export class Session {
     for (const rejection of this.rejections) {
       add(rejection.t, "warn", "Attempt not counted", `${rejection.side ? `${rejection.side} · ` : ""}${rejection.text}`);
     }
+    for (const event of this.infoEvents) add(event.t, "info", event.title, "", event.code);
     for (const rep of this.reps) {
       const sides = rep.sides.join("+");
       const after = rep.after?.sideReps ? ` · L ${rep.after.sideReps.left} R ${rep.after.sideReps.right}` : "";
@@ -287,6 +291,11 @@ export class Session {
     return (this.exerciseSpans[index] ?? this.exerciseSpans[0])?.label ?? null;
   }
   exerciseAt(t) { return this.exercises[this.exerciseIDAt(t)] ?? null; }
+  /** The exercise framing recorded with the exercise, falling back to session framing for legacy recordings. */
+  framingFor(exerciseID) {
+    const exercise = this.exercises[exerciseID] ?? {};
+    return { ...(this.header.framing ?? {}), ...(exercise.framing ?? {}) };
+  }
 
   /** The exercise's focus joints in joint order, or every joint. */
   focusJoints(t) {
@@ -393,6 +402,11 @@ export function describeRejection(rejection) {
   }
 }
 
+function describeBridgedBottomGap(event) {
+  const seconds = (value) => (Number.isFinite(Number(value)) ? Number(value).toFixed(2) : "?");
+  return `Bottom dropout bridged: ${seconds(event.seconds)} s (limit ${seconds(event.maximum)} s)`;
+}
+
 export function clock(seconds, tenths = true) {
   const total = Math.max(0, seconds);
   const minutes = Math.floor(total / 60);
@@ -446,7 +460,7 @@ export function renderExcerpt(session, { from = 0, to = session.duration, option
   lines.push(`# FMP replay excerpt · ${name}${started ? ` · ${started}` : ""}`);
   lines.push(`Recording ${session.id} · window ${clock(from)}–${clock(to)} (${(to - from).toFixed(1)} s) · `
     + (options.rate ? `${options.rate} Hz` : "events only") + ` · ${options.label ?? "custom"}`);
-  const framing = session.header.framing ?? {};
+  const framing = session.framingFor(session.exerciseIDAt(from));
   lines.push(`Joints are unmirrored image pixels (${session.imageSize.join("×")}, origin top-left). `
     + `Framing needs required joints at ≥${framing.minimumConfidence ?? 0.4} for ${framing.reliableAfter ?? 0.6} s and drops `
     + `after ${framing.unreliableAfter ?? 0.3} s missing; joints under ${session.header.confidenceFloor ?? 0.3} are dropped before analysis.`);
@@ -471,9 +485,11 @@ export function renderExcerpt(session, { from = 0, to = session.duration, option
     lines.push("", "## Exercise");
     for (const id of exerciseIDs) {
       const exercise = session.exercises[id] ?? {};
+      const exerciseFraming = session.framingFor(id);
       const required = (exercise.required ?? []).map(shortJoint).join(" ") || "none";
       const anyOf = (exercise.anyOfRequired ?? []).map((set) => set.map(shortJoint).join(" "));
-      lines.push(`${id} (${exercise.cameraView ?? "?"}): required ${required}${anyOf.length ? `; or one of [${anyOf.join("] [")}]` : ""}`);
+      lines.push(`${id} (${exercise.cameraView ?? "?"}): required ${required}${anyOf.length ? `; or one of [${anyOf.join("] [")}]` : ""}`
+        + (exercise.framing ? `; framing drops after ${exerciseFraming.unreliableAfter ?? 0.3} s missing` : ""));
       if (options.tuning && exercise.configuration) {
         lines.push("tuning: " + Object.keys(exercise.configuration).sort()
           .map((key) => `${key}=${exercise.configuration[key]}`).join(" "));

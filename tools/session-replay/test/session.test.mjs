@@ -92,6 +92,41 @@ test("an excerpt has the window, notes, tuning, events, and a frame table", () =
   assert.ok(estimateTokens(text) > 100 && estimateTokens(text) < 2000);
 });
 
+test("bridged bottom gaps are informational and legacy excerpts keep their previous output", () => {
+  const items = records().map((record) => structuredClone(record));
+  items[0].exercises.push_up.framing = { ...items[0].framing, unreliableAfter: 0.8 };
+  const frame = items.find((record) => record.k === "f" && record.t === 9);
+  assert.ok(frame, "the synthetic recording has a frame at the bridge time");
+  frame.info = [{ level: "info", type: "bottomDropoutBridged", ts: frame.ts, seconds: 0.5, maximum: 0.8 }];
+
+  const session = new Session(items);
+  const event = session.timeline.find((item) => item.code === "bottomDropoutBridged");
+  assert.deepEqual([event?.kind, event?.t, event?.title], ["info", 9, "Bottom dropout bridged: 0.50 s (limit 0.80 s)"]);
+  const excerpt = renderExcerpt(session, { from: 8.5, to: 9.5, options: PRESETS.flow });
+  assert.match(excerpt, /drops after 0\.8 s missing/);
+  assert.match(excerpt, /framing drops after 0\.8 s missing/);
+  assert.match(excerpt, /0:09\.0 Bottom dropout bridged: 0\.50 s \(limit 0\.80 s\)/);
+
+  const legacy = Session.fromText(arrayText());
+  const legacyExcerpt = renderExcerpt(legacy, { from: 8.5, to: 9.5, options: PRESETS.flow });
+  assert.equal(legacyExcerpt, [
+    "# FMP replay excerpt · Push-Up · 2027-01-15 08:00",
+    "Recording 599FCD69-CD80-4E21-978B-CDEA95DD23FC · window 0:08.5–0:09.5 (1.0 s) · events only · Session flow",
+    "Joints are unmirrored image pixels (1080×1920, origin top-left). Framing needs required joints at ≥0.4 for 0.6 s and drops after 0.3 s missing; joints under 0.3 are dropped before analysis.",
+    "",
+    "## Exercise",
+    "push_up (floor): required LS RS",
+    "",
+    "## State at the window start",
+    "phase exercising · exercise push_up · set 1 · reps 0 · counting off · framing lost",
+    "",
+    "## Events (2)",
+    "0:08.6 Coach says — “I can't see you.”",
+    "0:09.4 Tracking reliable",
+  ].join("\n") + "\n", "legacy output matches d2263e3");
+  assert.equal(legacy.infoEvents.length, 0);
+});
+
 test("notes are added, edited, and deleted by id, in time order", () => {
   let document = emptyNotes(ID);
   document = applyNote(document, { id: "b", t: 9, text: "later" }, "2027-01-01T00:00:00Z");

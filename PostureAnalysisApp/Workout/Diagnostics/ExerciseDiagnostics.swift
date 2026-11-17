@@ -31,6 +31,15 @@ struct ExerciseDiagnostics {
         (try? encoder.encode(value)).map { String(decoding: $0, as: UTF8.self) } ?? "{}"
     }
 
+    /// The framing evaluator's effective configuration for an exercise, including its optional grace override.
+    static func effectiveFramingConfiguration(for exercise: ExerciseDefinition) -> FramingConfiguration {
+        var configuration = FramingConfiguration()
+        if let grace = exercise.framingUnreliableAfter {
+            configuration.unreliableAfter = max(configuration.unreliableAfter, grace)
+        }
+        return configuration
+    }
+
     /// Lays the recorded values over the current configuration's encoding, key by key.
     static func merge(_ recorded: Data, over base: Data) throws -> Data {
         guard var current = try JSONSerialization.jsonObject(with: base) as? [String: Any],

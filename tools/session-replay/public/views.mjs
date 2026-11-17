@@ -94,6 +94,11 @@ export function issueLane(session) {
     `<span class="diamond" data-t="${num(item.t)}" style="left:${at(session, item.t)};background:${KIND_COLORS[item.kind]}" title="${esc(`${clock(num(item.t))} ${item.title} ${item.detail}`)}"></span>`).join("");
 }
 
+export function infoLane(session) {
+  return session.timeline.filter((item) => item.code === "bottomDropoutBridged").map((item) =>
+    `<span class="diamond" data-t="${num(item.t)}" style="left:${at(session, item.t)};background:${KIND_COLORS.info}" title="${esc(`${clock(num(item.t))} ${item.title}`)}"></span>`).join("");
+}
+
 export function noteLane(session, notes) {
   const pins = notes.map((note) => `<span class="pin" data-t="${num(note.t)}" style="left:${at(session, note.t)};background:${note.author === "claude" ? "#7fd8ff" : "#c9b3ff"}" title="${esc(`${clock(num(note.t))} ${note.text}`)}"></span>`);
   const markers = session.markers.map((marker) => {

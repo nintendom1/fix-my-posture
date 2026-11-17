@@ -101,6 +101,22 @@ test("the rep lane rings attempts the analyzer let go, with the reason", () => {
   assert.match(lane, /title="[^"]*attempt not counted · too fast: 0\.62 s, the minimum is 0\.80 s"[^>]*>○<\/span>/);
 });
 
+test("the informational timeline lane marks a bridged bottom dropout", () => {
+  const items = records();
+  const frame = items.find((record) => record.k === "f" && record.t === 9);
+  assert.ok(frame, "the synthetic recording has a frame at the bridge time");
+  frame.info = [{ level: "info", type: "bottomDropoutBridged", ts: frame.ts, seconds: 0.5, maximum: 0.8 }];
+  const lane = views.infoLane(new Session(items));
+  assert.match(lane, /class="diamond"[^>]*title="0:09\.0 Bottom dropout bridged: 0\.50 s \(limit 0\.80 s\)"/);
+});
+
+test("legacy recordings keep the informational timeline lane hidden", async () => {
+  assert.equal(views.infoLane(new Session(records())), "");
+  const html = await import("node:fs/promises").then(({ readFile }) => readFile(new URL("../public/index.html", import.meta.url), "utf8"));
+  assert.match(html, /<div id="infoLabel" class="lane-label" hidden>Info<\/div>/);
+  assert.match(html, /<div id="infoLane" class="lane marks" hidden><\/div>/);
+});
+
 test("rejections on the same frame share one ring that lists each", () => {
   const items = records();
   const frame = items.find((r) => r.k === "f" && r.t >= 12);

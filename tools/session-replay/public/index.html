@@ -130,6 +130,7 @@
         <div class="lane-label chart"><span>Angle</span><span class="mono tiny"><span class="left">L</span> <span class="right">R</span></span></div>
         <div class="lane-label chart small-chart"><span>Min confidence</span><span class="mono tiny">required · 0.4 / 0.3</span></div>
         <div class="lane-label">Issues</div>
+        <div id="infoLabel" class="lane-label" hidden>Info</div>
         <div class="lane-label">Notes</div>
       </div>
       <div id="track" class="track">
@@ -141,6 +142,7 @@
         <svg id="angleChart" class="chart" viewBox="0 0 1000 64" preserveAspectRatio="none"></svg>
         <svg id="confidenceChart" class="chart small-chart" viewBox="0 0 1000 40" preserveAspectRatio="none"></svg>
         <div id="issueLane" class="lane marks"></div>
+        <div id="infoLane" class="lane marks" hidden></div>
         <div id="noteLane" class="lane marks"></div>
         <div id="selection" class="selection" hidden></div>
         <div id="playhead" class="playhead"><span></span></div>
