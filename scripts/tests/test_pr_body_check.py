@@ -83,12 +83,18 @@ https://claude.ai/code/session_01J4mroDKX7VaL8cs7sUQXJP
 Co-authored-by: Claude Opus 5.5 <noreply@anthropic.com>
 """
 
-GOOD_PR_BODY = (
-    GOOD_COMMIT_MESSAGE.split("\n", maxsplit=1)[1]
-    .rsplit("\nCo-authored-by:", maxsplit=1)[0]
-    .lstrip("\n")
-    + "\n## Docs\n- None.\n"
-)
+GOOD_PR_BODY = """Before, users could not see the changed behavior.
+Now, users can see the changed behavior.
+
+## Summary
+- Update the behavior.
+
+## Testing
+- Python tests pass.
+
+## Docs
+- None.
+"""
 
 
 class PrBodyCheckTests(unittest.TestCase):
@@ -128,12 +134,75 @@ class PrBodyCheckTests(unittest.TestCase):
         result = self.run_checker("--file", "-", input_text=body)
         self.assertEqual(result.returncode, 1)
         self.assertIn("Markdown headings named Before or Now are not allowed", result.stderr)
+        self.assertIn(
+            f"First offending line {len(GOOD_PR_BODY.splitlines()) + 2}:", result.stderr
+        )
+
+    def test_setext_before_heading_is_rejected_with_original_line_number(self) -> None:
+        body = GOOD_PR_BODY + "\nBefore\n---\n"
+        result = self.run_checker("--file", "-", input_text=body)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Markdown headings named Before or Now are not allowed", result.stderr)
+        self.assertIn(
+            f"First offending line {len(GOOD_PR_BODY.splitlines()) + 2}: 'Before'",
+            result.stderr,
+        )
+
+    def test_leading_comment_and_fenced_before_example_are_ignored(self) -> None:
+        body = "<!-- PR template guidance\n## Before\n-->\n" + GOOD_PR_BODY
+        body += (
+            "\nExample:\n```markdown\n## Before\nThis is a literal example.\n```\n"
+        )
+        result = self.run_checker("--file", "-", input_text=body)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_required_sections_inside_fence_or_comment_do_not_count(self) -> None:
+        contexts = (
+            ("backtick fence", "```markdown\n## Summary\n## Testing\n## Docs\n```"),
+            ("tilde fence", "~~~markdown\n## Summary\n## Testing\n## Docs\n~~~"),
+            ("multiline comment", "<!--\n## Summary\n## Testing\n## Docs\n-->"),
+        )
+        for label, hidden_sections in contexts:
+            with self.subTest(context=label):
+                body = f"Before, old behavior.\nNow, new behavior.\n\n{hidden_sections}\n"
+                result = self.run_checker("--file", "-", input_text=body)
+                self.assertEqual(result.returncode, 1)
+                self.assertIn("missing required ## Summary section", result.stderr)
 
     def test_missing_now_line_is_rejected(self) -> None:
         body = "Before, this is the prior behavior.\n\n## Summary\n- Change.\n## Testing\n- Pass.\n## Docs\n- None.\n"
         result = self.run_checker("--file", "-", input_text=body)
         self.assertEqual(result.returncode, 1)
         self.assertIn('begin "Now, "', result.stderr)
+
+    def test_pr_opening_rejects_intervening_paragraph_or_list(self) -> None:
+        openings = (
+            "Before, old behavior.\n\nAn intervening paragraph.\n\nNow, new behavior.",
+            "Before, old behavior.\n- An intervening list item.\nNow, new behavior.",
+        )
+        sections = "\n\n## Summary\n- Change.\n\n## Testing\n- Pass.\n\n## Docs\n- None.\n"
+        for opening in openings:
+            with self.subTest(opening=opening):
+                result = self.run_checker("--file", "-", input_text=opening + sections)
+                self.assertEqual(result.returncode, 1)
+                self.assertIn('next non-empty line must begin "Now, "', result.stderr)
+
+    def test_commit_wrapped_opening_rejects_intervening_paragraph_or_list(self) -> None:
+        openings = (
+            "Before, old behavior.\n\nAn intervening paragraph.\n\nNow, new behavior.",
+            "Before, old behavior.\n- An intervening list item.\nNow, new behavior.",
+        )
+        for opening in openings:
+            with self.subTest(opening=opening):
+                message = "test: exercise wrapped opening\n\n" + opening + "\n"
+                with tempfile.TemporaryDirectory() as directory:
+                    repo = Path(directory)
+                    self.initialize_repo(repo)
+                    commit = self.create_commit(repo, "test.txt", message)
+                    result = self.run_checker("--commit", commit, cwd=repo)
+
+                self.assertEqual(result.returncode, 1)
+                self.assertIn("next opening paragraph must contain a line beginning", result.stderr)
 
     def test_missing_pr_section_is_rejected(self) -> None:
         body = "Before, old behavior.\nNow, new behavior.\n## Summary\n- Change.\n## Testing\n- Pass.\n"

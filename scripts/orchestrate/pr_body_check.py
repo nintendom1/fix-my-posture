@@ -15,6 +15,93 @@ REQUIRED_PR_SECTIONS = ("Summary", "Testing", "Docs")
 TRAILER_PATTERN = re.compile(r"^(?:Co-Authored-By|Claude-Session):", re.IGNORECASE)
 ATX_HEADING_PATTERN = re.compile(r"^#{1,6}[ \t]+(.*?)[ \t]*#*[ \t]*$")
 SETEXT_HEADING_PATTERN = re.compile(r"^(?:=+|-+)[ \t]*$")
+FENCE_OPEN_PATTERN = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+LIST_START_PATTERN = re.compile(r"^ {0,3}(?:[-+*]|[0-9]{1,9}[.)])[ \t]+")
+THEMATIC_BREAK_PATTERN = re.compile(
+    r"^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$"
+)
+
+
+def _remove_html_comments(line: str, in_comment: bool) -> tuple[str, bool]:
+    """Remove HTML comments while preserving text outside each comment."""
+    visible: list[str] = []
+    cursor = 0
+
+    while cursor < len(line):
+        if in_comment:
+            end = line.find("-->", cursor)
+            if end == -1:
+                return "".join(visible), True
+            cursor = end + 3
+            in_comment = False
+            continue
+
+        start = line.find("<!--", cursor)
+        if start == -1:
+            visible.append(line[cursor:])
+            break
+        visible.append(line[cursor:start])
+        cursor = start + 4
+        in_comment = True
+
+    return "".join(visible), in_comment
+
+
+def _markdown_context_lines(lines: list[str]) -> tuple[list[str], list[str]]:
+    """Return opening text without comments and heading text without comments or fences."""
+    opening_lines: list[str] = []
+    heading_lines: list[str] = []
+    fence_character: str | None = None
+    fence_length = 0
+    in_comment = False
+
+    for line in lines:
+        if fence_character is not None:
+            opening_lines.append(line)
+            heading_lines.append("")
+            stripped = line.lstrip(" ")
+            indent = len(line) - len(stripped)
+            run_length = len(stripped) - len(stripped.lstrip(fence_character))
+            remainder = stripped[run_length:]
+            if (
+                indent <= 3
+                and run_length >= fence_length
+                and remainder.strip() == ""
+            ):
+                fence_character = None
+                fence_length = 0
+            continue
+
+        fence = None if in_comment else FENCE_OPEN_PATTERN.match(line)
+        if fence is not None:
+            marker = fence.group(1)
+            info = fence.group(2)
+            if marker[0] != "`" or "`" not in info:
+                fence_character = marker[0]
+                fence_length = len(marker)
+                opening_lines.append(line)
+                heading_lines.append("")
+                continue
+
+        visible, in_comment = _remove_html_comments(line, in_comment)
+        opening_lines.append(visible)
+        heading_lines.append(visible)
+
+    return opening_lines, heading_lines
+
+
+def _starts_markdown_block(line: str) -> bool:
+    """Identify block starts that cannot be wrapped opening-paragraph text."""
+    if _heading(line) is not None:
+        return True
+    if FENCE_OPEN_PATTERN.match(line) is not None:
+        return True
+    if LIST_START_PATTERN.match(line) is not None:
+        return True
+    indentation = len(line) - len(line.lstrip(" "))
+    if line.lstrip(" ").startswith(">") and indentation <= 3:
+        return True
+    return THEMATIC_BREAK_PATTERN.fullmatch(line) is not None
 
 
 def _heading(line: str) -> tuple[int, str] | None:
@@ -82,7 +169,12 @@ def commit_body(message: str) -> list[str]:
 def validate_body(body: str, *, is_pr: bool = False) -> list[tuple[int, str, str]]:
     """Return ordered (line number, line text, reason) validation issues."""
     lines = body.splitlines()
-    nonempty = [(number, line) for number, line in enumerate(lines, start=1) if line.strip()]
+    opening_lines, heading_lines = _markdown_context_lines(lines)
+    nonempty = [
+        (number, line)
+        for number, line in enumerate(opening_lines, start=1)
+        if line.strip()
+    ]
     issues: list[tuple[int, str, str]] = []
 
     if not nonempty:
@@ -95,28 +187,43 @@ def validate_body(body: str, *, is_pr: bool = False) -> list[tuple[int, str, str
 
         if len(nonempty) < 2:
             issues.append((len(lines) + 1, "", 'next non-empty line must begin "Now, "'))
-        elif not nonempty[1][1].startswith("Now, "):
-            # GitHub's squash commit 693ee23 wraps the opening statements onto
-            # multiple physical lines. Accept those continuations, but require
-            # Now before the first Markdown heading.
+        elif is_pr and not nonempty[1][1].startswith("Now, "):
+            now_number, now_line = nonempty[1]
+            issues.append((now_number, now_line, 'next non-empty line must begin "Now, "'))
+        elif not is_pr and not nonempty[1][1].startswith("Now, "):
+            # The historical 693ee23 commit wraps Before over several physical
+            # lines. In commit mode, accept Now only within that same opening
+            # paragraph; blank lines and Markdown block starts end the exception.
             now_found = False
-            for number, line in nonempty[1:]:
-                if _heading(line) is not None:
+            for index in range(first_number, len(lines)):
+                raw_line = lines[index]
+                line = opening_lines[index]
+                if not raw_line.strip():
                     break
+                if not line.strip():
+                    continue
                 if line.startswith("Now, "):
                     now_found = True
                     break
+                if _starts_markdown_block(line):
+                    break
             if not now_found:
                 now_number, now_line = nonempty[1]
-                issues.append((now_number, now_line, 'next opening line must begin "Now, "'))
+                issues.append(
+                    (
+                        now_number,
+                        now_line,
+                        'next opening paragraph must contain a line beginning "Now, "',
+                    )
+                )
 
-    for index, line in enumerate(lines):
-        if _is_forbidden_heading(lines, index):
-            issues.append((index + 1, line, "Markdown headings named Before or Now are not allowed"))
+    for index, line in enumerate(heading_lines):
+        if _is_forbidden_heading(heading_lines, index):
+            issues.append((index + 1, lines[index], "Markdown headings named Before or Now are not allowed"))
 
     if is_pr:
         for section in REQUIRED_PR_SECTIONS:
-            if not any(_is_required_section(line, section) for line in lines):
+            if not any(_is_required_section(line, section) for line in heading_lines):
                 issues.append((len(lines) + 1, "", f"missing required ## {section} section"))
 
     return sorted(issues, key=lambda issue: issue[0])
