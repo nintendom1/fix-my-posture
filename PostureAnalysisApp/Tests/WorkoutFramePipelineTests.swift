@@ -327,6 +327,21 @@ final class WorkoutFramePipelineTests: XCTestCase {
         XCTAssertEqual(afterLimit.diagnostics?.counting, false)
     }
 
+    func testPushUpKeepsCountingThroughAFaceDownHold() {
+        let held = faceDownPushUp(shoulderConfidence: 0.33, armConfidence: 0.75)
+        XCTAssertEqual(held.reps, 1)
+        XCTAssertEqual(held.counting.count, 67)
+        XCTAssertTrue(held.counting.allSatisfy { $0 }, "Counting stays on through the five-second hold.")
+        XCTAssertTrue(held.framing.dropFirst(7).allSatisfy { $0.isReliable && $0.guidance == nil },
+                      "Framing gives no lost-tracking guidance during the hold.")
+
+        for (shoulders, arms) in [(0.33, 0.59), (0.29, 0.75)] {
+            let lost = faceDownPushUp(shoulderConfidence: shoulders, armConfidence: arms)
+            XCTAssertEqual(lost.reps, 0, "shoulders \(shoulders), arms \(arms)")
+            XCTAssertTrue(lost.counting.contains(false), "shoulders \(shoulders), arms \(arms)")
+        }
+    }
+
     func testLateralSideRoomFeedsFramingReliabilityFromPipeline() {
         let exercise = LateralRaiseExercise.definition()
         let closePose: [LandmarkType: CGPoint] = [
@@ -637,8 +652,44 @@ final class WorkoutFramePipelineTests: XCTestCase {
         return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: width, imageHeight: height), timestamp: time)
     }
 
+    /// A push-up set at 10 Hz: Up, a confident descent, then a five-second face-down hold and half the press with the
+    /// given confidences, then Up.
+    private func faceDownPushUp(shoulderConfidence: Double, armConfidence: Double)
+        -> (reps: Int, counting: [Bool], framing: [FramingStatus]) {
+        let exercise = PushUpExercise.definition()
+        let motion = exercise.guide.motion
+        let up = motion.sample(at: 0).angles
+        let middle = motion.sample(at: 1.75).angles
+        let down = motion.sample(at: 2.5).angles
+        var pipeline = WorkoutFramePipeline(exercise: exercise, analyzerEpoch: 1, isCounting: true)
+        pipeline.setSessionPhase(.exercising)
+        pipeline.collectsDiagnostics = true
+        var reps = 0
+        var counting: [Bool] = []
+        var framing: [FramingStatus] = []
+        var poses: [(angles: ArmAngles, faceDown: Bool)] = []
+        for (angles, faceDown, count) in [(up, false, 8), (middle, false, 2), (down, true, 50), (middle, true, 2),
+                                          (up, false, 5)] {
+            poses += Array(repeating: (angles: angles, faceDown: faceDown), count: count)
+        }
+        for (index, pose) in poses.enumerated() {
+            let time = Double(index) / 10
+            let frame = pose.faceDown
+                ? floorPushUpFrame(pose.angles, at: time, shoulderConfidence: shoulderConfidence,
+                                   armConfidence: armConfidence)
+                : floorPushUpFrame(pose.angles, at: time)
+            let output = pipeline.process(frame: frame, at: time)
+            reps += output.events.filter { if case .repCompleted = $0 { true } else { false } }.count
+            if let diagnostics = output.diagnostics {
+                counting.append(diagnostics.counting)
+                if let status = diagnostics.framing { framing.append(status) }
+            }
+        }
+        return (reps, counting, framing)
+    }
+
     private func floorPushUpFrame(_ angles: ArmAngles, at time: TimeInterval,
-                                  shoulderConfidence: Double = 0.9) -> PoseFrame {
+                                  shoulderConfidence: Double = 0.9, armConfidence: Double = 0.9) -> PoseFrame {
         var joints: [LandmarkType: (CGPoint, Double)] = [:]
         for side in BodySide.allCases {
             guard let hand = ExerciseDemoFigureView.floorHands[side] else { continue }
@@ -648,7 +699,7 @@ final class WorkoutFramePipelineTests: XCTestCase {
             let shoulder = CGPoint(x: hand.x - arm.wrist.x, y: hand.y - arm.wrist.y)
             let elbow = CGPoint(x: shoulder.x + arm.elbow.x, y: shoulder.y + arm.elbow.y)
             for (joint, point, confidence) in [(side.shoulder, shoulder, shoulderConfidence),
-                                                (side.elbow, elbow, 0.9), (side.wrist, hand, 0.9)] {
+                                                (side.elbow, elbow, armConfidence), (side.wrist, hand, armConfidence)] {
                 let pixel = CGPoint(x: point.x + 300, y: point.y + 200)
                 joints[joint] = (pixel, confidence)
             }

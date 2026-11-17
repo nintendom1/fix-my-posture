@@ -73,6 +73,9 @@ struct ExerciseDefinition: Identifiable {
     /// Lowest in-frame position allowed for either wrist, as a fraction of image height from the top; nil skips the
     /// check.
     var maximumWristHeightFraction: CGFloat? = nil
+    /// Shoulders that framing accepts below the usual confidence while both arms are clearly seen; nil keeps every
+    /// required joint at the usual confidence. The analyzer applies the same rule itself.
+    var supportedShoulders: SupportedShoulderRule? = nil
     /// Optional grace before a brief framing loss suspends counting. Exercise analyzers still decide whether a gap
     /// can preserve an attempt.
     var framingUnreliableAfter: TimeInterval? = nil
@@ -146,6 +149,7 @@ struct ExerciseDefinition: Identifiable {
         sideroomArmLengths: CGFloat? = nil,
         maximumShoulderSpan: CGFloat? = nil,
         maximumWristHeightFraction: CGFloat? = nil,
+        supportedShoulders: SupportedShoulderRule? = nil,
         framingUnreliableAfter: TimeInterval? = nil,
         centersInFrame: Bool = true,
         countsArmsIndependently: Bool,
@@ -184,6 +188,7 @@ struct ExerciseDefinition: Identifiable {
         self.sideroomArmLengths = sideroomArmLengths
         self.maximumShoulderSpan = maximumShoulderSpan
         self.maximumWristHeightFraction = maximumWristHeightFraction
+        self.supportedShoulders = supportedShoulders
         self.framingUnreliableAfter = framingUnreliableAfter
         self.centersInFrame = centersInFrame
         self.countsArmsIndependently = countsArmsIndependently

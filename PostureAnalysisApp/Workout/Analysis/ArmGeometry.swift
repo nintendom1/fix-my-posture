@@ -49,12 +49,92 @@ struct TorsoPoints {
     var shoulderWidth: CGFloat { ArmGeometry.distance(leftShoulder, rightShoulder) }
 }
 
+/// When a shoulder below the usual joint confidence still counts. With the face down at the bottom of a floor
+/// push-up, Vision's shoulder confidence falls toward its floor while both arms stay clearly seen.
+struct SupportedShoulderRule: Equatable {
+    /// Lowest shoulder confidence accepted; a shoulder below it is dropped as usual.
+    var minimumConfidence: Double
+    /// Both elbows and both wrists must reach this confidence.
+    var armConfidence: Double
+    /// Farthest a supported shoulder may sit sideways from the last confident shoulder on its side, in that arm's
+    /// length (upper arm + forearm).
+    var maximumDrift: CGFloat
+    /// The last confident shoulder is forgotten after this long without a usable shoulder on its side.
+    var maximumGap: TimeInterval
+}
+
+/// Finds the shoulders a `SupportedShoulderRule` accepts below the usual confidence. Each must stay continuous with
+/// the last confidently seen arm on its side: within the drift limit sideways, no higher than the highest confident
+/// shoulder (the Up position for push-ups), and no lower than its own wrist. Supported shoulders keep that reference
+/// alive but never move it, so a slow drift can't walk the reference away.
+struct SupportedShoulders {
+    let rule: SupportedShoulderRule?
+    /// The usual joint confidence; a whole arm at or above it refreshes that side's reference.
+    let minimumConfidence: Double
+    private var references: [BodySide: Reference] = [:]
+
+    private struct Reference {
+        var shoulder: CGPoint
+        var armLength: CGFloat
+        var highestShoulderY: CGFloat
+        var lastUsable: TimeInterval
+    }
+
+    init(rule: SupportedShoulderRule?, minimumConfidence: Double) {
+        self.rule = rule
+        self.minimumConfidence = minimumConfidence
+    }
+
+    /// Updates the references from `frame` and returns the shoulders accepted below the usual confidence.
+    mutating func update(_ frame: PoseFrame) -> Set<LandmarkType> {
+        guard let rule else { return [] }
+        let time = frame.timestamp
+        let armsSupport = BodySide.allCases.allSatisfy { side in
+            frame.point(side.elbow, minimumConfidence: rule.armConfidence) != nil
+                && frame.point(side.wrist, minimumConfidence: rule.armConfidence) != nil
+        }
+        var supported: Set<LandmarkType> = []
+        for side in BodySide.allCases {
+            if let arm = ArmGeometry.arm(side, in: frame, minimumConfidence: minimumConfidence) {
+                let highest = min(references[side]?.highestShoulderY ?? arm.shoulder.y, arm.shoulder.y)
+                references[side] = Reference(shoulder: arm.shoulder, armLength: arm.armLength,
+                                             highestShoulderY: highest, lastUsable: time)
+                continue
+            }
+            guard var reference = references[side] else { continue }
+            guard time - reference.lastUsable <= rule.maximumGap + 0.000_001 else {
+                references[side] = nil
+                continue
+            }
+            guard armsSupport,
+                  let shoulder = frame.point(side.shoulder, minimumConfidence: rule.minimumConfidence),
+                  let wrist = frame.point(side.wrist, minimumConfidence: rule.armConfidence),
+                  abs(shoulder.x - reference.shoulder.x) <= rule.maximumDrift * reference.armLength,
+                  shoulder.y >= reference.highestShoulderY, shoulder.y <= wrist.y else { continue }
+            reference.lastUsable = time
+            references[side] = reference
+            supported.insert(side.shoulder)
+        }
+        return supported
+    }
+
+    mutating func reset() {
+        references.removeAll()
+    }
+}
+
 /// Pixel-space arm and torso helpers. Pixel coordinates keep angles aspect-correct.
 enum ArmGeometry {
-    static func arm(_ side: BodySide, in frame: PoseFrame, minimumConfidence: Double) -> ArmPoints? {
-        guard let shoulder = frame.point(side.shoulder, minimumConfidence: minimumConfidence),
-              let elbow = frame.point(side.elbow, minimumConfidence: minimumConfidence),
-              let wrist = frame.point(side.wrist, minimumConfidence: minimumConfidence) else { return nil }
+    /// Joints in `supported` count at any confidence the frame kept, such as shoulders `SupportedShoulders` accepted.
+    static func arm(_ side: BodySide, in frame: PoseFrame, minimumConfidence: Double,
+                    supported: Set<LandmarkType> = []) -> ArmPoints? {
+        func point(_ joint: LandmarkType) -> CGPoint? {
+            supported.contains(joint) ? frame.pose[joint]?.imageLocation
+                : frame.point(joint, minimumConfidence: minimumConfidence)
+        }
+        guard let shoulder = point(side.shoulder),
+              let elbow = point(side.elbow),
+              let wrist = point(side.wrist) else { return nil }
         return ArmPoints(shoulder: shoulder, elbow: elbow, wrist: wrist)
     }
 

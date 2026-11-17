@@ -36,6 +36,14 @@ struct PushUpConfiguration: Codable {
     /// Allowed ruler change during a bottom dropout, as a fraction of the last measured ruler.
     var maximumBottomRulerChange: Double = 0.2
     var minimumJointConfidence: Double = 0.4
+    /// Face down at the bottom, Vision loses the face and the shoulders fall to about 0.3-0.37 confidence while the
+    /// elbows and wrists stay at 0.7 or more (local recordings). Down to this floor, a shoulder still counts while
+    /// both elbows and both wrists reach `supportingArmConfidence` and it stays continuous with the last confident
+    /// shoulder (see `SupportedShoulders`). Counting and framing use the same rule.
+    var supportedShoulderConfidence: Double = 0.3
+    var supportingArmConfidence: Double = 0.6
+    /// Sideways room for a supported shoulder, in arm lengths. The recorded face-down bottom sat within 0.16.
+    var maximumSupportedShoulderDrift: CGFloat = 0.3
     var rulerWindow = 10
     var wristSmoothing: CGFloat = 0.4
     var referenceTimeout: TimeInterval = 6
@@ -50,6 +58,12 @@ struct PushUpConfiguration: Codable {
     var minimumDescentTime: TimeInterval = 0.2
 
     static let standard = PushUpConfiguration()
+
+    /// The last confident shoulder is kept as long as the analyzer bridges a bottom dropout.
+    var supportedShoulders: SupportedShoulderRule {
+        SupportedShoulderRule(minimumConfidence: supportedShoulderConfidence, armConfidence: supportingArmConfidence,
+                              maximumDrift: maximumSupportedShoulderDrift, maximumGap: maximumBottomGap)
+    }
 }
 
 enum PushUpExercise {
@@ -95,6 +109,7 @@ enum PushUpExercise {
             // follows the phone's tilt, not its distance), so "move the phone farther" could never clear it, and
             // the span alone already holds every too-close setup above.
             maximumShoulderSpan: 0.23,
+            supportedShoulders: configuration.supportedShoulders,
             framingUnreliableAfter: configuration.maximumBottomGap,
             countsArmsIndependently: false,
             setupLine: "Lay the phone on the floor a long step in front of your hands, tilted up to see you, and get into a plank facing it.",

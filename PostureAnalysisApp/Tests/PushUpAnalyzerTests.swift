@@ -110,6 +110,141 @@ final class PushUpAnalyzerTests: XCTestCase {
         XCTAssertEqual(runOffscreen(completeEdges: false), 0)
     }
 
+    // MARK: - Face-down bottoms
+
+    func testAFaceDownHoldWithFaintShouldersCountsOnce() {
+        let result = runFaceDownHold()
+        XCTAssertEqual(result.reps, 1)
+        XCTAssertTrue(result.rejections.isEmpty, "\(result.rejections)")
+    }
+
+    func testAFaceDownHoldNeedsEveryElbowAndWristConfident() {
+        for joint in [LandmarkType.leftElbow, .rightElbow, .leftWrist, .rightWrist] {
+            for (confidence, reps) in [(0.6, 1), (0.59, 0)] {
+                let result = runFaceDownHold(confidences: [joint: confidence])
+                XCTAssertEqual(result.reps, reps, "\(joint.rawValue) at \(confidence)")
+                XCTAssertEqual(result.rejections.count, 1 - reps, "\(joint.rawValue) at \(confidence)")
+            }
+        }
+    }
+
+    func testFaintShouldersBelowTheDropFloorAreStillLost() {
+        for (confidence, reps) in [(0.3, 1), (0.29, 0)] {
+            let result = runFaceDownHold(shoulderConfidence: confidence)
+            XCTAssertEqual(result.reps, reps, "shoulders at \(confidence)")
+            XCTAssertEqual(result.rejections.count, 1 - reps, "shoulders at \(confidence)")
+        }
+    }
+
+    func testFaintShouldersThatJumpSidewaysAreNotUsed() {
+        let ruler = ExerciseDemoFigureView.upperArm + ExerciseDemoFigureView.forearm
+        // From the last confident shoulder, partway down, these land about 0.18 and 0.38 arm lengths out.
+        for (shift, reps) in [(CGFloat(0.2), 1), (0.4, 0)] {
+            let result = runFaceDownHold(shoulderShift: shift * ruler)
+            XCTAssertEqual(result.reps, reps, "shoulders moved out \(shift) arm lengths")
+            XCTAssertEqual(result.rejections.count, 1 - reps, "shoulders moved out \(shift) arm lengths")
+        }
+    }
+
+    func testAFaceDownHoldStillBridgesAShortBottomDropout() {
+        let result = runFaceDownHold(dropout: 20..<25)
+        XCTAssertEqual(result.reps, 1)
+        XCTAssertTrue(result.rejections.isEmpty, "\(result.rejections)")
+        XCTAssertEqual(result.bridgedBottomGaps.count, 1)
+    }
+
+    func testEightFaceDownPushUpsCountEight() {
+        let result = runFaceDownHold(seconds: 1, reps: 8)
+        XCTAssertEqual(result.reps, 8)
+        XCTAssertTrue(result.rejections.isEmpty, "\(result.rejections)")
+    }
+
+    func testSupportedShouldersCheckBothSidesOfEachLimit() {
+        let both: Set<LandmarkType> = [.leftShoulder, .rightShoulder]
+        let rightOnly: Set<LandmarkType> = [.rightShoulder]
+        let ruler: CGFloat = 400
+        let bottom: [LandmarkType: CGPoint] = [.leftShoulder: CGPoint(x: 600, y: 1250),
+                                               .rightShoulder: CGPoint(x: 400, y: 1250)]
+        func movingLeft(to point: CGPoint) -> [LandmarkType: CGPoint] {
+            var moved = bottom
+            moved[.leftShoulder] = point
+            return moved
+        }
+        /// The faint shoulders a fresh rule accepts `gap` seconds after one confident Up frame.
+        func accepted(_ moved: [LandmarkType: CGPoint], _ confidences: [LandmarkType: Double],
+                      after gap: TimeInterval = 0.1) -> Set<LandmarkType> {
+            var shoulders = SupportedShoulders(rule: PushUpConfiguration.standard.supportedShoulders, minimumConfidence: 0.4)
+            _ = shoulders.update(Self.armsFrame(at: 0))
+            return shoulders.update(Self.armsFrame(moved, confidences: confidences, at: gap))
+        }
+
+        XCTAssertEqual(accepted(bottom, Self.faint(shoulders: 0.3)), both)
+        XCTAssertEqual(accepted(bottom, Self.faint(shoulders: 0.399)), both)
+        XCTAssertEqual(accepted(bottom, Self.faint(shoulders: 0.299)), [])
+        XCTAssertEqual(accepted(bottom, Self.faint(shoulders: 0.4)), [], "A confident shoulder needs no support.")
+
+        for joint in [LandmarkType.leftElbow, .rightElbow, .leftWrist, .rightWrist] {
+            XCTAssertEqual(accepted(bottom, Self.faint(joint, at: 0.6)), both, joint.rawValue)
+            XCTAssertEqual(accepted(bottom, Self.faint(joint, at: 0.599)), [], joint.rawValue)
+        }
+
+        for direction in [CGFloat(1), -1] {
+            let cases: [(CGFloat, Set<LandmarkType>)] = [(0.299, both), (0.301, rightOnly)]
+            for (drift, expected) in cases {
+                let moved = movingLeft(to: CGPoint(x: 600 + direction * drift * ruler, y: 1250))
+                XCTAssertEqual(accepted(moved, Self.faint()), expected, "sideways \(direction * drift) arm lengths")
+            }
+        }
+
+        // Between the Up height and the wrist.
+        let heights: [(CGFloat, Set<LandmarkType>)] = [(1000, both), (999, rightOnly), (1400, both), (1401, rightOnly)]
+        for (y, expected) in heights {
+            XCTAssertEqual(accepted(movingLeft(to: CGPoint(x: 600, y: y)), Self.faint()), expected, "left shoulder y \(y)")
+        }
+
+        // The last confident shoulder is kept as long as a bottom gap.
+        XCTAssertEqual(accepted(bottom, Self.faint(), after: 0.8), both)
+        XCTAssertEqual(accepted(bottom, Self.faint(), after: 0.81), [])
+    }
+
+    func testSupportedShouldersFollowOnlyConfidentShoulders() {
+        let rule = PushUpConfiguration.standard.supportedShoulders
+        func left(_ x: CGFloat, _ y: CGFloat) -> [LandmarkType: CGPoint] { [.leftShoulder: CGPoint(x: x, y: y)] }
+
+        // Faint shoulders keep the reference alive past the gap limit but never move it: each step stays within
+        // 0.3 arm lengths of the one before, yet the last is 0.4 from the confident Up shoulder.
+        var drifting = SupportedShoulders(rule: rule, minimumConfidence: 0.4)
+        _ = drifting.update(Self.armsFrame(at: 0))
+        XCTAssertTrue(drifting.update(Self.armsFrame(left(680, 1250), confidences: Self.faint(), at: 0.5))
+            .contains(.leftShoulder))
+        XCTAssertTrue(drifting.update(Self.armsFrame(left(700, 1250), confidences: Self.faint(), at: 1.0))
+            .contains(.leftShoulder), "Faint shoulders refresh the reference's lifetime.")
+        XCTAssertFalse(drifting.update(Self.armsFrame(left(760, 1250), confidences: Self.faint(), at: 1.5))
+            .contains(.leftShoulder), "Drift is measured from the last confident shoulder.")
+
+        // A confident shoulder mid-descent becomes the sideways reference, while the Up height stays the highest
+        // confident shoulder.
+        var descending = SupportedShoulders(rule: rule, minimumConfidence: 0.4)
+        _ = descending.update(Self.armsFrame(at: 0))
+        _ = descending.update(Self.armsFrame(left(700, 1100), at: 0.1))
+        XCTAssertTrue(descending.update(Self.armsFrame(left(780, 1050), confidences: Self.faint(), at: 0.2))
+            .contains(.leftShoulder))
+        XCTAssertFalse(descending.update(Self.armsFrame(left(700, 999), confidences: Self.faint(), at: 0.3))
+            .contains(.leftShoulder))
+
+        var reset = SupportedShoulders(rule: rule, minimumConfidence: 0.4)
+        _ = reset.update(Self.armsFrame(at: 0))
+        reset.reset()
+        XCTAssertEqual(reset.update(Self.armsFrame(left(600, 1250), confidences: Self.faint(), at: 0.1)), [])
+
+        var neverConfident = SupportedShoulders(rule: rule, minimumConfidence: 0.4)
+        XCTAssertEqual(neverConfident.update(Self.armsFrame(left(600, 1250), confidences: Self.faint(), at: 0)), [])
+
+        var withoutRule = SupportedShoulders(rule: nil, minimumConfidence: 0.4)
+        _ = withoutRule.update(Self.armsFrame(at: 0))
+        XCTAssertEqual(withoutRule.update(Self.armsFrame(left(600, 1250), confidences: Self.faint(), at: 0.1)), [])
+    }
+
     // MARK: - Helpers
 
     /// Up, then each pose in turn (with 0.3 s holds), then up.
@@ -166,6 +301,66 @@ final class PushUpAnalyzerTests: XCTestCase {
             result.bridgedBottomGaps += analysis.bridgedBottomGaps
         }
         return result
+    }
+
+    /// Each rep at 10 Hz: Up, a confident descent, then a face-down Down hold of `hold` seconds and the first half of
+    /// the press with faint shoulders, then Up. Face-down frames use the given confidences and shoulder shift, and
+    /// hold frames whose index is in `dropout` lose the shoulders entirely.
+    private func runFaceDownHold(seconds hold: TimeInterval = 5, shoulderConfidence: Double = 0.33,
+                                 confidences: [LandmarkType: Double] = [:], shoulderShift: CGFloat = 0,
+                                 dropout: Range<Int> = 0..<0, reps: Int = 1) -> Run {
+        let analyzer = PushUpAnalyzer(epoch: 3)
+        var result = Run()
+        let up = motion.sample(at: 0).angles
+        let middle = motion.sample(at: 1.75).angles
+        let down = motion.sample(at: 2.5).angles
+        var sample = 0
+        func feed(_ angles: ArmAngles, faceDown: Bool = false, shoulders: Double? = nil) {
+            let time = Double(sample) / 10
+            sample += 1
+            guard faceDown else {
+                _ = process(angles, at: time, analyzer: analyzer, result: &result)
+                return
+            }
+            _ = process(angles, at: time, analyzer: analyzer, result: &result,
+                        shoulderConfidence: shoulders ?? shoulderConfidence, armConfidence: 0.75,
+                        confidences: confidences, shoulderShift: shoulderShift)
+        }
+        for _ in 0..<reps {
+            for _ in 0..<5 { feed(up) }
+            for _ in 0..<2 { feed(middle) }
+            for index in 0..<Int((hold * 10).rounded()) {
+                feed(down, faceDown: true, shoulders: dropout.contains(index) ? 0.2 : nil)
+            }
+            for _ in 0..<2 { feed(middle, faceDown: true) }
+            for _ in 0..<3 { feed(up) }
+        }
+        return result
+    }
+
+    /// Straight 400 px arms at Up, shoulders at y 1000 and hands at y 1400; `moved` relocates joints.
+    private static func armsFrame(_ moved: [LandmarkType: CGPoint] = [:], confidences: [LandmarkType: Double] = [:],
+                                  at time: TimeInterval) -> PoseFrame {
+        let up: [LandmarkType: CGPoint] = [
+            .leftShoulder: CGPoint(x: 600, y: 1000), .leftElbow: CGPoint(x: 600, y: 1200),
+            .leftWrist: CGPoint(x: 600, y: 1400), .rightShoulder: CGPoint(x: 400, y: 1000),
+            .rightElbow: CGPoint(x: 400, y: 1200), .rightWrist: CGPoint(x: 400, y: 1400)
+        ]
+        let landmarks = Dictionary(uniqueKeysWithValues: up.map { type, point in
+            (type, Landmark(type: type, normalizedLocation: .zero, imageLocation: moved[type] ?? point,
+                            confidence: confidences[type] ?? 0.9))
+        })
+        return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 1080, imageHeight: 1920), timestamp: time)
+    }
+
+    /// Face-down confidences: faint shoulders and clearly seen arms, with `joint` at `confidence` when given.
+    private static func faint(shoulders: Double = 0.33, _ joint: LandmarkType? = nil,
+                              at confidence: Double = 0.75) -> [LandmarkType: Double] {
+        var confidences: [LandmarkType: Double] = [.leftShoulder: shoulders, .rightShoulder: shoulders,
+                                                   .leftElbow: 0.75, .rightElbow: 0.75,
+                                                   .leftWrist: 0.75, .rightWrist: 0.75]
+        if let joint { confidences[joint] = confidence }
+        return confidences
     }
 
     private func runWithGap(_ gap: TimeInterval, at phase: GapPhase, translation: CGPoint = .zero,
@@ -251,10 +446,13 @@ final class PushUpAnalyzerTests: XCTestCase {
     }
 
     private func process(_ angles: ArmAngles, at time: TimeInterval, analyzer: PushUpAnalyzer, result: inout Run,
-                         shoulderConfidence: Double = 0.9, translation: CGPoint = .zero, scale: CGFloat = 1,
-                         counting: Bool = true) -> ExerciseAnalysis {
+                         shoulderConfidence: Double = 0.9, armConfidence: Double = 0.9,
+                         confidences: [LandmarkType: Double] = [:], shoulderShift: CGFloat = 0,
+                         translation: CGPoint = .zero, scale: CGFloat = 1, counting: Bool = true) -> ExerciseAnalysis {
         let analysis = analyzer.process(pushUpFrame(angles, at: time, shoulderConfidence: shoulderConfidence,
-                                                    translation: translation, scale: scale), counting: counting)
+                                                    armConfidence: armConfidence, confidences: confidences,
+                                                    shoulderShift: shoulderShift, translation: translation,
+                                                    scale: scale), counting: counting)
         result.reps += analysis.repEvents.count
         result.forms += analysis.repForms
         result.rejections += analysis.rejections
@@ -262,12 +460,15 @@ final class PushUpAnalyzerTests: XCTestCase {
         return analysis
     }
 
+    /// `confidences` overrides single joints; `shoulderShift` moves each shoulder outward by that many pixels.
     private func pushUpFrame(_ angles: ArmAngles, at time: TimeInterval, shoulderConfidence: Double = 0.9,
-                             translation: CGPoint = .zero, scale: CGFloat = 1) -> PoseFrame {
+                             armConfidence: Double = 0.9, confidences: [LandmarkType: Double] = [:],
+                             shoulderShift: CGFloat = 0, translation: CGPoint = .zero, scale: CGFloat = 1) -> PoseFrame {
         var joints: [LandmarkType: (CGPoint, Double)] = [:]
         for side in BodySide.allCases {
             guard let hand = ExerciseDemoFigureView.floorHands[side] else { continue }
-            let arm = ArmMotion.place(shoulder: .zero, outward: side == .left ? 1 : -1,
+            let outward: CGFloat = side == .left ? 1 : -1
+            let arm = ArmMotion.place(shoulder: .zero, outward: outward,
                                       upperArm: ExerciseDemoFigureView.upperArm,
                                       forearm: ExerciseDemoFigureView.forearm, angles: angles)
             let shoulder = CGPoint(x: hand.x - arm.wrist.x, y: hand.y - arm.wrist.y)
@@ -276,9 +477,10 @@ final class PushUpAnalyzerTests: XCTestCase {
                 CGPoint(x: (location.x - hand.x) * scale + hand.x + translation.x + 300,
                         y: (location.y - hand.y) * scale + hand.y + translation.y + 200)
             }
-            joints[side.shoulder] = (point(shoulder), shoulderConfidence)
-            joints[side.elbow] = (point(elbow), 0.9)
-            joints[side.wrist] = (point(hand), 0.9)
+            let shifted = CGPoint(x: point(shoulder).x + outward * shoulderShift, y: point(shoulder).y)
+            joints[side.shoulder] = (shifted, confidences[side.shoulder] ?? shoulderConfidence)
+            joints[side.elbow] = (point(elbow), confidences[side.elbow] ?? armConfidence)
+            joints[side.wrist] = (point(hand), confidences[side.wrist] ?? armConfidence)
         }
         let landmarks = Dictionary(uniqueKeysWithValues: joints.map { type, value in
             (type, Landmark(type: type, normalizedLocation: .zero, imageLocation: value.0,
@@ -407,12 +609,56 @@ final class PushUpAnalyzerTests: XCTestCase {
         XCTAssertNil(shoulderPressFraming.evaluate(pose).guidance)
     }
 
+    // MARK: - Face-down framing
+
+    func testPushUpFramingStaysReliableThroughAFaceDownHold() {
+        for (shoulders, arms) in [(0.33, 0.75), (0.3, 0.6)] {
+            let statuses = faceDownFramingStatuses(for: PushUpExercise.definition(), shoulderConfidence: shoulders,
+                                                   armConfidence: arms)
+            XCTAssertTrue(statuses.dropFirst(7).allSatisfy { $0.isReliable && $0.guidance == nil },
+                          "shoulders \(shoulders), arms \(arms): \(statuses)")
+        }
+    }
+
+    func testFaceDownFramingIsLostWithUnclearArmsOrShouldersBelowTheFloor() {
+        for (shoulders, arms) in [(0.33, 0.59), (0.29, 0.75)] {
+            let statuses = faceDownFramingStatuses(for: PushUpExercise.definition(), shoulderConfidence: shoulders,
+                                                   armConfidence: arms)
+            XCTAssertEqual(statuses.dropFirst(7).first?.isReliable, true)
+            XCTAssertEqual(statuses.last, FramingStatus(isReliable: false, guidance: .stepBackFloor),
+                           "shoulders \(shoulders), arms \(arms)")
+        }
+    }
+
+    func testOtherExercisesKeepTheUsualShoulderConfidence() {
+        XCTAssertEqual(ExerciseCatalog.all.filter { $0.supportedShoulders != nil }.map(\.id), [.pushUp])
+        let statuses = faceDownFramingStatuses(for: ShoulderPressExercise.definition())
+        XCTAssertEqual(statuses.dropFirst(7).first?.isReliable, true)
+        XCTAssertEqual(statuses.last?.isReliable, false, "The same faint shoulders still lose shoulder-press framing.")
+    }
+
+    /// One framing status per 0.1 s: Up, a confident descent, then a five-second face-down Down hold.
+    private func faceDownFramingStatuses(for exercise: ExerciseDefinition, shoulderConfidence: Double = 0.33,
+                                         armConfidence: Double = 0.75) -> [FramingStatus] {
+        var framing = Self.framing(for: exercise)
+        let up = motion.sample(at: 0).angles
+        let middle = motion.sample(at: 1.75).angles
+        let down = motion.sample(at: 2.5).angles
+        let poses = Array(repeating: up, count: 8) + [middle, middle] + Array(repeating: down, count: 50)
+        return poses.enumerated().map { index, angles in
+            let time = Double(index) / 10
+            guard index >= 10 else { return framing.evaluate(pushUpFrame(angles, at: time)) }
+            return framing.evaluate(pushUpFrame(angles, at: time, shoulderConfidence: shoulderConfidence,
+                                                armConfidence: armConfidence))
+        }
+    }
+
     private static func framing(for exercise: ExerciseDefinition, wristLimit: CGFloat? = nil) -> FramingEvaluator {
         FramingEvaluator(requiredJoints: exercise.requiredJoints, anyOfRequiredJoints: exercise.anyOfRequiredJoints,
                          headroomArmLengths: exercise.headroomArmLengths, sideroomArmLengths: exercise.sideroomArmLengths,
                          maximumShoulderSpan: exercise.maximumShoulderSpan,
                          maximumWristHeightFraction: wristLimit ?? exercise.maximumWristHeightFraction,
-                         cameraView: exercise.cameraView)
+                         supportedShoulders: exercise.supportedShoulders, cameraView: exercise.cameraView)
     }
 
     /// A centered top-of-plank pose seen from the floor, straight arms, with the shoulders `shoulderSpan` of the width

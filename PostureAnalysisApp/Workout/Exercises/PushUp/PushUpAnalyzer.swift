@@ -6,10 +6,12 @@ import Foundation
 /// averaged over both arms drives one tracker. Following the analyzers' convention, the start position is
 /// `MovementZone.bottom` and the counted end is `.top`.
 ///
-/// The hands' height and the arm ruler are locked at the Up position, so the lines hold still.
+/// The hands' height and the arm ruler are locked at the Up position, so the lines hold still. With the face down,
+/// a low-confidence shoulder still counts under the configuration's `supportedShoulders` rule, as in framing.
 final class PushUpAnalyzer: ExerciseAnalyzing {
     let epoch: Int
     private let configuration: PushUpConfiguration
+    private var shoulderSupport: SupportedShoulders
     private var tracker: HysteresisPhaseTracker
     private var lastSample: Sample?
     private var recentArms: [CGFloat] = []
@@ -49,6 +51,8 @@ final class PushUpAnalyzer: ExerciseAnalyzing {
     init(epoch: Int, configuration: PushUpConfiguration = .standard) {
         self.epoch = epoch
         self.configuration = configuration
+        shoulderSupport = SupportedShoulders(rule: configuration.supportedShoulders,
+                                             minimumConfidence: configuration.minimumJointConfidence)
         tracker = HysteresisPhaseTracker(requiredSamples: configuration.confirmationSamples)
         formMonitor = PushUpFormMonitor(configuration: configuration)
     }
@@ -56,8 +60,9 @@ final class PushUpAnalyzer: ExerciseAnalyzing {
     func process(_ frame: PoseFrame, counting: Bool) -> ExerciseAnalysis {
         var analysis = ExerciseAnalysis()
         let confidence = configuration.minimumJointConfidence
-        guard let left = ArmGeometry.arm(.left, in: frame, minimumConfidence: confidence),
-              let right = ArmGeometry.arm(.right, in: frame, minimumConfidence: confidence) else {
+        let supported = shoulderSupport.update(frame)
+        guard let left = ArmGeometry.arm(.left, in: frame, minimumConfidence: confidence, supported: supported),
+              let right = ArmGeometry.arm(.right, in: frame, minimumConfidence: confidence, supported: supported) else {
             analysis.thresholds = lastThresholds
             analysis.formReadings = formMonitor.readings
             return analysis

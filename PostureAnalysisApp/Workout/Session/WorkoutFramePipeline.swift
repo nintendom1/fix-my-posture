@@ -311,6 +311,7 @@ struct WorkoutFramePipeline {
                                 sideroomArmLengths: exercise.sideroomArmLengths,
                                 maximumShoulderSpan: exercise.maximumShoulderSpan,
                                 maximumWristHeightFraction: exercise.maximumWristHeightFraction,
+                                supportedShoulders: exercise.supportedShoulders,
                                 centersInFrame: exercise.centersInFrame,
                                 cameraView: exercise.cameraView, configuration: configuration)
     }
