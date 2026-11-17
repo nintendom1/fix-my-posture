@@ -106,7 +106,7 @@ final class WorkoutFramePipelineTests: XCTestCase {
         var settledSide = false
         for index in 0...12 {
             let time = Double(index) / 10
-            let output = pipeline.process(frameWithShoulderRatio(0.3, motion: exercise.guide.motion, at: time), at: time)
+            let output = pipeline.process(frame: frameWithShoulderRatio(0.25, motion: exercise.guide.motion, at: time), at: time)
             settledSide = settledSide || output.events.contains {
                 guard case .stanceObserved(let observation) = $0 else { return false }
                 return observation.settled == .sideOn
@@ -129,7 +129,7 @@ final class WorkoutFramePipelineTests: XCTestCase {
         var stanceEvents: [StanceDetector.Observation] = []
         for index in 14...25 {
             let time = Double(index) / 10
-            let output = pipeline.process(frameWithShoulderRatio(0.5, motion: newExercise.guide.motion, at: time), at: time)
+            let output = pipeline.process(frame: frameWithShoulderRatio(0.5, motion: newExercise.guide.motion, at: time), at: time)
             stanceEvents += output.events.compactMap { event in
                 guard case .stanceObserved(let observation) = event else { return nil }
                 return observation
@@ -143,19 +143,19 @@ final class WorkoutFramePipelineTests: XCTestCase {
         var pipeline = WorkoutFramePipeline(exercise: exercise, analyzerEpoch: 1, isCounting: true)
         pipeline.collectsDiagnostics = true
 
-        let turning = pipeline.process(frameWithShoulderRatio(0.4, motion: exercise.guide.motion, at: 0), at: 0)
-        let stillTurning = pipeline.process(frameWithShoulderRatio(0.4, motion: exercise.guide.motion, at: 0.1), at: 0.1)
-        let beganTurning = pipeline.process(frameWithShoulderRatio(0.4, motion: exercise.guide.motion, at: 0.2), at: 0.2)
-        let unchanged = pipeline.process(frameWithShoulderRatio(0.4, motion: exercise.guide.motion, at: 0.3), at: 0.3)
-        let returned = pipeline.process(frameWithShoulderRatio(0.5, motion: exercise.guide.motion, at: 0.4), at: 0.4)
-        let stillReturned = pipeline.process(frameWithShoulderRatio(0.5, motion: exercise.guide.motion, at: 0.711), at: 0.711)
+        let turning = pipeline.process(frame: frameWithShoulderRatio(0.4, motion: exercise.guide.motion, at: 0), at: 0)
+        let stillTurning = pipeline.process(frame: frameWithShoulderRatio(0.4, motion: exercise.guide.motion, at: 0.1), at: 0.1)
+        let beganTurning = pipeline.process(frame: frameWithShoulderRatio(0.4, motion: exercise.guide.motion, at: 0.2), at: 0.2)
+        let unchanged = pipeline.process(frame: frameWithShoulderRatio(0.4, motion: exercise.guide.motion, at: 0.3), at: 0.3)
+        let returned = pipeline.process(frame: frameWithShoulderRatio(0.5, motion: exercise.guide.motion, at: 0.4), at: 0.4)
+        let stillReturned = pipeline.process(frame: frameWithShoulderRatio(0.5, motion: exercise.guide.motion, at: 0.711), at: 0.711)
 
         XCTAssertFalse(turning.events.contains { if case .stanceObserved = $0 { true } else { false } })
         XCTAssertFalse(stillTurning.events.contains { if case .stanceObserved = $0 { true } else { false } })
-        XCTAssertEqual(beganTurning.events.last, .stanceObserved(StanceDetector.Observation(settled: .facing, turning: true)))
+        XCTAssertEqual(beganTurning.events.last, WorkoutEvent.stanceObserved(StanceDetector.Observation(settled: .facing, turning: true)))
         XCTAssertFalse(unchanged.events.contains { if case .stanceObserved = $0 { true } else { false } })
         XCTAssertFalse(returned.events.contains { if case .stanceObserved = $0 { true } else { false } })
-        XCTAssertEqual(stillReturned.events.last, .stanceObserved(StanceDetector.Observation(settled: .facing, turning: false)))
+        XCTAssertEqual(stillReturned.events.last, WorkoutEvent.stanceObserved(StanceDetector.Observation(settled: .facing, turning: false)))
     }
 
     func testChangingExerciseRebuildsAnalyzerWithoutCompletingOldRep() {

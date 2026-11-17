@@ -152,7 +152,7 @@ final class CameraViewSessionTests: XCTestCase {
         XCTAssertNil(session.cameraViewTag)
         let epoch = session.analyzerEpoch
         let effects = session.handle(.command(.setCameraView(.locked(.sideOn))), at: 4)
-        XCTAssertTrue(spoken(effects).contains("Shoulder Press has one camera view."))
+        XCTAssertTrue(spoken(effects).contains("Dumbbell Shoulder Press has one camera view."))
         XCTAssertEqual(session.analyzerEpoch, epoch)
         XCTAssertEqual(session.viewPreference(for: singleView.id), .auto)
 

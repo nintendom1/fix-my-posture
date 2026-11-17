@@ -87,7 +87,9 @@ final class StanceDetectorTests: XCTestCase {
         for index in 0...32 {
             let time = Double(index) / 10
             let observation = detector.update(torsoFrame(ratio: 0.4, at: time))
-            if time < 3.2 {
+            if time < 0.2 {
+                XCTAssertFalse(observation.turning, "Turning starts only after 0.2 s of unclear readings.")
+            } else if time < 3.2 {
                 XCTAssertTrue(observation.turning, "Expected turning at \(time)s.")
             } else {
                 XCTAssertFalse(observation.turning, "Turning must clear at its cap.")
