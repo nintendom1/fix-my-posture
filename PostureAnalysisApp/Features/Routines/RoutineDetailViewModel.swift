@@ -112,11 +112,15 @@ final class RoutineDetailViewModel: RoutineDetailViewModeling {
             let perSide = exercise.perSideTargetSuffix
             let target = "\(item.setsAndRepsLabel)\(perSide)"
             let camera: String
-            switch exercise.cameraView {
-            case .front: camera = "Front camera"
-            case .side: camera = "Side camera"
-            case .floor: camera = "Floor camera"
-            case .lyingSide: camera = "Floor-level side camera"
+            if exercise.hasViewChoice {
+                camera = "Front or side camera"
+            } else {
+                switch exercise.cameraView {
+                case .front: camera = "Front camera"
+                case .side: camera = "Side camera"
+                case .floor: camera = "Floor camera"
+                case .lyingSide: camera = "Floor-level side camera"
+                }
             }
             return RoutineStepPresentation(
                 id: item.id,

@@ -61,13 +61,16 @@ struct WorkoutHUDExercise: Equatable {
     let restSeconds: Int
     let tracking: ExerciseTracking
     let doseUnit: ExerciseDoseUnit
+    let hasViewChoice: Bool
+    let viewPreference: ExerciseViewPreference
 
     init(id: ExerciseID, displayName: String, targetLabel: String, startsByHolding: Bool,
          startPositionInstruction: String, sets: Int, setsAndRepsLabel: String,
          equipment: ExerciseEquipment, countsArmsIndependently: Bool,
          perSide: Bool = false, sideLimb: ExerciseSideLimb = .arm,
          targetReps: ClosedRange<Int> = 1...1, restSeconds: Int = 60,
-         tracking: ExerciseTracking = .camera, doseUnit: ExerciseDoseUnit = .reps) {
+         tracking: ExerciseTracking = .camera, doseUnit: ExerciseDoseUnit = .reps,
+         hasViewChoice: Bool = false, viewPreference: ExerciseViewPreference = .auto) {
         self.id = id
         self.displayName = displayName
         self.targetLabel = targetLabel
@@ -83,9 +86,12 @@ struct WorkoutHUDExercise: Equatable {
         self.restSeconds = restSeconds
         self.tracking = tracking
         self.doseUnit = doseUnit
+        self.hasViewChoice = hasViewChoice
+        self.viewPreference = viewPreference
     }
 
-    init(exercise: ExerciseDefinition, startsByHolding: Bool? = nil, restSeconds: Int? = nil) {
+    init(exercise: ExerciseDefinition, startsByHolding: Bool? = nil, restSeconds: Int? = nil,
+         viewPreference: ExerciseViewPreference = .auto) {
         self.init(id: exercise.id,
                   displayName: exercise.displayName,
                   targetLabel: exercise.targetLabel,
@@ -100,7 +106,9 @@ struct WorkoutHUDExercise: Equatable {
                   targetReps: exercise.targetReps,
                   restSeconds: restSeconds ?? exercise.restSeconds,
                   tracking: exercise.tracking,
-                  doseUnit: exercise.doseUnit)
+                  doseUnit: exercise.doseUnit,
+                  hasViewChoice: exercise.hasViewChoice,
+                  viewPreference: viewPreference)
     }
 
     var isSelfReported: Bool { tracking == .selfReported }
@@ -131,13 +139,15 @@ struct WorkoutHUDInputs: Equatable {
     let planPositionLabel: String?
     let planName: String?
     let nextPlanExercise: WorkoutHUDExercise?
+    let cameraViewTag: String?
     /// Seconds left in a timed hold that is running or paused.
     let holdRemaining: TimeInterval?
 
     init(visual: WorkoutVisualInputs, exercise: WorkoutHUDExercise?, voiceCommandsAvailable: Bool,
          currentSetNumber: Int, currentSide: BodySide?, repCount: Int, repEventCount: Int,
          isRestingBeforeNextExercise: Bool, planPositionLabel: String?,
-         planName: String? = nil, nextPlanExercise: WorkoutHUDExercise? = nil, holdRemaining: TimeInterval? = nil) {
+         planName: String? = nil, nextPlanExercise: WorkoutHUDExercise? = nil, holdRemaining: TimeInterval? = nil,
+         cameraViewTag: String? = nil) {
         self.visual = visual
         self.exercise = exercise
         self.voiceCommandsAvailable = voiceCommandsAvailable
@@ -150,6 +160,7 @@ struct WorkoutHUDInputs: Equatable {
         self.planName = planName
         self.nextPlanExercise = nextPlanExercise
         self.holdRemaining = holdRemaining
+        self.cameraViewTag = cameraViewTag
     }
 
     init(session: WorkoutSession, visual: WorkoutVisualInputs, voiceCommandsAvailable: Bool) {
@@ -159,7 +170,8 @@ struct WorkoutHUDInputs: Equatable {
                 WorkoutHUDExercise(
                     exercise: $0,
                     startsByHolding: session.effectiveStartsByHolding,
-                    restSeconds: session.restDurationSeconds ?? session.effectiveRestSeconds ?? $0.restSeconds
+                    restSeconds: session.restDurationSeconds ?? session.effectiveRestSeconds ?? $0.restSeconds,
+                    viewPreference: session.viewPreference(for: $0.id)
                 )
             },
             voiceCommandsAvailable: voiceCommandsAvailable,
@@ -171,7 +183,8 @@ struct WorkoutHUDInputs: Equatable {
             planPositionLabel: session.planPositionLabel,
             planName: session.isFollowingPlan ? session.plan?.name : nil,
             nextPlanExercise: Self.nextPlanExercise(in: session),
-            holdRemaining: session.holdRemaining(at: visual.now)
+            holdRemaining: session.holdRemaining(at: visual.now),
+            cameraViewTag: session.cameraViewTag
         )
     }
 
@@ -345,13 +358,15 @@ enum WorkoutHUDPresenter {
         }
         let nextLine = nextLine(for: inputs, phase: phase)
         let subtitle: String?
+        let baseSubtitle: String?
         if let planName = inputs.planName, let position = inputs.planPositionLabel {
-            subtitle = "\(planName) · \(position.replacingOccurrences(of: "Exercise", with: "exercise"))"
-        } else if let setSummary {
-            subtitle = setSummary
+            baseSubtitle = "\(planName) · \(position.replacingOccurrences(of: "Exercise", with: "exercise"))"
         } else {
-            subtitle = nil
+            baseSubtitle = setSummary
         }
+        // The camera-view tag is appended, so the plan position or set summary stays visible.
+        let subtitleParts = [baseSubtitle, inputs.cameraViewTag].compactMap { $0 }
+        subtitle = subtitleParts.isEmpty ? nil : subtitleParts.joined(separator: " · ")
         let progressValue: Double
         if let exercise, exercise.doseUnit == .seconds, let remaining = inputs.holdRemaining {
             progressValue = min(max(1 - remaining / Double(max(1, exercise.targetReps.upperBound)), 0), 1)

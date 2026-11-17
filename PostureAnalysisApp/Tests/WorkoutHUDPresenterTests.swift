@@ -189,6 +189,28 @@ final class WorkoutHUDPresenterTests: XCTestCase {
         XCTAssertNil(noExercise.setLabel)
     }
 
+    func testCameraViewTagIsAppendedToTheSubtitleOnlyWhenPresent() {
+        let curl = HammerCurlExercise.definition()
+        let automaticFront = readySession(exercise: curl)
+        let frontPresentation = WorkoutHUDPresenter.derive(makeInputs(automaticFront, now: 2))
+
+        XCTAssertNil(automaticFront.cameraViewTag)
+        XCTAssertEqual(frontPresentation.subtitle, frontPresentation.setSummary)
+
+        var sideLocked = readySession(exercise: curl)
+        _ = sideLocked.handle(.command(.setCameraView(.locked(.sideOn))), at: 2)
+        let sidePresentation = WorkoutHUDPresenter.derive(makeInputs(sideLocked, now: 2))
+
+        XCTAssertEqual(sidePresentation.subtitle,
+                       [sidePresentation.setSummary, "Side-on, locked"].compactMap { $0 }.joined(separator: " · "))
+
+        _ = sideLocked.handle(.command(.setCameraView(.locked(.facing))), at: 3)
+        let facingPresentation = WorkoutHUDPresenter.derive(makeInputs(sideLocked, now: 3))
+
+        XCTAssertEqual(facingPresentation.subtitle,
+                       [facingPresentation.setSummary, "Front, locked"].compactMap { $0 }.joined(separator: " · "))
+    }
+
     func testCameraPresentationAddsStatePillCountdownActionsAndPlanCopy() {
         let ready = WorkoutHUDPresenter.derive(makeInputs(readySession(), now: 2))
         XCTAssertEqual(ready.pillLabel, "Get in position")

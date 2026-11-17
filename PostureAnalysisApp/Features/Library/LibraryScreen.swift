@@ -162,7 +162,7 @@ struct LibraryScreen: View {
 
                 HStack(spacing: 6) {
                     metadataChip(exercise.equipment)
-                    metadataChip(cameraLabel(exercise.cameraSetup))
+                    metadataChip(Self.cameraLabel(for: exercise))
                 }
                 .frame(height: 16, alignment: .leading)
             }
@@ -195,7 +195,14 @@ struct LibraryScreen: View {
             .background(Color.white.opacity(0.08), in: Capsule())
     }
 
-    private func cameraLabel(_ value: String) -> String {
+    static func cameraLabel(for exercise: LibraryExerciseRow) -> String {
+        if ExerciseCatalog.definition(for: exercise.id)?.hasViewChoice == true {
+            return "Front or side camera"
+        }
+        return cameraLabel(forSetup: exercise.cameraSetup)
+    }
+
+    private static func cameraLabel(forSetup value: String) -> String {
         if value.hasPrefix("Front") { return "Front camera" }
         if value.hasPrefix("Side-on") { return "Side-on" }
         return "Floor camera"

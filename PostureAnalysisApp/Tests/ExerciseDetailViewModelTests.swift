@@ -14,6 +14,28 @@ final class ExerciseDetailViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.state.cameraSetupText, exercise.presentation.cameraSetupLine)
     }
 
+    func testViewChoiceReadsAndWritesTheRememberedCameraPreference() throws {
+        let preferences = InMemoryPreferences()
+        preferences.setViewPreference(.locked(.sideOn), for: .hammerCurl)
+        let viewModel = makeViewModel(id: .hammerCurl, preferences: preferences)
+
+        XCTAssertTrue(viewModel.state.hasViewChoice)
+        XCTAssertEqual(viewModel.state.viewPreference, .locked(.sideOn))
+        XCTAssertEqual(viewModel.state.cameraSetupText, "Side-on")
+
+        viewModel.send(.cameraViewSelected(.locked(.facing)))
+
+        XCTAssertEqual(preferences.viewPreference(for: .hammerCurl), .locked(.facing))
+        XCTAssertEqual(viewModel.state.viewPreference, .locked(.facing))
+        XCTAssertEqual(viewModel.state.cameraSetupText, "Front")
+
+        viewModel.send(.cameraViewSelected(.auto))
+
+        XCTAssertEqual(preferences.viewPreference(for: .hammerCurl), .auto)
+        XCTAssertEqual(viewModel.state.viewPreference, .auto)
+        XCTAssertEqual(viewModel.state.cameraSetupText, "Auto")
+    }
+
     func testSetsStepperClampsAndPersistsTarget() throws {
         let preferences = InMemoryPreferences()
         let viewModel = makeViewModel(preferences: preferences)
@@ -59,11 +81,12 @@ final class ExerciseDetailViewModelTests: XCTestCase {
     }
 
     private func makeViewModel(
+        id: ExerciseID = .shoulderPress,
         preferences: any AppPreferencesStoring = InMemoryPreferences(),
         router: AppRouter? = nil
     ) -> ExerciseDetailViewModel {
         ExerciseDetailViewModel(
-            id: .shoulderPress,
+            id: id,
             exerciseCatalog: catalog,
             preferences: preferences,
             router: router ?? AppRouter(selectedTab: .train)

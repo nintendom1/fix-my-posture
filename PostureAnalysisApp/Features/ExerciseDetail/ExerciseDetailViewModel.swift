@@ -35,7 +35,8 @@ final class ExerciseDetailViewModel: ExerciseDetailViewModeling {
         var currentTarget = ExerciseTargetStore.target(for: id, preferences: preferences) ?? ExerciseTarget(exercise)
         currentTarget.sets = min(10, max(1, currentTarget.sets))
         target = currentTarget
-        state = Self.makeState(for: exercise, target: currentTarget)
+        state = Self.makeState(for: exercise, target: currentTarget,
+                               viewPreference: exercise.hasViewChoice ? preferences.viewPreference(for: id) : .auto)
     }
 
     func send(_ intent: ExerciseDetailIntent) {
@@ -48,6 +49,8 @@ final class ExerciseDetailViewModel: ExerciseDetailViewModeling {
             changeSets(by: -1)
         case .incrementSets:
             changeSets(by: 1)
+        case .cameraViewSelected(let preference):
+            setCameraViewPreference(preference)
         case .editReps:
             guard state.isAvailable else { return }
             state.isTargetEditorPresented = true
@@ -83,6 +86,30 @@ final class ExerciseDetailViewModel: ExerciseDetailViewModeling {
         state.sets = currentTarget.sets
         state.repMinimum = currentTarget.repMinimum
         state.repMaximum = currentTarget.repMaximum
+        refreshViewPreference(for: exercise)
+    }
+
+    private func setCameraViewPreference(_ preference: ExerciseViewPreference) {
+        guard let exercise = exerciseCatalog.exercise(id), exercise.hasViewChoice else { return }
+        preferences.setViewPreference(preference, for: id)
+        state.viewPreference = preference
+        state.cameraSetupText = Self.cameraSetupText(for: exercise, preference: preference)
+    }
+
+    private func refreshViewPreference(for exercise: ExerciseDefinition) {
+        let preference = exercise.hasViewChoice ? preferences.viewPreference(for: id) : .auto
+        state.viewPreference = preference
+        state.cameraSetupText = Self.cameraSetupText(for: exercise, preference: preference)
+    }
+
+    private static func cameraSetupText(for exercise: ExerciseDefinition,
+                                        preference: ExerciseViewPreference) -> String {
+        guard exercise.hasViewChoice else { return exercise.presentation.cameraSetupLine }
+        switch preference {
+        case .auto: return "Auto"
+        case .locked(.facing): return "Front"
+        case .locked(.sideOn): return "Side-on"
+        }
     }
 
     private func persistTarget(_ target: ExerciseTarget, defaults: ExerciseTarget) {
@@ -102,7 +129,9 @@ final class ExerciseDetailViewModel: ExerciseDetailViewModeling {
         router.selectedTab = .train
     }
 
-    private static func makeState(for exercise: ExerciseDefinition, target: ExerciseTarget) -> ExerciseDetailState {
+    private static func makeState(for exercise: ExerciseDefinition,
+                                  target: ExerciseTarget,
+                                  viewPreference: ExerciseViewPreference) -> ExerciseDetailState {
         ExerciseDetailState(
             id: exercise.id,
             name: exercise.displayName,
@@ -110,7 +139,9 @@ final class ExerciseDetailViewModel: ExerciseDetailViewModeling {
             gradient: exercise.presentation.gradient,
             symbolName: exercise.presentation.symbolName,
             equipmentText: exercise.presentation.equipmentLine,
-            cameraSetupText: exercise.presentation.cameraSetupLine,
+            cameraSetupText: cameraSetupText(for: exercise, preference: viewPreference),
+            hasViewChoice: exercise.hasViewChoice,
+            viewPreference: viewPreference,
             watchesFor: exercise.presentation.watchesFor.map(\.text),
             steps: exercise.guide.steps,
             sets: target.sets,
