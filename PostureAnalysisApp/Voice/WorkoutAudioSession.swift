@@ -264,10 +264,8 @@ final class WorkoutAudioSession: AudioSessionControlling {
         guard !isProcessingOperation, !pendingOperations.isEmpty else { return }
         isProcessingOperation = true
         let operation = pendingOperations.removeFirst()
-        let worker = worker
-        Task { [weak self] in
+        Task { [self] in
             let result = await worker.perform(operation.command)
-            guard let self else { return }
             self.isDucking = result.isDucking
             self.isActive = result.isActive
             if let operationGeneration = operation.duckingGeneration,
@@ -287,11 +285,12 @@ final class WorkoutAudioSession: AudioSessionControlling {
     }
 
     private func scheduleRestoreRetry() {
-        Task { [weak self] in
+        // A scheduled restoration is accepted work too; keep its owner alive until the retry enters the pump.
+        Task { [self] in
             let delay = UInt64(Self.restoreRetryDelay * 1_000_000_000)
             try? await Task.sleep(nanoseconds: delay)
-            guard !Task.isCancelled, let self else { return }
-            self.enqueue(.retryRestore)
+            guard !Task.isCancelled else { return }
+            enqueue(.retryRestore)
         }
     }
 
@@ -395,7 +394,6 @@ private actor WorkoutAudioSessionWorker {
                 _ = setActive(false, options: .notifyOthersOnDeactivation)
                 isActive = false
             }
-            restoreAttempt = 0
         case .interruption(let interruptionEvents, let began):
             if began {
                 isDucking = false
@@ -468,6 +466,7 @@ private actor WorkoutAudioSessionWorker {
         let outcome = measured(.restoreOtherAudio) { attemptRestore() }
         shouldRetry = shouldRetry || outcome.shouldRetry
         didReactivate = didReactivate || outcome.didReactivate
+        if !outcome.shouldRetry { restoreAttempt = 0 }
     }
 
     private func attemptRestore() -> RestoreOutcome {

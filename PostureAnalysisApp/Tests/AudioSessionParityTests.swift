@@ -330,7 +330,7 @@ final class AudioSessionParityTests: XCTestCase {
         let restoreWasBlocked = await session.waitForBlockedRestore()
         XCTAssertTrue(restoreWasBlocked)
         XCTAssertLessThan(returnDuration, 0.1, "The MainActor request must return while setActive is blocked.")
-        Thread.sleep(forTimeInterval: 0.02)
+        try? await Task.sleep(nanoseconds: 20_000_000)
         session.releaseBlockedRestore()
         await audio.waitForPendingSessionWork()
         XCTAssertFalse(audio.isDucking)
@@ -355,6 +355,29 @@ final class AudioSessionParityTests: XCTestCase {
 
         XCTAssertTrue(completed)
         XCTAssertTrue(audio.isDucking)
+    }
+
+    func testTeardownDrainsAfterAudioOwnerIsReleasedDuringDuckActivation() async {
+        let session = RecordingAudioSessioning()
+        var audio: WorkoutAudioSession? = WorkoutAudioSession(session: session)
+        session.blockNextDuckActivation()
+
+        audio?.beginDucking()
+        let duckActivationWasBlocked = await session.waitForBlockedDuckActivation()
+        XCTAssertTrue(duckActivationWasBlocked)
+
+        let teardownCompleted = expectation(description: "queued teardown completes after owner release")
+        audio?.deactivate { teardownCompleted.fulfill() }
+        audio = nil
+        session.releaseBlockedDuckActivation()
+
+        await fulfillment(of: [teardownCompleted], timeout: 2)
+
+        XCTAssertEqual(session.calls.filter {
+            if case .active(false, ["notifyOthersOnDeactivation"]) = $0 { return true }
+            return false
+        }.count, 2, "Both duck restoration and final teardown deactivation must run.")
+        XCTAssertFalse(session.categoryOptions.contains(.duckOthers))
     }
 
     func testDuckRequestedDuringRestoreWinsAndDoubleEndIsIdempotent() async {
@@ -398,6 +421,45 @@ final class AudioSessionParityTests: XCTestCase {
         XCTAssertFalse(audio.isActive)
         XCTAssertFalse(session.categoryOptions.contains(.duckOthers))
         XCTAssertEqual(session.calls.suffix(1), [.active(false, ["notifyOthersOnDeactivation"])])
+    }
+
+    func testTeardownRetriesBusyRestoreWithoutReactivatingListening() async {
+        let session = RecordingAudioSessioning()
+        let audio = WorkoutAudioSession(session: session)
+        audio.setRecordingEnabled(true)
+        let activated = await activate(audio)
+        XCTAssertTrue(activated)
+        audio.beginDucking()
+        await audio.waitForPendingSessionWork()
+
+        session.activeFailures = [false, false]
+        let teardownCallStart = session.calls.count
+        var teardownDeactivationEvents = 0
+        let retryCompleted = expectation(description: "busy teardown restoration retry completes")
+        audio.onEvent = { event in
+            guard case .sessionOperation(let operation, let active, _, _, _, _, _, _) = event,
+                  operation == "setActive", active == false else { return }
+            teardownDeactivationEvents += 1
+            if teardownDeactivationEvents == 3 { retryCompleted.fulfill() }
+        }
+
+        audio.deactivate()
+        await fulfillment(of: [retryCompleted], timeout: 2)
+        await audio.waitForPendingSessionWork()
+
+        let teardownCalls = session.calls.dropFirst(teardownCallStart)
+        let notifyDeactivations = teardownCalls.filter {
+            if case .active(false, ["notifyOthersOnDeactivation"]) = $0 { return true }
+            return false
+        }
+        XCTAssertEqual(notifyDeactivations.count, 3, "Two busy attempts must be followed by a successful retry.")
+        XCTAssertFalse(teardownCalls.contains {
+            if case .active(true, _) = $0 { return true }
+            return false
+        }, "Teardown must not reactivate listening.")
+        XCTAssertFalse(audio.isDucking)
+        XCTAssertFalse(audio.isActive)
+        XCTAssertFalse(session.categoryOptions.contains(.duckOthers))
     }
 
     func testRestoreRetriesToTheLimitAndReactivationEventReturnsOnMainActor() async {
