@@ -1,6 +1,20 @@
 import Foundation
 import Observation
 
+/// Resolves detail content without a live camera stance; Auto uses the exercise's usual view.
+func exerciseDetailDefinition(for exercise: ExerciseDefinition,
+                              preference: ExerciseViewPreference) -> ExerciseDefinition {
+    guard exercise.hasViewChoice else { return exercise }
+    let view: ExerciseCameraView
+    switch preference {
+    case .auto:
+        view = exercise.usualView
+    case .locked(let stance):
+        view = exercise.view(for: stance) ?? exercise.usualView
+    }
+    return exercise.inView(view)
+}
+
 @MainActor
 protocol ExerciseDetailViewModeling: AnyObject, Observable {
     var state: ExerciseDetailState { get }
@@ -35,8 +49,9 @@ final class ExerciseDetailViewModel: ExerciseDetailViewModeling {
         var currentTarget = ExerciseTargetStore.target(for: id, preferences: preferences) ?? ExerciseTarget(exercise)
         currentTarget.sets = min(10, max(1, currentTarget.sets))
         target = currentTarget
-        state = Self.makeState(for: exercise, target: currentTarget,
-                               viewPreference: exercise.hasViewChoice ? preferences.viewPreference(for: id) : .auto)
+        let viewPreference = exercise.hasViewChoice ? preferences.viewPreference(for: id) : .auto
+        let detailExercise = exerciseDetailDefinition(for: exercise, preference: viewPreference)
+        state = Self.makeState(for: detailExercise, target: currentTarget, viewPreference: viewPreference)
     }
 
     func send(_ intent: ExerciseDetailIntent) {
@@ -92,14 +107,18 @@ final class ExerciseDetailViewModel: ExerciseDetailViewModeling {
     private func setCameraViewPreference(_ preference: ExerciseViewPreference) {
         guard let exercise = exerciseCatalog.exercise(id), exercise.hasViewChoice else { return }
         preferences.setViewPreference(preference, for: id)
-        state.viewPreference = preference
-        state.cameraSetupText = Self.cameraSetupText(for: exercise, preference: preference)
+        applyViewPreference(preference, for: exercise)
     }
 
     private func refreshViewPreference(for exercise: ExerciseDefinition) {
         let preference = exercise.hasViewChoice ? preferences.viewPreference(for: id) : .auto
+        applyViewPreference(preference, for: exercise)
+    }
+
+    private func applyViewPreference(_ preference: ExerciseViewPreference, for exercise: ExerciseDefinition) {
         state.viewPreference = preference
         state.cameraSetupText = Self.cameraSetupText(for: exercise, preference: preference)
+        state.steps = exerciseDetailDefinition(for: exercise, preference: preference).guide.steps
     }
 
     private static func cameraSetupText(for exercise: ExerciseDefinition,

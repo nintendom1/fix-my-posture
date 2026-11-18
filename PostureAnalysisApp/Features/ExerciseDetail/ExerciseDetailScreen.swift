@@ -250,10 +250,7 @@ struct ExerciseDetailScreen: View {
     }
 
     private func guideExercise(_ exercise: ExerciseDefinition) -> ExerciseDefinition {
-        guard state.hasViewChoice,
-              case .locked(let stance) = state.viewPreference,
-              let view = exercise.view(for: stance) else { return exercise }
-        return exercise.inView(view)
+        exerciseDetailDefinition(for: exercise, preference: state.viewPreference)
     }
 
     private func informationTile(title: String, value: String, icon: String, anchor: String) -> some View {

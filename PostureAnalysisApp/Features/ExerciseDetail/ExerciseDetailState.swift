@@ -11,7 +11,7 @@ struct ExerciseDetailState: Equatable {
     let hasViewChoice: Bool
     var viewPreference: ExerciseViewPreference
     let watchesFor: [String]
-    let steps: [GuideStep]
+    var steps: [GuideStep]
     var sets: Int
     var repMinimum: Int
     var repMaximum: Int
