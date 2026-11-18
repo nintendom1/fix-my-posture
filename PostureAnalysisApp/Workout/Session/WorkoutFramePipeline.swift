@@ -76,6 +76,8 @@ struct WorkoutFramePipeline {
     private var viewRequirements: [FramingRequirement] = []
     /// Raw frames that can seed the next camera view after stance settles or a view is locked.
     private var viewChangeFrames: [BufferedViewChangeFrame] = []
+    /// When the analyzer last credited a rep; a view warm-up starts after it so the new view can't credit it again.
+    private var lastRepCreditTime: TimeInterval?
     private var offscreenJointEstimator: OffscreenJointEstimator?
     private var stanceDetector = StanceDetector()
     private var ghostCalibrationGate = GhostCalibrationGate()
@@ -133,6 +135,7 @@ struct WorkoutFramePipeline {
     mutating func process(frame: PoseFrame, at now: TimeInterval) -> FrameOutput {
         guard let exercise else {
             viewChangeFrames.removeAll()
+            lastRepCreditTime = nil
             overlay = nil
             ghostCalibrationGate.reset()
             ghostFitOverlay = nil
@@ -204,6 +207,7 @@ struct WorkoutFramePipeline {
                 events.append(.startPositionChanged(analysis.startPositionHeld))
             }
             events.append(contentsOf: analysis.repEvents.map(WorkoutEvent.repCompleted))
+            if !analysis.repEvents.isEmpty { lastRepCreditTime = frame.timestamp }
             formReadings = analysis.formReadings
             // Keep the current ordering: reps are handled before form observations, so a cue from
             // the old set cannot arrive after a rep completed it.
@@ -254,7 +258,10 @@ struct WorkoutFramePipeline {
         self.exercise = exercise
 
         if trackingChanged {
-            if idChanged { viewChangeFrames.removeAll() }
+            if idChanged {
+                viewChangeFrames.removeAll()
+                lastRepCreditTime = nil
+            }
             let previousFraming = framingEvaluator
             framingEvaluator = exercise.map(makeFramingEvaluator)
             // The user is still in view after a camera-view change, so framing keeps its reliability and grace.
@@ -340,6 +347,7 @@ struct WorkoutFramePipeline {
     mutating func resetTracking() -> [WorkoutEvent] {
         let previousStance = stanceDetector.observation
         viewChangeFrames.removeAll()
+        lastRepCreditTime = nil
         stanceDetector.reset(seed: previousStance.settled)
         framingEvaluator?.reset()
         offscreenJointEstimator?.reset()
@@ -385,6 +393,9 @@ struct WorkoutFramePipeline {
     }
 
     /// Replays only the settled-stance window. Historical outputs are discarded; only stage state survives.
+    /// Frames up to the old view's last credited rep replay without counting: the views confirm the return to
+    /// the start at different points, so the new view could otherwise credit that rep a second time. Those
+    /// frames still teach the new view where the start is.
     private mutating func warmAnalyzerFromViewChangeFrames() {
         guard let exercise, exercise.hasViewChoice,
               let latestTime = viewChangeFrames.last?.frame.timestamp else { return }
@@ -395,7 +406,8 @@ struct WorkoutFramePipeline {
             let frame = buffered.frame
             let completed = completeOffscreenJoints(in: frame)
             let counted = buffered.sessionPhase == .exercising ? completed : frame
-            _ = feedAnalyzer(counted, counting: buffered.isCounting)
+            let afterLastCredit = lastRepCreditTime.map { frame.timestamp > $0 } ?? true
+            _ = feedAnalyzer(counted, counting: buffered.isCounting && afterLastCredit)
             if !frame.pose.landmarks.isEmpty {
                 let display = Self.displayPose(frame.pose)
                 _ = updateSmoother(for: display, joints: exercise.focusJoints, at: frame.timestamp)

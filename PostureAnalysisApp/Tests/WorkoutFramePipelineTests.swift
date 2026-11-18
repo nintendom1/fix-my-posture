@@ -211,6 +211,38 @@ final class WorkoutFramePipelineTests: XCTestCase {
         XCTAssertEqual(sideRepEvents, 1, "The replayed rep is silent, and the next live rep counts once.")
     }
 
+    func testRepCreditedByTheOldViewJustBeforeASwitchIsNotCreditedAgainByTheWarmedView() {
+        let front = HammerCurlExercise.definition()
+        let side = front.inView(.side)
+        var pipeline = WorkoutFramePipeline(exercise: front, analyzerEpoch: 1, isCounting: true)
+        pipeline.setSessionPhase(.exercising)
+        func repEvents(_ output: WorkoutFramePipeline.FrameOutput) -> Int {
+            output.events.filter { if case .repCompleted = $0 { true } else { false } }.count
+        }
+
+        // Forearm elevations in degrees. At -47 the wrist is past the front view's start line (ratio -0.65 of
+        // the upper arm) but short of side-on's (-0.73 of the forearm, which needs -0.8), so the views disagree.
+        let curl: [Double] = [-90, -90, -90, -90, -90, -90, -20, 30, 50, 50, 50, 0, -47, -47, -47]
+        var time: TimeInterval = 0
+        var frontRepEvents = 0
+        for elevation in curl where frontRepEvents == 0 {
+            frontRepEvents += repEvents(pipeline.process(frame: curlFrame(forearmElevation: elevation, at: time),
+                                                         at: time))
+            time += 0.1
+        }
+        XCTAssertEqual(frontRepEvents, 2, "The front view credited the curl at -47 degrees, one event per arm.")
+
+        // Switch on the crediting frame, then straighten the arms and let them hang.
+        pipeline.exerciseChanged(to: side, analyzerEpoch: 2)
+        var sideRepEvents = 0
+        for _ in 0..<12 {
+            sideRepEvents += repEvents(pipeline.process(frame: curlFrame(forearmElevation: -90, at: time), at: time))
+            time += 0.1
+        }
+
+        XCTAssertEqual(sideRepEvents, 0, "The warmed side view never credits the curl the front view counted.")
+    }
+
     func testTurningFrontToSideOnMidSetNeverLosesFraming() {
         let turn = TurnPlayer(exercise: HammerCurlExercise.definition())
         turn.play(seconds: 1) { turn.front(at: $0) }
@@ -1094,6 +1126,15 @@ final class WorkoutFramePipelineTests: XCTestCase {
                                    confidence: 0.9))
         })
         return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: width, imageHeight: height), timestamp: time)
+    }
+
+    /// A front-view hammer-curl pose with hanging upper arms and the given forearm elevation in degrees.
+    private func curlFrame(forearmElevation: Double, at time: TimeInterval) -> PoseFrame {
+        let motion = ArmMotion(keyframes: [
+            ArmKeyframe(angles: ArmAngles(upperArmElevation: -90, forearmElevation: forearmElevation),
+                        moveDuration: 0, holdDuration: 1, stepIndex: 0)
+        ], forearmPlane: .sagittal)
+        return frame(motion: motion, sampledAt: 0, at: time)
     }
 
     private func frame(motion: ArmMotion, sampledAt poseTime: TimeInterval, at time: TimeInterval) -> PoseFrame {
