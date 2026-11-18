@@ -145,6 +145,34 @@ final class CameraViewTurnTests: XCTestCase {
         XCTAssertEqual(rig.session.repCount, 1)
     }
 
+    func testAStanceFlickeringAtTheFacingThresholdWithAHiddenArmStillAnnouncesTrackingLoss() throws {
+        let rig = TurnRig()
+        try rig.startSet(standing: front)
+        rig.reps(front, count: 1)
+        let jitterStart = rig.log.count
+        let jitterStartTime = rig.harness.clock.now
+
+        // The far arm stays hidden while the stance reads unclear and facing on alternate frames, so turn evidence
+        // keeps appearing and clearing without ever confirming a turn.
+        rig.play(seconds: 5) { local, time in
+            let unclear = Int((local * 10).rounded()).isMultiple(of: 2)
+            return self.threeQuarter(at: time, ratio: stance.facingRatio + (unclear ? -0.01 : 0.01),
+                                     hiding: [.rightElbow, .rightWrist])
+        }
+
+        let jitter = rig.log[jitterStart...]
+        XCTAssertTrue(jitter.allSatisfy { $0.view == .front && $0.phase == .exercising && !$0.isTurning })
+        let lost = try XCTUnwrap(rig.firstSpoken { $0.hasPrefix("I can't see you") },
+                                 "Tracking loss is announced once the turn's budget runs out.")
+        let budget = stance.turningAfter + stance.turningCap
+        XCTAssertGreaterThanOrEqual(lost.time - jitterStartTime, budget, "Nothing is said before the turn's budget.")
+        XCTAssertLessThan(lost.time - jitterStartTime, budget + FramingConfiguration().unreliableAfter
+                          + WorkoutSession.trackingLossGrace + WorkoutCoachModel.tickInterval + 0.25,
+                          "The usual tracking-loss prompt follows the budget.")
+        XCTAssertFalse(rig.session.isCounting)
+        XCTAssertEqual(rig.session.repCount, 1)
+    }
+
     func testWalkingOutOfViewStillAnnouncesTrackingLossAndCountingResumesOnReturn() throws {
         let rig = TurnRig()
         try rig.startSet(standing: front)

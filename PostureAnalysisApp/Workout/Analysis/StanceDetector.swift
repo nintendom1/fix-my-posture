@@ -50,13 +50,18 @@ struct StanceDetector {
     }
 
     private var stanceCandidate: (stance: BodyStance, since: TimeInterval)?
+    /// The first evidence of the current turn episode. The episode lasts until the settled stance holds for
+    /// `turningClearsAfter`, so evidence that comes and goes, as a ratio jittering at a threshold, shares one budget.
+    private var episodeSince: TimeInterval?
+    /// The episode has used its `turningAfter + turningCap` budget: nothing reads as a turn until the episode ends.
+    private var episodeSpent = false
+    private var settledSince: TimeInterval?
     private var turningEvidenceSince: TimeInterval?
-    private var turningSince: TimeInterval?
     private var turningClearSince: TimeInterval?
-    private var suppressTurningUntilEvidenceClears = false
 
-    /// True while turning, and from the first reading that suggests a turn until `turningAfter` confirms it. Framing
-    /// uses it so the start of a turn is bridged too; the reducer still waits for `observation.turning`.
+    /// True while turning, and from the first reading that suggests a turn until `turningAfter` confirms it, within
+    /// the episode's budget. Framing uses it so the start of a turn is bridged too; the reducer still waits for
+    /// `observation.turning`.
     var mayBeTurning: Bool { observation.turning || turningEvidenceSince != nil }
 
     /// Updates settled stance and turning state using only the frame's capture timestamp.
@@ -84,10 +89,11 @@ struct StanceDetector {
     mutating func reset(seed: BodyStance?) {
         observation = Observation(settled: seed, turning: false)
         stanceCandidate = nil
+        episodeSince = nil
+        episodeSpent = false
+        settledSince = nil
         turningEvidenceSince = nil
-        turningSince = nil
         turningClearSince = nil
-        suppressTurningUntilEvidenceClears = false
     }
 
     /// Classifies a single pose from pixel-space geometry, independent of image aspect ratio.
@@ -128,35 +134,21 @@ struct StanceDetector {
         let isSettledReading = observation.settled != nil && stance == observation.settled
         let isOpposite = observation.settled != nil && stance != nil && stance != observation.settled
         let isEvidence = reading == .unclear || isOpposite
+        updateEpisode(isEvidence: isEvidence, isSettledReading: isSettledReading, at: time)
 
         if isEvidence {
             turningClearSince = nil
-            guard !suppressTurningUntilEvidenceClears else { return }
+            guard !episodeSpent else { return }
             let evidenceSince = turningEvidenceSince ?? time
             turningEvidenceSince = evidenceSince
-
-            if observation.turning {
-                if let turningSince, Self.elapsed(configuration.turningCap, from: turningSince, to: time) {
-                    observation.turning = false
-                    self.turningSince = nil
-                    turningEvidenceSince = nil
-                    suppressTurningUntilEvidenceClears = true
-                }
-            } else if Self.elapsed(configuration.turningAfter, from: evidenceSince, to: time) {
+            if !observation.turning, Self.elapsed(configuration.turningAfter, from: evidenceSince, to: time) {
                 observation.turning = true
-                turningSince = time
             }
             return
         }
 
         turningEvidenceSince = nil
-        suppressTurningUntilEvidenceClears = false
-        guard reading == .absent || isSettledReading else {
-            turningClearSince = nil
-            return
-        }
-
-        guard observation.turning else {
+        guard observation.turning, reading == .absent || isSettledReading else {
             turningClearSince = nil
             return
         }
@@ -164,9 +156,36 @@ struct StanceDetector {
         turningClearSince = clearSince
         if Self.elapsed(configuration.turningClearsAfter, from: clearSince, to: time) {
             observation.turning = false
-            turningSince = nil
             turningClearSince = nil
         }
+    }
+
+    /// Opens an episode on the first evidence of a turn and spends it `turningAfter + turningCap` later, however the
+    /// evidence comes and goes in between, which ends turning and the framing bridge. Only the settled stance held
+    /// for `turningClearsAfter` ends the episode, so the next evidence gets a fresh budget.
+    private mutating func updateEpisode(isEvidence: Bool, isSettledReading: Bool, at time: TimeInterval) {
+        if isSettledReading {
+            let since = settledSince ?? time
+            settledSince = since
+            if Self.elapsed(configuration.turningClearsAfter, from: since, to: time) {
+                episodeSince = nil
+                episodeSpent = false
+            }
+        } else {
+            settledSince = nil
+        }
+
+        if isEvidence, episodeSince == nil {
+            episodeSince = time
+        }
+        guard let episodeSince, !episodeSpent,
+              Self.elapsed(configuration.turningAfter + configuration.turningCap, from: episodeSince, to: time) else {
+            return
+        }
+        episodeSpent = true
+        observation.turning = false
+        turningEvidenceSince = nil
+        turningClearSince = nil
     }
 
     private static func elapsed(_ duration: TimeInterval, from start: TimeInterval, to time: TimeInterval) -> Bool {

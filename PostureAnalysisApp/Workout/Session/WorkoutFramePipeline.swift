@@ -153,7 +153,7 @@ struct WorkoutFramePipeline {
         if var evaluator = framingEvaluator {
             // Partway through a turn, neither view may see the whole body yet. From the first reading that suggests a
             // turn, a frame that any of the exercise's views could track keeps framing, so counting carries on until
-            // the new view takes over.
+            // the new view takes over. The detector bounds the whole turn, so evidence that flickers can't extend it.
             let alternatives = tracksStance && stanceDetector.mayBeTurning ? viewRequirements : []
             if shouldPrimeFraming {
                 evaluator.prime(with: counted, alsoAccepting: alternatives)

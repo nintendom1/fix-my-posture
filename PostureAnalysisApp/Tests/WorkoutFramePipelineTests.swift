@@ -183,6 +183,45 @@ final class WorkoutFramePipelineTests: XCTestCase {
         assertFramingHeld(turn.outputs[turnStart...])
     }
 
+    func testThresholdJitterWithAHiddenArmLosesFramingOnceTheTurnBudgetRunsOut() throws {
+        // The far arm stays hidden while the shoulder ratio flickers either side of the facing threshold. Each unclear
+        // frame suggests a turn that the side-on view accepts; each facing frame clears that evidence before the
+        // debounce, so turning never starts. The bridge still ends a fixed time after the first evidence.
+        let stance = StanceDetector.Configuration.standard
+        let budget = stance.turningAfter + stance.turningCap
+        let turn = TurnPlayer(exercise: HammerCurlExercise.definition())
+        turn.play(seconds: 1) { turn.front(at: $0) }
+        XCTAssertTrue(turn.pipeline.isCounting, "Front framing is reliable before the jitter.")
+        let jitterStart = turn.outputs.count
+
+        turn.play(seconds: 5) { time in
+            let ratio = Int((time * 10).rounded()).isMultiple(of: 2) ? 0.49 : 0.51
+            return self.withShoulderRatio(ratio, self.without([.rightElbow, .rightWrist], turn.front(at: time)))
+        }
+
+        let jitter = turn.outputs[jitterStart...]
+        XCTAssertEqual(jitter.first?.diagnostics?.stance, .unclear)
+        XCTAssertFalse(jitter.contains { $0.events.contains { if case .stanceObserved = $0 { true } else { false } } },
+                       "Turning never starts.")
+        let firstEvidence = turn.times[jitterStart]
+        let lost = try XCTUnwrap(jitter.firstIndex { $0.events.contains(where: Self.isFramingLost) },
+                                 "The front view loses the hidden arm once the turn's budget runs out.")
+        assertFramingHeld(turn.outputs[jitterStart..<lost])
+        XCTAssertGreaterThanOrEqual(turn.times[lost] - firstEvidence, budget, "Framing held until the budget ran out.")
+        XCTAssertLessThanOrEqual(turn.times[lost] - firstEvidence, budget + FramingConfiguration().unreliableAfter + 0.15,
+                                 "Normal framing loss follows the budget.")
+        XCTAssertTrue(turn.outputs[lost...].allSatisfy { $0.diagnostics?.framing?.isReliable == false },
+                      "Flickering evidence doesn't bring framing back.")
+        XCTAssertFalse(turn.pipeline.isCounting)
+
+        // Facing the phone with both arms in view settles the stance, so the next turn is bridged again.
+        turn.play(seconds: 1) { turn.front(at: $0) }
+        XCTAssertTrue(turn.pipeline.isCounting, "Front framing recovers.")
+        let nextTurn = turn.outputs.count
+        turn.play(seconds: 1) { self.farArmHidden(turn.front(at: $0)) }
+        assertFramingHeld(turn.outputs[nextTurn...])
+    }
+
     func testTurningSideOnToFrontWithTheFarWristHiddenAcrossTheSwitchNeverLosesFraming() {
         let turn = TurnPlayer(exercise: HammerCurlExercise.definition(), view: .side)
         turn.play(seconds: 1) { turn.side(at: $0) }

@@ -127,6 +127,43 @@ final class StanceDetectorTests: XCTestCase {
         }
     }
 
+    func testEvidenceFlickeringAtTheFacingThresholdSharesOneTurnBudget() {
+        // Ratios either side of 0.5 every 0.1 s: each unclear reading suggests a turn, and each facing reading clears
+        // that evidence before the debounce, so turning never starts. The budget still runs from the first evidence.
+        let configuration = StanceDetector.Configuration.standard
+        let budgetEnd = Int(((configuration.turningAfter + configuration.turningCap) * 10).rounded())
+        var detector = StanceDetector(seed: .facing)
+        for index in 0...60 {
+            let time = Double(index) / 10
+            let unclear = index.isMultiple(of: 2)
+            let observation = detector.update(torsoFrame(ratio: unclear ? 0.49 : 0.51, at: time))
+            XCTAssertEqual(observation, StanceDetector.Observation(settled: .facing, turning: false))
+            XCTAssertEqual(detector.mayBeTurning, unclear && index < budgetEnd, "At \(time)s.")
+        }
+    }
+
+    func testASpentTurnRearmsOnlyOnceTheSettledStanceHoldsThreeTenths() {
+        // Unclear readings with one facing reading in every four keep the turn going until its cap.
+        var detector = StanceDetector(seed: .facing)
+        for index in 0...60 {
+            let observation = detector.update(torsoFrame(ratio: index % 4 == 3 ? 0.51 : 0.49, at: Double(index) / 10))
+            XCTAssertEqual(observation.turning, index >= 2 && index < 32, "At \(Double(index) / 10)s.")
+            XCTAssertEqual(detector.mayBeTurning, index < 32, "At \(Double(index) / 10)s.")
+        }
+
+        // The facing stance held for 0.2 s doesn't end the turn, so the next unclear reading is no evidence.
+        for time in [6.1, 6.2, 6.3] { _ = detector.update(torsoFrame(ratio: 0.51, at: time)) }
+        _ = detector.update(torsoFrame(ratio: 0.49, at: 6.4))
+        XCTAssertFalse(detector.mayBeTurning, "A brief return to the stance must not re-arm the turn.")
+
+        // Held for 0.3 s, it does: the next turn is bridged from its first unclear reading and confirmed as usual.
+        for time in [6.5, 6.6, 6.7, 6.8] { _ = detector.update(torsoFrame(ratio: 0.51, at: time)) }
+        _ = detector.update(torsoFrame(ratio: 0.49, at: 6.9))
+        XCTAssertTrue(detector.mayBeTurning, "A settled stance re-arms the next turn.")
+        _ = detector.update(torsoFrame(ratio: 0.49, at: 7.0))
+        XCTAssertTrue(detector.update(torsoFrame(ratio: 0.49, at: 7.1)).turning)
+    }
+
     func testResetClearsTheCandidateAndTurningState() {
         var detector = StanceDetector(seed: .facing)
         _ = detector.update(torsoFrame(ratio: 0.4, at: 0))
