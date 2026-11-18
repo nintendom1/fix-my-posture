@@ -20,6 +20,25 @@ enum FramingGuidance: String, Equatable {
     case stepBackLyingSide
     case movePhoneFartherFloor
 
+    static func needsFullBodySideView(requiredJoints: Set<LandmarkType>,
+                                      anyOfRequiredJoints: [Set<LandmarkType>]) -> Bool {
+        requiredJoints.contains(.leftAnkle) || requiredJoints.contains(.rightAnkle)
+            || anyOfRequiredJoints.contains { $0.contains(.leftAnkle) || $0.contains(.rightAnkle) }
+    }
+
+    /// The line used when an exercise needs the user to enter the active camera view.
+    static func stepIntoViewGuidance(cameraView: ExerciseCameraView, requiredJoints: Set<LandmarkType>,
+                                     anyOfRequiredJoints: [Set<LandmarkType>]) -> FramingGuidance {
+        let needsFullBody = needsFullBodySideView(requiredJoints: requiredJoints,
+                                                  anyOfRequiredJoints: anyOfRequiredJoints)
+        switch cameraView {
+        case .front: return .stepIntoView
+        case .side: return needsFullBody ? .stepIntoViewSideFullBody : .stepIntoViewSideOn
+        case .floor: return .stepIntoViewFloor
+        case .lyingSide: return .stepIntoViewLyingSide
+        }
+    }
+
     var spokenText: String {
         switch self {
         case .stepIntoView: return "Step into view, facing the phone."
@@ -126,8 +145,8 @@ struct FramingEvaluator {
     private var isPhoneTooClose: Bool { isShoulderSpanTooWide || areWristsTooLow }
 
     private var needsFullBodySideView: Bool {
-        requiredJoints.contains(.leftAnkle) || requiredJoints.contains(.rightAnkle)
-            || anyOfRequiredJoints.contains { $0.contains(.leftAnkle) || $0.contains(.rightAnkle) }
+        FramingGuidance.needsFullBodySideView(requiredJoints: requiredJoints,
+                                              anyOfRequiredJoints: anyOfRequiredJoints)
     }
 
     init(requiredJoints: Set<LandmarkType>, anyOfRequiredJoints: [Set<LandmarkType>] = [], headroomArmLengths: CGFloat?,
@@ -249,9 +268,8 @@ struct FramingEvaluator {
         let sideOn = cameraView == .side
         let floor = cameraView == .floor
         guard visible.count >= configuration.minimumBodyJoints else {
-            if cameraView == .lyingSide { return .stepIntoViewLyingSide }
-            if sideOn { return needsFullBodySideView ? .stepIntoViewSideFullBody : .stepIntoViewSideOn }
-            return floor ? .stepIntoViewFloor : .stepIntoView
+            return FramingGuidance.stepIntoViewGuidance(cameraView: cameraView, requiredJoints: requiredJoints,
+                                                        anyOfRequiredJoints: anyOfRequiredJoints)
         }
         guard requiredPresent else {
             if cameraView == .lyingSide { return .stepBackLyingSide }

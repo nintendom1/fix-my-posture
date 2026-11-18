@@ -57,6 +57,51 @@ final class CameraViewTurnTests: XCTestCase {
         assertSetCarriedOn(rig, from: setStart, spokenFrom: spokenAtStart, reps: 5)
     }
 
+    func testSideToFrontThenImmediateCurlCounts() throws {
+        let rig = TurnRig()
+        try rig.startSet(standing: side)
+
+        rig.play(seconds: 0.3) { _, time in self.threeQuarter(at: time) }
+        rig.play(until: { $0.exercise?.cameraView == .front }, limit: stance.holdSeconds + 0.5) { _, time in
+            ReadyPoseFixtures.demoFrame(front, motionTime: 0, at: time)
+        }
+        XCTAssertEqual(rig.session.exercise?.cameraView, .front)
+
+        rig.immediateCurl(front)
+
+        XCTAssertEqual(rig.session.repCount, 1, "The first front curl after the turn counts.")
+    }
+
+    func testFrontToSideThenImmediateNearArmCurlCounts() throws {
+        let rig = TurnRig()
+        try rig.startSet(standing: front)
+
+        rig.play(seconds: 0.3) { _, time in self.threeQuarter(at: time) }
+        rig.play(until: { $0.exercise?.cameraView == .side }, limit: stance.holdSeconds + 0.5) { _, time in
+            ReadyPoseFixtures.demoFrame(self.side, motionTime: 0, at: time)
+        }
+        XCTAssertEqual(rig.session.exercise?.cameraView, .side)
+
+        rig.immediateCurl(side)
+
+        XCTAssertEqual(rig.session.repCount, 1, "The first near-arm curl after the turn counts.")
+    }
+
+    func testCurlStartedBeforeTheViewSwitchCountsOnce() throws {
+        let rig = TurnRig()
+        try rig.startSet(standing: front)
+        rig.play(seconds: 0.3) { _, time in self.threeQuarter(at: time) }
+        rig.play(seconds: 0.5) { _, time in ReadyPoseFixtures.demoFrame(self.side, motionTime: 0, at: time) }
+        rig.play(until: { $0.exercise?.cameraView == .side }, limit: stance.holdSeconds + 0.5) { local, time in
+            ReadyPoseFixtures.demoFrame(self.side, motionTime: 1.0 + local, at: time)
+        }
+        XCTAssertEqual(rig.session.exercise?.cameraView, .side)
+
+        rig.continueCurl(side, startingAt: 1.6)
+
+        XCTAssertEqual(rig.session.repCount, 1, "A curl begun during the hold finishes as one rep.")
+    }
+
     func testTurningFrontToSideOnWithTheFarArmHiddenFromTheFirstUnclearFrameKeepsCounting() throws {
         let rig = TurnRig()
         try rig.startSet(standing: front)
@@ -408,6 +453,24 @@ private final class TurnRig {
         let duration = view.guide.motion.duration * Double(count)
         play(seconds: duration + 1) { local, time in
             ReadyPoseFixtures.demoFrame(view, motionTime: local < duration ? local : 0, at: time)
+        }
+    }
+
+    /// Starts with one bottom sample, then moves before a cold analyzer can confirm a second bottom sample.
+    func immediateCurl(_ view: ExerciseDefinition) {
+        let firstMovingPose = 1.4
+        let remaining = view.guide.motion.duration - firstMovingPose
+        play(seconds: remaining + 0.2) { local, time in
+            let poseTime = local == 0 ? 0 : firstMovingPose + local - 0.1
+            return ReadyPoseFixtures.demoFrame(view, motionTime: poseTime, at: time)
+        }
+    }
+
+    /// Continues an already active curl through its return to the bottom.
+    func continueCurl(_ view: ExerciseDefinition, startingAt poseTime: TimeInterval) {
+        let remaining = view.guide.motion.duration - poseTime
+        play(seconds: remaining + 0.1) { local, time in
+            ReadyPoseFixtures.demoFrame(view, motionTime: poseTime + local, at: time)
         }
     }
 

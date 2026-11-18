@@ -435,7 +435,7 @@ struct WorkoutSession {
             voiceControlActive = active
             return []
         case .formObserved(let observation):
-            guard observation.epoch == analyzerEpoch, phase == .exercising, isCounting else { return [] }
+            guard observation.epoch == analyzerEpoch, phase == .exercising, isCounting, !isTurning else { return [] }
             return tipEffects(coaching.update(observation, speaking: isCoachSpeaking, at: now))
         case .stanceObserved(let observation):
             guard phase != .choosingExercise else { return [] }
@@ -1149,11 +1149,16 @@ struct WorkoutSession {
             if !isTurning, needsFraming, !framing.isReliable, !trackingLossAnnounced, let lostAt = trackingLostAt,
                now - lostAt >= Self.trackingLossGrace {
                 trackingLossAnnounced = true
-                let guidance = framing.guidance?.spokenText ?? FramingGuidance.stepIntoView.spokenText
+                let fallback = self.exercise.map {
+                    FramingGuidance.stepIntoViewGuidance(cameraView: $0.cameraView,
+                                                        requiredJoints: $0.requiredJoints,
+                                                        anyOfRequiredJoints: $0.anyOfRequiredJoints)
+                } ?? .stepIntoView
+                let guidance = framing.guidance?.spokenText ?? fallback.spokenText
                 return [.speak(Utterance(text: "I can't see you. \(guidance)"))]
             }
             // Reminders come due on the clock rather than on a frame.
-            return isCounting ? tipEffects(coaching.tick(speaking: isCoachSpeaking, at: now)) : []
+            return isCounting && !isTurning ? tipEffects(coaching.tick(speaking: isCoachSpeaking, at: now)) : []
         case .resting:
             guard let restEndsAt, now >= restEndsAt else { return [] }
             if restLeadsToNextExercise {

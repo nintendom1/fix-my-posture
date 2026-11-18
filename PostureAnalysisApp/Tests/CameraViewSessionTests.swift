@@ -75,7 +75,8 @@ final class CameraViewSessionTests: XCTestCase {
         XCTAssertTrue(spoken(session.handle(.tick, at: 4.6)).isEmpty)
 
         _ = session.handle(.stanceObserved(.init(settled: .sideOn, turning: false)), at: 4.7)
-        XCTAssertTrue(spoken(session.handle(.tick, at: 5)).contains("I can't see you. Step into view, facing the phone."))
+        XCTAssertTrue(spoken(session.handle(.tick, at: 5))
+            .contains("I can't see you. Step into view, standing side-on to the phone."))
 
         var framingSession = readySession()
         _ = framingSession.handle(
@@ -86,6 +87,29 @@ final class CameraViewSessionTests: XCTestCase {
 
         _ = framingSession.handle(.stanceObserved(.init(settled: nil, turning: false)), at: 4.1)
         XCTAssertTrue(spoken(framingSession.handle(.tick, at: 4.2)).contains(FramingGuidance.stepBack.spokenText))
+    }
+
+    func testTurningSuppressesFormTipsAndTimedRemindersUntilItClears() {
+        var session = readySession()
+        _ = session.handle(.command(.start), at: 2)
+        _ = session.handle(.stanceObserved(.init(settled: .facing, turning: true)), at: 3)
+        let observation = FormObservation(epoch: session.analyzerEpoch, signals: [.curlElbowsIn])
+
+        XCTAssertTrue(session.handle(.formObserved(observation), at: 3.1).isEmpty)
+        XCTAssertTrue(session.handle(.formObserved(observation), at: 3.7).isEmpty,
+                      "A continuous cue cannot mature while the user is turning.")
+        let turningTick = session.handle(.tick, at: 30)
+        XCTAssertFalse(turningTick.contains { if case .showTip = $0 { true } else { false } },
+                       "A timed reminder waits for the turn to end.")
+
+        _ = session.handle(.stanceObserved(.init(settled: .facing, turning: false)), at: 30.1)
+        XCTAssertTrue(session.handle(.formObserved(observation), at: 30.2).isEmpty)
+        let cueEffects = session.handle(.formObserved(observation), at: 30.7)
+        XCTAssertEqual(cueEffects.compactMap { effect -> CoachingTip? in
+            guard case .showTip(let tip) = effect else { return nil }
+            return tip
+        }.map(\.cue.id), [.curlElbowsIn])
+        XCTAssertTrue(spoken(cueEffects).contains("Keep your elbows by your sides."))
     }
 
     func testManualViewLockKeepsRepsBumpsEpochPersistsAndConfirms() {

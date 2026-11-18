@@ -56,6 +56,31 @@ final class WorkoutFramePipelineTests: XCTestCase {
         XCTAssertFalse(output.events.contains { if case .stanceObserved = $0 { true } else { false } })
     }
 
+    func testSingleViewExerciseDoesNotBufferRawFramesForViewChanges() {
+        let exercise = ShoulderPressExercise.definition()
+        var pipeline = WorkoutFramePipeline(exercise: exercise)
+
+        for index in 0...20 {
+            let time = Double(index) / 10
+            _ = pipeline.process(frame: frame(motion: exercise.guide.motion, at: time), at: time)
+        }
+
+        XCTAssertEqual(pipeline.bufferedViewChangeFrameCount, 0)
+    }
+
+    func testViewChoiceBufferKeepsOnlyTheStanceWindowAndMargin() {
+        let exercise = HammerCurlExercise.definition()
+        var pipeline = WorkoutFramePipeline(exercise: exercise)
+
+        for index in 0...30 {
+            let time = Double(index) / 10
+            _ = pipeline.process(frame: frame(motion: exercise.guide.motion, at: time), at: time)
+        }
+
+        XCTAssertLessThanOrEqual(pipeline.bufferedViewChangeFrameCount, 13)
+        XCTAssertGreaterThan(pipeline.bufferedViewChangeFrameCount, 0)
+    }
+
     func testStanceDetectorRunsForAnExerciseWithAViewChoice() {
         let exercise = makeViewChoiceHammerCurl(id: ExerciseID(rawValue: "stance.pipeline"))
         var pipeline = WorkoutFramePipeline(exercise: exercise)
@@ -95,6 +120,95 @@ final class WorkoutFramePipelineTests: XCTestCase {
             guard case .framingChanged(let status) = $0 else { return false }
             return !status.isReliable
         })
+    }
+
+    func testSameIdViewChangeWarmsAnalyzerForCurlStartingOnTheFirstLiveFrame() {
+        let front = HammerCurlExercise.definition()
+        let side = front.inView(.side)
+        var pipeline = WorkoutFramePipeline(exercise: front, analyzerEpoch: 1, isCounting: true)
+        pipeline.setSessionPhase(.exercising)
+
+        for index in 0...12 {
+            let time = Double(index) / 10
+            let bottom = frame(motion: front.guide.motion, sampledAt: 0, at: time)
+            _ = pipeline.process(frame: bottom, at: time)
+        }
+
+        XCTAssertGreaterThanOrEqual(pipeline.bufferedViewChangeFrameCount, 10)
+        pipeline.exerciseChanged(to: side, analyzerEpoch: 2)
+
+        var repCount = 0
+        for index in 0...24 {
+            let time = 1.3 + Double(index) / 10
+            let poseTime = 1.5 + Double(index) / 10
+            let output = pipeline.process(
+                frame: frame(motion: side.guide.motion, sampledAt: poseTime, at: time), at: time
+            )
+            repCount += output.events.filter { if case .repCompleted = $0 { true } else { false } }.count
+        }
+
+        XCTAssertEqual(repCount, 1, "The buffered bottom lets the first live curl continue.")
+    }
+
+    func testCurlStartedDuringStanceHoldContinuesAfterTheViewSwitch() {
+        let front = HammerCurlExercise.definition()
+        let side = front.inView(.side)
+        var pipeline = WorkoutFramePipeline(exercise: front, analyzerEpoch: 1, isCounting: true)
+        pipeline.setSessionPhase(.exercising)
+
+        for index in 0...10 {
+            let time = Double(index) / 10
+            let poseTime = time < 0.5 ? 0 : 1.0 + time - 0.5
+            _ = pipeline.process(
+                frame: frame(motion: front.guide.motion, sampledAt: poseTime, at: time), at: time
+            )
+        }
+
+        pipeline.exerciseChanged(to: side, analyzerEpoch: 2)
+        var repCount = 0
+        for index in 0...23 {
+            let time = 1.1 + Double(index) / 10
+            let poseTime = 1.6 + Double(index) / 10
+            let output = pipeline.process(
+                frame: frame(motion: side.guide.motion, sampledAt: poseTime, at: time), at: time
+            )
+            repCount += output.events.filter { if case .repCompleted = $0 { true } else { false } }.count
+        }
+
+        XCTAssertEqual(repCount, 1, "A curl already in progress continues on the new analyzer.")
+    }
+
+    func testOldViewRepCountedDuringHoldIsNotCountedAgainWhenFramesWarmNewView() {
+        let front = HammerCurlExercise.definition()
+        let side = front.inView(.side)
+        var pipeline = WorkoutFramePipeline(exercise: front, analyzerEpoch: 1, isCounting: true)
+        pipeline.setSessionPhase(.exercising)
+        let holdCurl: [(TimeInterval, TimeInterval)] = [
+            (0, 0), (0.1, 0), (0.2, 1.5), (0.3, 1.7), (0.4, 1.9),
+            (0.5, 2.1), (0.6, 2.3), (0.7, 2.8), (0.8, 3.2), (0.9, 3.6), (1, 3.9)
+        ]
+        var frontRepEvents = 0
+        for (time, poseTime) in holdCurl {
+            let output = pipeline.process(
+                frame: frame(motion: front.guide.motion, sampledAt: poseTime, at: time), at: time
+            )
+            frontRepEvents += output.events.filter { if case .repCompleted = $0 { true } else { false } }.count
+        }
+        XCTAssertEqual(frontRepEvents, 2, "The old view counted the rep before the switch, one event per arm.")
+
+        pipeline.exerciseChanged(to: side, analyzerEpoch: 2)
+        var sideRepEvents = 0
+        for index in 0...24 {
+            let time = 1.1 + Double(index) / 10
+            let poseTime = 1.5 + Double(index) / 10
+            let output = pipeline.process(
+                frame: frame(motion: side.guide.motion, sampledAt: poseTime, at: time), at: time
+            )
+            sideRepEvents += output.events.filter { if case .repCompleted = $0 { true } else { false } }.count
+        }
+
+        // The side view credits both arms with one event.
+        XCTAssertEqual(sideRepEvents, 1, "The replayed rep is silent, and the next live rep counts once.")
     }
 
     func testTurningFrontToSideOnMidSetNeverLosesFraming() {
@@ -980,6 +1094,11 @@ final class WorkoutFramePipelineTests: XCTestCase {
                                    confidence: 0.9))
         })
         return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: width, imageHeight: height), timestamp: time)
+    }
+
+    private func frame(motion: ArmMotion, sampledAt poseTime: TimeInterval, at time: TimeInterval) -> PoseFrame {
+        let sampled = frame(motion: motion, at: poseTime)
+        return PoseFrame(pose: sampled.pose, timestamp: time)
     }
 
     private func frameWithShoulderRatio(_ ratio: Double, motion: ArmMotion, at time: TimeInterval) -> PoseFrame {
