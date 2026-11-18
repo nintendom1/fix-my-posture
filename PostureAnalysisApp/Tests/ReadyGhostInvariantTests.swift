@@ -1,7 +1,8 @@
 import XCTest
 @testable import PostureAnalysisApp
 
-/// Every exercise shows its ideal figure before tracking and fits that figure for every Ready pose.
+/// Every exercise, in every camera view, shows its ideal figure before tracking and fits that figure for every Ready
+/// pose.
 @MainActor
 final class ReadyGhostInvariantTests: XCTestCase {
     private let containerSize = CGSize(width: 393, height: 852)
@@ -9,40 +10,42 @@ final class ReadyGhostInvariantTests: XCTestCase {
     func testEveryExerciseShowsItsGhostBeforeAnyoneIsInView() {
         let imageSize = WorkoutGhostGeometry.defaultImageSize
         let fit = CoordinateConverter.aspectFitRect(for: imageSize, in: containerSize)
-        for exercise in ExerciseCatalog.all {
-            let harness = WorkoutCoachHarness.make(preferences: InMemoryPreferences(),
-                                                   initialExercise: exercise.id)
+        for exercise in ExerciseCatalog.everyView {
+            let name = label(exercise)
+            let harness = WorkoutCoachHarness.make(showing: exercise)
             harness.model.onAppear(isApplicationActive: true)
             harness.camera.emit(.running)
 
+            XCTAssertEqual(harness.model.session.exercise?.cameraView, exercise.cameraView,
+                           "\(name) did not open in its own camera view")
             XCTAssertEqual(harness.model.hud.visual.overlay, .ghostDemo,
-                           "\(exercise.id) did not show the ideal ghost during framing")
-            XCTAssertNil(harness.model.ghostFitOverlay, "\(exercise.id) calibrated before anyone was in view")
-            XCTAssertFalse(exercise.guide.motion.keyframes.isEmpty, "\(exercise.id) has no guide keyframes")
-            for (label, sample) in motionSamples(exercise.guide.motion) {
+                           "\(name) did not show the ideal ghost during framing")
+            XCTAssertNil(harness.model.ghostFitOverlay, "\(name) calibrated before anyone was in view")
+            XCTAssertFalse(exercise.guide.motion.keyframes.isEmpty, "\(name) has no guide keyframes")
+            for (sampleLabel, sample) in motionSamples(exercise.guide.motion) {
                 let figure = WorkoutGhostGeometry.ideal(overlay: nil, motion: exercise.guide.motion,
                                                         cameraView: exercise.cameraView,
                                                         containerSize: containerSize,
                                                         sample: sample)
-                XCTAssertFalse(figure.isEmpty, "\(exercise.id) \(label): ideal figure is empty")
+                XCTAssertFalse(figure.isEmpty, "\(name) \(sampleLabel): ideal figure is empty")
                 for (joint, point) in figure.joints {
                     XCTAssertTrue(fit.contains(point),
-                                  "\(exercise.id) \(label) \(joint) lies outside the default image fit")
+                                  "\(name) \(sampleLabel) \(joint) lies outside the default image fit")
                 }
             }
         }
     }
 
     func testEveryReadyPoseCalibratesTheGhost() throws {
-        for exercise in ExerciseCatalog.all {
+        for exercise in ExerciseCatalog.everyView {
+            let name = label(exercise)
             let variants = ReadyPoseFixtures.variants(for: exercise)
-            XCTAssertTrue(variants.contains { $0.name == "full" }, "\(exercise.id) has no full Ready pose")
-            XCTAssertTrue(variants.contains { $0.isMinimal }, "\(exercise.id) has no minimal Ready pose")
-            XCTAssertFalse(exercise.guide.motion.keyframes.isEmpty, "\(exercise.id) has no guide keyframes")
+            XCTAssertTrue(variants.contains { $0.name == "full" }, "\(name) has no full Ready pose")
+            XCTAssertTrue(variants.contains { $0.isMinimal }, "\(name) has no minimal Ready pose")
+            XCTAssertFalse(exercise.guide.motion.keyframes.isEmpty, "\(name) has no guide keyframes")
 
             for variant in variants {
-                let harness = WorkoutCoachHarness.make(preferences: InMemoryPreferences(),
-                                                       initialExercise: exercise.id)
+                let harness = WorkoutCoachHarness.make(showing: exercise)
                 harness.model.onAppear(isApplicationActive: true)
                 harness.camera.emit(.running)
                 var readyFrames = 0
@@ -51,13 +54,15 @@ final class ReadyGhostInvariantTests: XCTestCase {
                     harness.camera.emit(.frame(ReadyPoseFixtures.frame(variant, at: harness.clock.now)))
                     if harness.model.session.phase == .ready {
                         readyFrames += 1
+                        XCTAssertEqual(harness.model.session.exercise?.cameraView, exercise.cameraView,
+                                       "\(name) \(variant.name): Ready is in another camera view")
                         XCTAssertEqual(harness.model.hud.visual.overlay, .ghostDemo,
-                                       "\(exercise.id) \(variant.name): Ready did not select the ghost overlay")
+                                       "\(name) \(variant.name): Ready did not select the ghost overlay")
                         let fitOverlay = try XCTUnwrap(harness.model.ghostFitOverlay,
-                                                       "\(exercise.id) \(variant.name): Ready has no calibrated overlay")
+                                                       "\(name) \(variant.name): Ready has no calibrated overlay")
                         let overlay = try XCTUnwrap(harness.model.overlay,
-                                                    "\(exercise.id) \(variant.name): Ready has no live overlay")
-                        for (label, sample) in motionSamples(exercise.guide.motion) {
+                                                    "\(name) \(variant.name): Ready has no live overlay")
+                        for (sampleLabel, sample) in motionSamples(exercise.guide.motion) {
                             let canFit = GhostCalibration.canFit(overlay: fitOverlay,
                                                                  metrics: harness.model.guideMetrics,
                                                                  motion: exercise.guide.motion,
@@ -72,17 +77,17 @@ final class ReadyGhostInvariantTests: XCTestCase {
                                 sample: sample
                             )
                             XCTAssertEqual(canFit, figure != nil,
-                                           "\(exercise.id) \(variant.name) \(label): canFit disagreed with calibration")
+                                           "\(name) \(variant.name) \(sampleLabel): canFit disagreed with calibration")
                             XCTAssertFalse(try XCTUnwrap(figure,
-                                                         "\(exercise.id) \(variant.name) \(label): calibration failed").isEmpty,
-                                           "\(exercise.id) \(variant.name) \(label): calibrated figure is empty")
+                                                         "\(name) \(variant.name) \(sampleLabel): calibration failed").isEmpty,
+                                           "\(name) \(variant.name) \(sampleLabel): calibrated figure is empty")
                         }
                         XCTAssertNotNil(overlay)
                     }
                     harness.clock.advance(by: 0.1)
                 }
 
-                XCTAssertGreaterThan(readyFrames, 0, "\(exercise.id) \(variant.name) never reached Ready")
+                XCTAssertGreaterThan(readyFrames, 0, "\(name) \(variant.name) never reached Ready")
             }
         }
     }
@@ -105,6 +110,11 @@ final class ReadyGhostInvariantTests: XCTestCase {
 
         XCTAssertEqual(harness.model.session.phase, .resting)
         XCTAssertEqual(harness.model.hud.visual.overlay, .ghostDemo)
+    }
+
+    /// "hammer_curl (side)", so a failure names the view.
+    private func label(_ exercise: ExerciseDefinition) -> String {
+        "\(exercise.id.rawValue) (\(exercise.cameraView.rawValue))"
     }
 
     private func motionSamples(_ motion: ArmMotion) -> [(String, ArmMotionSample)] {

@@ -4,7 +4,8 @@ import { mkdtemp, mkdir, writeFile, readFile, rm, symlink, chmod, lstat } from "
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Session, recordsToFileText } from "../lib/session.mjs";
-import { landmarkNamesFromSwiftSource, SWIFT_LANDMARK_NAMES, validatePlan, validatePlanText } from "../lib/lab/plan.mjs";
+import { cameraViewNamesFromSwiftSource, landmarkNamesFromSwiftSource, SWIFT_CAMERA_VIEWS, SWIFT_LANDMARK_NAMES,
+  validatePlan, validatePlanText } from "../lib/lab/plan.mjs";
 import { buildXcodebuildArgs, createFreshRunDirectory, createRunID, emitPresetManifest, formatSummary,
   invokeXcodebuild, isSafeRunID, runPlan } from "../lib/lab/runner.mjs";
 import { filterRecords, inspectRun, parseWindow, renderInspection } from "../lib/lab/inspect.mjs";
@@ -58,6 +59,26 @@ test("joint validation stays in parity with every Swift LandmarkType case", asyn
   for (const unknown of ["leftToe", "rightToe", "notALandmark"]) {
     candidate.scenarios[0].mutations[0].joints = [unknown];
     assert.ok(validatePlan(candidate).includes("scenarios[0].mutations[0].joints[0]: is not a LandmarkType name"));
+  }
+});
+
+test("a scenario may name any Swift camera view, and leaving it out keeps the usual view", async () => {
+  const source = await readFile(new URL("../../../PostureAnalysisApp/Workout/Exercises/ExerciseDefinition.swift", import.meta.url), "utf8");
+  assert.deepEqual(SWIFT_CAMERA_VIEWS, cameraViewNamesFromSwiftSource(source));
+  assert.deepEqual(SWIFT_CAMERA_VIEWS, ["front", "side", "floor", "lyingSide"]);
+  assert.deepEqual(cameraViewNamesFromSwiftSource('enum ExerciseCameraView: String {\n    case front\n    case sideOn = "side"\n}\n'),
+    ["front", "side"]);
+  const candidate = plan();
+  assert.equal(candidate.scenarios[0].cameraView, undefined);
+  assert.deepEqual(validatePlan(candidate), []);
+  for (const view of SWIFT_CAMERA_VIEWS) {
+    candidate.scenarios[0].cameraView = view;
+    assert.deepEqual(validatePlan(candidate), [], view);
+  }
+  for (const unknown of ["Side", "back", "", 1, null]) {
+    candidate.scenarios[0].cameraView = unknown;
+    assert.ok(validatePlan(candidate).includes("scenarios[0].cameraView: must be one of front, side, floor, lyingSide"),
+      String(unknown));
   }
 });
 

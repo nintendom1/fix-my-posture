@@ -192,7 +192,8 @@ enum MovementLabRunner {
     private static func runPipeline(scenario: MovementScenario,
                                     materialization: MovementMaterialization) -> Observation {
         var observation = Observation()
-        guard let exercise = ExerciseCatalog.all.first(where: { $0.id == scenario.exercise }) else { return observation }
+        // The scenario's own camera view, as its recording's exercise control selects.
+        guard let exercise = scenario.definition else { return observation }
         var pipeline = WorkoutFramePipeline()
         pipeline.collectsDiagnostics = true
         let controls: [WorkoutFramePipeline.Control] = [
@@ -247,12 +248,12 @@ enum MovementLabRunner {
     private static func runCoach(plan: MovementPlan, scenario: MovementScenario,
                                  materialization: MovementMaterialization) -> Observation {
         var observation = Observation()
-        guard ExerciseCatalog.all.contains(where: { $0.id == scenario.exercise }) else { return observation }
+        guard let definition = scenario.definition else { return observation }
         let startedAt = MovementISO8601.date(from: plan.createdAt) ?? Date(timeIntervalSince1970: 0)
         let recorder = MovementLabRecorder(id: MovementMaterializer.recordingID(plan: plan, scenario: scenario),
                                            startedAt: startedAt)
-        let harness = WorkoutCoachHarness.make(preferences: InMemoryPreferences(), initialExercise: scenario.exercise,
-                                               recorder: recorder)
+        // The coach starts in the scenario's camera view; a view-choice exercise is locked to it.
+        let harness = WorkoutCoachHarness.make(showing: definition, recorder: recorder)
         harness.model.onAppear(isApplicationActive: true)
         harness.camera.emit(.running)
         let startTime = harness.clock.now

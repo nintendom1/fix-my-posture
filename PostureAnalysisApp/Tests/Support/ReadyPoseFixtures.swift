@@ -13,12 +13,13 @@ struct ReadyPoseVariant {
 }
 
 /// Ready-valid poses for every catalog exercise, centered with headroom and inside any phone-distance limits so
-/// framing gives no guidance.
+/// framing gives no guidance. Pass a definition from `everyView` to pose any of an exercise's camera views.
 enum ReadyPoseFixtures {
     static let imageSize = CGSize(width: 1080, height: 1920)
     static let confidence = 0.9
 
-    /// The full demonstration pose, then one minimal pose per way of satisfying framing.
+    /// The full demonstration pose, then one minimal pose per way of satisfying framing, all drawn in the
+    /// definition's own camera view with its own joint sets.
     static func variants(for exercise: ExerciseDefinition) -> [ReadyPoseVariant] {
         let motion = exercise.guide.motion
         let reference = ExerciseDemoFigureView.pose(for: motion.startSample,
@@ -110,9 +111,10 @@ enum ReadyPoseFixtures {
         return BodyPose(landmarks: landmarks, imageWidth: imageSize.width, imageHeight: imageSize.height)
     }
 
-    /// Figure-to-pixel scale and vertical offset, fixed per exercise so every frame of its motion lines up. An
+    /// Figure-to-pixel scale and vertical offset, fixed per camera view so every frame of its motion lines up. An
     /// exercise with phone-distance limits stands where a real user passes them: the start pose's shoulder span and
-    /// lowest wrist sit two clearances inside each limit, below the point where a distance warning clears.
+    /// lowest wrist sit two clearances inside each limit, below the point where a distance warning clears. A side
+    /// figure draws one shoulder, so it has no span to fit.
     private static func placement(for exercise: ExerciseDefinition) -> (scale: CGFloat, yOffset: CGFloat) {
         // Exercises that need room beside the arms (side-room framing) stand a little farther back.
         var scale: CGFloat = exercise.sideroomArmLengths == nil ? 3 : 2.5
@@ -124,7 +126,8 @@ enum ReadyPoseFixtures {
         let start = ExerciseDemoFigureView.pose(for: motion.startSample, forearmPlane: motion.forearmPlane,
                                                 cameraView: exercise.cameraView).jointLocations
         let margin = 2 * FramingConfiguration().shoulderSpanClearance
-        if let limit = exercise.maximumShoulderSpan, let left = start[.leftShoulder], let right = start[.rightShoulder] {
+        if exercise.cameraView != .side, let limit = exercise.maximumShoulderSpan,
+           let left = start[.leftShoulder], let right = start[.rightShoulder] {
             let span = hypot(left.x - right.x, left.y - right.y)
             let widest = (limit - margin) * imageSize.width
             if span > 0, widest > 0, span * scale > widest {

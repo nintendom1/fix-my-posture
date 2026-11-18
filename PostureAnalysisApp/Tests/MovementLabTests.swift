@@ -390,15 +390,10 @@ final class MovementLabTests: XCTestCase {
         let counts = Dictionary(uniqueKeysWithValues: MovementOutcome.allCases.map { outcome in
             (outcome.rawValue, run.results.filter { $0.outcome == outcome }.count)
         })
-        var guideRevisions: [String: String] = [:]
-        for scenario in plan.scenarios {
-            guard let exercise = ExerciseCatalog.all.first(where: { $0.id == scenario.exercise }) else { continue }
-            guideRevisions[scenario.exercise.rawValue] = MovementCanonicalRevision.value(for: exercise)
-        }
         let summary = MovementLabSummary(schemaVersion: MovementPlan.currentSchemaVersion,
                                          executionMode: mode.rawValue,
                                          outcomes: counts, elapsedSeconds: run.elapsedSeconds,
-                                         guideRevisions: guideRevisions,
+                                         guideRevisions: MovementLabSummary.guideRevisions(for: plan),
                                          buildRevision: MovementLabArtifactPaths.environmentValue("FMP_LAB_BUILD_REVISION", environment: environment) ?? "unknown",
                                          executionRevision: MovementLabArtifactPaths.environmentValue("FMP_LAB_EXECUTION_REVISION", environment: environment) ?? "unknown")
         try writeAtomically(try encoder.encode(summary), to: output.appendingPathComponent("summary.json"))
@@ -424,6 +419,40 @@ final class MovementLabTests: XCTestCase {
     private var repositoryRoot: URL {
         URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent().standardizedFileURL
+    }
+
+    func testEachViewOfAPlanRunsInItsOwnViewInEitherMode() throws {
+        let base = try XCTUnwrap(ExerciseCatalog.definition(for: .hammerCurl))
+        let plan = planWith(base.views.map { view in
+            MovementScenario(id: "curl-\(view.rawValue)", exercise: .hammerCurl, category: .canonical,
+                             purpose: "Plain hammer curls in one camera view.",
+                             canonicalRevision: MovementCanonicalRevision.value(for: base.inView(view)),
+                             seed: 27, reps: 2, mode: .raw, mutations: [],
+                             assertions: [.repCount(equals: nil, min: 2, max: nil)], cameraView: view)
+        })
+        XCTAssertTrue(plan.validate().isEmpty, "\(plan.validate())")
+
+        for mode in [MovementLabMode.pipeline, .coach] {
+            let run = MovementLabRunner.run(plan: plan, mode: mode)
+            for scenario in plan.scenarios {
+                let label = "\(mode.rawValue) \(scenario.id)"
+                let result = try XCTUnwrap(run.results.first { $0.scenarioID == scenario.id }, label)
+                XCTAssertEqual(result.outcome, .passed, "\(label): \(result.assertionResults.map(\.detail))")
+                // Pipeline mode sums the analyzer's rep events, one per arm where arms count separately; the coach
+                // reports the reps both arms completed.
+                let perArm = mode == .pipeline && base.inView(scenario.cameraView).countsArmsIndependently
+                XCTAssertEqual(result.observed.reps, perArm ? 4 : 2, label)
+                let views = (run.recordingLines[scenario.id] ?? []).compactMap(jsonRecord).compactMap { record in
+                    record["control"] as? String == "exercise" ? record["cameraView"] as? String : nil
+                }
+                XCTAssertEqual(views.last, scenario.cameraView.rawValue, "\(label) ran in \(views)")
+            }
+        }
+
+        let revisions = MovementLabSummary.guideRevisions(for: plan)
+        XCTAssertEqual(Set(revisions.keys), ["hammer_curl", "hammer_curl.side"])
+        XCTAssertEqual(revisions["hammer_curl"], MovementCanonicalRevision.value(for: base))
+        XCTAssertEqual(revisions["hammer_curl.side"], MovementCanonicalRevision.value(for: base.inView(.side)))
     }
 
     private func canonicalScenario() throws -> MovementScenario {
@@ -466,6 +495,19 @@ private struct MovementLabSummary: Codable {
     let guideRevisions: [String: String]
     let buildRevision: String
     let executionRevision: String
+
+    /// Each guide the plan renders: the usual view under the exercise id, another view as `hammer_curl.side`, so a
+    /// plan holding both keeps both revisions.
+    static func guideRevisions(for plan: MovementPlan) -> [String: String] {
+        var revisions: [String: String] = [:]
+        for scenario in plan.scenarios {
+            guard let definition = scenario.definition else { continue }
+            let usual = scenario.cameraView == MovementScenario.usualView(of: scenario.exercise)
+            let key = usual ? scenario.exercise.rawValue : "\(scenario.exercise.rawValue).\(scenario.cameraView.rawValue)"
+            revisions[key] = MovementCanonicalRevision.value(for: definition)
+        }
+        return revisions
+    }
 }
 
 private struct MovementLabPresetManifest: Codable {

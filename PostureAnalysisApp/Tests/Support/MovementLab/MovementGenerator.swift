@@ -39,9 +39,11 @@ enum MovementGenerator {
     static func materialize(plan: MovementPlan, scenario: MovementScenario,
                             startingTimestamp: TimeInterval = 0) -> MovementMaterialization {
         var invalidReasons = scenario.validate().map(\.message)
-        guard let exercise = ExerciseCatalog.all.first(where: { $0.id == scenario.exercise }) else {
+        guard let base = ExerciseCatalog.all.first(where: { $0.id == scenario.exercise }) else {
             return invalid(["Unknown exercise \(scenario.exercise.rawValue)."])
         }
+        // Everything below renders and measures the scenario's camera view.
+        let exercise = base.inView(scenario.cameraView)
         guard scenario.canonicalRevision == MovementCanonicalRevision.value(for: exercise) else {
             invalidReasons.append("The canonical exercise guide changed; refresh canonicalRevision before materializing.")
             return invalid(invalidReasons)
@@ -288,7 +290,7 @@ enum MovementGenerator {
                                                           constraintReferenceFrame: renderedFrame, elapsed: elapsed))
         }
 
-        let lines = MovementMaterializer.recordingLines(plan: plan, scenario: scenario, exercise: exercise,
+        let lines = MovementMaterializer.recordingLines(plan: plan, scenario: scenario, exercise: base,
                                                         frames: outputFrames)
         return MovementMaterialization(frames: outputFrames, recordingLines: lines, invalidReasons: [])
     }
@@ -414,6 +416,7 @@ enum MovementGenerator {
 
 /// Writes synthetic frames with the application's existing session-recording line builders.
 enum MovementMaterializer {
+    /// `exercise` is the catalog definition the header describes; the exercise control selects the scenario's view.
     static func recordingLines(plan: MovementPlan, scenario: MovementScenario, exercise: ExerciseDefinition,
                                frames: [MovementMaterializedFrame]) -> [String] {
         guard let startedAt = MovementISO8601.date(from: plan.createdAt) else { return [] }
@@ -426,7 +429,8 @@ enum MovementMaterializer {
         var lines = [WorkoutSessionLines.header(id: recordingID(plan: plan, scenario: scenario),
                                                 context: context, app: app).serialized]
         lines.append(WorkoutSessionLines.control(.sessionPhase(.ready), t: 0).serialized)
-        lines.append(WorkoutSessionLines.control(.exercise(exercise, analyzerEpoch: 1), t: 0).serialized)
+        lines.append(WorkoutSessionLines.control(.exercise(exercise.inView(scenario.cameraView), analyzerEpoch: 1),
+                                                 t: 0).serialized)
         lines.append(WorkoutSessionLines.control(.sessionPhase(.exercising), t: 0).serialized)
         lines.append(WorkoutSessionLines.control(.counting(true), t: 0).serialized)
         for (index, sample) in frames.enumerated() {
@@ -467,10 +471,13 @@ enum MovementMaterializer {
 /// Revision hash over the guide motion's keyframe values and drawing settings.
 enum MovementCanonicalRevision {
     static func value(for exercise: ExerciseDefinition) -> String {
-        value(for: exercise.id, motion: exercise.guide.motion)
+        value(for: exercise.id, motion: exercise.guide.motion,
+              cameraView: exercise.cameraView == exercise.usualView ? nil : exercise.cameraView)
     }
 
-    static func value(for exercise: ExerciseID, motion: ArmMotion) -> String {
+    /// `cameraView` is hashed only when given, for a view other than the usual one, so every hash made before
+    /// exercises had more than one view stays the same.
+    static func value(for exercise: ExerciseID, motion: ArmMotion, cameraView: ExerciseCameraView? = nil) -> String {
         var fields = [exercise.rawValue, String(motion.duration), String(motion.holdsDumbbells),
                       String(motion.torsoPitch), String(motion.wallPushUp), String(motion.inclinePushUp),
                       String(motion.chair)]
@@ -487,6 +494,7 @@ enum MovementCanonicalRevision {
                                        String(frame.shape.hipDrop), String(frame.shape.stride),
                                        String(frame.shape.shoulderLift), String(frame.shape.hipLift)])
         }
+        if let cameraView { fields.append("view:\(cameraView.rawValue)") }
         let bytes = fields.joined(separator: "|").utf8
         var hash: UInt64 = 1_469_598_103_934_665_603
         for byte in bytes { hash = (hash ^ UInt64(byte)) &* 1_099_511_628_211 }

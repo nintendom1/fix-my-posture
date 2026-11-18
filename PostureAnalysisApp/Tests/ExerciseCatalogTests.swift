@@ -57,6 +57,52 @@ final class ExerciseCatalogTests: XCTestCase {
         XCTAssertEqual(ExerciseCatalog.everyView.count, expectedCount)
     }
 
+    /// A camera view changes how the coach watches, never which exercise it is or what it prescribes.
+    func testEveryViewKeepsTheExercisesIdentityAndDefaultDose() throws {
+        for exercise in ExerciseCatalog.all {
+            let views = exercise.everyView
+            XCTAssertEqual(views.map(\.cameraView), exercise.hasViewChoice ? exercise.views : [exercise.cameraView],
+                           exercise.id.rawValue)
+            for view in views {
+                let name = "\(exercise.id.rawValue) (\(view.cameraView.rawValue))"
+                XCTAssertEqual(view.id, exercise.id, name)
+                XCTAssertEqual(view.displayName, exercise.displayName, name)
+                XCTAssertEqual(view.spokenName, exercise.spokenName, name)
+                XCTAssertEqual(view.presentation, exercise.presentation, name)
+                XCTAssertEqual(view.voiceAliases, exercise.voiceAliases, name)
+                XCTAssertEqual(view.equipment, exercise.equipment, name)
+                XCTAssertEqual(view.perSide, exercise.perSide, name)
+                XCTAssertEqual(view.sideLimb, exercise.sideLimb, name)
+                XCTAssertEqual(view.doseUnit, exercise.doseUnit, name)
+                XCTAssertEqual(view.tracking, exercise.tracking, name)
+                XCTAssertEqual(view.restSeconds, exercise.restSeconds, name)
+                XCTAssertEqual(view.startsByHolding, exercise.startsByHolding, name)
+                XCTAssertEqual(view.views, exercise.views, name)
+            }
+
+            // `inView` carries the active dose across, so the default dose is checked on each view as it is built.
+            for cameraView in exercise.views where cameraView != exercise.cameraView {
+                let name = "\(exercise.id.rawValue) (\(cameraView.rawValue))"
+                let build = try XCTUnwrap(exercise.buildView, "\(name) is listed but can't be built")
+                let built = build(cameraView)
+                XCTAssertEqual(built.cameraView, cameraView, name)
+                XCTAssertEqual(built.sets, exercise.sets, name)
+                XCTAssertEqual(built.targetReps, exercise.targetReps, name)
+                XCTAssertEqual(built.autoCompleteReps, exercise.autoCompleteReps, name)
+                XCTAssertEqual(built.targetRangeAnnouncementReps, exercise.targetRangeAnnouncementReps, name)
+            }
+        }
+    }
+
+    func testEachViewsReducedRangeStaysInThatView() {
+        for view in ExerciseCatalog.everyView {
+            guard let reduced = view.reducedRange?() else { continue }
+            let name = "\(view.id.rawValue) (\(view.cameraView.rawValue))"
+            XCTAssertEqual(reduced.id, view.id, name)
+            XCTAssertEqual(reduced.cameraView, view.cameraView, "\(name) has a smaller range in another view")
+        }
+    }
+
     func testEveryExerciseHasOneBundledSquarePhotograph() throws {
         let photographs = ExercisePhotography.all
         let catalogIDs = Set(ExerciseCatalog.all.map(\.id))
@@ -211,7 +257,10 @@ final class ExerciseCatalogTests: XCTestCase {
         let bannedPhrases = ["injury", "pain", "medical", "diagnos", "scoliosis", "posture correction", "cure", "treat"]
 
         for exercise in ExerciseCatalog.all {
-            let correctiveCueIDs = Set(exercise.coachingCues.filter { $0.kind == .corrective }.map(\.id))
+            // The library shows one list for the exercise, so an item may name a cue from any of its views.
+            let correctiveCueIDs = Set(exercise.everyView.flatMap { view in
+                view.coachingCues.filter { $0.kind == .corrective }.map(\.id)
+            })
             for item in exercise.presentation.watchesFor {
                 XCTAssertTrue(correctiveCueIDs.contains(item.cueID),
                               "\(item.cueID.rawValue) is not a corrective cue for \(exercise.id.rawValue)")

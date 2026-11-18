@@ -31,6 +31,20 @@ const LANDMARK_SOURCE_URL = new URL("../../../../PostureAnalysisApp/Models/Landm
 export const SWIFT_LANDMARK_NAMES = Object.freeze(landmarkNamesFromSwiftSource(readFileSync(LANDMARK_SOURCE_URL, "utf8")));
 const JOINTS = new Set(SWIFT_LANDMARK_NAMES);
 
+/** Raw values of Swift's `ExerciseCameraView`, the views a scenario may name. */
+export function cameraViewNamesFromSwiftSource(source) {
+  const body = /enum\s+ExerciseCameraView\b[^\{]*\{([\s\S]*?)^\}/m.exec(source)?.[1];
+  if (!body) throw new Error("ExerciseDefinition.swift does not contain a parseable ExerciseCameraView enum.");
+  const names = [...body.matchAll(/^\s*case\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s*=\s*"([^"]*)")?/gm)]
+    .map((match) => match[2] ?? match[1]);
+  if (!names.length) throw new Error("ExerciseCameraView has no case declarations.");
+  return names;
+}
+
+const CAMERA_VIEW_SOURCE_URL = new URL("../../../../PostureAnalysisApp/Workout/Exercises/ExerciseDefinition.swift", import.meta.url);
+export const SWIFT_CAMERA_VIEWS = Object.freeze(cameraViewNamesFromSwiftSource(readFileSync(CAMERA_VIEW_SOURCE_URL, "utf8")));
+const CAMERA_VIEWS = new Set(SWIFT_CAMERA_VIEWS);
+
 function issue(errors, path, message) { errors.push(`${path}: ${message}`); }
 function object(value) { return value !== null && typeof value === "object" && !Array.isArray(value); }
 function finiteNumber(value) { return typeof value === "number" && Number.isFinite(value); }
@@ -205,6 +219,8 @@ export function validatePlan(plan) {
     if (scenario.mode !== "constrained" && scenario.mode !== "raw") issue(errors, `${path}.mode`, "must be constrained or raw");
     if (!Number.isInteger(scenario.revision) || scenario.revision < 1) issue(errors, `${path}.revision`, "must be a positive integer");
     if (scenario.parentRevision !== undefined && (!Number.isInteger(scenario.parentRevision) || scenario.parentRevision < 1 || scenario.parentRevision >= scenario.revision)) issue(errors, `${path}.parentRevision`, "must be positive and earlier than revision");
+    // Optional: absent means the exercise's usual view. Swift checks that the exercise supports the view.
+    if (scenario.cameraView !== undefined && !CAMERA_VIEWS.has(scenario.cameraView)) issue(errors, `${path}.cameraView`, `must be one of ${SWIFT_CAMERA_VIEWS.join(", ")}`);
     if (!Array.isArray(scenario.mutations)) issue(errors, `${path}.mutations`, "must be an array");
     if (!Array.isArray(scenario.assertions)) issue(errors, `${path}.assertions`, "must be an array");
     const mutations = Array.isArray(scenario.mutations) ? scenario.mutations : [];

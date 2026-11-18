@@ -146,13 +146,15 @@ struct MovementScenario: Codable, Equatable, Identifiable {
     var assertions: [MovementAssertion]
     var revision: Int
     var parentRevision: Int?
+    /// The camera view the figure is rendered in. Plans store it only when it isn't the exercise's usual view.
+    var cameraView: ExerciseCameraView
 
     static let maximumReps = 120
 
     init(id: String, exercise: ExerciseID, category: MovementCategory, purpose: String,
          canonicalRevision: String, seed: UInt64, reps: Int, mode: MovementMode,
          mutations: [MovementMutation], assertions: [MovementAssertion], revision: Int = 1,
-         parentRevision: Int? = nil) {
+         parentRevision: Int? = nil, cameraView: ExerciseCameraView? = nil) {
         self.id = id
         self.exercise = exercise
         self.category = category
@@ -165,11 +167,22 @@ struct MovementScenario: Codable, Equatable, Identifiable {
         self.assertions = assertions
         self.revision = revision
         self.parentRevision = parentRevision
+        self.cameraView = cameraView ?? Self.usualView(of: exercise)
+    }
+
+    /// The catalog exercise in this scenario's camera view; nil for an unregistered exercise.
+    var definition: ExerciseDefinition? {
+        ExerciseCatalog.all.first { $0.id == exercise }.map { $0.inView(cameraView) }
+    }
+
+    /// The view a plan means when it names none: the exercise's usual view, or front for an unknown exercise.
+    static func usualView(of exercise: ExerciseID) -> ExerciseCameraView {
+        ExerciseCatalog.all.first { $0.id == exercise }?.usualView ?? .front
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, exercise, category, purpose, canonicalRevision, seed, reps, mode
-        case mutations, assertions, revision, parentRevision
+        case mutations, assertions, revision, parentRevision, cameraView
     }
 
     init(from decoder: Decoder) throws {
@@ -191,6 +204,8 @@ struct MovementScenario: Codable, Equatable, Identifiable {
         assertions = try container.decode([MovementAssertion].self, forKey: .assertions)
         revision = try container.decode(Int.self, forKey: .revision)
         parentRevision = try container.decodeIfPresent(Int.self, forKey: .parentRevision)
+        cameraView = try container.decodeIfPresent(ExerciseCameraView.self, forKey: .cameraView)
+            ?? Self.usualView(of: exercise)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -207,6 +222,9 @@ struct MovementScenario: Codable, Equatable, Identifiable {
         try container.encode(assertions, forKey: .assertions)
         try container.encode(revision, forKey: .revision)
         try container.encodeIfPresent(parentRevision, forKey: .parentRevision)
+        if cameraView != Self.usualView(of: exercise) {
+            try container.encode(cameraView, forKey: .cameraView)
+        }
     }
 
     func validate(path: String = "scenario") -> [MovementValidationIssue] {
@@ -214,7 +232,11 @@ struct MovementScenario: Codable, Equatable, Identifiable {
         if !MovementValidation.isValidID(id) {
             issues.append(.init("\(path).id", "must use 1–64 lowercase ASCII letters, digits, '_' or '-'"))
         }
-        if !ExerciseCatalog.all.contains(where: { $0.id == exercise }) {
+        if let base = ExerciseCatalog.all.first(where: { $0.id == exercise }) {
+            if !base.views.contains(cameraView) {
+                issues.append(.init("\(path).cameraView", "is not a camera view of \(exercise.rawValue)"))
+            }
+        } else {
             issues.append(.init("\(path).exercise", "is not a registered exercise id"))
         }
         if purpose.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -236,7 +258,7 @@ struct MovementScenario: Codable, Equatable, Identifiable {
         }
 
         let sequenceDurations = MovementScenario.timelineDurations(reps: reps, exercise: exercise,
-                                                                     mutations: mutations)
+                                                                     mutations: mutations, cameraView: cameraView)
         let sequenceDuration = sequenceDurations?.output
         if (1...Self.maximumReps).contains(reps),
            ExerciseCatalog.all.contains(where: { $0.id == exercise }), sequenceDurations == nil {
@@ -259,15 +281,17 @@ struct MovementScenario: Codable, Equatable, Identifiable {
     }
 
     /// Total output duration after per-rep tempo changes and pauses.
-    static func sequenceDuration(reps: Int, exercise: ExerciseID,
-                                 mutations: [MovementMutation]) -> TimeInterval? {
-        timelineDurations(reps: reps, exercise: exercise, mutations: mutations)?.output
+    static func sequenceDuration(reps: Int, exercise: ExerciseID, mutations: [MovementMutation],
+                                 cameraView: ExerciseCameraView? = nil) -> TimeInterval? {
+        timelineDurations(reps: reps, exercise: exercise, mutations: mutations, cameraView: cameraView)?.output
     }
 
-    static func timelineDurations(reps: Int, exercise: ExerciseID,
-                                  mutations: [MovementMutation]) -> MovementSequenceDurations? {
+    /// Timeline lengths for the guide in `cameraView`, or in the exercise's usual view when nil.
+    static func timelineDurations(reps: Int, exercise: ExerciseID, mutations: [MovementMutation],
+                                  cameraView: ExerciseCameraView? = nil) -> MovementSequenceDurations? {
         guard reps > 0, reps <= Self.maximumReps,
-              let definition = ExerciseCatalog.all.first(where: { $0.id == exercise }) else { return nil }
+              let base = ExerciseCatalog.all.first(where: { $0.id == exercise }) else { return nil }
+        let definition = cameraView.map { base.inView($0) } ?? base
         return MovementSequenceDurations.calculate(reps: reps, motionDuration: definition.guide.motion.duration,
                                                     mutations: mutations)
     }

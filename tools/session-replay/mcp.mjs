@@ -19,7 +19,7 @@ import { inspectRun } from "./lib/lab/inspect.mjs";
 import { createLabStore } from "./lib/lab/store.mjs";
 import { MCP_FULL_TRACE_BYTE_CAP, MCP_MAX_PLAN_BYTES, assertBoundedInspection, formatAgentManifest,
   formatAgentRun, openLabDashboard, prepareAgentPlan } from "./lib/lab/agent.mjs";
-import { MUTATION_BOUNDS, SCENARIO_CATEGORIES, SWIFT_LANDMARK_NAMES } from "./lib/lab/plan.mjs";
+import { MUTATION_BOUNDS, SCENARIO_CATEGORIES, SWIFT_CAMERA_VIEWS, SWIFT_LANDMARK_NAMES } from "./lib/lab/plan.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = process.env.FMP_REPLAY_ROOT ?? path.resolve(here, "../..");
@@ -76,6 +76,7 @@ const scenarioInputSchema = {
     reps: { type: "integer", minimum: 1, maximum: 120 }, mode: { type: "string", enum: ["constrained", "raw"] },
     mutations: { type: "array", items: mutationInputSchema }, assertions: { type: "array", items: assertionInputSchema },
     revision: { type: "integer", minimum: 1 }, parentRevision: { type: "integer", minimum: 1 },
+    cameraView: { type: "string", enum: SWIFT_CAMERA_VIEWS, description: "Leave out for the exercise's usual view." },
     author: { type: "string", enum: ["agent", "developer"] }, intent: { type: "string", minLength: 1, maxLength: 1000 },
     editNote: { type: "string", maxLength: 300 }, assertionChangeReason: { type: "string", maxLength: 300 },
     editedBy: { type: "string", enum: ["agent", "developer"] },

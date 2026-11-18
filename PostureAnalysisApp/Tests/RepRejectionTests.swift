@@ -6,10 +6,11 @@ final class RepRejectionTests: XCTestCase {
     private let rate = 10.0
 
     func testTheGuideDemonstrationCountsWithoutRejections() {
-        for exercise in ExerciseCatalog.all {
+        for exercise in ExerciseCatalog.everyView {
+            let name = "\(exercise.id.rawValue) (\(exercise.cameraView.rawValue))"
             let run = analyze(exercise, loops: 2)
-            XCTAssertGreaterThan(run.reps, 0, "\(exercise.id.rawValue): the demonstration counts.")
-            XCTAssertEqual(run.rejections, [], "\(exercise.id.rawValue): a clean demonstration is never rejected.")
+            XCTAssertGreaterThan(run.reps, 0, "\(name): the demonstration counts.")
+            XCTAssertEqual(run.rejections, [], "\(name): a clean demonstration is never rejected.")
         }
     }
 
