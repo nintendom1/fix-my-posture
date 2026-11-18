@@ -243,6 +243,40 @@ final class WorkoutFramePipelineTests: XCTestCase {
         XCTAssertEqual(sideRepEvents, 0, "The warmed side view never credits the curl the front view counted.")
     }
 
+    func testOneArmCreditBeforeASwitchKeepsTheOtherArmsCurlForTheWarmedView() {
+        let front = HammerCurlExercise.definition()
+        let side = front.inView(.side)
+        var pipeline = WorkoutFramePipeline(exercise: front, analyzerEpoch: 1, isCounting: true)
+        pipeline.setSessionPhase(.exercising)
+        func repEvents(_ output: WorkoutFramePipeline.FrameOutput) -> [RepEvent] {
+            output.events.compactMap { if case .repCompleted(let rep) = $0 { rep } else { nil } }
+        }
+
+        // Both arms curl; the left lowers first and is credited while the right holds at the top. The count is
+        // the lower side's, so it hasn't risen yet.
+        let curl: [(left: Double, right: Double)] = Array(repeating: (-90, -90), count: 6)
+            + [(-20, -20), (30, 30), (50, 50), (50, 50), (50, 50), (0, 50), (-90, 50), (-90, 50)]
+        var time: TimeInterval = 0
+        var frontRepEvents: [RepEvent] = []
+        for pose in curl where frontRepEvents.isEmpty {
+            frontRepEvents += repEvents(pipeline.process(frame: curlFrame(left: pose.left, right: pose.right, at: time),
+                                                         at: time))
+            time += 0.1
+        }
+        XCTAssertEqual(frontRepEvents.map(\.sides), [[.left]], "Only the left arm was credited before the switch.")
+
+        // The session evens both sides to zero at the switch. The right arm, nearer the phone, then lowers.
+        pipeline.exerciseChanged(to: side, analyzerEpoch: 2)
+        var sideRepEvents: [RepEvent] = []
+        for right in [0.0] + Array(repeating: -90.0, count: 10) {
+            sideRepEvents += repEvents(pipeline.process(frame: curlFrame(left: -90, right: right, at: time), at: time))
+            time += 0.1
+        }
+
+        XCTAssertEqual(sideRepEvents.map(\.sides), [[.left, .right]],
+                       "The right arm's curl counts once, so the curl both arms did is counted.")
+    }
+
     func testTurningFrontToSideOnMidSetNeverLosesFraming() {
         let turn = TurnPlayer(exercise: HammerCurlExercise.definition())
         turn.play(seconds: 1) { turn.front(at: $0) }
@@ -1135,6 +1169,25 @@ final class WorkoutFramePipelineTests: XCTestCase {
                         moveDuration: 0, holdDuration: 1, stepIndex: 0)
         ], forearmPlane: .sagittal)
         return frame(motion: motion, sampledAt: 0, at: time)
+    }
+
+    /// A front-view hammer-curl pose with each forearm's elevation; the right arm is the more confident, so a
+    /// side view tracks it as the arm nearer the phone.
+    private func curlFrame(left: Double, right: Double, at time: TimeInterval) -> PoseFrame {
+        let leftPose = curlFrame(forearmElevation: left, at: time).pose
+        let rightPose = curlFrame(forearmElevation: right, at: time).pose
+        var landmarks = leftPose.landmarks
+        func set(_ types: [LandmarkType], from pose: BodyPose, confidence: Double) {
+            for type in types {
+                guard let landmark = pose.landmarks[type] else { continue }
+                landmarks[type] = Landmark(type: type, normalizedLocation: landmark.normalizedLocation,
+                                           imageLocation: landmark.imageLocation, confidence: confidence)
+            }
+        }
+        set([.leftShoulder, .leftElbow, .leftWrist], from: leftPose, confidence: 0.85)
+        set([.rightShoulder, .rightElbow, .rightWrist], from: rightPose, confidence: 0.95)
+        return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: leftPose.imageWidth,
+                                        imageHeight: leftPose.imageHeight), timestamp: time)
     }
 
     private func frame(motion: ArmMotion, sampledAt poseTime: TimeInterval, at time: TimeInterval) -> PoseFrame {

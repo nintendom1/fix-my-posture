@@ -76,8 +76,10 @@ struct WorkoutFramePipeline {
     private var viewRequirements: [FramingRequirement] = []
     /// Raw frames that can seed the next camera view after stance settles or a view is locked.
     private var viewChangeFrames: [BufferedViewChangeFrame] = []
-    /// When the analyzer last credited a rep; a view warm-up starts after it so the new view can't credit it again.
+    /// When the count last rose; a view warm-up doesn't count before it, so the new view can't credit it again.
     private var lastRepCreditTime: TimeInterval?
+    /// Each side's rep credits in this set. Like the session, a two-sided exercise counts the lower side.
+    private var creditedSideReps: [BodySide: Int] = [:]
     private var offscreenJointEstimator: OffscreenJointEstimator?
     private var stanceDetector = StanceDetector()
     private var ghostCalibrationGate = GhostCalibrationGate()
@@ -207,7 +209,7 @@ struct WorkoutFramePipeline {
                 events.append(.startPositionChanged(analysis.startPositionHeld))
             }
             events.append(contentsOf: analysis.repEvents.map(WorkoutEvent.repCompleted))
-            if !analysis.repEvents.isEmpty { lastRepCreditTime = frame.timestamp }
+            if recordRepCredits(analysis.repEvents, exercise: exercise) { lastRepCreditTime = frame.timestamp }
             formReadings = analysis.formReadings
             // Keep the current ordering: reps are handled before form observations, so a cue from
             // the old set cannot arrive after a rep completed it.
@@ -261,6 +263,11 @@ struct WorkoutFramePipeline {
             if idChanged {
                 viewChangeFrames.removeAll()
                 lastRepCreditTime = nil
+                creditedSideReps = [:]
+            } else if exercise?.perSide == false {
+                // The session evens the sides at a view change, dropping a one-sided credit.
+                let counted = countedReps
+                creditedSideReps = [.left: counted, .right: counted]
             }
             let previousFraming = framingEvaluator
             framingEvaluator = exercise.map(makeFramingEvaluator)
@@ -300,12 +307,14 @@ struct WorkoutFramePipeline {
             rebuildAnalyzer(epoch: analyzerEpoch)
             if viewChanged { warmAnalyzerFromViewChangeFrames() }
         } else if self.analyzerEpoch != analyzerEpoch || (exercise != nil && analyzer == nil) {
+            creditedSideReps = [:]
             rebuildAnalyzer(epoch: analyzerEpoch)
         }
     }
 
     mutating func resetAnalyzer(epoch: Int) {
         guard analyzerEpoch != epoch || (exercise != nil && analyzer == nil) else { return }
+        creditedSideReps = [:]
         rebuildAnalyzer(epoch: epoch)
     }
 
@@ -414,6 +423,20 @@ struct WorkoutFramePipeline {
             }
         }
     }
+
+    /// Records the analyzer's rep credits and whether the count rose with them. One arm's credit alone doesn't
+    /// raise a two-sided exercise's count, and the other arm's attempt may still finish after a view change.
+    private mutating func recordRepCredits(_ events: [RepEvent], exercise: ExerciseDefinition) -> Bool {
+        guard !events.isEmpty else { return false }
+        if exercise.perSide { return true }
+        let before = countedReps
+        for event in events {
+            for side in event.sides { creditedSideReps[side, default: 0] += 1 }
+        }
+        return countedReps > before
+    }
+
+    private var countedReps: Int { min(creditedSideReps[.left] ?? 0, creditedSideReps[.right] ?? 0) }
 
     private mutating func recordFrameContext(_ frame: PoseFrame, counting: Bool) {
         guard let lastIndex = viewChangeFrames.indices.last,
