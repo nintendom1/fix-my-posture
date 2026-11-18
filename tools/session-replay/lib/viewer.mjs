@@ -6,7 +6,15 @@ export function viewerURL(baseURL, args, sessionID = null) {
   return `${baseURL}${params.size ? `?${params}` : ""}`;
 }
 
-/** Open a replay link in the existing page when possible, and in a browser only when no page is connected. */
+/** How many pages acted on a command: the server's acknowledgement count, or every receiver for an older server. */
+export function pagesThatActed(response) {
+  return Number(response?.acknowledged ?? response?.delivered ?? 0);
+}
+
+/**
+ * Open a replay link in the existing page when one acts on the command, and in a browser otherwise: when no page is
+ * connected, or when every connected page closed or ignored the command (an older tab, or one about to close).
+ */
 export async function openReplayViewer({ args = {}, sessionID = null, baseURL, ensureViewer, getViewerState,
   openURL, sendCommand }) {
   const started = await ensureViewer();
@@ -14,13 +22,15 @@ export async function openReplayViewer({ args = {}, sessionID = null, baseURL, e
   const connected = Number(state?.viewers ?? 0) > 0;
   const url = viewerURL(baseURL, args, sessionID);
   let delivered = 0;
+  let acknowledged = 0;
   if (connected) {
     const response = await sendCommand({ command: "open-viewer", sessionId: sessionID,
       t: args.t ?? null, from: args.from ?? null, to: args.to ?? null, export: args.export === true });
     if (response == null) throw new Error("The local viewer server did not accept the open command.");
     delivered = Number(response.delivered ?? 0);
-  } else {
-    await openURL(url);
+    acknowledged = pagesThatActed(response);
   }
-  return { started, connected, delivered, url };
+  const openedInPlace = acknowledged > 0;
+  if (!openedInPlace) await openURL(url);
+  return { started, connected, delivered, acknowledged, openedInPlace, url };
 }

@@ -10,7 +10,8 @@ import { recordsToFileText, Session } from "../lib/session.mjs";
 import * as replayViews from "../public/views.mjs";
 import { renderRunCards, renderRunHeader, renderScenarioDetail, renderScenarioList } from "../public/lab/views.mjs";
 import { applyLabSectionView, createCoveragePlaybackNavigator } from "../public/lab/coverage.mjs";
-import { createLabOpenHandler, createSelectionToken, installLabOpenCommandReceiver, labOpenRequestFromURL, sectionHref } from "../public/lab/selection.mjs";
+import { createLabOpenHandler, createSelectionToken, installLabOpenCommandReceiver, labOpenRequestFromURL, runScenarioToOpen,
+  sectionHref } from "../public/lab/selection.mjs";
 
 const RUN_ID = "20261108-100000-a1b2";
 const OLD_RUN_ID = "20261108-090000-c3d4";
@@ -375,6 +376,41 @@ test("dashboard deep links and live lab-open commands select the requested run, 
   assert.deepEqual(operations, ["activate", `load:${OLD_RUN_ID}`, "select:requested", "seek:4.75"]);
   await eventSource.onmessage({ data: JSON.stringify({ type: "command", command: "seek", runID: OLD_RUN_ID }) });
   assert.equal(operations.length, 4, "recording seek commands stay in the recording viewer");
+});
+
+test("a stale scenario link falls back to a scenario the run has, and names the missing one", async () => {
+  const run = { plan: { scenarios: [{ id: "first" }, { id: "failing" }] }, results: [{ scenarioID: "failing", outcome: "failed" }] };
+  assert.deepEqual(runScenarioToOpen(run, { scenarioID: "failing" }), { scenarioID: "failing", missing: null });
+  assert.deepEqual(runScenarioToOpen(run, { scenarioID: "renamed" }), { scenarioID: "first", missing: "renamed" });
+  assert.deepEqual(runScenarioToOpen(run), { scenarioID: "first", missing: null });
+  assert.deepEqual(runScenarioToOpen(run, { follow: true }), { scenarioID: "failing", missing: null });
+  assert.deepEqual(runScenarioToOpen({ plan: { scenarios: [] } }, { scenarioID: "renamed" }), { scenarioID: null, missing: "renamed" });
+  const dashboardSource = await readFile(new URL("../public/lab/dashboard.mjs", import.meta.url), "utf8");
+  assert.match(dashboardSource, /const choice = runScenarioToOpen\(run, \{ scenarioID, follow \}\);/);
+});
+
+test("the Lab player has the recording viewer's speed, Autoplay, and Loop controls", async () => {
+  const plan = runPlan();
+  const recording = await timelineFixture();
+  const detail = renderScenarioDetail({ plan, scenario: plan.scenarios[1], result: results()[1], recording, reference: recording,
+    player: { autoplay: false, loop: true, follow: true, speed: 0.25 } });
+  const controls = detail.slice(detail.indexOf('class="lab-player-controls"'), detail.indexOf("</section>", detail.indexOf("lab-player-controls")));
+  for (const speed of ["0.25", "0.5", "1", "2", "4"]) assert.ok(controls.includes(`data-player-speed="${speed}"`), `speed ${speed}`);
+  assert.ok(controls.includes('data-player-speed="0.25" class="on" aria-pressed="true"'), "the current speed shows");
+  assert.ok(controls.includes('class="chip" data-player-toggle="autoplay" aria-pressed="false"'), "Autoplay shows off");
+  assert.ok(controls.includes('class="chip on" data-player-toggle="loop" aria-pressed="true"'), "Loop shows on");
+  const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
+  assert.match(html, /id="followNewToggle"[^>]*data-player-toggle="follow"/, "Follow new uses the same shared control handler");
+});
+
+test("Lab Follow skips this page's editor reruns and keyframe opens hold at the keyframe", async () => {
+  const dashboardSource = await readFile(new URL("../public/lab/dashboard.mjs", import.meta.url), "utf8");
+  const editorSource = await readFile(new URL("../public/lab/editor.mjs", import.meta.url), "utf8");
+  assert.match(dashboardSource, /if \(followsAddedEvent\(event, \{ kind: "labRun", pageID \}\)\) void runFollow\.add\(event\.id\);/);
+  assert.match(dashboardSource, /window\.FMPLabDashboard = \{ navigateToScenario: navigateCoverageThumbnail, pageID \};/);
+  assert.match(editorSource, /startedBy: window\.FMPLabDashboard\?\.pageID \?\? null/);
+  assert.match(dashboardSource, /openRun\(runID, \{ scenarioID, timestamp, hold: holdsAtTime\(\{ time: timestamp \}\) \}\)/);
+  assert.match(dashboardSource, /if \(hold\) return;\n\s*if \(changedItem && playerPreferences\.autoplay/);
 });
 
 test("read-only lab API routes retain Host and POST guards and tolerate a missing root", async () => {

@@ -330,6 +330,38 @@ test("editor save handler advances through two revisions and explicitly reruns a
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("an editor rerun's follow event names the page that started it, and other runs name none", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "fmp-editor-started-by-"));
+  const requestedRunIDs = [];
+  await writeStoredRun(root, SOURCE_RUN_ID, validPlan());
+  const server = createServer({ root, followPollMs: 60_000, executePlan: ({ planPath, runID }) => {
+    requestedRunIDs.push(runID);
+    return fakeRun(root, planPath, runID);
+  } });
+  const events = [];
+  server.emit("request", Object.assign(new EventEmitter(), { method: "GET", url: "/api/events", headers: { host: "127.0.0.1" } }),
+    { writeHead() {}, write(data) { for (const line of String(data).split("\n")) if (line.startsWith("data: ")) events.push(JSON.parse(line.slice(6))); } });
+  const added = () => events.filter((event) => event.type === "added");
+  try {
+    const nonce = await pageNonce(server);
+    const edit = JSON.parse((await post(server, "/api/lab/scenarios", JSON.parse(editBody()), nonce)).body);
+    const invalid = await post(server, "/api/lab/runs", { editID: edit.editID, startedBy: "<script>" }, nonce);
+    assert.equal(invalid.status, 400);
+    assert.deepEqual(requestedRunIDs, [], "an invalid page id runs nothing");
+
+    const rerun = JSON.parse((await post(server, "/api/lab/runs", { editID: edit.editID, startedBy: "page-0001-abcd" }, nonce)).body);
+    assert.deepEqual(requestedRunIDs, [rerun.runID], "the server picks the run id before the run starts");
+    const otherPlan = path.join(root, ".other-plan.json");
+    await writeFile(otherPlan, JSON.stringify(validPlan()));
+    await fakeRun(root, otherPlan, "20261109-090000-0a0b");
+    await server.pollForAddedWork();
+    assert.deepEqual(added(), [
+      { type: "added", kind: "labRun", id: rerun.runID, startedBy: "page-0001-abcd" },
+      { type: "added", kind: "labRun", id: "20261109-090000-0a0b" },
+    ].sort((first, second) => first.id.localeCompare(second.id)));
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("reruns execute serially, settle on runner timeout, and release the queue", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "fmp-editor-queue-"));
   let active = 0;

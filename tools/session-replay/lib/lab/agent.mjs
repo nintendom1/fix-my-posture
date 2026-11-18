@@ -1,6 +1,7 @@
 import { validatePlan } from "./plan.mjs";
 import { chooseKeyframe } from "./keyframe.mjs";
 import { isSafeRunID } from "./runner.mjs";
+import { pagesThatActed } from "../viewer.mjs";
 
 export const MCP_MAX_PLAN_BYTES = 1024 * 1024;
 export const MCP_FULL_TRACE_BYTE_CAP = 256 * 1024;
@@ -124,6 +125,10 @@ export async function resolveLabOpenTarget(store, runID, scenarioID) {
   return { run, scenario, timestamp };
 }
 
+/**
+ * Select a run, and a scenario at its keyframe, in connected pages. A browser opens the deep link when no page is
+ * connected, or when no connected page acted on the command (it closed, or runs an older viewer).
+ */
 export async function openLabDashboard({ store, runID, scenarioID, baseURL, ensureViewer, getViewerState, openURL, sendCommand }) {
   const target = await resolveLabOpenTarget(store, runID, scenarioID);
   await ensureViewer();
@@ -136,7 +141,10 @@ export async function openLabDashboard({ store, runID, scenarioID, baseURL, ensu
   const command = labOpenCommand(runID, scenarioID, target.timestamp);
   const response = await sendCommand(command);
   if (response === undefined || response === null) throw new Error("The local viewer server did not accept the run-selection command.");
-  return { ...target, command, url, delivered: response.delivered ?? 0, openedInPlace: connected };
+  const acknowledged = pagesThatActed(response);
+  const openedInPlace = connected && acknowledged > 0;
+  if (connected && !openedInPlace) await openURL(url);
+  return { ...target, command, url, delivered: response.delivered ?? 0, acknowledged, connected, openedInPlace };
 }
 
 export function assertBoundedInspection(text, { full = false, byteCap = MCP_FULL_TRACE_BYTE_CAP } = {}) {

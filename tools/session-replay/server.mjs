@@ -10,7 +10,7 @@
 import { createServer as createHTTPServer } from "node:http";
 import { spawn } from "node:child_process";
 import { randomBytes, randomInt, randomUUID } from "node:crypto";
-import { promises as fs, constants as fsConstants, readdirSync } from "node:fs";
+import { promises as fs, constants as fsConstants, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createStore, StoreError } from "./lib/store.mjs";
@@ -19,7 +19,8 @@ import { buildCoverageModel } from "./lib/lab/coverage.mjs";
 import { createReviewStore, ReviewStoreError, scenarioReviewKey } from "./lib/lab/review.mjs";
 import { buildScenarioRevision, RevisionError } from "./lib/lab/revisions.mjs";
 import { validatePlanText } from "./lib/lab/plan.mjs";
-import { DEFAULT_SIMULATOR, isSafeRunID, MAX_PLAN_BYTES, runPlan as runMovementPlan } from "./lib/lab/runner.mjs";
+import { createRunID, DEFAULT_SIMULATOR, isSafeRunID, MAX_PLAN_BYTES, runPlan as runMovementPlan,
+  XCODEBUILD_TIMEOUT_MS } from "./lib/lab/runner.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_PORT = 4317;
@@ -34,6 +35,7 @@ const STATIC = {
   "/views.mjs": ["public/views.mjs", "text/javascript; charset=utf-8"],
   "/style.css": ["public/style.css", "text/css; charset=utf-8"],
   "/lib/session.mjs": ["lib/session.mjs", "text/javascript; charset=utf-8"],
+  "/lib/player.mjs": ["lib/player.mjs", "text/javascript; charset=utf-8"],
   "/lib/lab/keyframe.mjs": ["lib/lab/keyframe.mjs", "text/javascript; charset=utf-8"],
   "/lab/dashboard.mjs": ["public/lab/dashboard.mjs", "text/javascript; charset=utf-8"],
   "/lab/selection.mjs": ["public/lab/selection.mjs", "text/javascript; charset=utf-8"],
@@ -49,6 +51,8 @@ const CONFIRMATION_TOKEN_LIFETIME_MS = 60 * 1000;
 const PROMOTION_CODE_MAX_ATTEMPTS = 5;
 const SAFE_LAB_ID = /^[a-z0-9_-]{1,64}$/;
 const RECORDING_ID = /^[0-9A-Fa-f-]{36}$/;
+const PAGE_ID = /^[A-Za-z0-9-]{8,64}$/;
+const MAX_ACK_BYTES = 4096;
 
 function within(root, candidate) {
   const relative = path.relative(root, candidate);
@@ -224,8 +228,8 @@ function serialQueue() {
 
 /** The viewer's server. `root` is the repository; recordings live in `root/diagnostics/sessions`. */
 export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT, executePlan = runMovementPlan,
-  maxJSONBytes = MAX_JSON_BYTES, now = () => Date.now(), followPollMs = 1000,
-  writePromotionCode = (line) => process.stdout.write(line) } = {}) {
+  maxJSONBytes = MAX_JSON_BYTES, now = () => Date.now(), followPollMs = 1000, ackTimeoutMs = 750,
+  abandonedRunMs = 2 * XCODEBUILD_TIMEOUT_MS, writePromotionCode = (line) => process.stdout.write(line) } = {}) {
   const store = createStore(root);
   const labStore = createLabStore(root);
   const reviewStore = createReviewStore(root, { now: () => new Date(now()) });
@@ -238,49 +242,81 @@ export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT, exec
 
   const sessionsDirectory = path.join(root, "diagnostics", "sessions");
   const runsDirectory = path.join(root, "diagnostics", "movement-lab", "runs");
-  const initialRecordingIDs = new Set(directoryNames(sessionsDirectory)
-    .filter((name) => name.endsWith(".json") && !name.endsWith(".summary.json") && !name.endsWith(".notes.json"))
-    .map((name) => name.slice(0, -5)).filter((id) => RECORDING_ID.test(id)));
-  const initialLabRunIDs = new Set(directoryNames(runsDirectory, true).filter((id) => isSafeRunID(id)));
-  const publishedRecordingIDs = new Set(initialRecordingIDs);
-  const publishedLabRunIDs = new Set(initialLabRunIDs);
+  // Only finished work counts as already there: an empty recording or a run still writing its results is followed
+  // when it lands, even if the server started in the middle.
+  const publishedRecordingIDs = new Set(existingRecordingIDs(sessionsDirectory));
+  const publishedLabRunIDs = new Set(completedRunIDs(runsDirectory));
   const pendingRecordings = new Map();
+  const unfinishedRuns = new Map();
+  const abandonedRunIDs = new Set();
+  const labRunStarters = new Map();
+  const pendingAcknowledgements = new Map();
   let followWatcherStopped = false;
   let followPollRunning = false;
 
+  /** One pass: publishes recordings unchanged since the last pass and runs with both result files, oldest first. */
   async function pollForAddedWork() {
     if (followWatcherStopped || followPollRunning) return;
     followPollRunning = true;
     try {
       const sessionEntries = await fs.readdir(sessionsDirectory, { withFileTypes: true }).catch(() => []);
+      const presentRecordings = new Set();
+      const readyRecordings = [];
       for (const entry of sessionEntries) {
         if (followWatcherStopped) return;
-        if (!entry.isFile() || !entry.name.endsWith(".json") || entry.name.endsWith(".summary.json")
-          || entry.name.endsWith(".notes.json")) continue;
-        const id = entry.name.slice(0, -5);
-        if (!RECORDING_ID.test(id) || publishedRecordingIDs.has(id)) continue;
+        const id = recordingIDForEntry(entry);
+        if (!id || publishedRecordingIDs.has(id)) continue;
+        presentRecordings.add(id);
         const stat = await fs.stat(path.join(sessionsDirectory, entry.name)).catch(() => null);
         if (followWatcherStopped) return;
         if (!stat?.isFile() || stat.size === 0) continue;
         const signature = `${stat.size}:${stat.mtimeMs}`;
-        if (pendingRecordings.get(id) === signature) {
-          publishedRecordingIDs.add(id);
-          pendingRecordings.delete(id);
-          broadcast({ type: "added", kind: "recording", id });
-        } else pendingRecordings.set(id, signature);
+        if (pendingRecordings.get(id) === signature) readyRecordings.push({ id, mtimeMs: stat.mtimeMs });
+        else pendingRecordings.set(id, signature);
+      }
+      for (const id of pendingRecordings.keys()) if (!presentRecordings.has(id)) pendingRecordings.delete(id);
+      readyRecordings.sort((first, second) => first.mtimeMs - second.mtimeMs || first.id.localeCompare(second.id));
+      for (const { id } of readyRecordings) {
+        publishedRecordingIDs.add(id);
+        pendingRecordings.delete(id);
+        broadcast({ type: "added", kind: "recording", id });
       }
 
       const runEntries = await fs.readdir(runsDirectory, { withFileTypes: true }).catch(() => []);
+      const presentRuns = new Set();
+      const readyRuns = [];
       for (const entry of runEntries) {
         if (followWatcherStopped) return;
-        if (!entry.isDirectory() || !isSafeRunID(entry.name) || publishedLabRunIDs.has(entry.name)) continue;
-        const files = await fs.readdir(path.join(runsDirectory, entry.name), { withFileTypes: true }).catch(() => []);
+        const id = entry.name;
+        if (!entry.isDirectory() || !isSafeRunID(id) || publishedLabRunIDs.has(id) || abandonedRunIDs.has(id)) continue;
+        const directory = path.join(runsDirectory, id);
+        const stat = await fs.stat(directory).catch(() => null);
         if (followWatcherStopped) return;
-        const completed = ["results.json", "summary.json"].every((filename) =>
-          files.some((file) => file.name === filename && file.isFile()));
-        if (!completed) continue;
-        publishedLabRunIDs.add(entry.name);
-        broadcast({ type: "added", kind: "labRun", id: entry.name });
+        if (!stat?.isDirectory()) continue;
+        presentRuns.add(id);
+        // Result files arrive as new entries, which change the directory's mtime, so an unchanged one needs no listing.
+        // One unchanged for longer than any run can take never finishes (its xcodebuild failed), so it is dropped.
+        if (unfinishedRuns.get(id) === stat.mtimeMs) {
+          if (Date.now() - stat.mtimeMs > abandonedRunMs) {
+            abandonedRunIDs.add(id);
+            unfinishedRuns.delete(id);
+          }
+          continue;
+        }
+        const files = await fs.readdir(directory, { withFileTypes: true }).catch(() => []);
+        if (followWatcherStopped) return;
+        if (isCompletedRun(files)) {
+          unfinishedRuns.delete(id);
+          readyRuns.push(id);
+        } else unfinishedRuns.set(id, stat.mtimeMs);
+      }
+      for (const id of unfinishedRuns.keys()) if (!presentRuns.has(id)) unfinishedRuns.delete(id);
+      // Run ids begin with their UTC start time, so sorted ids end with the newest run.
+      for (const id of readyRuns.sort()) {
+        publishedLabRunIDs.add(id);
+        const startedBy = labRunStarters.get(id);
+        labRunStarters.delete(id);
+        broadcast({ type: "added", kind: "labRun", id, ...(startedBy ? { startedBy } : {}) });
       }
     } finally {
       followPollRunning = false;
@@ -290,9 +326,43 @@ export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT, exec
   const followTimer = setInterval(() => { void pollForAddedWork().catch(() => {}); }, Math.max(10, Number(followPollMs) || 1000));
   followTimer.unref?.();
 
-  function stopFollowWatcher() {
+  function stopLiveWork() {
     followWatcherStopped = true;
     clearInterval(followTimer);
+    for (const pending of [...pendingAcknowledgements.values()]) pending.finish();
+  }
+
+  /** Runs an editor rerun under an id chosen here, so its follow event can name the page that started it. */
+  async function executeEditorRerun({ planPath, mode, startedBy }) {
+    const runID = createRunID(new Date(now()));
+    if (startedBy) labRunStarters.set(runID, startedBy);
+    try {
+      const run = await executePlan({ root, planPath, sim: DEFAULT_SIMULATOR, mode, runID });
+      if (startedBy && run?.runID !== runID) {
+        labRunStarters.delete(runID);
+        if (isSafeRunID(run?.runID) && !publishedLabRunIDs.has(run.runID)) labRunStarters.set(run.runID, startedBy);
+      }
+      return run;
+    } catch (error) {
+      labRunStarters.delete(runID);
+      throw error;
+    }
+  }
+
+  /** Resolves with how many pages acknowledged a command: when all `expected` have, or after `ackTimeoutMs`. */
+  function acknowledgements(commandID, expected) {
+    return new Promise((resolve) => {
+      const pages = new Set();
+      let timer = null;
+      const finish = () => {
+        clearTimeout(timer);
+        pendingAcknowledgements.delete(commandID);
+        resolve(pages.size);
+      };
+      timer = setTimeout(finish, ackTimeoutMs);
+      timer.unref?.();
+      pendingAcknowledgements.set(commandID, { pages, expected, finish });
+    });
   }
 
   function issuePageNonce() {
@@ -491,8 +561,12 @@ export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT, exec
         if (!input || typeof input !== "object" || Array.isArray(input)) throw new LabStoreError(400, "Request must be a JSON object.");
         const mode = input.mode ?? "pipeline";
         if (mode !== "pipeline" && mode !== "coach") throw new LabStoreError(400, "mode must be pipeline or coach.");
+        const startedBy = input.startedBy ?? null;
+        if (startedBy !== null && (typeof startedBy !== "string" || !PAGE_ID.test(startedBy))) {
+          throw new LabStoreError(400, "startedBy must be the page id.");
+        }
         const { planPath } = await readEditPlan(root, input.editID, MAX_PLAN_BYTES);
-        const run = await enqueueRerun(() => executePlan({ root, planPath, sim: DEFAULT_SIMULATOR, mode }));
+        const run = await enqueueRerun(() => executeEditorRerun({ planPath, mode, startedBy }));
         if (!isSafeRunID(run?.runID)) throw new LabStoreError(500, "Movement Lab runner returned an invalid run id.");
         return sendJSON(response, { editID: input.editID, runID: run.runID, summary: run.summary ?? null });
       }
@@ -569,9 +643,22 @@ export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT, exec
       }
     }
     if (url.pathname === "/api/viewer/command" && request.method === "POST") {
+      // `delivered` counts open event streams; `acknowledged` counts pages that acted on the command.
       const command = JSON.parse(await body(request, MAX_JSON_BYTES));
-      broadcast({ type: "command", ...command });
-      return sendJSON(response, { delivered: clients.size });
+      const commandID = randomUUID();
+      const delivered = clients.size;
+      const acknowledged = delivered ? acknowledgements(commandID, delivered) : Promise.resolve(0);
+      broadcast({ type: "command", ...command, commandID });
+      return sendJSON(response, { delivered, acknowledged: await acknowledged });
+    }
+    if (url.pathname === "/api/viewer/ack" && request.method === "POST") {
+      const acknowledgement = JSON.parse(await body(request, MAX_ACK_BYTES));
+      const pending = typeof acknowledgement?.commandID === "string" ? pendingAcknowledgements.get(acknowledgement.commandID) : null;
+      if (pending && typeof acknowledgement.pageID === "string" && PAGE_ID.test(acknowledgement.pageID)) {
+        pending.pages.add(acknowledgement.pageID);
+        if (pending.pages.size >= pending.expected) pending.finish();
+      }
+      return sendJSON(response, { acknowledged: Boolean(pending) });
     }
     const match = url.pathname.match(/^\/api\/sessions\/([0-9A-Fa-f-]{36})\/(file|notes)$/);
     if (match) {
@@ -596,21 +683,46 @@ export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT, exec
       sendJSON(response, { error: error?.message ?? String(error) }, status);
     });
   });
-  server.on("close", stopFollowWatcher);
+  server.on("close", stopLiveWork);
   server.urlFor = (actualPort = server.address()?.port ?? port) => `http://127.0.0.1:${actualPort}/`;
   server.closeClients = () => { for (const client of clients) client.end(); clients.clear(); };
+  // For tests: one follow pass on demand, and how much unfinished work the poller is still watching.
+  server.pollForAddedWork = pollForAddedWork;
   Object.defineProperty(server, "followWatcherActive", { get: () => !followWatcherStopped });
+  Object.defineProperty(server, "followBacklog", {
+    get: () => ({ recordings: pendingRecordings.size, labRuns: unfinishedRuns.size }),
+  });
   return server;
 }
 
-function directoryNames(directory, directoriesOnly = false) {
-  try {
-    return readdirSync(directory, { withFileTypes: true })
-      .filter((entry) => directoriesOnly ? entry.isDirectory() : entry.isFile())
-      .map((entry) => entry.name);
-  } catch {
-    return [];
-  }
+function recordingIDForEntry(entry) {
+  if (!entry.isFile() || !entry.name.endsWith(".json") || entry.name.endsWith(".summary.json")
+    || entry.name.endsWith(".notes.json")) return null;
+  const id = entry.name.slice(0, -5);
+  return RECORDING_ID.test(id) ? id : null;
+}
+
+function isCompletedRun(entries) {
+  return ["results.json", "summary.json"].every((name) => entries.some((entry) => entry.name === name && entry.isFile()));
+}
+
+function directoryEntries(directory) {
+  try { return readdirSync(directory, { withFileTypes: true }); } catch { return []; }
+}
+
+function existingRecordingIDs(directory) {
+  return directoryEntries(directory).flatMap((entry) => {
+    const id = recordingIDForEntry(entry);
+    if (!id) return [];
+    try { return statSync(path.join(directory, entry.name)).size > 0 ? [id] : []; } catch { return []; }
+  });
+}
+
+function completedRunIDs(directory) {
+  return directoryEntries(directory)
+    .filter((entry) => entry.isDirectory() && isSafeRunID(entry.name)
+      && isCompletedRun(directoryEntries(path.join(directory, entry.name))))
+    .map((entry) => entry.name);
 }
 
 function send(response, status, data, type) {

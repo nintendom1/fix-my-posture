@@ -52,11 +52,19 @@ async function start({ maxRows, live = false, root: given, port: requestedPort, 
   return { root, port, request, call, stop };
 }
 
-function connectEvents(port) {
+/** An event stream like a viewer page's. With `pageID`, it acknowledges each command while `acting` is true. */
+function connectEvents(port, { pageID = null } = {}) {
   const events = [];
   let buffer = "";
   let response;
-  const ready = new Promise((resolve, reject) => {
+  const connection = { events, acting: true };
+  const acknowledge = (event) => {
+    if (!pageID || !connection.acting || event.type !== "command") return;
+    void fetch(`http://127.0.0.1:${port}/api/viewer/ack`, { method: "POST",
+      headers: { "Content-Type": "application/json", "X-FMP-Replay": "1" },
+      body: JSON.stringify({ commandID: event.commandID, pageID }) });
+  };
+  connection.ready = new Promise((resolve, reject) => {
     const request = http.get(`http://127.0.0.1:${port}/api/events`, (stream) => {
       response = stream;
       stream.setEncoding("utf8");
@@ -66,15 +74,21 @@ function connectEvents(port) {
         buffer = frames.pop() ?? "";
         for (const frame of frames) {
           const line = frame.split("\n").find((item) => item.startsWith("data: "));
-          if (line) events.push(JSON.parse(line.slice(6)));
+          if (!line) continue;
+          const event = JSON.parse(line.slice(6));
+          events.push(event);
+          acknowledge(event);
         }
       });
       resolve();
     });
     request.on("error", reject);
   });
-  return { events, ready, close: () => response?.destroy() };
+  connection.close = () => response?.destroy();
+  return connection;
 }
+
+const withoutCommandID = ({ commandID, ...event }) => event;
 
 async function waitFor(predicate, message) {
   const deadline = Date.now() + 3000;
@@ -272,11 +286,12 @@ test("viewer MCP commands control playback and open work in place, falling back 
   await writeFile(path.join(bin, "open"), '#!/bin/sh\nprintf "%s\\n" "$1" >> "$FMP_TEST_OPEN_LOG"\n', { mode: 0o755 });
   await writeFile(openLog, "");
   const mcp = await start({ live: true, root, extraEnv: { PATH: `${bin}:${process.env.PATH ?? ""}`, FMP_TEST_OPEN_LOG: openLog } });
-  const server = createServer({ root, port: mcp.port });
+  const server = createServer({ root, port: mcp.port, ackTimeoutMs: 200 });
+  const openedURLs = async () => (await readFile(openLog, "utf8")).split("\n").filter(Boolean);
   let stream;
   try {
     await new Promise((resolve) => server.listen(mcp.port, "127.0.0.1", resolve));
-    stream = connectEvents(mcp.port);
+    stream = connectEvents(mcp.port, { pageID: "test-page-0001" });
     await stream.ready;
 
     const listed = (await mcp.request("tools/list")).result.tools;
@@ -289,22 +304,26 @@ test("viewer MCP commands control playback and open work in place, falling back 
     const opened = await mcp.call("fmp_open_viewer", { session: ID, t: "0:03", from: 2, to: 4 });
     assert.match(opened.text, /Navigated 1 connected viewer\(s\).*in place/);
     await waitFor(() => stream.events.some((event) => event.command === "open-viewer"), "open-viewer command was not posted");
-    assert.deepEqual(stream.events.find((event) => event.command === "open-viewer"), {
+    assert.deepEqual(withoutCommandID(stream.events.find((event) => event.command === "open-viewer")), {
       type: "command", command: "open-viewer", sessionId: ID, t: 3, from: 2, to: 4, export: false,
     });
-    assert.equal((await readFile(openLog, "utf8")).trim(), "", "a connected page should not spawn a new tab");
+    assert.deepEqual(await openedURLs(), [], "a connected page should not spawn a new tab");
 
     const seek = await mcp.call("fmp_viewer_seek", { session: ID, t: 3, from: 2, to: 4, play: true });
-    assert.match(seek.text, /selecting 0:02\.0–0:04\.0/);
+    assert.match(seek.text, /Moved 1 open viewer\(s\).*selecting 0:02\.0–0:04\.0, playing\./);
     const commandActions = [
       { action: "play" }, { action: "pause" }, { action: "toggle" }, { action: "loop", value: "off" },
       { action: "autoplay", value: "off" }, { action: "follow", value: "on" }, { action: "speed", speed: 2 },
       { action: "reload" },
     ];
-    for (const args of commandActions) assert.equal((await mcp.call("fmp_viewer_control", args)).isError, false);
+    for (const args of commandActions) {
+      const result = await mcp.call("fmp_viewer_control", args);
+      assert.equal(result.isError, false);
+      assert.equal(result.text, `Applied ${args.action} in 1 viewer(s).`);
+    }
     await waitFor(() => stream.events.filter((event) => event.type === "command").length >= commandActions.length + 2,
       "viewer controls were not all posted");
-    assert.deepEqual(stream.events.find((event) => event.command === "seek"), {
+    assert.deepEqual(withoutCommandID(stream.events.find((event) => event.command === "seek")), {
       type: "command", command: "seek", sessionId: ID, t: 3, from: 2, to: 4, note: null, play: true,
     });
     assert.deepEqual(stream.events.filter((event) => event.command === "control").map((event) => event.action),
@@ -314,6 +333,8 @@ test("viewer MCP commands control playback and open work in place, falling back 
     assert.match(latestRecording.text, /Navigated 1 connected viewer\(s\).*in place/);
     await waitFor(() => stream.events.filter((event) => event.command === "open-viewer").length === 2,
       "latest recording was not opened in place");
+    assert.equal(stream.events.filter((event) => event.command === "open-viewer")[1].t, null,
+      "the latest recording autoplays from the start instead of holding at a time");
 
     const newRunID = "20261117-120001-ab12";
     const runDirectory = path.join(root, "diagnostics", "movement-lab", "runs", newRunID);
@@ -332,11 +353,22 @@ test("viewer MCP commands control playback and open work in place, falling back 
     const selection = await mcp.call("fmp_viewer_selection");
     assert.match(selection.text, /playing; loop off; autoplay off; follow on; speed 2×/);
 
+    // A connected page that doesn't act (an older tab, or one showing no player) isn't reported as success.
+    stream.acting = false;
+    const ignoredPlay = await mcp.call("fmp_viewer_control", { action: "play" });
+    assert.match(ignoredPlay.text, /^1 viewer page\(s\) are connected, but none applied play.*Nothing changed/);
+    assert.match((await mcp.call("fmp_viewer_seek", { session: ID, t: 8 })).text, /none applied seek/);
+    const ignoredOpen = await mcp.call("fmp_open_viewer", { session: ID, t: 5 });
+    assert.match(ignoredOpen.text, /No connected viewer acted on the command, so opened .* in a browser/);
+    await waitFor(async () => (await openedURLs()).length === 1, "an ignored open should fall back to a browser");
+    assert.match((await openedURLs())[0], /session=.*&t=5/);
+
     stream.close();
     await new Promise((resolve) => setTimeout(resolve, 75));
+    assert.match((await mcp.call("fmp_viewer_control", { action: "play" })).text, /^No viewer is open, so nothing applied play/);
     const noPage = await mcp.call("fmp_open_viewer", { session: ID });
-    assert.match(noPage.text, /Opened/);
-    await waitFor(async () => (await readFile(openLog, "utf8")).trim().length > 0,
+    assert.match(noPage.text, /^Opened/);
+    await waitFor(async () => (await openedURLs()).length === 2,
       "open should launch a browser when no page is connected");
   } finally {
     stream?.close();

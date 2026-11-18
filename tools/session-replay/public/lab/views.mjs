@@ -1,6 +1,7 @@
 import { recordsToFileText, Session, clock } from "../../lib/session.mjs";
 import * as replay from "../views.mjs";
 import { installCoverageView } from "./coverage.mjs";
+import { DEFAULT_PLAYER_PREFERENCES, PLAYER_SPEEDS } from "../../lib/player.mjs";
 
 const OUTCOMES = ["passed", "failed", "inconclusive", "invalid", "notRun"];
 const statusClass = (status) => status === "not tested" ? "not-tested" : status.replace(/[^a-z-]/g, "-");
@@ -233,7 +234,17 @@ function parseSession(records) {
   catch { return null; }
 }
 
-export function renderScenarioDetail({ plan, scenario, result = null, recording = [], reference = [], runID = scenario.sourceRunID ?? plan.sourceRunID ?? "" }) {
+/** The same speed, Autoplay, and Loop controls as the recording viewer; both change the shared preferences. */
+function playerOptions(player) {
+  const pressed = (on) => `aria-pressed="${on ? "true" : "false"}"`;
+  const speeds = PLAYER_SPEEDS.map((speed) => `<button type="button" data-player-speed="${replay.num(speed)}" ${speed === player.speed ? 'class="on" ' : ""}${pressed(speed === player.speed)}>${replay.num(speed)}×</button>`).join("");
+  return `<div class="player-options lab-player-options" aria-label="Playback options"><div class="segmented">${speeds}</div>
+    <button type="button" class="chip${player.autoplay ? " on" : ""}" data-player-toggle="autoplay" ${pressed(player.autoplay)}>Autoplay</button>
+    <button type="button" class="chip${player.loop ? " on" : ""}" data-player-toggle="loop" ${pressed(player.loop)}>Loop</button></div>`;
+}
+
+export function renderScenarioDetail({ plan, scenario, result = null, recording = [], reference = [], runID = scenario.sourceRunID ?? plan.sourceRunID ?? "",
+  player = DEFAULT_PLAYER_PREFERENCES }) {
   const status = statusForScenario(scenario, result);
   const session = parseSession(recording);
   const referenceSession = parseSession(reference);
@@ -262,7 +273,8 @@ export function renderScenarioDetail({ plan, scenario, result = null, recording 
         <div class="lab-stage-panel"><h4>Modified movement</h4><div class="lab-stage" data-lab-stage="modified"><svg viewBox="0 0 1080 1920" preserveAspectRatio="xMidYMid meet"></svg></div></div>
       </div>
       ${hasPlayback ? `<div class="lab-player-controls"><button type="button" class="button" data-lab-play>Play</button><span class="mono" data-lab-clock>0:00.00 / ${replay.esc(clock(session.duration))}</span>
-        <input type="range" min="0" max="${replay.num(session.duration)}" step="0.033333" value="0" data-lab-scrubber aria-label="Scrub synchronized reference and modified motion"></div>
+        <input type="range" min="0" max="${replay.num(session.duration)}" step="0.033333" value="0" data-lab-scrubber aria-label="Scrub synchronized reference and modified motion">
+        ${playerOptions(player)}</div>
         ${timeline(session)}
         ${links ? `<div class="lab-failure-links"><b>Failure moments</b>${links}</div>` : ""}`
         : `<div class="lab-no-playback">${status === "planned" || status === "not tested" ? `This scenario is ${replay.esc(status)}; no execution recording is available.` : "No materialized frames are available for this scenario."}</div>`}

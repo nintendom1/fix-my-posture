@@ -20,8 +20,8 @@ import { createLabStore } from "./lib/lab/store.mjs";
 import { MCP_FULL_TRACE_BYTE_CAP, MCP_MAX_PLAN_BYTES, assertBoundedInspection, formatAgentManifest,
   formatAgentRun, openLabDashboard, prepareAgentPlan } from "./lib/lab/agent.mjs";
 import { MUTATION_BOUNDS, SCENARIO_CATEGORIES, SWIFT_CAMERA_VIEWS, SWIFT_LANDMARK_NAMES } from "./lib/lab/plan.mjs";
-import { openReplayViewer } from "./lib/viewer.mjs";
-import { followScenarioForRun } from "./public/player-controls.mjs";
+import { openReplayViewer, pagesThatActed } from "./lib/viewer.mjs";
+import { followScenarioForRun, PLAYER_SPEEDS } from "./lib/player.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = process.env.FMP_REPLAY_ROOT ?? path.resolve(here, "../..");
@@ -146,19 +146,19 @@ const TOOLS = [
   },
   {
     name: "fmp_viewer_seek",
-    description: "Move the user's open replay viewer to a time, optionally selecting a range, showing a short message, and starting playback. With play=true and from/to, the range loops.",
+    description: "Move the user's open replay viewer to a time, optionally selecting a range, showing a short message, and starting playback. It holds paused at t unless play=true; with play=true and from/to, the range loops.",
     inputSchema: { type: "object", required: ["t"], properties: { session, t: time, from: time, to: time,
-      play: { type: "boolean", description: "Start playback after seeking; with from/to, loop that range." },
+      play: { type: "boolean", description: "Start playback at t. With from/to, loop that range for this play, leaving the Loop setting alone; without them, a selection that doesn't contain t is cleared." },
       note: { type: "string", maxLength: 300 } } },
   },
   {
     name: "fmp_viewer_control",
-    description: "Control playback and viewer preferences in open replay viewer pages, or open the newest recording or Movement Lab run.",
+    description: "Control playback and viewer preferences in open replay viewer pages, or open the newest recording or Movement Lab run. Reports how many pages applied it.",
     inputSchema: { type: "object", required: ["action"], additionalProperties: false,
       properties: {
         action: { type: "string", enum: ["play", "pause", "toggle", "loop", "autoplay", "follow", "speed", "reload", "latest"] },
         value: { type: "string", enum: ["on", "off"], description: "Required for loop, autoplay, and follow." },
-        speed: { type: "number", enum: [0.25, 0.5, 1, 2, 4], description: "Required for speed." },
+        speed: { type: "number", enum: [...PLAYER_SPEEDS], description: "Required for speed." },
         kind: { type: "string", enum: ["recording", "labRun"], description: "Required for latest." },
       } },
   },
@@ -169,7 +169,7 @@ const TOOLS = [
   },
   {
     name: "fmp_open_viewer",
-    description: "Open the replay viewer in the user's browser, starting its local server if needed, optionally at a recording, time, and range, with the export open.",
+    description: "Open the replay viewer in the user's browser, starting its local server if needed, optionally at a recording, time, and range, with the export open. A connected page navigates in place. A time without a range opens paused there; a range plays.",
     inputSchema: { type: "object", properties: { session, t: time, from: time, to: time, export: { type: "boolean" } } },
   },
   {
@@ -216,7 +216,7 @@ const TOOLS = [
   },
   {
     name: "fmp_lab_open",
-    description: "Open the local Movement Lab dashboard at a run or a scenario's stored keyframe in connected viewer pages, or open a browser when none is connected.",
+    description: "Open the local Movement Lab dashboard at a run or a scenario's stored keyframe in connected viewer pages, or open a browser when none is connected or acts. A scenario opens paused at its keyframe.",
     inputSchema: {
       type: "object", required: ["runID"], additionalProperties: false,
       properties: {
@@ -461,7 +461,16 @@ async function seek(args) {
   const result = await viewer("api/viewer/command", { method: "POST", body: JSON.stringify(command) });
   if (result === undefined) throw new ToolError("The replay viewer isn't open. Call fmp_open_viewer first.");
   if (!result.delivered) return `The viewer's server is running but no viewer is open; call fmp_open_viewer with t=${command.t}.`;
-  return `Moved ${result.delivered} open viewer(s) to ${clock(command.t)} in ${summary.title}${command.from != null ? `, selecting ${clock(command.from)}–${clock(command.to)}` : ""}.`;
+  const moved = pagesThatActed(result);
+  if (!moved) return notActedText(result.delivered, "seek");
+  return `Moved ${moved} open viewer(s) to ${clock(command.t)} in ${summary.title}${command.from != null ? `, selecting ${clock(command.from)}–${clock(command.to)}` : ""}`
+    + `${command.play ? ", playing" : ""}.`;
+}
+
+/** A command reached connected pages, but none acted: closed tabs, an older viewer, or no player on screen. */
+function notActedText(delivered, action) {
+  return `${delivered} viewer page(s) are connected, but none applied ${action}: none is showing a player that can, or `
+    + "the page runs an older viewer and needs a reload. Nothing changed; call fmp_open_viewer to show a recording.";
 }
 
 async function addNote(args) {
@@ -487,7 +496,8 @@ async function openViewer(args) {
       openURL,
       sendCommand: (command) => viewer("api/viewer/command", { method: "POST", body: JSON.stringify(command) }) });
   } catch (error) { throw new ToolError(error.message); }
-  if (result.connected) return `Navigated ${result.delivered} connected viewer(s) to ${result.url} in place.`;
+  if (result.openedInPlace) return `Navigated ${result.acknowledged} connected viewer(s) to ${result.url} in place.`;
+  if (result.connected) return `No connected viewer acted on the command, so opened ${result.url} in a browser.`;
   return `${result.started ? "Started the viewer's server and opened" : "Opened"} ${result.url}`;
 }
 
@@ -496,7 +506,7 @@ async function viewerControl(args) {
     && !["on", "off"].includes(args.value)) {
     throw new ToolError(`${args.action} requires value "on" or "off".`);
   }
-  if (args.action === "speed" && ![0.25, 0.5, 1, 2, 4].includes(args.speed)) {
+  if (args.action === "speed" && !PLAYER_SPEEDS.includes(args.speed)) {
     throw new ToolError("speed requires one of 0.25, 0.5, 1, 2, or 4.");
   }
   if (args.action === "latest" && !["recording", "labRun"].includes(args.kind)) {
@@ -505,7 +515,8 @@ async function viewerControl(args) {
   if (args.action === "latest" && args.kind === "recording") {
     const latest = (await store.listSessions())[0];
     if (!latest) throw new ToolError("No recordings are available to open.");
-    return openViewer({ session: latest.id, t: 0 });
+    // No time, so it autoplays from the start; a time would hold the viewer paused there.
+    return openViewer({ session: latest.id });
   }
   if (args.action === "latest" && args.kind === "labRun") {
     const latest = (await labStore.listRuns())[0];
@@ -519,7 +530,10 @@ async function viewerControl(args) {
   if (args.action === "speed") command.speed = args.speed;
   const result = await viewer("api/viewer/command", { method: "POST", body: JSON.stringify(command) });
   if (result === undefined) throw new ToolError("The replay viewer isn't open. Call fmp_open_viewer first.");
-  return `Sent ${args.action} to ${result.delivered} viewer(s).`;
+  if (!result.delivered) return `No viewer is open, so nothing applied ${args.action}; call fmp_open_viewer first.`;
+  const applied = pagesThatActed(result);
+  if (!applied) return notActedText(result.delivered, args.action);
+  return `Applied ${args.action} in ${applied} viewer(s).`;
 }
 
 let presetManifestPromise = null;
@@ -597,8 +611,9 @@ async function labOpen(args) {
       sendCommand: (command) => viewer("api/viewer/command", { method: "POST", body: JSON.stringify(command) }) });
   } catch (error) { throw new ToolError(error.message); }
   const target = args.scenarioID ? `scenario ${args.scenarioID} at ${clock(result.timestamp)}` : `run ${args.runID}`;
-  return result.openedInPlace
-    ? `Navigated ${result.delivered} connected viewer(s) to the Movement Lab dashboard for ${target} in place.`
+  if (result.openedInPlace) return `Navigated ${result.acknowledged} connected viewer(s) to the Movement Lab dashboard for ${target} in place.`;
+  return result.connected
+    ? `No connected viewer acted on the command, so opened the Movement Lab dashboard for ${target} in a browser.`
     : `Opened the Movement Lab dashboard for ${target} in a browser.`;
 }
 

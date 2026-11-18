@@ -246,9 +246,10 @@ async function validateRunDirectory(root, runDir) {
 }
 
 export async function runPlan({ root, planPath, inputPlan, presetID, sim = DEFAULT_SIMULATOR, mode = "pipeline",
-  now = new Date(), suffix, runner } = {}) {
+  now = new Date(), suffix, runID: requestedRunID, runner } = {}) {
   if (mode !== "pipeline" && mode !== "coach") throw new Error("Mode must be pipeline or coach.");
-  const runID = createRunID(now, suffix);
+  // The viewer's server picks the id up front so it can tag the run's follow event with the page that started it.
+  const runID = requestedRunID ?? createRunID(now, suffix);
   if (!isSafeRunID(runID)) throw new Error("Generated run id contains unsafe characters.");
   let actualPlanPath = planPath;
   let plan;

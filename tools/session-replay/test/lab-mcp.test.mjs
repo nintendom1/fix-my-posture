@@ -283,6 +283,30 @@ test("dashboard open navigates connected viewers in place without launching a br
   assert.deepEqual(calls, ["ensure", { command: "lab-open", runID, scenarioID: "canonical-fail", timestamp: 1.25 }]);
 });
 
+test("dashboard open falls back to a browser when no connected viewer acts on the command", async () => {
+  const runID = "20261108-120000-ab12";
+  const scenario = samplePlan().scenarios[0];
+  const records = [
+    { k: "header", jointOrder: ["leftHip", "rightHip"] },
+    { k: "f", t: 0, j: [[0, 100, 1], [0, 100, 1]] },
+    { k: "f", t: 1.25, j: [[0, 130, 1], [0, 130, 1]] },
+  ];
+  const store = {
+    async readRun() { return { plan: { scenarios: [scenario] } }; },
+    async readScenarioArtifact() { return records; },
+  };
+  const opened = [];
+  const result = await openLabDashboard({ store, runID, scenarioID: scenario.id, baseURL: "http://127.0.0.1:4317/",
+    ensureViewer: async () => {}, getViewerState: async () => ({ viewers: 1 }),
+    openURL: async (url) => opened.push(url),
+    sendCommand: async () => ({ delivered: 1, acknowledged: 0 }),
+  });
+  assert.equal(result.connected, true);
+  assert.equal(result.openedInPlace, false);
+  assert.equal(opened.length, 1);
+  assert.match(opened[0], /labRun=20261108-120000-ab12&labScenario=canonical-fail&labTime=1.25/);
+});
+
 test("Movement Lab MCP exposes strict schemas while preserving existing recording tools", async () => {
   const { request, call, stop } = await start();
   try {

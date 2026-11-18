@@ -234,6 +234,7 @@ svg.chart.small-chart { height: 40px; }
 .lab-player-controls { display: grid; grid-template-columns: auto auto minmax(100px, 1fr); align-items: center; gap: 12px; padding: 12px 0 6px; }
 .lab-player-controls .mono { color: var(--muted); font-size: 11px; }
 .lab-player-controls input { width: 100%; accent-color: var(--accent-soft); }
+.lab-player-options { grid-column: 1 / -1; flex-wrap: wrap; }
 .lab-timeline { position: relative; padding: 2px 0 6px; margin: 4px 0 14px; --lab-label-width: 104px; }
 .lab-time-scale { display: flex; justify-content: space-between; margin-left: calc(var(--lab-label-width) + 8px); padding: 0 2px 4px; color: var(--faint); font: 10px var(--mono); }
 .lab-lane-row { display: grid; grid-template-columns: var(--lab-label-width) minmax(0, 1fr); gap: 8px; align-items: center; height: 23px; }

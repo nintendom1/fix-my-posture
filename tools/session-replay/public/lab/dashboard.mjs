@@ -2,9 +2,11 @@ import { recordsToFileText, Session, clock } from "../../lib/session.mjs";
 import { num } from "../views.mjs";
 import * as labViews from "./views.mjs";
 import { applyLabSectionView, createCoveragePlaybackNavigator } from "./coverage.mjs";
-import { createLabOpenHandler, createSelectionToken, installLabOpenCommandReceiver, labOpenRequestFromURL, sectionHref } from "./selection.mjs";
-import { viewerEvents } from "../events.mjs";
-import { advancePlaybackTime, followScenarioForRun, playbackStartTime, playerPreferences, setPlayerPreference } from "../player-controls.mjs";
+import { createLabOpenHandler, createSelectionToken, installLabOpenCommandReceiver, labOpenRequestFromURL, runScenarioToOpen,
+  sectionHref } from "./selection.mjs";
+import { acknowledgeCommand, pageID, viewerEvents } from "../events.mjs";
+import { advancePlaybackTime, createFollowQueue, followBlocker, followsAddedEvent, followWaitText, holdsAtTime,
+  installPlayerPreferenceControls, playbackStartTime, playerPreferences, subscribePlayerPreferences } from "../player-controls.mjs";
 
 const $ = (id) => document.getElementById(id);
 const selectionTokens = createSelectionToken();
@@ -12,8 +14,7 @@ let runListRequest = 0;
 const state = { runs: [], runID: null, run: null, scenarioID: null, activeView: null,
   playing: false, manualPaused: false, itemKey: null, t: 0, lastFrame: 0, loading: false, loaded: false };
 let viewerStateSyncTimer = null;
-const pendingFollowRunIDs = [];
-let pendingRunRefresh = false;
+// Set while the selected scenario has playback, so Claude's play and pause know whether this page can act.
 let playLabPlayback = null;
 let pauseLabPlayback = null;
 
@@ -23,13 +24,6 @@ function toast(message, duration = 3200) {
   element.hidden = false;
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => { element.hidden = true; }, duration);
-}
-
-function updateFollowButton() {
-  const button = $("followNewToggle");
-  if (!button) return;
-  button.classList.toggle("on", playerPreferences.follow);
-  button.setAttribute("aria-pressed", String(playerPreferences.follow));
 }
 
 function syncViewerState(immediate = false) {
@@ -168,26 +162,19 @@ function escapeText(value) {
 // Explicit navigation (fmp_lab_open, URL, live command) wins over the list's default "open the first run".
 let explicitNavigations = 0;
 
-async function loadRuns({ followID = null, refreshOnly = false } = {}) {
-  if (state.loading) {
-    if (followID) return new Promise((resolve) => pendingFollowRunIDs.push({ id: followID, resolve }));
-    if (refreshOnly) pendingRunRefresh = true;
-    return null;
-  }
+async function loadRuns() {
+  if (state.loading) return;
   state.loading = true;
   const request = ++runListRequest;
   const list = $("labRunsList");
   list.innerHTML = `<div class="lab-loading">Loading runs…</div>`;
   try {
     const runs = await getJSON("/api/lab/runs");
-    if (request !== runListRequest || (!refreshOnly && state.activeView !== "runs")) return;
+    if (request !== runListRequest || state.activeView !== "runs") return;
     state.runs = runs;
     state.loaded = true;
     list.innerHTML = labViews.renderRunCards(state.runs, state.runID);
-    if (refreshOnly) return runs;
-    if (followID && state.runs.some((run) => run.id === followID)) {
-      await openRun(followID, { scenarioID: null, chooseFollowScenario: true });
-    } else if (explicitNavigations > 0) {
+    if (explicitNavigations > 0) {
       // After any explicit navigation the list never auto-opens a run; the requested selection stays.
     } else if (state.runID && state.runs.some((run) => run.id === state.runID)) await openRun(state.runID);
     else if (state.runs.length) await openRun(state.runs[0].id);
@@ -203,17 +190,22 @@ async function loadRuns({ followID = null, refreshOnly = false } = {}) {
     showError(list, error);
   } finally {
     if (request === runListRequest) state.loading = false;
-    if (!state.loading && pendingFollowRunIDs.length) {
-      const nextFollow = pendingFollowRunIDs.shift();
-      void loadRuns({ followID: nextFollow.id }).then(nextFollow.resolve);
-    } else if (!state.loading && pendingRunRefresh) {
-      pendingRunRefresh = false;
-      void loadRuns({ refreshOnly: true });
-    }
   }
 }
 
-async function openRun(runID, { scenarioID = null, timestamp = null, chooseFollowScenario = false } = {}) {
+/** Refreshes the run list without opening anything; Follow and reload use it so they always see new runs. */
+async function refreshRunList() {
+  const runs = await getJSON("/api/lab/runs");
+  state.runs = runs;
+  $("labRunsList").innerHTML = labViews.renderRunCards(state.runs, state.runID);
+  return runs;
+}
+
+/**
+ * Opens a run at the requested scenario, at the first failing one for Follow, or at the first one. A stale scenario id
+ * falls back with a toast. `hold` opens paused at `timestamp` (an explicit keyframe), like `fmp_viewer_seek`.
+ */
+async function openRun(runID, { scenarioID = null, timestamp = null, follow = false, hold = false } = {}) {
   const request = selectionTokens.next();
   const wasPlaying = state.playing;
   state.playing = false;
@@ -230,12 +222,15 @@ async function openRun(runID, { scenarioID = null, timestamp = null, chooseFollo
     $("labScenarioNav").innerHTML = labViews.renderScenarioList(run.plan, run.results);
     $("labWelcome").hidden = true;
     $("labRunPane").hidden = false;
-    const scenario = scenarioID ? run.plan.scenarios?.find((item) => item.id === scenarioID)
-      : chooseFollowScenario ? run.plan.scenarios?.find((item) => item.id === followScenarioForRun(run))
-        : run.plan.scenarios?.[0];
-    if (scenario) await openScenario(scenario.id, { timestamp, resumePlayback: wasPlaying });
-    else {
+    const choice = runScenarioToOpen(run, { scenarioID, follow });
+    if (choice.missing) toast(`Scenario ${choice.missing} isn't in this run; showing ${choice.scenarioID ?? "the run"} instead.`, 6000);
+    if (choice.scenarioID) {
+      await openScenario(choice.scenarioID, choice.missing ? { resumePlayback: wasPlaying }
+        : { timestamp, resumePlayback: wasPlaying, hold });
+    } else {
       state.itemKey = null;
+      playLabPlayback = null;
+      pauseLabPlayback = null;
       $("labScenarioDetail").innerHTML = `<div class="lab-empty">This run has no scenarios.</div>`;
       syncViewerState();
     }
@@ -249,11 +244,13 @@ async function openRun(runID, { scenarioID = null, timestamp = null, chooseFollo
   }
 }
 
-async function openScenario(scenarioID, { timestamp = null, resumePlayback = state.playing } = {}) {
+async function openScenario(scenarioID, { timestamp = null, resumePlayback = state.playing, hold = false } = {}) {
   const wasPlaying = resumePlayback;
   state.playing = false;
   const scenario = state.run?.plan?.scenarios?.find((item) => item.id === scenarioID);
   if (!scenario) return;
+  playLabPlayback = null;
+  pauseLabPlayback = null;
   const runID = state.runID;
   const run = state.run;
   const itemKey = `${runID}/${scenarioID}`;
@@ -275,7 +272,8 @@ async function openScenario(scenarioID, { timestamp = null, resumePlayback = sta
     ])
     : [[], []];
   if (!isCurrent()) return;
-  panel.innerHTML = labViews.renderScenarioDetail({ plan: run.plan, scenario, result, recording, reference });
+  panel.innerHTML = labViews.renderScenarioDetail({ plan: run.plan, scenario, result, recording, reference,
+    player: playerPreferences });
   state.t = 0;
   let session = null;
   let referenceSession = null;
@@ -286,12 +284,12 @@ async function openScenario(scenarioID, { timestamp = null, resumePlayback = sta
     try { referenceSession = Session.fromText(recordsToFileText(reference.map((record) => JSON.stringify(record)))); } catch { referenceSession = null; }
   }
   bindScenarioPlayback(panel.querySelector(".lab-selected-scenario"), session, referenceSession, request, runID, scenarioID,
-    { timestamp, changedItem, wasPlaying });
+    { timestamp, changedItem, wasPlaying, hold });
   state.itemKey = itemKey;
   syncViewerState(true);
 }
 
-function bindScenarioPlayback(panel, session, referenceSession, request, runID, scenarioID, { timestamp, changedItem, wasPlaying }) {
+function bindScenarioPlayback(panel, session, referenceSession, request, runID, scenarioID, { timestamp, changedItem, wasPlaying, hold }) {
   const scrubber = panel.querySelector("[data-lab-scrubber]");
   if (!scrubber || !session?.frames?.length) return;
   const duration = Math.max(0, num(session.duration));
@@ -380,6 +378,7 @@ function bindScenarioPlayback(panel, session, referenceSession, request, runID, 
     update(fraction * duration);
   });
   update(timestamp ?? 0);
+  if (hold) return;
   if (changedItem && playerPreferences.autoplay && !state.manualPaused) play(false);
   else if (!changedItem && wasPlaying && playerPreferences.autoplay && !state.manualPaused) play(false);
 }
@@ -404,15 +403,16 @@ function activateLabRuns() {
 
 const navigateCoverageThumbnail = createCoveragePlaybackNavigator({
   activateRuns: activateLabRuns,
+  // A keyframe link or command names a time, so the scenario opens paused there instead of autoplaying past it.
   loadRun: async (runID, scenarioID, timestamp) => {
-    await openRun(runID, { scenarioID, timestamp });
+    await openRun(runID, { scenarioID, timestamp, hold: holdsAtTime({ time: timestamp }) });
     return state.activeView === "runs" && state.runID === runID ? state.run : null;
   },
   selectScenario: async (runID, scenarioID, timestamp) => {
     if (state.activeView !== "runs" || state.runID !== runID
       || !state.run?.plan?.scenarios?.some((scenario) => scenario.id === scenarioID)) return false;
     if (state.itemKey === `${runID}/${scenarioID}` && (timestamp == null || Math.abs(state.t - timestamp) < 0.001)) return true;
-    await openScenario(scenarioID, { timestamp });
+    await openScenario(scenarioID, { timestamp, hold: holdsAtTime({ time: timestamp }) });
     return state.activeView === "runs" && state.runID === runID && state.scenarioID === scenarioID;
   },
   seek: seekCurrentPlayback,
@@ -435,81 +435,76 @@ const handleLabOpenRequest = (request) => {
   return labOpenHandler(request);
 };
 
-window.FMPLabDashboard = { navigateToScenario: navigateCoverageThumbnail };
-
-function currentRunTitle(runID) {
-  return state.runs.find((run) => run.id === runID)?.title ?? state.run?.summary?.title ?? runID;
-}
+// The scenario editor reads `pageID` so the runs it starts come back marked as this page's own.
+window.FMPLabDashboard = { navigateToScenario: navigateCoverageThumbnail, pageID };
 
 async function reloadLab() {
   const runID = state.runID;
   const scenarioID = state.scenarioID;
   const timestamp = state.t;
-  await loadRuns({ refreshOnly: true });
+  await refreshRunList();
   if (state.activeView === "runs" && runID && state.runs.some((run) => run.id === runID)) {
     await openRun(runID, { scenarioID, timestamp });
   }
 }
 
-async function handleAddedLabRun(event) {
-  if (playerPreferences.follow) {
-    document.querySelector('[data-lab-view="runs"]')?.click();
-    await loadRuns({ followID: event.id });
-    if (state.runID === event.id && state.run) {
-      const scenario = state.run.plan.scenarios.find((item) => item.id === state.scenarioID);
-      toast(`Loaded Movement Lab run: ${state.run.summary?.title ?? event.id}${scenario ? ` · ${scenario.name ?? scenario.id}` : ""}.`);
-    } else toast(`New Movement Lab run available: ${event.id}.`);
-    return;
-  }
-  await loadRuns({ refreshOnly: true });
-  toast(`New Movement Lab run available: ${currentRunTitle(event.id)}.`);
+function scenarioLabel(run, scenarioID) {
+  const scenario = run?.plan?.scenarios?.find((item) => item.id === scenarioID);
+  return scenario ? ` · ${scenario.name ?? scenario.id}` : "";
 }
 
+const runFollow = createFollowQueue({
+  refresh: refreshRunList,
+  following: () => playerPreferences.follow,
+  blocked: () => followBlocker(document),
+  open: async (item) => {
+    explicitNavigations += 1;
+    if (state.activeView !== "runs" && !activateLabRuns()) return;
+    const run = await openRun(item.id, { follow: true });
+    if (run) toast(`Loaded Movement Lab run: ${item.title ?? item.id}${scenarioLabel(run, state.scenarioID)}.`);
+  },
+  notify: ({ status, item, reason }) => toast(status === "waiting"
+    ? `New Movement Lab run ready: ${item.title ?? item.id}. It opens ${followWaitText(reason)}.`
+    : `New Movement Lab run available: ${item.title ?? item.id}.`, 6000),
+});
+
+/** Playback commands act only on a scenario that is showing playback; acting acknowledges. */
 function handleDashboardControl(event) {
-  if (event.action === "loop" || event.action === "autoplay" || event.action === "follow") {
-    setPlayerPreference(event.action, event.enabled === true);
-    updateFollowButton();
-    syncViewerState(true);
-    return;
-  }
-  if (event.action === "speed") {
-    setPlayerPreference("speed", Number(event.speed));
-    syncViewerState(true);
-    return;
-  }
   if (event.action === "reload") {
     if (state.activeView === "runs") void reloadLab();
     else if (state.activeView === "coverage") window.FMPLabCoverage?.refresh();
+    else return;
+    acknowledgeCommand(event);
     return;
   }
-  if (state.activeView !== "runs") return;
-  if (event.action === "play") playLabPlayback?.();
-  else if (event.action === "pause") pauseLabPlayback?.();
-  else if (event.action === "toggle") state.playing ? pauseLabPlayback?.() : playLabPlayback?.();
+  if (state.activeView !== "runs" || !playLabPlayback || !pauseLabPlayback) return;
+  if (event.action === "play") playLabPlayback();
+  else if (event.action === "pause") pauseLabPlayback();
+  else if (event.action === "toggle") state.playing ? pauseLabPlayback() : playLabPlayback();
+  else return;
+  acknowledgeCommand(event);
 }
 
 async function handleDashboardEvent(message) {
   let event;
   try { event = JSON.parse(message.data); } catch { return; }
-  if (event.type === "added" && event.kind === "labRun" && typeof event.id === "string") {
-    await handleAddedLabRun(event);
+  if (event.type === "added" && event.kind === "labRun") {
+    // A run this page's scenario editor started is already on screen there; only the list needs it.
+    if (followsAddedEvent(event, { kind: "labRun", pageID })) void runFollow.add(event.id);
+    else void refreshRunList().catch(() => {});
     return;
   }
-  if (event.type === "command" && event.command === "control") handleDashboardControl(event);
+  if (event.type !== "command") return;
+  if (event.command === "control") handleDashboardControl(event);
+  else if (event.command === "lab-open") acknowledgeCommand(event);
 }
 
 installLabOpenCommandReceiver(viewerEvents, handleLabOpenRequest);
 viewerEvents.addEventListener("message", (message) => { void handleDashboardEvent(message); });
+installPlayerPreferenceControls(document);
+subscribePlayerPreferences(() => syncViewerState(true));
 
 document.addEventListener("click", (event) => {
-  const globalToggle = event.target.closest("[data-global-player-toggle]");
-  if (globalToggle) {
-    const key = globalToggle.dataset.globalPlayerToggle;
-    setPlayerPreference(key, !playerPreferences[key]);
-    updateFollowButton();
-    syncViewerState(true);
-    return;
-  }
   const viewButton = event.target.closest("[data-lab-view]");
   if (viewButton) {
     switchView(viewButton.dataset.labView);
@@ -524,8 +519,6 @@ document.addEventListener("click", (event) => {
   const promoteButton = event.target.closest("[data-lab-promote]");
   if (promoteButton) { event.preventDefault(); void promoteScenario(promoteButton); }
 });
-
-updateFollowButton();
 
 $("labRefresh").addEventListener("click", () => {
   if (state.activeView === "coverage") window.FMPLabCoverage?.refresh();
