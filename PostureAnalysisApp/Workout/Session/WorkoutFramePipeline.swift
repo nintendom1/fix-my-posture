@@ -63,6 +63,8 @@ struct WorkoutFramePipeline {
 
     private var analyzer: ExerciseAnalyzing?
     private var framingEvaluator: FramingEvaluator?
+    /// Every camera view's framing requirement for an exercise with a view choice; empty otherwise.
+    private var viewRequirements: [FramingRequirement] = []
     private var offscreenJointEstimator: OffscreenJointEstimator?
     private var stanceDetector = StanceDetector()
     private var ghostCalibrationGate = GhostCalibrationGate()
@@ -149,7 +151,10 @@ struct WorkoutFramePipeline {
                 evaluator.prime(with: counted)
                 shouldPrimeFraming = false
             }
-            let status = evaluator.evaluate(counted)
+            // Partway through a turn, neither view may see the whole body yet. A frame that any of the exercise's
+            // views could track keeps framing, so counting carries on until the new view takes over.
+            let turning = exercise.hasViewChoice && stanceDetector.observation.turning
+            let status = evaluator.evaluate(counted, alsoAccepting: turning ? viewRequirements : [])
             framingEvaluator = evaluator
             framing = status
             if status != lastFramingStatus {
@@ -237,6 +242,12 @@ struct WorkoutFramePipeline {
 
         if trackingChanged {
             framingEvaluator = exercise.map(makeFramingEvaluator)
+            viewRequirements = exercise.map { exercise in
+                guard exercise.hasViewChoice else { return [] }
+                return exercise.everyView.map {
+                    FramingRequirement(requiredJoints: $0.requiredJoints, anyOfRequiredJoints: $0.anyOfRequiredJoints)
+                }
+            } ?? []
             offscreenJointEstimator = exercise.map {
                 OffscreenJointEstimator(joints: $0.focusJoints, plantedJoints: $0.plantedJoints,
                                         configuration: offscreenConfiguration)

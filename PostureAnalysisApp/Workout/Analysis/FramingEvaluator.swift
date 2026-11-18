@@ -89,6 +89,12 @@ struct FramingConfiguration: Codable {
     var shoulderSpanClearance: CGFloat = 0.02
 }
 
+/// The joints one camera view needs in sight: every required joint, plus one full alternative set when there are any.
+struct FramingRequirement: Equatable {
+    let requiredJoints: Set<LandmarkType>
+    let anyOfRequiredJoints: [Set<LandmarkType>]
+}
+
 /// Decides tracking reliability and framing guidance from an exercise's required joints.
 struct FramingEvaluator {
     let requiredJoints: Set<LandmarkType>
@@ -142,7 +148,9 @@ struct FramingEvaluator {
         shoulderSupport = SupportedShoulders(rule: supportedShoulders, minimumConfidence: configuration.minimumConfidence)
     }
 
-    mutating func evaluate(_ frame: PoseFrame) -> FramingStatus {
+    /// `alsoAccepting` lists other views' requirements that count as present too, such as every view of the exercise
+    /// while the user turns between them.
+    mutating func evaluate(_ frame: PoseFrame, alsoAccepting alternatives: [FramingRequirement] = []) -> FramingStatus {
         let time = frame.timestamp
         let supported = shoulderSupport.update(frame)
         func visible(_ joints: Set<LandmarkType>) -> Bool {
@@ -150,8 +158,11 @@ struct FramingEvaluator {
                 supported.contains($0) || frame.point($0, minimumConfidence: configuration.minimumConfidence) != nil
             }
         }
-        let requiredPresent = visible(requiredJoints)
-            && (anyOfRequiredJoints.isEmpty || anyOfRequiredJoints.contains(where: visible))
+        func satisfied(_ required: Set<LandmarkType>, _ anyOf: [Set<LandmarkType>]) -> Bool {
+            visible(required) && (anyOf.isEmpty || anyOf.contains(where: visible))
+        }
+        let requiredPresent = satisfied(requiredJoints, anyOfRequiredJoints)
+            || alternatives.contains { satisfied($0.requiredJoints, $0.anyOfRequiredJoints) }
         updatePhoneDistance(frame)
         let present = requiredPresent && !lacksSideRoom(frame)
         if present {

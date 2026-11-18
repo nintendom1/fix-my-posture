@@ -97,6 +97,63 @@ final class WorkoutFramePipelineTests: XCTestCase {
         })
     }
 
+    func testTurningFrontToSideOnMidSetNeverLosesFraming() {
+        let turn = TurnPlayer(exercise: HammerCurlExercise.definition())
+        turn.play(seconds: 1) { turn.front(at: $0) }
+        XCTAssertTrue(turn.pipeline.isCounting, "Front framing is reliable before the turn.")
+        let turnStart = turn.outputs.count
+
+        turn.play(seconds: 0.3) { self.withShoulderRatio(0.4, turn.front(at: $0)) }
+        turn.play(until: { $0.settled == .sideOn }, limit: 2) { turn.side(at: $0) }
+        XCTAssertEqual(turn.observation.settled, .sideOn, "Holding side-on settles the stance.")
+        // The reducer switches views on the settled stance; the coach hands the pipeline the side-on definition.
+        turn.pipeline.exerciseChanged(to: turn.exercise.inView(.side), analyzerEpoch: 2)
+        turn.play(seconds: 1) { turn.side(at: $0) }
+
+        let during = turn.outputs[turnStart...]
+        XCTAssertTrue(during.contains { $0.diagnostics?.stance == .unclear }, "The turn passes through a 3/4 stance.")
+        XCTAssertFalse(during.contains { $0.events.contains(where: Self.isFramingLost) },
+                       "Framing was lost during the turn.")
+        XCTAssertTrue(during.allSatisfy { $0.diagnostics?.framing?.isReliable == true && $0.diagnostics?.counting == true })
+        XCTAssertTrue(turn.pipeline.isCounting)
+    }
+
+    func testFramingFollowsTheCurrentViewAgainOnceTurningEnds() throws {
+        // Side-on with the view held at front, as with a front lock: the turn is bridged, then framing is lost.
+        let turn = TurnPlayer(exercise: HammerCurlExercise.definition())
+        turn.play(seconds: 1) { turn.front(at: $0) }
+        let turnStart = turn.outputs.count
+        turn.play(seconds: 0.3) { self.withShoulderRatio(0.4, turn.front(at: $0)) }
+        turn.play(seconds: 2.5) { turn.side(at: $0) }
+
+        let during = turn.outputs[turnStart...]
+        let turnEnded = try XCTUnwrap(during.firstIndex { output in
+            output.events.contains { if case .stanceObserved(let observation) = $0 { !observation.turning } else { false } }
+        }, "Turning ends once the side-on stance settles.")
+        let lost = try XCTUnwrap(during.firstIndex { $0.events.contains(where: Self.isFramingLost) },
+                                 "The front view loses a side-on body once turning ends.")
+        XCTAssertGreaterThan(lost, turnEnded, "Framing held while turning.")
+        let delay = turn.times[lost] - turn.times[turnEnded]
+        XCTAssertLessThanOrEqual(delay, FramingConfiguration().unreliableAfter + 0.15,
+                                 "Normal framing resumes when turning ends.")
+        XCTAssertFalse(turn.pipeline.isCounting)
+    }
+
+    func testWalkingOutOfViewMidTurnStillLosesFraming() throws {
+        let turn = TurnPlayer(exercise: HammerCurlExercise.definition())
+        turn.play(seconds: 1) { turn.front(at: $0) }
+        turn.play(seconds: 0.4) { self.withShoulderRatio(0.4, turn.front(at: $0)) }
+        XCTAssertTrue(turn.observation.turning, "The user is partway through a turn.")
+        let leftAt = turn.outputs.count
+
+        turn.play(seconds: 1) { self.emptyFrame(at: $0) }
+
+        let lost = try XCTUnwrap(turn.outputs[leftAt...].firstIndex { $0.events.contains(where: Self.isFramingLost) },
+                                 "Leaving the frame loses framing even while turning.")
+        XCTAssertLessThanOrEqual(turn.times[lost] - turn.times[leftAt], FramingConfiguration().unreliableAfter + 0.05)
+        XCTAssertFalse(turn.pipeline.isCounting)
+    }
+
     func testIdChangeStillResetsFramingAndSeedsTheNewExerciseView() {
         let exercise = makeViewChoiceHammerCurl(id: ExerciseID(rawValue: "old.choice"))
         var pipeline = WorkoutFramePipeline(exercise: exercise, analyzerEpoch: 1, isCounting: true)
@@ -771,7 +828,12 @@ final class WorkoutFramePipelineTests: XCTestCase {
     }
 
     private func frameWithShoulderRatio(_ ratio: Double, motion: ArmMotion, at time: TimeInterval) -> PoseFrame {
-        var result = frame(motion: motion, at: time)
+        withShoulderRatio(ratio, frame(motion: motion, at: time))
+    }
+
+    /// `frame` with its shoulders moved to span `ratio` torso lengths around their midpoint.
+    private func withShoulderRatio(_ ratio: Double, _ frame: PoseFrame) -> PoseFrame {
+        var result = frame
         guard let left = result.point(.leftShoulder, minimumConfidence: 0.3),
               let right = result.point(.rightShoulder, minimumConfidence: 0.3),
               let leftHip = result.point(.leftHip, minimumConfidence: 0.3),
@@ -896,6 +958,53 @@ final class WorkoutFramePipelineTests: XCTestCase {
 
     private func emptyFrame(at time: TimeInterval) -> PoseFrame {
         PoseFrame(pose: BodyPose(landmarks: [:], imageWidth: 1080, imageHeight: 1920), timestamp: time)
+    }
+
+    private static func isFramingLost(_ event: WorkoutEvent) -> Bool {
+        guard case .framingChanged(let status) = event else { return false }
+        return !status.isReliable
+    }
+}
+
+/// A pipeline counting a set of a view-choice exercise, fed the guide's start pose at 10 Hz.
+private final class TurnPlayer {
+    let exercise: ExerciseDefinition
+    private let sideView: ExerciseDefinition
+    var pipeline: WorkoutFramePipeline
+    private(set) var outputs: [WorkoutFramePipeline.FrameOutput] = []
+    private(set) var times: [TimeInterval] = []
+    private(set) var observation = StanceDetector.Observation(settled: .facing, turning: false)
+
+    init(exercise: ExerciseDefinition) {
+        self.exercise = exercise
+        sideView = exercise.inView(.side)
+        pipeline = WorkoutFramePipeline(exercise: exercise, analyzerEpoch: 1, isCounting: true)
+        pipeline.setSessionPhase(.exercising)
+        pipeline.collectsDiagnostics = true
+    }
+
+    func front(at time: TimeInterval) -> PoseFrame {
+        ReadyPoseFixtures.demoFrame(exercise, motionTime: 0, at: time)
+    }
+
+    func side(at time: TimeInterval) -> PoseFrame {
+        ReadyPoseFixtures.demoFrame(sideView, motionTime: 0, at: time)
+    }
+
+    func play(seconds: TimeInterval, _ make: (TimeInterval) -> PoseFrame) {
+        play(until: { _ in false }, limit: seconds, make)
+    }
+
+    /// Feeds frames until `done` holds for the latest stance observation or `limit` seconds pass.
+    func play(until done: (StanceDetector.Observation) -> Bool, limit: TimeInterval,
+              _ make: (TimeInterval) -> PoseFrame) {
+        for _ in 0..<Int((limit * 10).rounded()) where !done(observation) {
+            let time = Double(times.count) / 10
+            let output = pipeline.process(frame: make(time), at: time)
+            for case .stanceObserved(let observed) in output.events { observation = observed }
+            outputs.append(output)
+            times.append(time)
+        }
     }
 }
 
