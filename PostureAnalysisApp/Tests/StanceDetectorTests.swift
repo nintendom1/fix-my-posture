@@ -72,6 +72,35 @@ final class StanceDetectorTests: XCTestCase {
         XCTAssertFalse(detector.update(torsoFrame(ratio: 0.5, at: 0.511)).turning)
     }
 
+    func testTurningStartsOnTheFrameThatReachesTheDebounceDespiteRounding() {
+        XCTAssertLessThan(1.3 - 1.1, StanceDetector.Configuration.standard.turningAfter,
+                          "In floating point, 1.3 - 1.1 falls just short of 0.2.")
+        var detector = StanceDetector(seed: .facing)
+        XCTAssertFalse(detector.update(torsoFrame(ratio: 0.5, at: 1.0)).turning)
+        XCTAssertFalse(detector.update(torsoFrame(ratio: 0.4, at: 1.1)).turning)
+        XCTAssertFalse(detector.update(torsoFrame(ratio: 0.4, at: 1.2)).turning)
+        XCTAssertTrue(detector.update(torsoFrame(ratio: 0.4, at: 1.3)).turning, "0.2 s of unclear readings at 10 Hz.")
+    }
+
+    func testTurnEvidenceCountsFromTheFirstUnclearOrOppositeReading() {
+        var detector = StanceDetector(seed: .facing)
+        _ = detector.update(torsoFrame(ratio: 0.5, at: 0))
+        XCTAssertFalse(detector.mayBeTurning, "The settled stance is no evidence of a turn.")
+
+        _ = detector.update(torsoFrame(ratio: 0.4, at: 0.1))
+        XCTAssertFalse(detector.observation.turning)
+        XCTAssertTrue(detector.mayBeTurning, "An unclear reading suggests a turn before the debounce confirms it.")
+
+        _ = detector.update(torsoFrame(ratio: 0.5, at: 0.15))
+        XCTAssertFalse(detector.mayBeTurning, "Back at the settled stance, the evidence clears.")
+
+        _ = detector.update(torsoFrame(ratio: 0.3, at: 0.2))
+        XCTAssertTrue(detector.mayBeTurning, "The opposite stance suggests a turn too.")
+
+        _ = detector.update(poseFrame([:], at: 0.25))
+        XCTAssertFalse(detector.mayBeTurning, "Nobody in view is no evidence of a turn.")
+    }
+
     func testTurningClearsAfterThreeTenthsWithoutAVisibleBody() {
         var detector = StanceDetector(seed: .facing)
         _ = detector.update(torsoFrame(ratio: 0.4, at: 0))
@@ -93,6 +122,7 @@ final class StanceDetectorTests: XCTestCase {
                 XCTAssertTrue(observation.turning, "Expected turning at \(time)s.")
             } else {
                 XCTAssertFalse(observation.turning, "Turning must clear at its cap.")
+                XCTAssertFalse(detector.mayBeTurning, "Past the cap, the same evidence no longer suggests a turn.")
             }
         }
     }

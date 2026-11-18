@@ -38,6 +38,9 @@ struct StanceDetector {
         var turning: Bool
     }
 
+    /// Sampled timestamps can land a hair short of a duration they reach, as `1.3 - 1.1` falls just below 0.2.
+    static let timeTolerance: TimeInterval = 1e-6
+
     private let configuration: Configuration
     private(set) var observation: Observation
 
@@ -52,6 +55,10 @@ struct StanceDetector {
     private var turningClearSince: TimeInterval?
     private var suppressTurningUntilEvidenceClears = false
 
+    /// True while turning, and from the first reading that suggests a turn until `turningAfter` confirms it. Framing
+    /// uses it so the start of a turn is bridged too; the reducer still waits for `observation.turning`.
+    var mayBeTurning: Bool { observation.turning || turningEvidenceSince != nil }
+
     /// Updates settled stance and turning state using only the frame's capture timestamp.
     mutating func update(_ frame: PoseFrame) -> Observation {
         let reading = Self.reading(of: frame, configuration: configuration)
@@ -61,7 +68,7 @@ struct StanceDetector {
             if stanceCandidate?.stance != stance {
                 stanceCandidate = (stance, time)
             }
-            if let stanceCandidate, time - stanceCandidate.since >= configuration.holdSeconds {
+            if let stanceCandidate, Self.elapsed(configuration.holdSeconds, from: stanceCandidate.since, to: time) {
                 observation.settled = stance
                 self.stanceCandidate = nil
             }
@@ -129,13 +136,13 @@ struct StanceDetector {
             turningEvidenceSince = evidenceSince
 
             if observation.turning {
-                if let turningSince, time - turningSince >= configuration.turningCap {
+                if let turningSince, Self.elapsed(configuration.turningCap, from: turningSince, to: time) {
                     observation.turning = false
                     self.turningSince = nil
                     turningEvidenceSince = nil
                     suppressTurningUntilEvidenceClears = true
                 }
-            } else if time - evidenceSince >= configuration.turningAfter {
+            } else if Self.elapsed(configuration.turningAfter, from: evidenceSince, to: time) {
                 observation.turning = true
                 turningSince = time
             }
@@ -155,11 +162,15 @@ struct StanceDetector {
         }
         let clearSince = turningClearSince ?? time
         turningClearSince = clearSince
-        if time - clearSince >= configuration.turningClearsAfter {
+        if Self.elapsed(configuration.turningClearsAfter, from: clearSince, to: time) {
             observation.turning = false
             turningSince = nil
             turningClearSince = nil
         }
+    }
+
+    private static func elapsed(_ duration: TimeInterval, from start: TimeInterval, to time: TimeInterval) -> Bool {
+        time - start >= duration - timeTolerance
     }
 
     private static func torsoLength(shoulders: CGPoint, hips: [CGPoint]) -> Double? {

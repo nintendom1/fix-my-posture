@@ -177,18 +177,30 @@ struct FramingEvaluator {
         return FramingStatus(isReliable: isReliable, guidance: guidance(for: frame, requiredPresent: requiredPresent))
     }
 
-    /// Starts a freshly rebuilt view evaluator as reliable when its actual required joints are already visible.
-    /// Otherwise the regular `reliableAfter` delay remains in effect.
-    mutating func prime(with frame: PoseFrame) {
+    /// Starts a freshly rebuilt view evaluator as reliable when its required joints, or one of `alternatives` as
+    /// `evaluate` accepts them, are already visible. Otherwise the regular `reliableAfter` delay remains in effect.
+    mutating func prime(with frame: PoseFrame, alsoAccepting alternatives: [FramingRequirement] = []) {
         func visible(_ joints: Set<LandmarkType>) -> Bool {
             joints.allSatisfy { frame.point($0, minimumConfidence: configuration.minimumConfidence) != nil }
         }
-        let requiredPresent = visible(requiredJoints)
-            && (anyOfRequiredJoints.isEmpty || anyOfRequiredJoints.contains(where: visible))
+        func satisfied(_ required: Set<LandmarkType>, _ anyOf: [Set<LandmarkType>]) -> Bool {
+            visible(required) && (anyOf.isEmpty || anyOf.contains(where: visible))
+        }
+        let requiredPresent = satisfied(requiredJoints, anyOfRequiredJoints)
+            || alternatives.contains { satisfied($0.requiredJoints, $0.anyOfRequiredJoints) }
         guard requiredPresent else { return }
         presentSince = frame.timestamp
         lastPresent = frame.timestamp
         isReliable = true
+    }
+
+    /// Carries reliability over from the evaluator of the same exercise's previous camera view, so a view change
+    /// neither loses framing nor restarts its grace: reliable framing stays reliable until this view's requirements, or
+    /// the accepted alternatives, have been missing for `unreliableAfter`.
+    mutating func continueReliability(from previous: FramingEvaluator) {
+        presentSince = previous.presentSince
+        lastPresent = previous.lastPresent
+        isReliable = previous.isReliable
     }
 
     mutating func reset() {

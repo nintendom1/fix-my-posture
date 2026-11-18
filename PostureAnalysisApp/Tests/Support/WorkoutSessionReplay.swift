@@ -106,6 +106,8 @@ struct WorkoutSessionReplayer {
         var pipeline = WorkoutFramePipeline(framingConfiguration: try recorded(header["framing"], over: FramingConfiguration()),
                                             offscreenConfiguration: try recorded(header["offscreen"], over: OffscreenJointConfiguration()))
         pipeline.collectsDiagnostics = true
+        // A recording from before camera views ran no stance detection and no turning alternatives.
+        pipeline.detectsStance = currentBuild || recordsStance(file, catalog: catalog)
         var imageSize: CGSize?
         var frames: [Frame] = []
         for (line, record) in file.records {
@@ -140,6 +142,26 @@ struct WorkoutSessionReplayer {
             }
         }
         return frames
+    }
+
+    /// Whether the build that made the recording detected stance. Such a build writes a header entry for each other
+    /// camera view, a stance event when the observation changes, and a stance reading (`st`) on each analyzed frame of
+    /// an exercise with a view choice.
+    static func recordsStance(_ file: WorkoutSessionFile, catalog: [ExerciseDefinition]) -> Bool {
+        let recorded = file.header["exercises"] as? [String: Any] ?? [:]
+        let hasAlternateViewEntry = catalog.contains { exercise in
+            exercise.hasViewChoice && exercise.views.contains { view in
+                view != exercise.usualView
+                    && recorded[definitionKey(exercise.id.rawValue, view: view, usualView: exercise.usualView)] != nil
+            }
+        }
+        return hasAlternateViewEntry || file.records.contains { _, record in
+            switch record["k"] as? String {
+            case "f": return record["st"] != nil
+            case "e": return record["type"] as? String == "stance"
+            default: return false
+            }
+        }
     }
 
     /// Catalog exercises rebuilt from the configurations the recording carries. What framing and off-edge estimation

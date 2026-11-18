@@ -57,6 +57,47 @@ final class CameraViewTurnTests: XCTestCase {
         assertSetCarriedOn(rig, from: setStart, spokenFrom: spokenAtStart, reps: 5)
     }
 
+    func testTurningFrontToSideOnWithTheFarArmHiddenFromTheFirstUnclearFrameKeepsCounting() throws {
+        let rig = TurnRig()
+        try rig.startSet(standing: front)
+        let setStart = rig.log.count
+        let spokenAtStart = rig.spoken.count
+        rig.reps(front, count: 2)
+
+        // The camera stalls as the turn begins, and the far arm is already behind the body on the first
+        // three-quarter frame, so framing's grace runs out before 0.2 s of turn evidence could confirm the turn.
+        rig.dropFrames(2)
+        rig.play(seconds: 0.3) { _, time in self.threeQuarter(at: time, hiding: [.rightElbow, .rightWrist]) }
+        rig.play(seconds: stance.holdSeconds + 0.5) { _, time in
+            ReadyPoseFixtures.demoFrame(self.side, motionTime: 0, at: time)
+        }
+        XCTAssertEqual(rig.session.exercise?.cameraView, .side, "Holding side-on switches the view.")
+        rig.reps(side, count: 1)
+
+        assertSetCarriedOn(rig, from: setStart, spokenFrom: spokenAtStart, reps: 3)
+    }
+
+    func testTurningSideOnToFrontWithTheFarWristHiddenAcrossTheSwitchKeepsCounting() throws {
+        let rig = TurnRig()
+        try rig.startSet(standing: side)
+        let setStart = rig.log.count
+        let spokenAtStart = rig.spoken.count
+        rig.reps(side, count: 2)
+
+        // Facing the phone again, the far wrist stays behind the body until just after the view switches.
+        func facing(at time: TimeInterval) -> PoseFrame {
+            without([.rightWrist], ReadyPoseFixtures.demoFrame(front, motionTime: 0, at: time))
+        }
+        rig.play(until: { $0.exercise?.cameraView == .front }, limit: stance.holdSeconds + 0.5) { _, time in
+            facing(at: time)
+        }
+        XCTAssertEqual(rig.session.exercise?.cameraView, .front, "Holding a facing stance switches the view.")
+        rig.play(seconds: 0.2) { _, time in facing(at: time) }
+        rig.reps(front, count: 1)
+
+        assertSetCarriedOn(rig, from: setStart, spokenFrom: spokenAtStart, reps: 3)
+    }
+
     // MARK: - Partway turns and leaving the frame
 
     func testAHeldThreeQuarterStanceNeverSwitchesViewsOrLosesTheUser() throws {
@@ -252,6 +293,13 @@ final class CameraViewTurnTests: XCTestCase {
         return PoseFrame(pose: pose, timestamp: frame.timestamp)
     }
 
+    /// `frame` without `joints`, as when the body hides them.
+    private func without(_ joints: Set<LandmarkType>, _ frame: PoseFrame) -> PoseFrame {
+        var pose = frame.pose
+        for joint in joints { pose.landmarks[joint] = nil }
+        return PoseFrame(pose: pose, timestamp: frame.timestamp)
+    }
+
     /// `frame` moved `dx` pixels sideways; joints that leave the image are no longer seen.
     private func shifted(_ frame: PoseFrame, by dx: CGFloat) -> PoseFrame {
         var pose = frame.pose
@@ -320,6 +368,11 @@ private final class TurnRig {
             harness.camera.emit(.frame(pose(Double(index) / 10, time)))
             record(at: time)
         }
+    }
+
+    /// Lets `count` frame intervals pass without a frame, as when the camera stalls.
+    func dropFrames(_ count: Int) {
+        for _ in 0..<count { harness.scheduler.advance(by: 0.1) }
     }
 
     /// `count` guide reps in `view`'s camera view, then a second at the start so the last rep confirms.

@@ -60,6 +60,9 @@ struct WorkoutFramePipeline {
     private(set) var formReadings: [FormReading] = []
     /// Attaches `FrameDiagnostics` to every output, for a session recording.
     var collectsDiagnostics = false
+    /// Detects stance and bridges turns with every view's framing, for an exercise with a view choice. Strict replay
+    /// turns it off for a recording made before camera views, which ran without either.
+    var detectsStance = true
 
     private var analyzer: ExerciseAnalyzing?
     private var framingEvaluator: FramingEvaluator?
@@ -136,7 +139,8 @@ struct WorkoutFramePipeline {
         var events: [WorkoutEvent] = []
         var stanceReading: StanceDetector.Reading?
         var stanceObservationChange: StanceDetector.Observation?
-        if exercise.hasViewChoice {
+        let tracksStance = detectsStance && exercise.hasViewChoice
+        if tracksStance {
             stanceReading = StanceDetector.reading(of: frame, configuration: .standard)
             let previousObservation = stanceDetector.observation
             let observation = stanceDetector.update(frame)
@@ -147,14 +151,15 @@ struct WorkoutFramePipeline {
 
         var framing: FramingStatus?
         if var evaluator = framingEvaluator {
+            // Partway through a turn, neither view may see the whole body yet. From the first reading that suggests a
+            // turn, a frame that any of the exercise's views could track keeps framing, so counting carries on until
+            // the new view takes over.
+            let alternatives = tracksStance && stanceDetector.mayBeTurning ? viewRequirements : []
             if shouldPrimeFraming {
-                evaluator.prime(with: counted)
+                evaluator.prime(with: counted, alsoAccepting: alternatives)
                 shouldPrimeFraming = false
             }
-            // Partway through a turn, neither view may see the whole body yet. A frame that any of the exercise's
-            // views could track keeps framing, so counting carries on until the new view takes over.
-            let turning = exercise.hasViewChoice && stanceDetector.observation.turning
-            let status = evaluator.evaluate(counted, alsoAccepting: turning ? viewRequirements : [])
+            let status = evaluator.evaluate(counted, alsoAccepting: alternatives)
             framingEvaluator = evaluator
             framing = status
             if status != lastFramingStatus {
@@ -241,7 +246,12 @@ struct WorkoutFramePipeline {
         self.exercise = exercise
 
         if trackingChanged {
+            let previousFraming = framingEvaluator
             framingEvaluator = exercise.map(makeFramingEvaluator)
+            // The user is still in view after a camera-view change, so framing keeps its reliability and grace.
+            if viewChanged, let previousFraming {
+                framingEvaluator?.continueReliability(from: previousFraming)
+            }
             viewRequirements = exercise.map { exercise in
                 guard exercise.hasViewChoice else { return [] }
                 return exercise.everyView.map {
