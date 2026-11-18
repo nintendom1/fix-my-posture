@@ -127,6 +127,8 @@ code { font-family: var(--mono); background: var(--fill); padding: 1px 5px; bord
 .segmented button { cursor: pointer; height: 26px; padding: 0 9px; border-radius: 6px; border: 0; background: transparent; color: var(--muted); font: 500 12px var(--mono); }
 .segmented.wrap button { font-family: var(--sans); }
 .segmented button.on { background: rgba(255, 255, 255, .14); color: var(--text); }
+.player-options { display: flex; align-items: center; gap: 4px; flex: none; }
+.player-options .chip { height: 26px; padding: 0 8px; font-size: 10px; white-space: nowrap; }
 .lanes { display: flex; gap: 10px; }
 .lane-labels { width: 104px; flex: none; display: flex; flex-direction: column; color: var(--muted); font-size: 11px; font-weight: 600; }
 .lane-label { height: 24px; display: flex; align-items: center; }
@@ -232,6 +234,7 @@ svg.chart.small-chart { height: 40px; }
 .lab-player-controls { display: grid; grid-template-columns: auto auto minmax(100px, 1fr); align-items: center; gap: 12px; padding: 12px 0 6px; }
 .lab-player-controls .mono { color: var(--muted); font-size: 11px; }
 .lab-player-controls input { width: 100%; accent-color: var(--accent-soft); }
+.lab-player-options { grid-column: 1 / -1; flex-wrap: wrap; }
 .lab-timeline { position: relative; padding: 2px 0 6px; margin: 4px 0 14px; --lab-label-width: 104px; }
 .lab-time-scale { display: flex; justify-content: space-between; margin-left: calc(var(--lab-label-width) + 8px); padding: 0 2px 4px; color: var(--faint); font: 10px var(--mono); }
 .lab-lane-row { display: grid; grid-template-columns: var(--lab-label-width) minmax(0, 1fr); gap: 8px; align-items: center; height: 23px; }
@@ -409,6 +412,7 @@ svg.chart.small-chart { height: 40px; }
   .lab-assertion { grid-template-columns: 1fr; }
   .lab-coverage-view { padding: 14px; }
   #app { min-width: 0; }
+  .controls { flex-wrap: wrap; }
   .lab-editor-shell { padding: 7px; }
   .lab-editor-card { padding: 10px; }
   .lab-editor-stage-grid { grid-template-columns: 1fr; }

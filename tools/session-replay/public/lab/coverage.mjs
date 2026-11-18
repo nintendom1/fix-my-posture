@@ -170,10 +170,10 @@ export function createCoveragePlaybackNavigator({ activateRuns, loadRun, selectS
   return async ({ runID, scenarioID, timestamp }) => {
     if (typeof runID !== "string" || typeof scenarioID !== "string" || !Number.isFinite(Number(timestamp))) return false;
     if (await activateRuns() === false) return false;
-    const run = await loadRun(runID);
+    const run = await loadRun(runID, scenarioID, Number(timestamp));
     const loadedRunID = run?.id ?? run?.summary?.id;
     if (loadedRunID !== runID || !run.plan?.scenarios?.some((scenario) => scenario.id === scenarioID)) return false;
-    if (await selectScenario(runID, scenarioID) === false) return false;
+    if (await selectScenario(runID, scenarioID, Number(timestamp)) === false) return false;
     return Boolean(await seek({ runID, scenarioID, timestamp: Number(timestamp) }));
   };
 }

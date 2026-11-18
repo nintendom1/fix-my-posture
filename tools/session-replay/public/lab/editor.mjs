@@ -446,7 +446,8 @@ export async function openEditor({ runID, scenarioID, timestamp = null } = {}) {
   }
 }
 
-export async function saveAndRerunRevision(context, { editNote, headers, fetcher = fetch,
+/** `startedBy` is this page's id; the new run's `added` event carries it, so this page's Follow leaves it alone. */
+export async function saveAndRerunRevision(context, { editNote, headers, fetcher = fetch, startedBy = null,
   onSaved = () => {}, onRerun = () => {} } = {}) {
   if (!context?.scenario || !context?.sourcePlan || !context?.runID) throw new Error("Load a stored scenario before saving.");
   if (context.executionMode !== "pipeline" && context.executionMode !== "coach") {
@@ -457,7 +458,7 @@ export async function saveAndRerunRevision(context, { editNote, headers, fetcher
       scenarioID: context.scenario.id, mutations: context.mutations, mode: context.mode, editNote }) });
   onSaved(save);
   const rerun = await requestJSON(fetcher, "/api/lab/runs", { method: "POST", headers,
-    body: JSON.stringify({ editID: save.editID, mode: context.executionMode }) });
+    body: JSON.stringify({ editID: save.editID, mode: context.executionMode, ...(startedBy ? { startedBy } : {}) }) });
   onRerun(rerun);
   const run = await requestJSON(fetcher, `/api/lab/runs/${encodeURIComponent(rerun.runID)}`);
   const scenario = run.plan?.scenarios?.find((item) => item.id === context.scenario.id);
@@ -504,7 +505,7 @@ async function saveAndRerun(button) {
     const updated = await saveAndRerunRevision({ runID: state.runID, sourcePlan: state.sourcePlan,
       scenario: state.scenario, mutations: state.mutations, mode: state.mode,
       executionMode: state.executionMode, time: state.time }, {
-      editNote: note, headers,
+      editNote: note, headers, startedBy: window.FMPLabDashboard?.pageID ?? null,
       onSaved: (saved) => {
         revisionSaved = true;
         state.sourcePlan = saved.plan;

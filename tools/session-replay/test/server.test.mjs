@@ -1,23 +1,58 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, readFile, rm, utimes } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import http from "node:http";
 import { createServer } from "../server.mjs";
 import { ID, arrayText, linesText } from "./fixtures.mjs";
 
-async function start() {
+/** A listening viewer server on a temporary repository. `prepare` writes files before the server starts. */
+async function start({ followPollMs = 1000, ackTimeoutMs = 750, prepare = async () => {} } = {}) {
   const root = await mkdtemp(path.join(tmpdir(), "fmp-replay-"));
   await mkdir(path.join(root, "diagnostics", "sessions"), { recursive: true });
   await writeFile(path.join(root, "diagnostics", "sessions", `${ID}.json`), arrayText());
-  const server = createServer({ root });
+  await prepare(root);
+  const server = createServer({ root, followPollMs, ackTimeoutMs });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const base = server.urlFor();
   const post = (route, body, headers = {}) => fetch(base + route.slice(1), { method: "POST",
     headers: { "Content-Type": "application/json", "X-FMP-Replay": "1", ...headers }, body: typeof body === "string" ? body : JSON.stringify(body) });
   const stop = async () => { server.closeClients(); await new Promise((resolve) => server.close(resolve)); await rm(root, { recursive: true, force: true }); };
-  return { root, base, post, stop };
+  return { root, base, post, server, stop };
+}
+
+function collectEvents(base) {
+  const events = [];
+  let buffer = "";
+  let response;
+  const ready = new Promise((resolve, reject) => {
+    const request = http.get(base + "api/events", (stream) => {
+      response = stream;
+      stream.setEncoding("utf8");
+      stream.on("data", (chunk) => {
+        buffer += chunk;
+        const frames = buffer.split("\n\n");
+        buffer = frames.pop() ?? "";
+        for (const frame of frames) {
+          const line = frame.split("\n").find((value) => value.startsWith("data: "));
+          if (line) events.push(JSON.parse(line.slice(6)));
+        }
+      });
+      resolve();
+    });
+    request.on("error", reject);
+  });
+  return { events, ready, close: () => response?.destroy() };
+}
+
+async function waitFor(predicate, message) {
+  const deadline = Date.now() + 3000;
+  while (Date.now() < deadline) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.fail(message);
 }
 
 test("lists recordings and serves files, building a summary for one without", async () => {
@@ -36,6 +71,8 @@ test("lists recordings and serves files, building a summary for one without", as
     assert.equal(JSON.parse(await file.text()).length > 200, true);
     assert.equal((await fetch(base)).status, 200);
     assert.equal((await fetch(base + "lib/session.mjs")).status, 200);
+    assert.equal((await fetch(base + "events.mjs")).status, 200);
+    assert.equal((await fetch(base + "player-controls.mjs")).status, 200);
   } finally {
     await stop();
   }
@@ -75,7 +112,7 @@ test("imports a shared file, converting older JSON Lines, and rejects anything e
 });
 
 test("Send to Claude writes the outbox, and commands reach open viewers", async () => {
-  const { root, base, post, stop } = await start();
+  const { root, base, post, stop } = await start({ ackTimeoutMs: 50 });
   try {
     const events = [];
     const received = new Promise((resolve) => {
@@ -95,10 +132,12 @@ test("Send to Claude writes the outbox, and commands reach open viewers", async 
     await post("/api/viewer/state", { sessionId: ID, t: 8.4 });
     assert.equal((await (await fetch(base + "api/viewer/state")).json()).t, 8.4);
     const delivered = await (await post("/api/viewer/command", { command: "seek", sessionId: ID, t: 8.3 })).json();
-    assert.equal(delivered.delivered, 1);
+    assert.deepEqual(delivered, { delivered: 1, acknowledged: 0 }, "a stream that never acknowledges isn't counted as acting");
     await received;
     assert.ok(events.some((event) => event.type === "sent"));
-    assert.deepEqual(events.find((event) => event.type === "command"), { type: "command", command: "seek", sessionId: ID, t: 8.3 });
+    const { commandID, ...command } = events.find((event) => event.type === "command");
+    assert.equal(typeof commandID, "string");
+    assert.deepEqual(command, { type: "command", command: "seek", sessionId: ID, t: 8.3 });
   } finally {
     await stop();
   }
@@ -125,6 +164,175 @@ test("concurrent note saves all survive", async () => {
     const stored = JSON.parse(await readFile(path.join(root, "diagnostics", "sessions", `${ID}.notes.json`), "utf8"));
     assert.equal(stored.notes.length, 25);
     assert.deepEqual(new Set(stored.notes.map((note) => note.id)).size, 25);
+  } finally {
+    await stop();
+  }
+});
+
+test("follow events report one new recording and one completed run, after both run files exist", async () => {
+  const { root, base, stop } = await start({ followPollMs: 20 });
+  const stream = collectEvents(base);
+  try {
+    await stream.ready;
+    const newID = "11111111-1111-4111-8111-111111111111";
+    await writeFile(path.join(root, "diagnostics", "sessions", `${newID}.json`), arrayText());
+    await waitFor(() => stream.events.filter((event) => event.type === "added" && event.id === newID).length === 1,
+      "the new recording should produce one follow event");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(stream.events.filter((event) => event.type === "added" && event.id === newID).length, 1);
+
+    const runID = "20261117-120000-f00d";
+    const runDirectory = path.join(root, "diagnostics", "movement-lab", "runs", runID);
+    await mkdir(runDirectory, { recursive: true });
+    await writeFile(path.join(runDirectory, "summary.json"), "{}\n");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(stream.events.some((event) => event.type === "added" && event.id === runID), false,
+      "a run with only summary.json is still partial");
+    await writeFile(path.join(runDirectory, "results.json"), "[]\n");
+    await waitFor(() => stream.events.filter((event) => event.type === "added" && event.id === runID).length === 1,
+      "a run with results and summary should produce one follow event");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(stream.events.filter((event) => event.type === "added" && event.id === runID).length, 1);
+    assert.deepEqual(stream.events.find((event) => event.id === newID), { type: "added", kind: "recording", id: newID });
+    assert.deepEqual(stream.events.find((event) => event.id === runID), { type: "added", kind: "labRun", id: runID });
+  } finally {
+    stream.close();
+    await stop();
+  }
+});
+
+test("the follow poller stops when the viewer server closes", async () => {
+  const { root, server } = await start({ followPollMs: 20 });
+  try {
+    assert.equal(server.followWatcherActive, true);
+    server.closeClients();
+    await new Promise((resolve) => server.close(resolve));
+    assert.equal(server.followWatcherActive, false);
+    const newID = "22222222-2222-4222-8222-222222222222";
+    await writeFile(path.join(root, "diagnostics", "sessions", `${newID}.json`), arrayText());
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    assert.equal(server.followWatcherActive, false);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+const addedIDs = (stream) => stream.events.filter((event) => event.type === "added").map((event) => event.id);
+
+test("commands report how many pages acted, counting each page once", async () => {
+  const { base, post, stop } = await start({ ackTimeoutMs: 300 });
+  const first = collectEvents(base);
+  const second = collectEvents(base);
+  try {
+    await Promise.all([first.ready, second.ready]);
+    const commandIDs = (stream) => stream.events.filter((event) => event.type === "command").map((event) => event.commandID);
+
+    // The first page acts from two of its modules; the second page never acts.
+    const partial = post("/api/viewer/command", { command: "control", action: "play" });
+    await waitFor(() => commandIDs(first).length === 1, "the command should reach the first page");
+    const [playID] = commandIDs(first);
+    for (let index = 0; index < 2; index += 1) await post("/api/viewer/ack", { commandID: playID, pageID: "page-one-0001" });
+    assert.deepEqual(await (await partial).json(), { delivered: 2, acknowledged: 1 });
+
+    const complete = post("/api/viewer/command", { command: "control", action: "pause" });
+    await waitFor(() => commandIDs(first).length === 2 && commandIDs(second).length === 2, "the command should reach both pages");
+    const pauseID = commandIDs(first)[1];
+    assert.notEqual(pauseID, playID);
+    await post("/api/viewer/ack", { commandID: pauseID, pageID: "page-one-0001" });
+    await post("/api/viewer/ack", { commandID: pauseID, pageID: "page-two-0002" });
+    assert.deepEqual(await (await complete).json(), { delivered: 2, acknowledged: 2 });
+    assert.deepEqual(await (await post("/api/viewer/ack", { commandID: pauseID, pageID: "page-two-0002" })).json(),
+      { acknowledged: false }, "a late acknowledgement is ignored");
+  } finally {
+    first.close();
+    second.close();
+    await stop();
+  }
+});
+
+test("recordings that land in one poll are announced oldest first", async () => {
+  const { root, base, server, stop } = await start({ followPollMs: 60_000 });
+  const stream = collectEvents(base);
+  const sessions = path.join(root, "diagnostics", "sessions");
+  const land = async (olderID, newerID) => {
+    const now = Date.now() / 1000;
+    for (const [id, age] of [[olderID, 600], [newerID, 60]]) {
+      await writeFile(path.join(sessions, `${id}.json`), arrayText());
+      await utimes(path.join(sessions, `${id}.json`), now - age, now - age);
+    }
+    await server.pollForAddedWork();
+    await server.pollForAddedWork();
+  };
+  try {
+    await stream.ready;
+    const a = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const b = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const c = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const d = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    await land(a, b);
+    await land(d, c);
+    await waitFor(() => addedIDs(stream).length === 4, "all four recordings should be announced");
+    assert.deepEqual(addedIDs(stream), [a, b, d, c]);
+  } finally {
+    stream.close();
+    await stop();
+  }
+});
+
+test("work still being written when the server starts is announced once it finishes", async () => {
+  const runID = "20261117-130000-be11";
+  const growingID = "44444444-4444-4444-8444-444444444444";
+  const { root, base, server, stop } = await start({ followPollMs: 60_000, prepare: async (root) => {
+    await mkdir(path.join(root, "diagnostics", "movement-lab", "runs", runID), { recursive: true });
+    await writeFile(path.join(root, "diagnostics", "movement-lab", "runs", runID, "plan.json"), "{}\n");
+    await writeFile(path.join(root, "diagnostics", "sessions", `${growingID}.json`), "");
+  } });
+  const stream = collectEvents(base);
+  try {
+    await stream.ready;
+    await server.pollForAddedWork();
+    assert.deepEqual(addedIDs(stream), [], "nothing is finished yet");
+    const runDirectory = path.join(root, "diagnostics", "movement-lab", "runs", runID);
+    await writeFile(path.join(runDirectory, "results.json"), "[]\n");
+    await writeFile(path.join(runDirectory, "summary.json"), "{}\n");
+    await writeFile(path.join(root, "diagnostics", "sessions", `${growingID}.json`), arrayText());
+    await server.pollForAddedWork();
+    await server.pollForAddedWork();
+    await waitFor(() => addedIDs(stream).length === 2, "the run and the recording should be announced");
+    assert.deepEqual(stream.events.filter((event) => event.type === "added").map((event) => event.kind).sort(), ["labRun", "recording"]);
+    assert.ok(!addedIDs(stream).includes(ID), "a recording complete at startup is not announced");
+  } finally {
+    stream.close();
+    await stop();
+  }
+});
+
+test("the poller forgets recordings that disappear and runs that can no longer finish", async () => {
+  const { root, server, stop } = await start({ followPollMs: 60_000 });
+  try {
+    const vanishingID = "55555555-5555-4555-8555-555555555555";
+    const vanishing = path.join(root, "diagnostics", "sessions", `${vanishingID}.json`);
+    await writeFile(vanishing, arrayText());
+    await server.pollForAddedWork();
+    assert.equal(server.followBacklog.recordings, 1);
+    await rm(vanishing);
+    await server.pollForAddedWork();
+    assert.equal(server.followBacklog.recordings, 0);
+
+    const runs = path.join(root, "diagnostics", "movement-lab", "runs");
+    const running = path.join(runs, "20261117-140000-a1a1");
+    const failed = path.join(runs, "20261117-140000-f0f0");
+    for (const directory of [running, failed]) {
+      await mkdir(directory, { recursive: true });
+      await writeFile(path.join(directory, "plan.json"), "{}\n");
+    }
+    const longAgo = Date.now() / 1000 - 3 * 60 * 60;
+    await utimes(failed, longAgo, longAgo);
+    await server.pollForAddedWork();
+    assert.equal(server.followBacklog.labRuns, 2);
+    await server.pollForAddedWork();
+    assert.equal(server.followBacklog.labRuns, 1, "a run unchanged for hours is dropped");
+    await rm(running, { recursive: true });
+    await server.pollForAddedWork();
+    assert.equal(server.followBacklog.labRuns, 0, "a deleted run is dropped");
   } finally {
     await stop();
   }
