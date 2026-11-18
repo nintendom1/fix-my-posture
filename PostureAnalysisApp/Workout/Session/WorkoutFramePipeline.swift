@@ -304,8 +304,15 @@ struct WorkoutFramePipeline {
                 lastStartPositionHeld = false
                 shouldPrimeFraming = exercise != nil
             }
+            // A curl past its top in the old view counts when it's lowered in the new one. It resumes after the
+            // warm-up, so it credits on a live frame once the new view confirms the start, at most once. The new
+            // analyzer keeps its own attempt past the end, and one whose start it saw before that end.
+            let carried = viewChanged && exercise?.hasViewChoice == true ? analyzer?.attemptInProgress() : nil
             rebuildAnalyzer(epoch: analyzerEpoch)
-            if viewChanged { warmAnalyzerFromViewChangeFrames() }
+            if viewChanged {
+                warmAnalyzerFromViewChangeFrames()
+                if let carried { analyzer?.resume(carried) }
+            }
         } else if self.analyzerEpoch != analyzerEpoch || (exercise != nil && analyzer == nil) {
             creditedSideReps = [:]
             rebuildAnalyzer(epoch: analyzerEpoch)

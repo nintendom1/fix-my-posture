@@ -277,6 +277,128 @@ final class WorkoutFramePipelineTests: XCTestCase {
                        "The right arm's curl counts once, so the curl both arms did is counted.")
     }
 
+    // MARK: - A curl carried across a view change
+
+    func testACurlPastTheTopBeforeASwitchCountsOnceWhenLoweredInTheNewView() {
+        let front = HammerCurlExercise.definition()
+        let side = front.inView(.side)
+        for (from, to) in [(front, side), (side, front)] {
+            let label = "\(from.cameraView.rawValue) to \(to.cameraView.rawValue)"
+            var pipeline = WorkoutFramePipeline(exercise: from, analyzerEpoch: 1, isCounting: true)
+            pipeline.setSessionPhase(.exercising)
+            // Both arms curl up and hold at the top for longer than the new stance takes to settle.
+            var time: TimeInterval = 0
+            var before: [RepEvent] = []
+            for elevation in Self.curlUpAndHold {
+                before += repEvents(pipeline.process(frame: curlFrame(forearmElevation: elevation, at: time), at: time))
+                time += 0.1
+            }
+            XCTAssertTrue(before.isEmpty, "\(label): nothing counts at the top.")
+
+            pipeline.exerciseChanged(to: to, analyzerEpoch: 2)
+            var after: [RepEvent] = []
+            for elevation in [0.0] + Array(repeating: -90.0, count: 10) {
+                after += repEvents(pipeline.process(frame: curlFrame(forearmElevation: elevation, at: time), at: time))
+                time += 0.1
+            }
+
+            XCTAssertEqual(credits(after), [.left: 1, .right: 1], "\(label): the curl counts once when it's lowered.")
+            XCTAssertTrue(after.allSatisfy { $0.epoch == 2 }, label)
+        }
+    }
+
+    func testACurlLoweredWhileTheNewStanceHoldsStillCountsExactlyOnce() {
+        let front = HammerCurlExercise.definition()
+        let side = front.inView(.side)
+        func pose(left: Double?, right: Double, at time: TimeInterval) -> PoseFrame {
+            guard let left else { return without([.leftElbow, .leftWrist], curlFrame(left: 50, right: right, at: time)) }
+            return curlFrame(left: left, right: right, at: time)
+        }
+
+        // Front to side-on: both arms curl to the top, then the far (left) arm hides behind the body while the near
+        // (right) arm lowers, all before the switch. The front view credits the right arm alone, which the switch
+        // evens away; the side-on warm-up has already seen the arm back at the start.
+        var pipeline = WorkoutFramePipeline(exercise: front, analyzerEpoch: 1, isCounting: true)
+        pipeline.setSessionPhase(.exercising)
+        let curl: [(left: Double?, right: Double)] = Array(repeating: (-90, -90), count: 6) + [(-20, -20), (30, 30)]
+            + Array(repeating: (50, 50), count: 4) + [(nil, 0), (nil, -90), (nil, -90)]
+        var frontEvents: [RepEvent] = []
+        for (index, step) in curl.enumerated() {
+            let time = Double(index) / 10
+            frontEvents += repEvents(pipeline.process(frame: pose(left: step.left, right: step.right, at: time), at: time))
+        }
+        XCTAssertEqual(frontEvents.map(\.sides), [[.right]], "The front view credited only the near arm.")
+
+        pipeline.exerciseChanged(to: side, analyzerEpoch: 2)
+        var sideEvents: [[RepEvent]] = []
+        for index in curl.count..<(curl.count + 11) {
+            let time = Double(index) / 10
+            sideEvents.append(repEvents(pipeline.process(frame: pose(left: nil, right: -90, at: time), at: time)))
+        }
+        XCTAssertEqual(sideEvents.first?.map(\.sides), [[.left, .right]], "The curl completes on the first live frame.")
+        XCTAssertTrue(sideEvents.dropFirst().allSatisfy(\.isEmpty), "It counts once.")
+
+        // Side-on to front: the side-on view sees the return before the switch and credits it, so nothing carries.
+        var sidePipeline = WorkoutFramePipeline(exercise: side, analyzerEpoch: 1, isCounting: true)
+        sidePipeline.setSessionPhase(.exercising)
+        let sideCurl = Array(repeating: -90.0, count: 6) + [-20, 30] + Array(repeating: 50.0, count: 4) + [0, -90, -90]
+        var events: [RepEvent] = []
+        for (index, elevation) in sideCurl.enumerated() {
+            let time = Double(index) / 10
+            events += repEvents(sidePipeline.process(frame: curlFrame(forearmElevation: elevation, at: time), at: time))
+        }
+        XCTAssertEqual(credits(events), [.left: 1, .right: 1], "Side-on credited the curl before the switch.")
+        sidePipeline.exerciseChanged(to: front, analyzerEpoch: 2)
+        var frontAfter: [RepEvent] = []
+        for index in sideCurl.count..<(sideCurl.count + 11) {
+            let time = Double(index) / 10
+            frontAfter += repEvents(sidePipeline.process(frame: curlFrame(forearmElevation: -90, at: time), at: time))
+        }
+        XCTAssertTrue(frontAfter.isEmpty, "The front view never credits it again.")
+    }
+
+    func testAPartialCurlBeforeASwitchDoesNotCarry() {
+        let front = HammerCurlExercise.definition()
+        let side = front.inView(.side)
+        for (from, to) in [(front, side), (side, front)] {
+            var pipeline = WorkoutFramePipeline(exercise: from, analyzerEpoch: 1, isCounting: true)
+            pipeline.setSessionPhase(.exercising)
+            // A half curl, held through the turn, then lowered in the new view.
+            let elevations = Array(repeating: -90.0, count: 6) + Array(repeating: 0, count: 12)
+                + Array(repeating: -90, count: 10)
+            var events: [RepEvent] = []
+            for (index, elevation) in elevations.enumerated() {
+                if index == 18 { pipeline.exerciseChanged(to: to, analyzerEpoch: 2) }
+                let time = Double(index) / 10
+                events += repEvents(pipeline.process(frame: curlFrame(forearmElevation: elevation, at: time), at: time))
+            }
+            XCTAssertTrue(events.isEmpty, "\(from.cameraView.rawValue) to \(to.cameraView.rawValue): \(events)")
+        }
+    }
+
+    func testASingleViewExerciseNeverCarriesACurlAcrossAViewChange() {
+        let exercise = makeViewChoiceHammerCurl(id: ExerciseID(rawValue: "single.view.curl"), views: [.front])
+        XCTAssertFalse(exercise.hasViewChoice)
+        var pipeline = WorkoutFramePipeline(exercise: exercise, analyzerEpoch: 1, isCounting: true)
+        pipeline.setSessionPhase(.exercising)
+        var time: TimeInterval = 0
+        var events: [RepEvent] = []
+        for elevation in Self.curlUpAndHold {
+            events += repEvents(pipeline.process(frame: curlFrame(forearmElevation: elevation, at: time), at: time))
+            time += 0.1
+        }
+
+        var moved = exercise
+        moved.cameraView = .side
+        pipeline.exerciseChanged(to: moved, analyzerEpoch: 2)
+        for elevation in [0.0] + Array(repeating: -90.0, count: 10) {
+            events += repEvents(pipeline.process(frame: curlFrame(forearmElevation: elevation, at: time), at: time))
+            time += 0.1
+        }
+
+        XCTAssertTrue(events.isEmpty, "Without a view choice, the rep in progress is still lost: \(events)")
+    }
+
     func testTurningFrontToSideOnMidSetNeverLosesFraming() {
         let turn = TurnPlayer(exercise: HammerCurlExercise.definition())
         turn.play(seconds: 1) { turn.front(at: $0) }
@@ -1190,6 +1312,23 @@ final class WorkoutFramePipelineTests: XCTestCase {
                                         imageHeight: leftPose.imageHeight), timestamp: time)
     }
 
+    /// Forearm elevations at 10 Hz: hanging, a curl, then 1.4 s at the top, longer than a new stance takes to settle.
+    private static let curlUpAndHold: [Double] = Array(repeating: -90, count: 6) + [-20, 30]
+        + Array(repeating: 50, count: 14)
+
+    private func repEvents(_ output: WorkoutFramePipeline.FrameOutput) -> [RepEvent] {
+        output.events.compactMap { if case .repCompleted(let rep) = $0 { rep } else { nil } }
+    }
+
+    /// Each side's rep credits across `events`.
+    private func credits(_ events: [RepEvent]) -> [BodySide: Int] {
+        var totals: [BodySide: Int] = [:]
+        for event in events {
+            for side in event.sides { totals[side, default: 0] += 1 }
+        }
+        return totals
+    }
+
     private func frame(motion: ArmMotion, sampledAt poseTime: TimeInterval, at time: TimeInterval) -> PoseFrame {
         let sampled = frame(motion: motion, at: poseTime)
         return PoseFrame(pose: sampled.pose, timestamp: time)
@@ -1410,8 +1549,8 @@ private final class TurnPlayer {
     }
 }
 
-private func makeViewChoiceHammerCurl(id: ExerciseID,
-                                      cameraView: ExerciseCameraView = .front) -> ExerciseDefinition {
+private func makeViewChoiceHammerCurl(id: ExerciseID, cameraView: ExerciseCameraView = .front,
+                                      views: [ExerciseCameraView] = [.front, .side]) -> ExerciseDefinition {
     let base = HammerCurlExercise.definition()
     return ExerciseDefinition(
         id: id,
@@ -1452,8 +1591,8 @@ private func makeViewChoiceHammerCurl(id: ExerciseID,
         makeAnalyzer: { epoch in base.makeAnalyzer(epoch) },
         diagnostics: base.diagnostics,
         reducedRange: base.reducedRange,
-        views: [.front, .side],
+        views: views,
         buildView: { selectedView in
-            makeViewChoiceHammerCurl(id: id, cameraView: selectedView)
+            makeViewChoiceHammerCurl(id: id, cameraView: selectedView, views: views)
         })
 }

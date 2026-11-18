@@ -143,6 +143,64 @@ final class CameraViewTurnTests: XCTestCase {
         assertSetCarriedOn(rig, from: setStart, spokenFrom: spokenAtStart, reps: 3)
     }
 
+    // MARK: - A curl across the turn
+
+    func testCurlUpFrontTurnHoldingTheTopAndLowerSideOnCountsOnce() throws {
+        let rig = TurnRig()
+        try rig.startSet(standing: front)
+        let setStart = rig.log.count
+        let spokenAtStart = rig.spoken.count
+        rig.reps(front, count: 1)
+
+        curlUpAndTurnHoldingTheTop(rig, from: front, to: side)
+        XCTAssertEqual(rig.session.exercise?.cameraView, .side, "Holding side-on switches the view.")
+        XCTAssertEqual(rig.session.repCount, 1, "Nothing counts until the curl is lowered.")
+
+        rig.continueCurl(side, startingAt: Self.topHoldEnd)
+        XCTAssertEqual(rig.session.repCount, 2, "The curl counts when it's lowered side-on.")
+        rig.play(seconds: 1) { _, time in ReadyPoseFixtures.demoFrame(self.side, motionTime: 0, at: time) }
+        XCTAssertEqual(rig.session.repCount, 2, "It counts once.")
+        rig.reps(side, count: 1)
+
+        assertSetCarriedOn(rig, from: setStart, spokenFrom: spokenAtStart, reps: 3)
+    }
+
+    func testCurlUpSideOnTurnHoldingTheTopAndLowerFacingThePhoneCountsOnce() throws {
+        let rig = TurnRig()
+        try rig.startSet(standing: side)
+        let setStart = rig.log.count
+        let spokenAtStart = rig.spoken.count
+        rig.reps(side, count: 1)
+
+        curlUpAndTurnHoldingTheTop(rig, from: side, to: front)
+        XCTAssertEqual(rig.session.exercise?.cameraView, .front, "Holding a facing stance switches the view.")
+        XCTAssertEqual(rig.session.repCount, 1, "Nothing counts until the curl is lowered.")
+
+        rig.continueCurl(front, startingAt: Self.topHoldEnd)
+        XCTAssertEqual(rig.session.repCount, 2, "The curl counts when both arms are lowered facing the phone.")
+        rig.play(seconds: 1) { _, time in ReadyPoseFixtures.demoFrame(self.front, motionTime: 0, at: time) }
+        XCTAssertEqual(rig.session.repCount, 2, "It counts once.")
+        rig.reps(front, count: 1)
+
+        assertSetCarriedOn(rig, from: setStart, spokenFrom: spokenAtStart, reps: 3)
+    }
+
+    /// The guide's motion reaches the top at 2.0 s and holds it until 2.4 s.
+    private static let topHold: TimeInterval = 2.2
+    private static let topHoldEnd: TimeInterval = 2.4
+
+    /// Curls up in `from`'s view, then turns through a three-quarter stance and holds the top in `to`'s stance until
+    /// the view switches.
+    private func curlUpAndTurnHoldingTheTop(_ rig: TurnRig, from: ExerciseDefinition, to: ExerciseDefinition) {
+        rig.play(seconds: Self.topHold + 0.1) { local, time in
+            ReadyPoseFixtures.demoFrame(from, motionTime: local, at: time)
+        }
+        rig.play(seconds: 0.3) { _, time in self.threeQuarter(at: time, motionTime: Self.topHold) }
+        rig.play(until: { $0.exercise?.cameraView == to.cameraView }, limit: stance.holdSeconds + 0.5) { _, time in
+            ReadyPoseFixtures.demoFrame(to, motionTime: Self.topHold, at: time)
+        }
+    }
+
     // MARK: - Partway turns and leaving the frame
 
     func testAHeldThreeQuarterStanceNeverSwitchesViewsOrLosesTheUser() throws {
@@ -337,11 +395,12 @@ final class CameraViewTurnTests: XCTestCase {
                        file: file, line: line)
     }
 
-    /// The front start pose narrowed sideways around its shoulders until they span `ratio` torso lengths, between the
-    /// facing and side-on readings, as when turning partway. `hiding` drops joints the body would cover.
-    private func threeQuarter(at time: TimeInterval, ratio: Double? = nil,
+    /// The front pose at `motionTime` (the start by default) narrowed sideways around its shoulders until they span
+    /// `ratio` torso lengths, between the facing and side-on readings, as when turning partway. `hiding` drops joints
+    /// the body would cover.
+    private func threeQuarter(at time: TimeInterval, motionTime: TimeInterval = 0, ratio: Double? = nil,
                               hiding hidden: Set<LandmarkType> = []) -> PoseFrame {
-        let frame = ReadyPoseFixtures.demoFrame(front, motionTime: 0, at: time)
+        let frame = ReadyPoseFixtures.demoFrame(front, motionTime: motionTime, at: time)
         guard let left = frame.point(.leftShoulder, minimumConfidence: 0),
               let right = frame.point(.rightShoulder, minimumConfidence: 0),
               let leftHip = frame.point(.leftHip, minimumConfidence: 0),

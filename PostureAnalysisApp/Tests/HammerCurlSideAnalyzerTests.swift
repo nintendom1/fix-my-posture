@@ -358,6 +358,125 @@ final class HammerCurlSideAnalyzerTests: XCTestCase {
         XCTAssertGreaterThan(fallbackLine.to.x, fallbackLine.from.x)
     }
 
+    // MARK: - Camera-view hand-off
+
+    @MainActor
+    func testReportsTheTrackedCurlPastTheTopForBothSidesUntilItIsCreditedOrCountingStops() {
+        let analyzer = HammerCurlSideAnalyzer(epoch: 12)
+        let start = sideMotion.startAngles
+        let top = sideMotion.topAngles
+        var index = 0
+        func feed(_ angles: ArmAngles?, counting: Bool = true) -> ExerciseAnalysis {
+            defer { index += 1 }
+            let time = Double(index) / 10
+            let frame = angles.map { sideFrame(angles: $0, at: time) }
+                ?? PoseFrame(pose: BodyPose(landmarks: [:], imageWidth: 1080, imageHeight: 1920), timestamp: time)
+            return analyzer.process(frame, counting: counting)
+        }
+
+        for _ in 0..<5 { _ = feed(start) }
+        XCTAssertNil(analyzer.attemptInProgress(), "Hanging at the start is no attempt.")
+        _ = feed(halfCurlAngles)
+        XCTAssertNil(analyzer.attemptInProgress(), "A curl that hasn't reached the top doesn't carry.")
+        _ = feed(top)
+        _ = feed(top)
+        let both = Set(BodySide.allCases)
+        XCTAssertEqual(analyzer.attemptInProgress(), RepAttemptInProgress(movementStart: 0.4, reachedEnd: 0.7, sides: both),
+                       "One rep here credits both sides, so both carry.")
+        _ = feed(nil)
+        XCTAssertEqual(analyzer.attemptInProgress()?.sides, both, "A briefly hidden arm still carries its curl.")
+
+        for _ in 0..<4 { _ = feed(top) }
+        _ = feed(start)
+        XCTAssertEqual(feed(start).repEvents.count, 1)
+        XCTAssertNil(analyzer.attemptInProgress(), "A credited return leaves nothing to carry.")
+
+        for _ in 0..<3 { _ = feed(start) }
+        _ = feed(top)
+        _ = feed(top)
+        XCTAssertNotNil(analyzer.attemptInProgress())
+        _ = feed(nil, counting: false)
+        XCTAssertNil(analyzer.attemptInProgress(), "Counting stopped while the arm was hidden, so its curl is lost.")
+    }
+
+    @MainActor
+    func testAResumedCurlCountsOnceWhenTheTrackedArmReachesTheStart() {
+        let analyzer = HammerCurlSideAnalyzer(epoch: 13)
+        // This view's warm-up saw only the top, never the curl's start.
+        for index in 0..<3 {
+            _ = analyzer.process(sideFrame(angles: sideMotion.topAngles, at: Double(index) / 10), counting: true)
+        }
+        XCTAssertNil(analyzer.attemptInProgress())
+
+        // The front view carries one arm; the tracked arm continues it.
+        analyzer.resume(RepAttemptInProgress(movementStart: -1, reachedEnd: -0.5, sides: [.right]))
+        XCTAssertEqual(analyzer.attemptInProgress(),
+                       RepAttemptInProgress(movementStart: -1, reachedEnd: -0.5, sides: Set(BodySide.allCases)))
+
+        var reps: [RepEvent] = []
+        let lowering = [halfCurlAngles] + Array(repeating: sideMotion.startAngles, count: 12)
+        for (offset, angles) in lowering.enumerated() {
+            reps += analyzer.process(sideFrame(angles: angles, at: Double(3 + offset) / 10), counting: true).repEvents
+        }
+
+        XCTAssertEqual(reps, [RepEvent(epoch: 13, timestamp: 0.5, sides: Set(BodySide.allCases))])
+    }
+
+    @MainActor
+    func testAResumedCurlAlreadyBackAtTheStartCountsOnTheNextCountingFrameOnly() {
+        func run(firstFrameCounting: Bool) -> [RepEvent] {
+            let analyzer = HammerCurlSideAnalyzer(epoch: 14)
+            // During the warm-up the arm comes down from the top and hangs straight from 0.4 s.
+            let top = sideMotion.topAngles
+            let start = sideMotion.startAngles
+            for (index, angles) in [top, top, halfCurlAngles, start, start, start].enumerated() {
+                _ = analyzer.process(sideFrame(angles: angles, at: Double(index) / 10), counting: true)
+            }
+            analyzer.resume(RepAttemptInProgress(movementStart: -1, reachedEnd: 0.1, sides: [.left]))
+            var reps = analyzer.process(sideFrame(angles: start, at: 0.6), counting: firstFrameCounting).repEvents
+            for index in 7..<20 {
+                reps += analyzer.process(sideFrame(angles: start, at: Double(index) / 10), counting: true).repEvents
+            }
+            return reps
+        }
+
+        XCTAssertEqual(run(firstFrameCounting: true), [RepEvent(epoch: 14, timestamp: 0.6, sides: Set(BodySide.allCases))])
+        XCTAssertEqual(run(firstFrameCounting: false), [], "A counting stop drops the carried curl.")
+    }
+
+    @MainActor
+    func testResumeKeepsItsOwnCurlAndIgnoresAStartSeenBeforeTheCarriedTop() {
+        let start = sideMotion.startAngles
+        let ownCurl = HammerCurlSideAnalyzer(epoch: 15)
+        let curl = Array(repeating: start, count: 3) + Array(repeating: sideMotion.topAngles, count: 8)
+        for (index, angles) in curl.enumerated() {
+            _ = ownCurl.process(sideFrame(angles: angles, at: Double(index) / 10), counting: true)
+        }
+        ownCurl.resume(RepAttemptInProgress(movementStart: 0, reachedEnd: 0.35, sides: [.left]))
+        XCTAssertEqual(ownCurl.attemptInProgress(),
+                       RepAttemptInProgress(movementStart: 0.2, reachedEnd: 0.4, sides: Set(BodySide.allCases)))
+        var ownReps: [RepEvent] = []
+        for index in 11..<20 {
+            ownReps += ownCurl.process(sideFrame(angles: start, at: Double(index) / 10), counting: true).repEvents
+        }
+        XCTAssertEqual(ownReps.count, 1)
+
+        // This view saw the arm at the start before the other view's top, and only a half curl since.
+        let halfCurl = HammerCurlSideAnalyzer(epoch: 16)
+        for (index, angles) in [start, start, start, halfCurlAngles, halfCurlAngles].enumerated() {
+            _ = halfCurl.process(sideFrame(angles: angles, at: Double(index) / 10), counting: true)
+        }
+        halfCurl.resume(RepAttemptInProgress(movementStart: -1, reachedEnd: 0.35, sides: [.left]))
+        XCTAssertNil(halfCurl.attemptInProgress())
+        var halfReps: [RepEvent] = []
+        for index in 5..<15 {
+            halfReps += halfCurl.process(sideFrame(angles: start, at: Double(index) / 10), counting: true).repEvents
+        }
+        XCTAssertTrue(halfReps.isEmpty)
+    }
+
+    private var halfCurlAngles: ArmAngles { ArmAngles(upperArmElevation: -90, forearmElevation: 0) }
+
     private struct Run {
         var events: [RepEvent] = []
         var rejections: [RepRejection] = []

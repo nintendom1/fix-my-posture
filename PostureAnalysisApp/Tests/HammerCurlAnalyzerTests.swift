@@ -87,6 +87,155 @@ final class HammerCurlAnalyzerTests: XCTestCase {
         XCTAssertFalse(estimated.forms.contains { $0.flags.contains(.curlStraightenAtBottom) })
     }
 
+    // MARK: - Camera-view hand-off
+
+    @MainActor
+    func testReportsEachArmPastTheTopUntilItsReturnIsCreditedOrCountingStops() {
+        let analyzer = HammerCurlAnalyzer(epoch: 1)
+        var index = 0
+        func feed(_ left: Double?, _ right: Double?, counting: Bool = true) -> ExerciseAnalysis {
+            defer { index += 1 }
+            return analyzer.process(curlFrame(left: left, right: right, at: Double(index) / 10), counting: counting)
+        }
+
+        for _ in 0..<5 { _ = feed(-90, -90) }
+        XCTAssertNil(analyzer.attemptInProgress(), "Hanging at the start is no attempt.")
+        _ = feed(0, -90)
+        XCTAssertNil(analyzer.attemptInProgress(), "A curl that hasn't reached the top doesn't carry.")
+        _ = feed(50, -90)
+        _ = feed(50, -90)
+        XCTAssertEqual(analyzer.attemptInProgress(),
+                       RepAttemptInProgress(movementStart: 0.4, reachedEnd: 0.7, sides: [.left]))
+
+        _ = feed(50, 50)
+        _ = feed(50, 50)
+        XCTAssertEqual(analyzer.attemptInProgress(),
+                       RepAttemptInProgress(movementStart: 0.4, reachedEnd: 0.9, sides: [.left, .right]),
+                       "The earliest start and the latest top span both arms.")
+
+        // The right arm hides behind the body, as the far arm does during a turn; its curl still carries.
+        for _ in 0..<4 { _ = feed(50, nil) }
+        XCTAssertEqual(analyzer.attemptInProgress()?.sides, [.left, .right])
+
+        _ = feed(-90, nil)
+        let credited = feed(-90, nil)
+        XCTAssertEqual(credited.repEvents.map(\.sides), [[.left]])
+        XCTAssertEqual(analyzer.attemptInProgress(),
+                       RepAttemptInProgress(movementStart: 0.7, reachedEnd: 0.9, sides: [.right]),
+                       "A credited return leaves only the other arm's curl.")
+
+        _ = feed(-90, nil, counting: false)
+        XCTAssertNil(analyzer.attemptInProgress(), "Counting stopped while the arm was hidden, so its curl is lost.")
+    }
+
+    @MainActor
+    func testACountingStopDropsAVisibleArmsCurlPastTheTop() {
+        let analyzer = HammerCurlAnalyzer(epoch: 1)
+        for (index, elevation) in [-90.0, -90, -90, 50, 50].enumerated() {
+            _ = analyzer.process(curlFrame(left: elevation, right: -90, at: Double(index) / 10), counting: true)
+        }
+        XCTAssertEqual(analyzer.attemptInProgress()?.sides, [.left])
+
+        _ = analyzer.process(curlFrame(left: 50, right: -90, at: 0.5), counting: false)
+        _ = analyzer.process(curlFrame(left: 50, right: -90, at: 0.6), counting: true)
+
+        XCTAssertNil(analyzer.attemptInProgress())
+    }
+
+    @MainActor
+    func testResumedArmsEachCountOnceWhenTheyHangStraight() {
+        let analyzer = HammerCurlAnalyzer(epoch: 2)
+        // This view's warm-up saw only the top, never the curl's start.
+        for index in 0..<4 {
+            _ = analyzer.process(curlFrame(left: 50, right: 50, at: Double(index) / 10), counting: true)
+        }
+        XCTAssertNil(analyzer.attemptInProgress())
+
+        let carried = RepAttemptInProgress(movementStart: -1, reachedEnd: -0.5, sides: [.left, .right])
+        analyzer.resume(carried)
+        XCTAssertEqual(analyzer.attemptInProgress(), carried)
+
+        // The left arm lowers first, then the right.
+        let lowering: [(left: Double, right: Double)] = [(0, 50), (-90, 50), (-90, 50), (-90, 0), (-90, -90)]
+            + Array(repeating: (-90, -90), count: 11)
+        var reps: [RepEvent] = []
+        for (offset, pose) in lowering.enumerated() {
+            let time = Double(4 + offset) / 10
+            reps += analyzer.process(curlFrame(left: pose.left, right: pose.right, at: time), counting: true).repEvents
+        }
+
+        XCTAssertEqual(reps, [RepEvent(epoch: 2, timestamp: 0.6, sides: [.left]),
+                              RepEvent(epoch: 2, timestamp: 0.9, sides: [.right])])
+        XCTAssertNil(analyzer.attemptInProgress())
+    }
+
+    @MainActor
+    func testAResumedArmAlreadyHangingSinceTheTopCountsOnTheNextCountingFrame() {
+        let analyzer = HammerCurlAnalyzer(epoch: 3)
+        // During the warm-up both arms come down from the top and hang straight from 0.4 s.
+        for (index, elevation) in [50.0, 50, 0, -90, -90, -90].enumerated() {
+            _ = analyzer.process(curlFrame(left: elevation, right: elevation, at: Double(index) / 10), counting: true)
+        }
+
+        analyzer.resume(RepAttemptInProgress(movementStart: -1, reachedEnd: 0.2, sides: [.left, .right]))
+        let first = analyzer.process(curlFrame(left: -90, right: -90, at: 0.6), counting: true)
+        var later: [RepEvent] = []
+        for index in 7..<20 {
+            later += analyzer.process(curlFrame(left: -90, right: -90, at: Double(index) / 10), counting: true).repEvents
+        }
+
+        XCTAssertEqual(first.repEvents.count, 2)
+        XCTAssertEqual(Set(first.repEvents.flatMap(\.sides)), [.left, .right])
+        XCTAssertTrue(first.repEvents.allSatisfy { $0.timestamp == 0.6 })
+        XCTAssertTrue(later.isEmpty, "The carried curl counts once.")
+    }
+
+    @MainActor
+    func testResumeKeepsAnArmsOwnCurlAndIgnoresAStartSeenBeforeTheCarriedTop() {
+        let analyzer = HammerCurlAnalyzer(epoch: 4)
+        // Both arms hang from 0 s. The right reaches its own top at 0.4 s; the left only half curls.
+        let curl: [(left: Double, right: Double)] = Array(repeating: (-90, -90), count: 3)
+            + Array(repeating: (0, 50), count: 8)
+        for (index, pose) in curl.enumerated() {
+            _ = analyzer.process(curlFrame(left: pose.left, right: pose.right, at: Double(index) / 10), counting: true)
+        }
+
+        analyzer.resume(RepAttemptInProgress(movementStart: 0.2, reachedEnd: 0.35, sides: [.left, .right]))
+        XCTAssertEqual(analyzer.attemptInProgress(),
+                       RepAttemptInProgress(movementStart: 0.2, reachedEnd: 0.4, sides: [.right]),
+                       "The right arm keeps its own curl; the left saw its start before the carried top.")
+
+        var reps: [RepEvent] = []
+        for index in 11..<22 {
+            reps += analyzer.process(curlFrame(left: -90, right: -90, at: Double(index) / 10), counting: true).repEvents
+        }
+        XCTAssertEqual(reps.map(\.sides), [[.right]])
+    }
+
+    /// A front frame with each forearm's elevation in degrees and the upper arms hanging. A nil elevation hides
+    /// that arm's elbow and wrist.
+    @MainActor
+    private func curlFrame(left: Double?, right: Double?, at time: TimeInterval) -> PoseFrame {
+        var joints = ExerciseDemoFigureView.figureJoints
+        for (side, elevation) in [(BodySide.left, left), (BodySide.right, right)] {
+            let other: BodySide = side == .left ? .right : .left
+            guard let elevation, let shoulder = joints[side.shoulder], let otherShoulder = joints[other.shoulder] else {
+                continue
+            }
+            let arm = ArmMotion.place(shoulder: shoulder, otherShoulder: otherShoulder,
+                                      upperArm: ExerciseDemoFigureView.upperArm, forearm: ExerciseDemoFigureView.forearm,
+                                      angles: ArmAngles(upperArmElevation: -85, forearmElevation: elevation),
+                                      forearmPlane: .sagittal)
+            joints[side.elbow] = arm.elbow
+            joints[side.wrist] = arm.wrist
+        }
+        let landmarks = Dictionary(uniqueKeysWithValues: joints.map { type, point in
+            (type, Landmark(type: type, normalizedLocation: .zero,
+                            imageLocation: CGPoint(x: point.x * 3 + 200, y: point.y * 3 + 300), confidence: 0.9))
+        })
+        return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: 1080, imageHeight: 1920), timestamp: time)
+    }
+
     private struct Run {
         var reps: [BodySide: Int] = [:]
         var forms: [RepForm] = []

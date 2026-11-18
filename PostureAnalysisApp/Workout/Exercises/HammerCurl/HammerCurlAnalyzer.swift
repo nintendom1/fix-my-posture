@@ -12,10 +12,14 @@ final class HammerCurlAnalyzer: ExerciseAnalyzing {
     private let configuration: HammerCurlConfiguration
     private var arms: [BodySide: ArmState] = [:]
     private var formMonitor: HammerCurlFormMonitor
+    /// The last frame processed without counting. An arm unseen since then would have lost its attempt.
+    private var countingStoppedAt: TimeInterval?
 
     private struct ArmState {
         var tracker: HysteresisPhaseTracker
         var lastSample: TimeInterval?
+        /// When the tracker last confirmed the start.
+        var startConfirmedAt: TimeInterval?
         var recentUpperArms: [CGFloat] = []
         var smoothedElbowY: CGFloat?
         var locked: Reference?
@@ -26,8 +30,9 @@ final class HammerCurlAnalyzer: ExerciseAnalyzing {
 
     private enum Cycle {
         case awaitingBottom
-        /// `movementStart` is the last time the arm hung at the start before it reached the top.
-        case active(movementStart: TimeInterval, reachedTop: Bool)
+        /// `movementStart` is the last time the arm hung at the start before it reached the top; `topReachedAt` is
+        /// when it reached the top, nil until then.
+        case active(movementStart: TimeInterval, topReachedAt: TimeInterval?)
     }
 
     /// The elbow height and upper-arm length one arm's heights are measured from.
@@ -48,6 +53,7 @@ final class HammerCurlAnalyzer: ExerciseAnalyzing {
         var formSamples: [BodySide: HammerCurlFormMonitor.ArmSample] = [:]
         var points: [BodySide: ArmPoints] = [:]
         var rulers: [CGFloat] = []
+        if !counting { countingStoppedAt = time }
 
         for side in BodySide.allCases {
             var state = arms[side] ?? ArmState(tracker: HysteresisPhaseTracker(requiredSamples: configuration.confirmationSamples))
@@ -59,12 +65,13 @@ final class HammerCurlAnalyzer: ExerciseAnalyzing {
             }
             points[side] = arm
             if let last = state.lastSample, time - last > configuration.maximumSampleGap {
-                if case .active(_, let reachedTop) = state.cycle, let lost = RepRejection.lost(at: time, side: side, .trackingGap(
+                if case .active(_, let topReachedAt) = state.cycle, let lost = RepRejection.lost(at: time, side: side, .trackingGap(
                     seconds: time - last, maximum: configuration.maximumSampleGap,
-                    stage: .of(reachedEnd: reachedTop, zones: [state.tracker.lastZone ?? .bottom]))) {
+                    stage: .of(reachedEnd: topReachedAt != nil, zones: [state.tracker.lastZone ?? .bottom]))) {
                     analysis.rejections.append(lost)
                 }
                 state.tracker.reset()
+                state.startConfirmedAt = nil
                 state.cycle = .awaitingBottom
                 state.locked = nil
                 state.awayFromStartSince = nil
@@ -77,6 +84,7 @@ final class HammerCurlAnalyzer: ExerciseAnalyzing {
             let ratio = Double((reference.elbowY - arm.wrist.y) / reference.ruler)
             let zone = classify(ratio)
             let newlyConfirmed = state.tracker.update(zone)
+            if newlyConfirmed == .bottom { state.startConfirmedAt = time }
             updateLock(&state, zone: zone, live: live, at: time)
             rulers.append(reference.ruler)
 
@@ -95,8 +103,8 @@ final class HammerCurlAnalyzer: ExerciseAnalyzing {
                         duration: tooFast, minimum: configuration.minimumRepDuration)))
                 }
             } else {
-                if case .active(_, let reachedTop) = state.cycle, let lost = RepRejection.lost(at: time, side: side,
-                    .countingStopped(stage: .of(reachedEnd: reachedTop, zones: [zone]))) {
+                if case .active(_, let topReachedAt) = state.cycle, let lost = RepRejection.lost(at: time, side: side,
+                    .countingStopped(stage: .of(reachedEnd: topReachedAt != nil, zones: [zone]))) {
                     analysis.rejections.append(lost)
                 }
                 state.cycle = .awaitingBottom
@@ -127,23 +135,51 @@ final class HammerCurlAnalyzer: ExerciseAnalyzing {
                           at time: TimeInterval) -> (rep: TimeInterval?, tooFast: TimeInterval?) {
         switch state.cycle {
         case .awaitingBottom:
-            if state.tracker.confirmed == .bottom { state.cycle = .active(movementStart: time, reachedTop: false) }
+            if state.tracker.confirmed == .bottom { state.cycle = .active(movementStart: time, topReachedAt: nil) }
             return (nil, nil)
-        case .active(var movementStart, var reachedTop):
-            if !reachedTop, zone == .bottom { movementStart = time }
-            if newlyConfirmed == .top { reachedTop = true }
+        case .active(var movementStart, var topReachedAt):
+            if topReachedAt == nil, zone == .bottom { movementStart = time }
+            if newlyConfirmed == .top { topReachedAt = topReachedAt ?? time }
             var outcome: (rep: TimeInterval?, tooFast: TimeInterval?) = (nil, nil)
-            if newlyConfirmed == .bottom {
-                if reachedTop, time - movementStart >= configuration.minimumRepDuration {
+            // Only a resumed attempt can be past the top while the tracker holds the start: this view confirmed the
+            // return during its warm-up, so the attempt ends on this first counting frame.
+            if newlyConfirmed == .bottom || (topReachedAt != nil && state.tracker.confirmed == .bottom) {
+                if topReachedAt != nil, time - movementStart >= configuration.minimumRepDuration {
                     outcome.rep = time
-                } else if reachedTop {
+                } else if topReachedAt != nil {
                     outcome.tooFast = time - movementStart
                 }
                 movementStart = time
-                reachedTop = false
+                topReachedAt = nil
             }
-            state.cycle = .active(movementStart: movementStart, reachedTop: reachedTop)
+            state.cycle = .active(movementStart: movementStart, topReachedAt: topReachedAt)
             return outcome
+        }
+    }
+
+    // MARK: - Camera-view hand-off
+
+    /// Arms past the Top line and not yet credited. A hidden arm still carries, as the far arm does during a turn,
+    /// unless counting stopped after it was last seen.
+    func attemptInProgress() -> RepAttemptInProgress? {
+        let carried = BodySide.allCases.compactMap { side -> (side: BodySide, start: TimeInterval, top: TimeInterval)? in
+            guard let state = arms[side], case .active(let start, let top?) = state.cycle,
+                  let lastSample = state.lastSample,
+                  countingStoppedAt.map({ $0 < lastSample }) ?? true else { return nil }
+            return (side, start, top)
+        }
+        guard let start = carried.map(\.start).min(), let end = carried.map(\.top).max() else { return nil }
+        return RepAttemptInProgress(movementStart: start, reachedEnd: end, sides: Set(carried.map(\.side)))
+    }
+
+    /// Each carried arm continues past the Top line, so it counts once its own tracker confirms the start.
+    func resume(_ attempt: RepAttemptInProgress) {
+        for side in attempt.sides {
+            var state = arms[side] ?? ArmState(tracker: HysteresisPhaseTracker(requiredSamples: configuration.confirmationSamples))
+            if case .active(_, .some) = state.cycle { continue }
+            if state.tracker.confirmed == .bottom, (state.startConfirmedAt ?? -.infinity) <= attempt.reachedEnd { continue }
+            state.cycle = .active(movementStart: attempt.movementStart, topReachedAt: attempt.reachedEnd)
+            arms[side] = state
         }
     }
 
