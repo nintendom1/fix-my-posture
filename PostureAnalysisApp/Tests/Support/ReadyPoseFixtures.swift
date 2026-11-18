@@ -90,10 +90,12 @@ enum ReadyPoseFixtures {
             preconditionFailure("Ready pose for \(exercise.id) cannot meet the minimum visible body-joint count.")
         }
 
-        let centeredJoints = positions.filter { type, _ in
+        // Sum in a fixed joint order: dictionary order can vary between instances and change the last bit.
+        let orderedJoints = LandmarkType.allCases.filter { positions[$0] != nil }
+        let centeredJoints = orderedJoints.filter { type in
             type == .leftShoulder || type == .rightShoulder || type == .leftHip || type == .rightHip
         }
-        let pointsToCenter = centeredJoints.isEmpty ? Array(positions.values) : Array(centeredJoints.values)
+        let pointsToCenter = (centeredJoints.isEmpty ? orderedJoints : centeredJoints).compactMap { positions[$0] }
         guard !pointsToCenter.isEmpty else {
             preconditionFailure("Ready pose for \(exercise.id) has no joints to center.")
         }

@@ -14,6 +14,7 @@ export const MUTATION_BOUNDS = Object.freeze({
   tempo: Object.freeze({ scale: bounds(0.3, 2), reps: "optional one-based repetition numbers" }),
   pause: Object.freeze({ at: bounds(0, 120), duration: bounds(0, 10) }),
   frameGap: Object.freeze({ at: bounds(0, 120), duration: bounds(0, 10) }),
+  turn: Object.freeze({ at: bounds(0, 120), duration: bounds(0.1, 10), toView: "ExerciseCameraView" }),
   dropout: Object.freeze({ joints: "LandmarkType[]", from: bounds(0, 120), to: bounds(0, 120), intervalMaximum: 10 }),
   confidence: Object.freeze({ joints: "LandmarkType[]", from: bounds(0, 120), to: bounds(0, 120), value: bounds(0, 1), intervalMaximum: 10 }),
   framing: Object.freeze({ scale: bounds(0.3, 2), offsetX: bounds(-0.5, 0.5), offsetY: bounds(-0.5, 0.5) }),
@@ -126,6 +127,17 @@ function mutation(errors, value, path, reps, sequenceDuration) {
       boundedNumber(errors, value.duration, `${path}.duration`, MUTATION_BOUNDS.frameGap.duration);
       if (finiteNumber(value.at) && finiteNumber(value.duration) && value.at + value.duration > sequenceDuration) issue(errors, `${path}.duration`, "frame-gap end must be at or before the output sequence end");
       break;
+    case "turn":
+      boundedNumber(errors, value.at, `${path}.at`, MUTATION_BOUNDS.turn.at);
+      boundedNumber(errors, value.duration, `${path}.duration`, MUTATION_BOUNDS.turn.duration);
+      text(errors, value.toView, `${path}.toView`);
+      if (typeof value.toView === "string" && !CAMERA_VIEWS.has(value.toView)) {
+        issue(errors, `${path}.toView`, `must be one of ${SWIFT_CAMERA_VIEWS.join(", ")}`);
+      }
+      if (finiteNumber(value.at) && finiteNumber(value.duration) && value.at + value.duration > sequenceDuration) {
+        issue(errors, `${path}.duration`, "turn end must be at or before the output sequence end");
+      }
+      break;
     case "dropout":
       joints(errors, value.joints, `${path}.joints`);
       interval(errors, value.from, value.to, path, sequenceDuration, kind);
@@ -227,6 +239,19 @@ export function validatePlan(plan) {
     // Bounds all output-clock inputs conservatively before Swift computes the guide-specific timeline.
     const duration = 120;
     mutations.forEach((item, mutationIndex) => mutation(errors, item, `${path}.mutations[${mutationIndex}]`, scenario.reps, duration));
+    let previousTurnAt;
+    let previousTurnEnd;
+    mutations.forEach((item, mutationIndex) => {
+      if (!object(item) || item.kind !== "turn") return;
+      const turnPath = `${path}.mutations[${mutationIndex}]`;
+      if (finiteNumber(item.at)) {
+        if (previousTurnAt !== undefined && item.at < previousTurnAt) issue(errors, `${turnPath}.at`, "turns must be in time order");
+        if (previousTurnEnd !== undefined && item.at < previousTurnEnd) issue(errors, `${turnPath}.at`, "turns must not overlap");
+        previousTurnAt = item.at;
+      }
+      const end = item.at + item.duration;
+      if (finiteNumber(item.at) && finiteNumber(item.duration) && Number.isFinite(end)) previousTurnEnd = end;
+    });
     compositeDepthScale(errors, mutations, path, scenario.reps);
     (Array.isArray(scenario.assertions) ? scenario.assertions : []).forEach((item, assertionIndex) => assertion(errors, item, `${path}.assertions[${assertionIndex}]`));
   });

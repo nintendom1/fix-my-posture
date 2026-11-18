@@ -455,6 +455,52 @@ final class MovementLabTests: XCTestCase {
         XCTAssertEqual(revisions["hammer_curl.side"], MovementCanonicalRevision.value(for: base.inView(.side)))
     }
 
+    func testPipelineModeRejectsTurnMutations() throws {
+        let base = try XCTUnwrap(ExerciseCatalog.definition(for: .hammerCurl))
+        let scenario = MovementScenario(id: "curl-turn-pipeline", exercise: .hammerCurl, category: .timing,
+                                        purpose: "A camera-view turn requires coach mode.",
+                                        canonicalRevision: MovementCanonicalRevision.value(for: base),
+                                        seed: 27, reps: 1, mode: .raw,
+                                        mutations: [.turn(at: 2, duration: 1, toView: .side)], assertions: [])
+        let result = try XCTUnwrap(MovementLabRunner.run(plan: planWith([scenario]), mode: .pipeline).results.first)
+        XCTAssertEqual(result.outcome, .invalid)
+        XCTAssertTrue(result.invalidReasons.contains("turn needs coach mode"), "\(result.invalidReasons)")
+    }
+
+    func testCoachAutoViewTurnsDuringBottomPauseAndKeepsCurlReps() throws {
+        let base = try XCTUnwrap(ExerciseCatalog.definition(for: .hammerCurl))
+        let scenario = MovementScenario(
+            id: "curl-turn-bottom",
+            exercise: .hammerCurl,
+            category: .timing,
+            purpose: "Turn side-on during the bottom pause without losing counted curls.",
+            canonicalRevision: MovementCanonicalRevision.value(for: base),
+            seed: 27,
+            reps: 2,
+            mode: .raw,
+            mutations: [
+                .pause(at: 2, duration: 2.5),
+                .turn(at: 2.1, duration: 1, toView: .side),
+            ],
+            assertions: [.repCount(equals: 2, min: nil, max: nil)],
+            cameraView: .front
+        )
+        let run = MovementLabRunner.run(plan: planWith([scenario]), mode: .coach)
+        let result = try XCTUnwrap(run.results.first)
+        XCTAssertEqual(result.outcome, .passed, "\(result.invalidReasons), \(result.assertionResults.map(\.detail))")
+        XCTAssertEqual(result.observed.reps, 2)
+
+        let records = try XCTUnwrap(run.recordingLines[scenario.id]).compactMap(jsonRecord)
+        let stanceEvents = records.filter { $0["k"] as? String == "e" && $0["type"] as? String == "stance" }
+        XCTAssertTrue(stanceEvents.contains {
+            $0["settled"] as? String == "side" || $0["turning"] as? Bool == true
+        }, "Expected a stance or turning event in the recording.")
+        XCTAssertTrue(records.contains {
+            $0["k"] as? String == "pipe" && $0["control"] as? String == "exercise"
+                && $0["cameraView"] as? String == "side"
+        }, "Expected Auto to switch the recorded exercise control to side view.")
+    }
+
     private func canonicalScenario() throws -> MovementScenario {
         try XCTUnwrap(MovementPresets.airSquat().scenarios.first { $0.id == "canonical" })
     }

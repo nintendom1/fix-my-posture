@@ -82,6 +82,50 @@ test("a scenario may name any Swift camera view, and leaving it out keeps the us
   }
 });
 
+test("turn mutations accept a known view and validate shape, bounds, order, and overlap", () => {
+  const candidate = plan();
+  candidate.scenarios[0].mutations = [{ kind: "turn", at: 3, duration: 1, toView: "side" }];
+  assert.deepEqual(validatePlan(candidate), []);
+
+  const badDuration = plan();
+  badDuration.scenarios[0].mutations = [{ kind: "turn", at: 3, duration: 0.09, toView: "side" }];
+  assert.ok(validatePlan(badDuration).includes("scenarios[0].mutations[0].duration: must be between 0.1 and 10"));
+
+  const longDuration = plan();
+  longDuration.scenarios[0].mutations = [{ kind: "turn", at: 3, duration: 10.01, toView: "side" }];
+  assert.ok(validatePlan(longDuration).includes("scenarios[0].mutations[0].duration: must be between 0.1 and 10"));
+
+  const outsideClock = plan();
+  outsideClock.scenarios[0].mutations = [{ kind: "turn", at: 120.01, duration: 0.1, toView: "side" }];
+  assert.ok(validatePlan(outsideClock).includes("scenarios[0].mutations[0].at: must be between 0 and 120"));
+
+  const badView = plan();
+  badView.scenarios[0].mutations = [{ kind: "turn", at: 3, duration: 1, toView: "back" }];
+  assert.ok(validatePlan(badView).includes("scenarios[0].mutations[0].toView: must be one of front, side, floor, lyingSide"));
+
+  const missingView = plan();
+  missingView.scenarios[0].mutations = [{ kind: "turn", at: 3, duration: 1 }];
+  assert.ok(validatePlan(missingView).includes("scenarios[0].mutations[0].toView: must be a nonempty string"));
+
+  const overlap = plan();
+  overlap.scenarios[0].mutations = [
+    { kind: "turn", at: 3, duration: 1, toView: "side" },
+    { kind: "turn", at: 3.5, duration: 1, toView: "front" },
+  ];
+  assert.ok(validatePlan(overlap).includes("scenarios[0].mutations[1].at: turns must not overlap"));
+
+  const outOfOrder = plan();
+  outOfOrder.scenarios[0].mutations = [
+    { kind: "turn", at: 4, duration: 0.5, toView: "side" },
+    { kind: "turn", at: 3, duration: 0.5, toView: "front" },
+  ];
+  assert.ok(validatePlan(outOfOrder).includes("scenarios[0].mutations[1].at: turns must be in time order"));
+
+  const unknownKind = plan();
+  unknownKind.scenarios[0].mutations = [{ kind: "spin", at: 3, duration: 1, toView: "side" }];
+  assert.ok(validatePlan(unknownKind).includes("scenarios[0].mutations[0].kind: is not a supported mutation kind"));
+});
+
 test("composite depth is rejected before large or tiny geometry reaches generation", () => {
   const tooLarge = plan();
   tooLarge.scenarios[0].mutations = Array.from({ length: 5 }, () => ({ kind: "depthScale", scale: 2 }));

@@ -274,6 +274,32 @@ struct MovementScenario: Codable, Equatable, Identifiable {
                                         sequenceDuration: sequenceDuration,
                                         pauseClockDuration: sequenceDurations?.prePause)
         }
+        let baseExercise = ExerciseCatalog.all.first { $0.id == exercise }
+        var activeView = cameraView
+        var previousTurnAt: TimeInterval?
+        var previousTurnEnd: TimeInterval?
+        for (index, mutation) in mutations.enumerated() {
+            guard case .turn(let at, let duration, let toView) = mutation else { continue }
+            let turnPath = "\(path).mutations[\(index)]"
+            if at.isFinite {
+                if let previousTurnAt, at < previousTurnAt {
+                    issues.append(.init("\(turnPath).at", "turns must be in time order"))
+                }
+                if let previousTurnEnd, at < previousTurnEnd {
+                    issues.append(.init("\(turnPath).at", "turns must not overlap"))
+                }
+            }
+            if let baseExercise, !baseExercise.views.contains(toView) {
+                issues.append(.init("\(turnPath).toView", "is not a camera view of \(exercise.rawValue)"))
+            }
+            if toView == activeView {
+                issues.append(.init("\(turnPath).toView", "must differ from the view in effect at the turn's start"))
+            }
+            activeView = toView
+            if at.isFinite { previousTurnAt = at }
+            let end = at + duration
+            if at.isFinite && duration.isFinite && end.isFinite { previousTurnEnd = end }
+        }
         for (index, assertion) in assertions.enumerated() {
             issues += assertion.validate(path: "\(path).assertions[\(index)]")
         }
@@ -384,6 +410,7 @@ enum MovementMutation: Codable, Equatable {
     case tempo(scale: Double, reps: [Int]?)
     case pause(at: TimeInterval, duration: TimeInterval)
     case frameGap(at: TimeInterval, duration: TimeInterval)
+    case turn(at: TimeInterval, duration: TimeInterval, toView: ExerciseCameraView)
     case dropout(joints: [String], from: TimeInterval, to: TimeInterval)
     case confidence(joints: [String], from: TimeInterval, to: TimeInterval, value: Double)
     case framing(scale: Double, offsetX: Double, offsetY: Double)
@@ -396,6 +423,7 @@ enum MovementMutation: Codable, Equatable {
         case .tempo: return "tempo"
         case .pause: return "pause"
         case .frameGap: return "frameGap"
+        case .turn: return "turn"
         case .dropout: return "dropout"
         case .confidence: return "confidence"
         case .framing: return "framing"
@@ -417,6 +445,8 @@ enum MovementMutation: Codable, Equatable {
         case let (.pause(leftAt, leftDuration), .pause(rightAt, rightDuration)),
              let (.frameGap(leftAt, leftDuration), .frameGap(rightAt, rightDuration)):
             return leftAt == rightAt && leftDuration == rightDuration && lhs.kind == rhs.kind
+        case let (.turn(leftAt, leftDuration, leftView), .turn(rightAt, rightDuration, rightView)):
+            return leftAt == rightAt && leftDuration == rightDuration && leftView == rightView
         case let (.dropout(leftJoints, leftFrom, leftTo), .dropout(rightJoints, rightFrom, rightTo)):
             return leftJoints.sorted() == rightJoints.sorted() && leftFrom == rightFrom && leftTo == rightTo
         case let (.confidence(leftJoints, leftFrom, leftTo, leftValue),
@@ -513,6 +543,12 @@ enum MovementMutation: Codable, Equatable {
             if at.isFinite && seconds.isFinite, let sequenceDuration, at + seconds > sequenceDuration {
                 issues.append(.init("\(path).duration", "frame-gap end must be at or before the output sequence end"))
             }
+        case .turn(let at, let seconds, _):
+            time(at, "at")
+            range(seconds, 0.1...10, "duration")
+            if at.isFinite && seconds.isFinite, let sequenceDuration, at + seconds > sequenceDuration {
+                issues.append(.init("\(path).duration", "turn end must be at or before the output sequence end"))
+            }
         case .dropout(let affected, let start, let end):
             joints(affected)
             interval(start, end, "from", "to")
@@ -530,7 +566,7 @@ enum MovementMutation: Codable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case kind, joints, dx, dy, peak, rise, fall, strength, scale, reps, side, amount
-        case at, duration, from, to, value, offsetX, offsetY
+        case at, duration, from, to, toView, value, offsetX, offsetY
     }
 
     init(from decoder: Decoder) throws {
@@ -564,6 +600,14 @@ enum MovementMutation: Codable, Equatable {
         case "frameGap":
             self = .frameGap(at: try container.decode(TimeInterval.self, forKey: .at),
                              duration: try container.decode(TimeInterval.self, forKey: .duration))
+        case "turn":
+            let viewName = try container.decode(String.self, forKey: .toView)
+            guard let view = ExerciseCameraView(rawValue: viewName) else {
+                throw DecodingError.dataCorruptedError(forKey: .toView, in: container,
+                                                       debugDescription: "Unknown exercise camera view '\(viewName)'.")
+            }
+            self = .turn(at: try container.decode(TimeInterval.self, forKey: .at),
+                         duration: try container.decode(TimeInterval.self, forKey: .duration), toView: view)
         case "dropout":
             self = .dropout(joints: try container.decode([String].self, forKey: .joints).sorted(),
                             from: try container.decode(TimeInterval.self, forKey: .from),
@@ -609,6 +653,10 @@ enum MovementMutation: Codable, Equatable {
         case .frameGap(let at, let duration):
             try container.encode(at, forKey: .at)
             try container.encode(duration, forKey: .duration)
+        case .turn(let at, let duration, let toView):
+            try container.encode(at, forKey: .at)
+            try container.encode(duration, forKey: .duration)
+            try container.encode(toView.rawValue, forKey: .toView)
         case .dropout(let joints, let from, let to):
             try container.encode(joints.sorted(), forKey: .joints)
             try container.encode(from, forKey: .from)

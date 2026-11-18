@@ -126,7 +126,16 @@ enum MovementLabRunner {
         var references: [String: [String]] = [:]
         var counts: [String: [MovementLabCountingChange]] = [:]
         for scenario in plan.scenarios {
-            let materialization = MovementGenerator.materialize(plan: plan, scenario: scenario)
+            let generated = MovementGenerator.materialize(plan: plan, scenario: scenario)
+            let materialization: MovementMaterialization
+            if mode == .pipeline && containsTurn(scenario) {
+                materialization = MovementMaterialization(
+                    frames: generated.frames, recordingLines: generated.recordingLines,
+                    invalidReasons: generated.invalidReasons + ["turn needs coach mode"]
+                )
+            } else {
+                materialization = generated
+            }
             references[scenario.id] = referenceRecordingLines(plan: plan, scenario: scenario, materialization: materialization)
             guard materialization.isValid else {
                 results.append(MovementScenarioResult(
@@ -173,7 +182,7 @@ enum MovementLabRunner {
             var referenceScenario = scenario
             referenceScenario.mutations = scenario.mutations.filter { mutation in
                 switch mutation {
-                case .tempo, .pause, .frameGap: return true
+                case .tempo, .pause, .frameGap, .turn: return true
                 default: return false
                 }
             }
@@ -252,8 +261,15 @@ enum MovementLabRunner {
         let startedAt = MovementISO8601.date(from: plan.createdAt) ?? Date(timeIntervalSince1970: 0)
         let recorder = MovementLabRecorder(id: MovementMaterializer.recordingID(plan: plan, scenario: scenario),
                                            startedAt: startedAt)
-        // The coach starts in the scenario's camera view; a view-choice exercise is locked to it.
-        let harness = WorkoutCoachHarness.make(showing: definition, recorder: recorder)
+        let harness: WorkoutCoachHarness
+        if containsTurn(scenario) {
+            let settings = WorkoutSettings(viewPreferences: [definition.id: .auto])
+            harness = WorkoutCoachHarness.make(preferences: InMemoryPreferences(), initialExercise: definition.id,
+                                               recorder: recorder, settings: settings)
+        } else {
+            // Keep scenarios without a turn on the same locked-view harness path.
+            harness = WorkoutCoachHarness.make(showing: definition, recorder: recorder)
+        }
         harness.model.onAppear(isApplicationActive: true)
         harness.camera.emit(.running)
         let startTime = harness.clock.now
@@ -299,6 +315,13 @@ enum MovementLabRunner {
 
     private static func completedReps(_ session: WorkoutSession, exerciseID: ExerciseID) -> Int {
         (session.progress[exerciseID]?.setReps.reduce(0, +) ?? 0) + session.repCount
+    }
+
+    private static func containsTurn(_ scenario: MovementScenario) -> Bool {
+        scenario.mutations.contains { mutation in
+            if case .turn = mutation { return true }
+            return false
+        }
     }
 
     private static func pipelineSnapshot(exercise: ExerciseDefinition, reps: Int, counting: Bool,

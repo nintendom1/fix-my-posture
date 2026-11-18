@@ -36,6 +36,17 @@ enum MovementGenerator {
         var tempoScale: Double
     }
 
+    private struct TurnSegment {
+        var at: TimeInterval
+        var duration: TimeInterval
+        var toView: ExerciseCameraView
+    }
+
+    private struct RenderedGuide {
+        var locations: [LandmarkType: CGPoint]
+        var cameraView: ExerciseCameraView
+    }
+
     static func materialize(plan: MovementPlan, scenario: MovementScenario,
                             startingTimestamp: TimeInterval = 0) -> MovementMaterialization {
         var invalidReasons = scenario.validate().map(\.message)
@@ -44,8 +55,11 @@ enum MovementGenerator {
         }
         // Everything below renders and measures the scenario's camera view.
         let exercise = base.inView(scenario.cameraView)
-        guard scenario.canonicalRevision == MovementCanonicalRevision.value(for: exercise) else {
-            invalidReasons.append("The canonical exercise guide changed; refresh canonicalRevision before materializing.")
+        let expectedRevision = MovementCanonicalRevision.value(for: exercise)
+        guard scenario.canonicalRevision == expectedRevision else {
+            invalidReasons.append(
+                "The canonical exercise guide changed; refresh canonicalRevision to \(expectedRevision) before materializing."
+            )
             return invalid(invalidReasons)
         }
         guard startingTimestamp.isFinite else {
@@ -70,7 +84,10 @@ enum MovementGenerator {
         }
 
         let motion = scenario.exercise == .pushUp ? PushUpMovement.motion : exercise.guide.motion
-        let plantedJoints = exercise.plantedJoints
+        let turns = scenario.mutations.compactMap { mutation -> TurnSegment? in
+            guard case .turn(let at, let duration, let toView) = mutation else { return nil }
+            return TurnSegment(at: at, duration: duration, toView: toView)
+        }
         guard let pauses = MovementSequenceDurations.pauseSegments(in: scenario.mutations) else {
             return invalid(["Pause timeline values must be finite and nonnegative."])
         }
@@ -123,7 +140,7 @@ enum MovementGenerator {
             }
 
             let referenceFrame: PoseFrame
-            if scenario.exercise == .pushUp {
+            if turns.isEmpty && scenario.exercise == .pushUp {
                 let referenceLocations = ExerciseDemoFigureView.pose(
                     for: motion.sample(at: motionTime), forearmPlane: motion.forearmPlane,
                     cameraView: exercise.cameraView
@@ -131,9 +148,17 @@ enum MovementGenerator {
                 let referencePose = ReadyPoseFixtures.pose(for: Set(referenceLocations.keys),
                                                             reference: referenceLocations, exercise: exercise)
                 referenceFrame = PoseFrame(pose: referencePose, timestamp: startingTimestamp + elapsed)
-            } else {
+            } else if turns.isEmpty {
                 referenceFrame = ReadyPoseFixtures.demoFrame(exercise, motionTime: motionTime,
                                                               at: startingTimestamp + elapsed)
+            } else {
+                let referenceGuide = renderedGuide(for: motion.sample(at: motionTime), base: base,
+                                                   startingView: scenario.cameraView, turns: turns, at: elapsed)
+                let referenceExercise = base.inView(referenceGuide.cameraView)
+                let referencePose = ReadyPoseFixtures.pose(for: Set(referenceGuide.locations.keys),
+                                                            reference: referenceGuide.locations,
+                                                            exercise: referenceExercise)
+                referenceFrame = PoseFrame(pose: referencePose, timestamp: startingTimestamp + elapsed)
             }
             var renderedSample = motion.sample(at: motionTime)
             for mutation in scenario.mutations {
@@ -148,14 +173,24 @@ enum MovementGenerator {
                     }
                 }
             }
-            let renderedLocations = ExerciseDemoFigureView.pose(
-                for: renderedSample, forearmPlane: motion.forearmPlane, cameraView: exercise.cameraView
-            ).jointLocations
+            let renderedLocations: [LandmarkType: CGPoint]
+            let renderedExercise: ExerciseDefinition
+            if turns.isEmpty {
+                renderedLocations = ExerciseDemoFigureView.pose(
+                    for: renderedSample, forearmPlane: motion.forearmPlane, cameraView: exercise.cameraView
+                ).jointLocations
+                renderedExercise = exercise
+            } else {
+                let guide = renderedGuide(for: renderedSample, base: base, startingView: scenario.cameraView,
+                                          turns: turns, at: elapsed)
+                renderedLocations = guide.locations
+                renderedExercise = base.inView(guide.cameraView)
+            }
             guard renderedLocations.values.allSatisfy({ $0.x.isFinite && $0.y.isFinite }) else {
                 return invalid(["Rendered guide coordinates must be finite."])
             }
             let renderedPose = ReadyPoseFixtures.pose(for: Set(renderedLocations.keys), reference: renderedLocations,
-                                                       exercise: exercise)
+                                                       exercise: renderedExercise)
             let renderedFrame = PoseFrame(pose: renderedPose, timestamp: startingTimestamp + elapsed)
             let guidePoints = coordinates(in: renderedFrame.pose)
             guard pointsAreFinite(guidePoints) else {
@@ -164,6 +199,7 @@ enum MovementGenerator {
             var points = guidePoints
             let bodyHeight = max(1, bodyHeight(of: points))
             guard bodyHeight.isFinite else { return invalid(["Rendered body height must be finite."]) }
+            let plantedJoints = renderedExercise.plantedJoints
             var targetJoints = Set<LandmarkType>()
             var exactTargetJoints = Set<LandmarkType>()
 
@@ -297,6 +333,97 @@ enum MovementGenerator {
 
     private static func invalid(_ reasons: [String]) -> MovementMaterialization {
         MovementMaterialization(frames: [], recordingLines: [], invalidReasons: reasons)
+    }
+
+    /// Renders the current guide view, blending a turn's two poses on the same motion sample.
+    private static func renderedGuide(for sample: ArmMotionSample, base: ExerciseDefinition,
+                                      startingView: ExerciseCameraView, turns: [TurnSegment],
+                                      at elapsed: TimeInterval) -> RenderedGuide {
+        var activeView = startingView
+        for turn in turns {
+            guard elapsed >= turn.at else { break }
+            let end = turn.at + turn.duration
+            guard elapsed < end else {
+                activeView = turn.toView
+                continue
+            }
+
+            let sourceExercise = base.inView(activeView)
+            let targetExercise = base.inView(turn.toView)
+            let source = guideLocations(for: sample, in: sourceExercise)
+            let target = guideLocations(for: sample, in: targetExercise)
+            let progress = min(1, max(0, (elapsed - turn.at) / turn.duration))
+            return RenderedGuide(locations: blendedLocations(from: source, to: target, progress: progress),
+                                 cameraView: progress < 0.5 ? activeView : turn.toView)
+        }
+
+        let exercise = base.inView(activeView)
+        return RenderedGuide(locations: guideLocations(for: sample, in: exercise), cameraView: activeView)
+    }
+
+    private static func guideLocations(for sample: ArmMotionSample,
+                                       in exercise: ExerciseDefinition) -> [LandmarkType: CGPoint] {
+        ExerciseDemoFigureView.pose(for: sample, forearmPlane: exercise.guide.motion.forearmPlane,
+                                    cameraView: exercise.cameraView).jointLocations
+    }
+
+    /// Shared joints glide with smoothstep. View-only joints swap at the midpoint; paired far-side joints converge
+    /// onto the visible side before disappearing, so shoulder-width readings pass through the unclear band.
+    private static func blendedLocations(from source: [LandmarkType: CGPoint], to target: [LandmarkType: CGPoint],
+                                         progress: Double) -> [LandmarkType: CGPoint] {
+        let weight = smoothstep(progress)
+        var result: [LandmarkType: CGPoint] = [:]
+        for joint in LandmarkType.allCases {
+            switch (source[joint], target[joint]) {
+            case let (.some(sourcePoint), .some(targetPoint)):
+                result[joint] = interpolate(sourcePoint, targetPoint, weight: weight)
+            case let (.some(sourcePoint), .none):
+                guard progress < 0.5 else { continue }
+                let destination = oppositeLandmark(joint).flatMap { target[$0] } ?? sourcePoint
+                result[joint] = interpolate(sourcePoint, destination, weight: weight)
+            case let (.none, .some(targetPoint)):
+                guard progress >= 0.5 else { continue }
+                let sourcePoint = oppositeLandmark(joint).flatMap { source[$0] } ?? targetPoint
+                let revealProgress = smoothstep(min(1, max(0, (progress - 0.5) * 2)))
+                result[joint] = interpolate(sourcePoint, targetPoint, weight: revealProgress)
+            case (.none, .none):
+                continue
+            }
+        }
+        return result
+    }
+
+    private static func smoothstep(_ progress: Double) -> Double {
+        let value = min(1, max(0, progress))
+        return value * value * (3 - 2 * value)
+    }
+
+    private static func interpolate(_ from: CGPoint, _ to: CGPoint, weight: Double) -> CGPoint {
+        let fraction = CGFloat(weight)
+        return CGPoint(x: from.x + (to.x - from.x) * fraction,
+                       y: from.y + (to.y - from.y) * fraction)
+    }
+
+    private static func oppositeLandmark(_ joint: LandmarkType) -> LandmarkType? {
+        switch joint {
+        case .leftEye: return .rightEye
+        case .rightEye: return .leftEye
+        case .leftEar: return .rightEar
+        case .rightEar: return .leftEar
+        case .leftShoulder: return .rightShoulder
+        case .rightShoulder: return .leftShoulder
+        case .leftElbow: return .rightElbow
+        case .rightElbow: return .leftElbow
+        case .leftWrist: return .rightWrist
+        case .rightWrist: return .leftWrist
+        case .leftHip: return .rightHip
+        case .rightHip: return .leftHip
+        case .leftKnee: return .rightKnee
+        case .rightKnee: return .leftKnee
+        case .leftAnkle: return .rightAnkle
+        case .rightAnkle: return .leftAnkle
+        case .nose, .neck, .root: return nil
+        }
     }
 
     private static func compositeDepthScaleError(for scenario: MovementScenario) -> String? {
