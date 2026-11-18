@@ -145,6 +145,8 @@ This schema-complete plan shows the required envelope and a representative scena
 
 `seed` is a base-10 unsigned 64-bit integer encoded as a JSON string. The decoder accepts decimal digits only and converts them to `UInt64`; this preserves values above JavaScript's exact integer range, including `UInt64.max`. `parentRevision` is omitted when absent, as are optional mutation `reps` selectors and absent `repCount` bounds. JSON `null` is not emitted for these absent values. All other keys in the example are required.
 
+A scenario may also set an optional `cameraView`, naming one of the exercise's camera views (`front`, `side`, `floor`, `lyingSide`). When it's absent, the scenario uses the exercise's usual view, and the canonical revision hash only includes the view when it isn't the usual one, so existing approved fixtures keep their hashes.
+
 Mutation objects use `kind` as their discriminator. `joints` contains exact `LandmarkType.rawValue` names; `side` is `left` or `right`. A missing `reps` selector means every repetition; a supplied selector is a nonempty, duplicate-free list of one-based repetition numbers.
 
 | `kind` | Required payload | Meaning |

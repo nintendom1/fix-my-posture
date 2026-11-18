@@ -42,6 +42,8 @@ Feature screens exchange state and intents with view models. `AppEnvironment` co
 
 Every new camera-tracked Workout Coach exercise includes a guide, ghost demo, threshold lines, hold ring, coaching cues, docs, and checklist items. Self-reported exercises use the lighter checklist in `docs/workout.md`.
 
+Consider both front and side-on camera views for every camera-tracked exercise; implement both where the movement is visible from both, and record in the *Camera views* table (`docs/workout.md`) why a view doesn't apply.
+
 The full ghost figure renders through setup, Ready, and rest, at an ideal spot until calibration. Every pose that can reach Ready calibrates it. Size the ghost only from joints guaranteed by Ready (`requiredJoints` plus one `anyOfRequiredJoints` set), or provide a fallback. Optional landmarks may refine sizing but must not suppress the ghost. Never add required joints just to render it. `ReadyGhostInvariantTests` checks this.
 
 ## Exercise Photography
