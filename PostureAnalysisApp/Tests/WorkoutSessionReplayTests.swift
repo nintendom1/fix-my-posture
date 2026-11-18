@@ -28,6 +28,199 @@ final class WorkoutSessionReplayTests: XCTestCase {
         }
     }
 
+    func testStrictReplayReproducesAViewSwitchDuringTheSet() throws {
+        let exercise = try XCTUnwrap(ExerciseCatalog.all.first { $0.id == .hammerCurl })
+        XCTAssertTrue(exercise.hasViewChoice)
+        let store = MemoryWorkoutRecordingStore()
+        let recorder = WorkoutSessionRecorder(store: store)
+        let harness = WorkoutCoachHarness.make(preferences: InMemoryPreferences(), initialExercise: exercise.id,
+                                               recorder: recorder)
+        harness.model.onAppear(isApplicationActive: true)
+        harness.camera.emit(.running)
+        var time = 0.0
+        for _ in 0..<10 { emit(exercise, at: &time, harness) }
+        harness.model.send(.start)
+        for _ in 0..<5 { emit(exercise, at: &time, harness) }
+        XCTAssertEqual(harness.model.session.phase, .exercising)
+        let repsBeforeSwitch = harness.model.session.repCount
+        harness.model.send(.setCameraView(.locked(.sideOn)))
+        XCTAssertEqual(harness.model.session.phase, .exercising)
+        XCTAssertEqual(harness.model.session.repCount, repsBeforeSwitch)
+
+        let sideView = exercise.inView(.side)
+        while time < exercise.guide.motion.duration * 2 + 1 { emit(sideView, at: &time, harness) }
+        let lines = store.writer(for: recorder.id).lines
+        let text = "[\n" + lines.joined(separator: ",\n") + "\n]\n"
+        let file = try WorkoutSessionFile(text: text)
+        XCTAssertTrue(file.records.contains { $0.record["k"] as? String == "pipe"
+            && $0.record["control"] as? String == "exercise"
+            && $0.record["cameraView"] as? String == "side" }, "The recording contains the mid-set side view.")
+
+        let frames = try WorkoutSessionReplayer.replay(file)
+        for frame in frames where frame.recorded != frame.replayed {
+            XCTFail("line \(frame.line): recorded \(frame.recorded), replayed \(frame.replayed)")
+        }
+        XCTAssertGreaterThan(frames.reduce(0) { $0 + $1.recorded.reps.count }, 0,
+                             "The harness recording counted reps across the view switch.")
+    }
+
+    func testMissingAlternateHeaderEntryFallsBackToThisBuildsView() throws {
+        let exercise = try XCTUnwrap(ExerciseCatalog.all.first { $0.id == .hammerCurl })
+        XCTAssertTrue(exercise.hasViewChoice)
+        let header: [String: Any] = ["exercises": [exercise.id.rawValue: ["cameraView": exercise.usualView.rawValue]]]
+        let definitions = try WorkoutSessionReplayer.definitions(header, catalog: [exercise])
+        let control = try WorkoutSessionReplayer.control(
+            ["control": "exercise", "exercise": exercise.id.rawValue, "cameraView": "side", "epoch": 2],
+            line: 3, exercises: definitions)
+        guard case .exercise(let selected?, _) = control else {
+            return XCTFail("The recorded alternate view resolves to a definition.")
+        }
+        XCTAssertEqual(selected.cameraView, .side)
+    }
+
+    func testStrictReplayChecksDriftAgainstTheSelectedViewEntry() throws {
+        let exercise = try XCTUnwrap(ExerciseCatalog.all.first { $0.id == .hammerCurl })
+        let side = exercise.inView(.side)
+        // The side view needs either arm (no fixed required joints), so a recorded extra joint is drift.
+        let required = (side.requiredJoints.map(\.rawValue) + [LandmarkType.leftHip.rawValue]).sorted()
+        let header: [String: Any] = ["exercises": [
+            exercise.id.rawValue: ["cameraView": exercise.usualView.rawValue],
+            "\(exercise.id.rawValue).side": ["cameraView": "side", "required": required],
+        ]]
+
+        do {
+            _ = try WorkoutSessionReplayer.definitions(header, catalog: [exercise])
+            XCTFail("The recorded side-view joints must match that view's definition.")
+        } catch let error as ReplayError {
+            guard case .definitionDrift(let field, let id) = error else {
+                return XCTFail("Expected side-view definition drift, got \(error).")
+            }
+            XCTAssertEqual(field, "required")
+            XCTAssertEqual(id, exercise.id.rawValue)
+        }
+    }
+
+    func testUnsupportedCameraViewIsReportedForAnExerciseWithoutThatView() throws {
+        let exercise = ShoulderPressExercise.definition()
+        let definitions = try WorkoutSessionReplayer.definitions(["exercises": [:]], catalog: [exercise])
+        do {
+            _ = try WorkoutSessionReplayer.control(
+                ["control": "exercise", "exercise": exercise.id.rawValue, "cameraView": "side", "epoch": 1],
+                line: 4, exercises: definitions)
+            XCTFail("A single-view exercise cannot replay the side view.")
+        } catch let error as ReplayError {
+            guard case .unsupportedCameraView(let view, let id, let line) = error else {
+                return XCTFail("Expected unsupported view, got \(error).")
+            }
+            XCTAssertEqual(view, "side")
+            XCTAssertEqual(id, exercise.id.rawValue)
+            XCTAssertEqual(line, 4)
+        }
+    }
+
+    func testCurrentBuildReplayIgnoresRecordedAlternateViewConfiguration() throws {
+        let exercise = try XCTUnwrap(ExerciseCatalog.all.first { $0.id == .hammerCurl })
+        XCTAssertTrue(exercise.hasViewChoice)
+        let current = exercise.inView(.side)
+        var headerEntry: [String: Any] = ["cameraView": "side"]
+        if current.diagnostics != nil { headerEntry["configuration"] = ["confirmationSamples": -100] }
+        let header: [String: Any] = ["exercises": [exercise.id.rawValue: ["cameraView": exercise.usualView.rawValue],
+                                                        "\(exercise.id.rawValue).side": headerEntry]]
+
+        let definitions = try WorkoutSessionReplayer.definitions(header, catalog: [exercise], currentBuild: true)
+        XCTAssertEqual(definitions["\(exercise.id.rawValue).side"]?.diagnostics?.configurationJSON,
+                       current.diagnostics?.configurationJSON)
+    }
+
+    /// A hammer-curl recording from before camera views: the user turns side-on mid-set, so the far arm is gone from
+    /// 1.10 on. That build lost framing, and stopped counting, once the arm had been missing 0.3 s; strict replay must
+    /// too, without stance detection or the turn's alternative views.
+    func testStrictReplayRunsTheLegacyPipelineForARecordingWithoutStance() throws {
+        let file = try WorkoutSessionFile(text: Self.sideOnTurnRecording(withStance: false))
+        XCTAssertFalse(WorkoutSessionReplayer.recordsStance(file, catalog: ExerciseCatalog.all))
+
+        let frames = try WorkoutSessionReplayer.replay(file)
+
+        XCTAssertTrue(frames.contains { $0.t > 1.3 && $0.recorded.reliable == false && $0.recorded.counting == false },
+                      "The recording lost framing after the turn.")
+        assertFramingAndCountingReplayed(frames)
+    }
+
+    /// The same set recorded by a build that detects stance, which bridges the turn with the side-on view's framing.
+    func testStrictReplayRunsTheTurningRulesForARecordingWithStance() throws {
+        let file = try WorkoutSessionFile(text: Self.sideOnTurnRecording(withStance: true))
+        XCTAssertTrue(WorkoutSessionReplayer.recordsStance(file, catalog: ExerciseCatalog.all))
+
+        let frames = try WorkoutSessionReplayer.replay(file)
+
+        XCTAssertTrue(frames.filter { $0.t > 1 }.allSatisfy { $0.recorded.reliable == true && $0.recorded.counting == true },
+                      "The recording kept counting through the turn.")
+        assertFramingAndCountingReplayed(frames)
+    }
+
+    func testAStanceReadingEventOrOtherViewEntryMarksARecordingThatDetectedStance() throws {
+        let header = #"{"k":"header","id":"x","jointOrder":["nose"],"exercises":{"hammer_curl":{"cameraView":"front"}}}"#
+        let withSideView = #"{"k":"header","id":"x","jointOrder":["nose"],"exercises":{"hammer_curl":{"cameraView":"front"},"hammer_curl.side":{"cameraView":"side"}}}"#
+        let frame = #"{"k":"f","t":0.1,"ts":5,"p":true,"wh":[1080,1920],"j":[[540,300,0.9]]}"#
+        let readFrame = #"{"k":"f","t":0.1,"ts":5,"p":true,"st":"facing","wh":[1080,1920],"j":[[540,300,0.9]]}"#
+        let stanceEvent = #"{"k":"e","t":0.2,"type":"stance","settled":"side","turning":false}"#
+        func recordsStance(_ records: String...) throws -> Bool {
+            let file = try WorkoutSessionFile(text: "[\n" + records.joined(separator: ",\n") + "\n]")
+            return WorkoutSessionReplayer.recordsStance(file, catalog: ExerciseCatalog.all)
+        }
+
+        XCTAssertFalse(try recordsStance(header, frame))
+        XCTAssertTrue(try recordsStance(header, readFrame))
+        XCTAssertTrue(try recordsStance(header, frame, stanceEvent))
+        XCTAssertTrue(try recordsStance(withSideView, frame))
+    }
+
+    /// Replay reproduced every frame's framing reliability and counting flag.
+    private func assertFramingAndCountingReplayed(_ frames: [WorkoutSessionReplayer.Frame],
+                                                  file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertEqual(frames.count, 17, file: file, line: line)
+        for frame in frames where frame.recorded.reliable != frame.replayed.reliable
+            || frame.recorded.counting != frame.replayed.counting {
+            XCTFail("t \(frame.t): recorded \(frame.recorded), replayed \(frame.replayed)", file: file, line: line)
+        }
+    }
+
+    /// A synthetic hammer-curl set: the front start pose to 1.0, then side-on, where the far arm is hidden, at 1.10,
+    /// 1.21, 1.31… Each frame carries the framing and counting its build decided: a build without stance detection
+    /// loses the side-on body 0.3 s after the last front frame, and one with it bridges the turn.
+    private static func sideOnTurnRecording(withStance: Bool) throws -> String {
+        let front = HammerCurlExercise.definition()
+        let side = front.inView(.side)
+        let joints = LandmarkType.allCases
+        func line(_ object: [String: Any]) throws -> String {
+            String(decoding: try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]), as: UTF8.self)
+        }
+        var lines = [
+            try line(["k": "header", "id": "synthetic", "jointOrder": joints.map(\.rawValue),
+                      "exercises": [front.id.rawValue: ["cameraView": front.cameraView.rawValue]]]),
+            try line(["k": "pipe", "t": 0, "control": "exercise", "exercise": front.id.rawValue, "epoch": 1]),
+            try line(["k": "pipe", "t": 0, "control": "sessionPhase", "phase": "exercising"]),
+            try line(["k": "pipe", "t": 0, "control": "counting", "counting": true])
+        ]
+        for time in (0...10).map({ Double($0) / 10 }) + [1.10, 1.21, 1.31, 1.41, 1.51, 1.61] {
+            let turned = time > 1.05
+            let frame = ReadyPoseFixtures.demoFrame(turned ? side : front, motionTime: 0, at: time)
+            let lostSideOn = !withStance && time > 1.3
+            var record: [String: Any] = [
+                "k": "f", "t": time, "ts": time, "p": true,
+                "cnt": !lostSideOn, "fr": ["ok": time >= 0.6 && !lostSideOn],
+                "wh": [Double(frame.pose.imageWidth), Double(frame.pose.imageHeight)],
+                "j": joints.map { joint -> Any in
+                    guard let landmark = frame.pose[joint] else { return NSNull() }
+                    return [Double(landmark.imageLocation.x), Double(landmark.imageLocation.y), landmark.confidence]
+                }
+            ]
+            if withStance { record["st"] = turned ? "side" : "facing" }
+            lines.append(try line(record))
+        }
+        return "[\n" + lines.joined(separator: ",\n") + "\n]\n"
+    }
+
     func testOnlyACutOffFinalRecordIsTolerated() throws {
         let start = """
         [

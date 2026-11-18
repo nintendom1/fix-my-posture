@@ -37,7 +37,7 @@ struct ExerciseDetailScreen: View {
         .sheet(isPresented: guideBinding) {
             if let exercise {
                 ExerciseGuideView(
-                    exercise: exercise,
+                    exercise: guideExercise(exercise),
                     hasStarted: false,
                     isSpeaking: false,
                     onReadAloud: nil,
@@ -108,7 +108,7 @@ struct ExerciseDetailScreen: View {
             ExerciseDemoStripes()
                 .fill(.white.opacity(0.08))
 
-            demonstration(exercise)
+            demonstration(guideExercise(exercise))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.horizontal, 42)
                 .padding(.top, 4)
@@ -205,6 +205,29 @@ struct ExerciseDetailScreen: View {
                 icon: "fitness_center",
                 anchor: "exercise.equipment"
             )
+            cameraSetupTile
+        }
+    }
+
+    @ViewBuilder
+    private var cameraSetupTile: some View {
+        if state.hasViewChoice {
+            Menu {
+                cameraViewChoice("Auto", preference: .auto)
+                cameraViewChoice("Front", preference: .locked(.facing))
+                cameraViewChoice("Side-on", preference: .locked(.sideOn))
+            } label: {
+                informationTile(
+                    title: "Camera setup",
+                    value: state.cameraSetupText,
+                    icon: "photo_camera_front",
+                    anchor: "exercise.cameraSetup"
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Camera setup, \(state.cameraSetupText)")
+            .accessibilityHint("Choose Auto, Front, or Side-on camera view.")
+        } else {
             informationTile(
                 title: "Camera setup",
                 value: state.cameraSetupText,
@@ -212,6 +235,22 @@ struct ExerciseDetailScreen: View {
                 anchor: "exercise.cameraSetup"
             )
         }
+    }
+
+    private func cameraViewChoice(_ title: String, preference: ExerciseViewPreference) -> some View {
+        Button {
+            send(.cameraViewSelected(preference))
+        } label: {
+            if state.viewPreference == preference {
+                Label(title, systemImage: "checkmark")
+            } else {
+                Text(title)
+            }
+        }
+    }
+
+    private func guideExercise(_ exercise: ExerciseDefinition) -> ExerciseDefinition {
+        exerciseDetailDefinition(for: exercise, preference: state.viewPreference)
     }
 
     private func informationTile(title: String, value: String, icon: String, anchor: String) -> some View {

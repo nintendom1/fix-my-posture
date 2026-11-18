@@ -94,7 +94,8 @@ final class WorkoutGhostGeometryTests: XCTestCase {
 
     func testIdealFigureStaysInsideTheFitForEveryExerciseAndKeyframe() throws {
         let overlay = WorkoutCameraFixtures.overlay()
-        for exercise in ExerciseCatalog.all {
+        for exercise in ExerciseCatalog.everyView {
+            let name = label(exercise)
             let imageSizes = [WorkoutGhostGeometry.defaultImageSize, overlay.imageSize]
             for imageSize in imageSizes {
                 let currentOverlay = imageSize == overlay.imageSize ? overlay : nil
@@ -105,15 +106,15 @@ final class WorkoutGhostGeometryTests: XCTestCase {
                                                             cameraView: exercise.cameraView,
                                                             containerSize: containerSize,
                                                             sample: exercise.guide.motion.sample(of: keyframe))
-                    XCTAssertFalse(figure.isEmpty, "\(exercise.id) keyframe \(index) was empty")
+                    XCTAssertFalse(figure.isEmpty, "\(name) keyframe \(index) was empty")
                     for (joint, point) in figure.joints {
                         XCTAssertTrue(fit.contains(point),
-                                      "\(exercise.id) keyframe \(index) \(joint) fell outside \(imageSize)")
+                                      "\(name) keyframe \(index) \(joint) fell outside \(imageSize)")
                     }
                     if exercise.cameraView == .front {
                         XCTAssertLessThan(try XCTUnwrap(figure.joints[.leftShoulder]).x,
                                           try XCTUnwrap(figure.joints[.rightShoulder]).x,
-                                          "\(exercise.id) keyframe \(index) did not mirror the guide's front view")
+                                          "\(name) keyframe \(index) did not mirror the guide's front view")
                     }
                 }
             }
@@ -198,7 +199,8 @@ final class WorkoutGhostGeometryTests: XCTestCase {
 
     func testCatalogFigureBoundsFitTheCanvasOrIncludeTheFullLateralRaiseSpan() {
         let canvas = CGRect(origin: .zero, size: ExerciseDemoFigureView.canvasSize)
-        for exercise in ExerciseCatalog.all {
+        for exercise in ExerciseCatalog.everyView {
+            let name = label(exercise)
             let bounds = ExerciseDemoFigureView.bounds(for: exercise.guide.motion,
                                                        cameraView: exercise.cameraView)
             if exercise.id == .lateralRaise {
@@ -213,12 +215,12 @@ final class WorkoutGhostGeometryTests: XCTestCase {
                 for sample in [exercise.guide.motion.startSample, exercise.guide.motion.topSample] {
                     let joints = ExerciseDemoFigureView.pose(for: sample, cameraView: exercise.cameraView).jointLocations
                     for (joint, point) in joints {
-                        XCTAssertTrue(bounds.contains(point), "\(exercise.id) \(joint) falls outside \(bounds)")
+                        XCTAssertTrue(bounds.contains(point), "\(name) \(joint) falls outside \(bounds)")
                     }
                 }
             } else {
                 XCTAssertEqual(bounds, canvas,
-                               "\(exercise.id) bounds expanded by \(bounds.width - canvas.width)×\(bounds.height - canvas.height)")
+                               "\(name) bounds expanded by \(bounds.width - canvas.width)×\(bounds.height - canvas.height)")
             }
         }
     }
@@ -625,10 +627,10 @@ final class WorkoutGhostGeometryTests: XCTestCase {
     }
 
     func testEveryReadyVariantAgreesWithGhostCalibration() throws {
-        for exercise in ExerciseCatalog.all {
+        for exercise in ExerciseCatalog.everyView {
+            let name = label(exercise)
             for variant in ReadyPoseFixtures.variants(for: exercise) {
-                let harness = WorkoutCoachHarness.make(preferences: InMemoryPreferences(),
-                                                       initialExercise: exercise.id)
+                let harness = WorkoutCoachHarness.make(showing: exercise)
                 harness.model.onAppear(isApplicationActive: true)
                 harness.camera.emit(.running)
                 var readyFrames = 0
@@ -639,8 +641,10 @@ final class WorkoutGhostGeometryTests: XCTestCase {
                     harness.camera.emit(.frame(ReadyPoseFixtures.frame(variant, at: harness.clock.now)))
                     if harness.model.session.phase == .ready {
                         readyFrames += 1
+                        XCTAssertEqual(harness.model.session.exercise?.cameraView, exercise.cameraView,
+                                       "\(name) \(variant.name): Ready is in another camera view")
                         let overlay = try XCTUnwrap(harness.model.ghostFitOverlay,
-                                                    "\(exercise.id) \(variant.name): missing fit overlay")
+                                                    "\(name) \(variant.name): missing fit overlay")
                         firstReadyOverlay = firstReadyOverlay ?? overlay
                         firstReadyMetrics = firstReadyMetrics ?? harness.model.guideMetrics
                         let canFit = GhostCalibration.canFit(overlay: overlay,
@@ -657,15 +661,15 @@ final class WorkoutGhostGeometryTests: XCTestCase {
                             sample: exercise.guide.motion.startSample
                         )
                         XCTAssertEqual(canFit, figure != nil,
-                                       "\(exercise.id) \(variant.name): calibration disagrees with canFit")
+                                       "\(name) \(variant.name): calibration disagrees with canFit")
                         if canFit {
                             XCTAssertFalse(try XCTUnwrap(figure).isEmpty,
-                                           "\(exercise.id) \(variant.name): calibrated figure is empty")
+                                           "\(name) \(variant.name): calibrated figure is empty")
                         }
                     }
                     harness.clock.advance(by: 0.1)
                 }
-                XCTAssertGreaterThan(readyFrames, 0, "\(exercise.id) \(variant.name) never reached Ready")
+                XCTAssertGreaterThan(readyFrames, 0, "\(name) \(variant.name) never reached Ready")
 
                 if let overlay = firstReadyOverlay {
                     var missingOverlay = overlay
@@ -707,7 +711,7 @@ final class WorkoutGhostGeometryTests: XCTestCase {
                                                            motion: exercise.guide.motion,
                                                            cameraView: exercise.cameraView,
                                                            sample: exercise.guide.motion.startSample),
-                                   "\(exercise.id) \(variant.name): negative fixture still fit")
+                                   "\(name) \(variant.name): negative fixture still fit")
                     XCTAssertNil(WorkoutGhostGeometry.calibrated(fitOverlay: missingOverlay,
                                                                   metrics: firstReadyMetrics,
                                                                   motion: exercise.guide.motion,
@@ -825,11 +829,11 @@ final class WorkoutGhostGeometryTests: XCTestCase {
     }
 
     func testZeroShoulderLiftLeavesEveryExistingGuideAndGhostUnchanged() throws {
-        for exercise in ExerciseCatalog.all where exercise.id != .dumbbellShrug {
+        for exercise in ExerciseCatalog.everyView where exercise.id != .dumbbellShrug {
             let motion = exercise.guide.motion
             let samples = motionSamples(motion)
             for sample in samples {
-                XCTAssertEqual(sample.shape.shoulderLift, 0, "\(exercise.id) has a shoulder lift")
+                XCTAssertEqual(sample.shape.shoulderLift, 0, "\(label(exercise)) has a shoulder lift")
                 guard exercise.cameraView == .front else { continue }
                 let pose = ExerciseDemoFigureView.pose(for: sample, forearmPlane: motion.forearmPlane,
                                                        cameraView: .front).jointLocations
@@ -1018,7 +1022,7 @@ final class WorkoutGhostGeometryTests: XCTestCase {
     private func readyContext(for exercise: ExerciseDefinition) throws
         -> (harness: WorkoutCoachHarness, overlay: WorkoutOverlayState) {
         let variant = try XCTUnwrap(ReadyPoseFixtures.variants(for: exercise).first { $0.name == "full" })
-        let harness = WorkoutCoachHarness.make(preferences: InMemoryPreferences(), initialExercise: exercise.id)
+        let harness = WorkoutCoachHarness.make(showing: exercise)
         harness.model.onAppear(isApplicationActive: true)
         harness.camera.emit(.running)
         for _ in 0..<20 {
@@ -1028,8 +1032,13 @@ final class WorkoutGhostGeometryTests: XCTestCase {
             }
             harness.clock.advance(by: 0.1)
         }
-        XCTFail("\(exercise.id) did not reach calibrated Ready")
+        XCTFail("\(label(exercise)) did not reach calibrated Ready")
         return (harness, try XCTUnwrap(harness.model.ghostFitOverlay))
+    }
+
+    /// "hammer_curl (side)", so a failure names the view.
+    private func label(_ exercise: ExerciseDefinition) -> String {
+        "\(exercise.id.rawValue) (\(exercise.cameraView.rawValue))"
     }
 
     /// Every resolved keyframe plus four interior samples per move.

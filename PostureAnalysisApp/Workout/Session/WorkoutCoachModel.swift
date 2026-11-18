@@ -145,6 +145,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
     @ObservationIgnored private var heardGeneration = 0
     @ObservationIgnored private var lastHeardPhrase: String?
     @ObservationIgnored private var markerConfirmationExpiry: Cancellable?
+    @ObservationIgnored private var suppressCameraViewConfirmation = false
     /// The capture moment, on `clock`, of the frame being processed; nil between frames.
     @ObservationIgnored private var frameTime: TimeInterval?
     @ObservationIgnored private var lastPoseTime = -TimeInterval.infinity
@@ -286,6 +287,12 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
 
     private func handleVoiceCommand(_ command: WorkoutCommand, source: WorkoutCommandSource = .touch) {
         var command = command
+        let wasSuppressingCameraViewConfirmation = suppressCameraViewConfirmation
+        if case .setCameraView(_) = command, session.exercise?.hasViewChoice == true,
+           Self.isSetActive(session.phase) {
+            suppressCameraViewConfirmation = true
+        }
+        defer { suppressCameraViewConfirmation = wasSuppressingCameraViewConfirmation }
         // "Done" closes the help list when it's open; otherwise it finishes a self-reported set in progress.
         if command == .closeHelp, !isHelpPresented, session.phase == .exercising,
            session.exercise?.isSelfReported == true {
@@ -370,7 +377,7 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         case .openSettings:
             break
         case .start, .pause, .resume, .restartSet, .nextSet, .changeExercise, .chooseExercise,
-             .cancelExerciseChange, .anotherRound, .nextExercise, .endWorkout, .tooHard:
+             .setCameraView, .cancelExerciseChange, .anotherRound, .nextExercise, .endWorkout, .tooHard:
             assertionFailure("Command-backed intents are mapped above.")
         }
     }
@@ -692,6 +699,10 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
         for effect in effects {
             switch effect {
             case .speak(let utterance):
+                if suppressCameraViewConfirmation {
+                    suppressCameraViewConfirmation = false
+                    continue
+                }
                 say(utterance, muted: isCoachMuted)
             case .repeatLastInstruction:
                 recorder?.recordEvent(.repeatLastInstruction(muted: isCoachMuted), at: clock.now)
@@ -714,6 +725,8 @@ final class WorkoutCoachModel: WorkoutCoachViewModeling {
                 setActiveTip(nil)
             case .showTip(let tip):
                 setActiveTip(tip)
+            case .rememberViewPreference(let id, let preference):
+                preferences.setViewPreference(preference, for: id)
             case .stopCaptureAndVoice:
                 stopTicks()
                 stopCapture()

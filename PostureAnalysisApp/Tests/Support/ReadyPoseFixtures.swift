@@ -13,12 +13,13 @@ struct ReadyPoseVariant {
 }
 
 /// Ready-valid poses for every catalog exercise, centered with headroom and inside any phone-distance limits so
-/// framing gives no guidance.
+/// framing gives no guidance. Pass a definition from `everyView` to pose any of an exercise's camera views.
 enum ReadyPoseFixtures {
     static let imageSize = CGSize(width: 1080, height: 1920)
     static let confidence = 0.9
 
-    /// The full demonstration pose, then one minimal pose per way of satisfying framing.
+    /// The full demonstration pose, then one minimal pose per way of satisfying framing, all drawn in the
+    /// definition's own camera view with its own joint sets.
     static func variants(for exercise: ExerciseDefinition) -> [ReadyPoseVariant] {
         let motion = exercise.guide.motion
         let reference = ExerciseDemoFigureView.pose(for: motion.startSample,
@@ -89,10 +90,12 @@ enum ReadyPoseFixtures {
             preconditionFailure("Ready pose for \(exercise.id) cannot meet the minimum visible body-joint count.")
         }
 
-        let centeredJoints = positions.filter { type, _ in
+        // Sum in a fixed joint order: dictionary order can vary between instances and change the last bit.
+        let orderedJoints = LandmarkType.allCases.filter { positions[$0] != nil }
+        let centeredJoints = orderedJoints.filter { type in
             type == .leftShoulder || type == .rightShoulder || type == .leftHip || type == .rightHip
         }
-        let pointsToCenter = centeredJoints.isEmpty ? Array(positions.values) : Array(centeredJoints.values)
+        let pointsToCenter = (centeredJoints.isEmpty ? orderedJoints : centeredJoints).compactMap { positions[$0] }
         guard !pointsToCenter.isEmpty else {
             preconditionFailure("Ready pose for \(exercise.id) has no joints to center.")
         }
@@ -110,9 +113,10 @@ enum ReadyPoseFixtures {
         return BodyPose(landmarks: landmarks, imageWidth: imageSize.width, imageHeight: imageSize.height)
     }
 
-    /// Figure-to-pixel scale and vertical offset, fixed per exercise so every frame of its motion lines up. An
+    /// Figure-to-pixel scale and vertical offset, fixed per camera view so every frame of its motion lines up. An
     /// exercise with phone-distance limits stands where a real user passes them: the start pose's shoulder span and
-    /// lowest wrist sit two clearances inside each limit, below the point where a distance warning clears.
+    /// lowest wrist sit two clearances inside each limit, below the point where a distance warning clears. A side
+    /// figure draws one shoulder, so it has no span to fit.
     private static func placement(for exercise: ExerciseDefinition) -> (scale: CGFloat, yOffset: CGFloat) {
         // Exercises that need room beside the arms (side-room framing) stand a little farther back.
         var scale: CGFloat = exercise.sideroomArmLengths == nil ? 3 : 2.5
@@ -124,7 +128,8 @@ enum ReadyPoseFixtures {
         let start = ExerciseDemoFigureView.pose(for: motion.startSample, forearmPlane: motion.forearmPlane,
                                                 cameraView: exercise.cameraView).jointLocations
         let margin = 2 * FramingConfiguration().shoulderSpanClearance
-        if let limit = exercise.maximumShoulderSpan, let left = start[.leftShoulder], let right = start[.rightShoulder] {
+        if exercise.cameraView != .side, let limit = exercise.maximumShoulderSpan,
+           let left = start[.leftShoulder], let right = start[.rightShoulder] {
             let span = hypot(left.x - right.x, left.y - right.y)
             let widest = (limit - margin) * imageSize.width
             if span > 0, widest > 0, span * scale > widest {

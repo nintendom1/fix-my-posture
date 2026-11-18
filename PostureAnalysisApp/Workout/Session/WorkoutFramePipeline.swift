@@ -4,6 +4,12 @@ import Foundation
 /// Owns the deterministic work performed for each pose sample. It has no camera, clock, or UI
 /// dependencies; the caller sends the reducer events in order and applies their effects.
 struct WorkoutFramePipeline {
+    private struct BufferedViewChangeFrame {
+        let frame: PoseFrame
+        var sessionPhase: WorkoutPhase
+        var isCounting: Bool
+    }
+
     struct FrameOutput {
         let events: [WorkoutEvent]
         let overlay: WorkoutOverlayState?
@@ -25,6 +31,8 @@ struct WorkoutFramePipeline {
         /// The counting flag passed to the analyzer.
         let counting: Bool
         let analysis: ExerciseAnalysis?
+        /// The frame's stance classification when the detector is connected.
+        var stance: StanceDetector.Reading? = nil
     }
 
     /// A change the coach makes between frames. The coach and session replay both go through `apply`,
@@ -58,14 +66,28 @@ struct WorkoutFramePipeline {
     private(set) var formReadings: [FormReading] = []
     /// Attaches `FrameDiagnostics` to every output, for a session recording.
     var collectsDiagnostics = false
+    /// Detects stance and bridges turns with every view's framing, for an exercise with a view choice. Strict replay
+    /// turns it off for a recording made before camera views, which ran without either.
+    var detectsStance = true
 
     private var analyzer: ExerciseAnalyzing?
     private var framingEvaluator: FramingEvaluator?
+    /// Every camera view's framing requirement for an exercise with a view choice; empty otherwise.
+    private var viewRequirements: [FramingRequirement] = []
+    /// Raw frames that can seed the next camera view after stance settles or a view is locked.
+    private var viewChangeFrames: [BufferedViewChangeFrame] = []
+    /// When the count last rose; a view warm-up doesn't count before it, so the new view can't credit it again.
+    private var lastRepCreditTime: TimeInterval?
+    /// Each side's rep credits in this set. Like the session, a two-sided exercise counts the lower side.
+    private var creditedSideReps: [BodySide: Int] = [:]
     private var offscreenJointEstimator: OffscreenJointEstimator?
+    private var stanceDetector = StanceDetector()
     private var ghostCalibrationGate = GhostCalibrationGate()
     private var lastFramingStatus: FramingStatus?
     private var smoother = LandmarkSmoother()
     private var lastStartPositionHeld = false
+    private var shouldReportStartPositionRelease = false
+    private var shouldPrimeFraming = false
     private var emphasizedJoints: Set<LandmarkType> = []
     private(set) var sessionPhase: WorkoutPhase = .framing
     private var tiltDetector = PhoneTiltDetector()
@@ -93,6 +115,8 @@ struct WorkoutFramePipeline {
                      hasAnalyzer: analyzer != nil, isCounting: isCounting, sessionPhase: sessionPhase)
     }
 
+    var bufferedViewChangeFrameCount: Int { viewChangeFrames.count }
+
     /// Applies one control and returns any events it produced.
     mutating func apply(_ control: Control) -> [WorkoutEvent] {
         switch control {
@@ -112,6 +136,8 @@ struct WorkoutFramePipeline {
 
     mutating func process(frame: PoseFrame, at now: TimeInterval) -> FrameOutput {
         guard let exercise else {
+            viewChangeFrames.removeAll()
+            lastRepCreditTime = nil
             overlay = nil
             ghostCalibrationGate.reset()
             ghostFitOverlay = nil
@@ -119,17 +145,34 @@ struct WorkoutFramePipeline {
                 ? FrameDiagnostics(analyzedFrame: frame, framing: nil, counting: isCounting, analysis: nil) : nil)
         }
 
-        var completed = frame
-        if var estimator = offscreenJointEstimator {
-            completed = estimator.complete(frame)
-            offscreenJointEstimator = estimator
-        }
+        bufferForViewChange(frame, exercise: exercise)
+        let completed = completeOffscreenJoints(in: frame)
         let counted = sessionPhase == .exercising ? completed : frame
 
         var events: [WorkoutEvent] = []
+        var stanceReading: StanceDetector.Reading?
+        var stanceObservationChange: StanceDetector.Observation?
+        let tracksStance = detectsStance && exercise.hasViewChoice
+        if tracksStance {
+            stanceReading = StanceDetector.reading(of: frame, configuration: .standard)
+            let previousObservation = stanceDetector.observation
+            let observation = stanceDetector.update(frame)
+            if observation != previousObservation {
+                stanceObservationChange = observation
+            }
+        }
+
         var framing: FramingStatus?
         if var evaluator = framingEvaluator {
-            let status = evaluator.evaluate(counted)
+            // Partway through a turn, neither view may see the whole body yet. From the first reading that suggests a
+            // turn, a frame that any of the exercise's views could track keeps framing, so counting carries on until
+            // the new view takes over. The detector bounds the whole turn, so evidence that flickers can't extend it.
+            let alternatives = tracksStance && stanceDetector.mayBeTurning ? viewRequirements : []
+            if shouldPrimeFraming {
+                evaluator.prime(with: counted, alsoAccepting: alternatives)
+                shouldPrimeFraming = false
+            }
+            let status = evaluator.evaluate(counted, alsoAccepting: alternatives)
             framingEvaluator = evaluator
             framing = status
             if status != lastFramingStatus {
@@ -145,13 +188,18 @@ struct WorkoutFramePipeline {
             }
         }
 
+        if shouldReportStartPositionRelease {
+            events.append(.startPositionChanged(false))
+            shouldReportStartPositionRelease = false
+        }
+
         updateGuideMetrics(frame, for: exercise)
 
         var endSides: Set<BodySide> = []
         var analyzed: ExerciseAnalysis?
         let analyzedCounting = isCounting
-        if let analyzer {
-            let analysis = analyzer.process(counted, counting: isCounting)
+        recordFrameContext(frame, counting: analyzedCounting)
+        if let analysis = feedAnalyzer(counted, counting: isCounting) {
             analyzed = analysis
             if isCounting { endSides = analysis.endPositionSides }
             readings = analysis.readings
@@ -161,11 +209,12 @@ struct WorkoutFramePipeline {
                 events.append(.startPositionChanged(analysis.startPositionHeld))
             }
             events.append(contentsOf: analysis.repEvents.map(WorkoutEvent.repCompleted))
+            if recordRepCredits(analysis.repEvents, exercise: exercise) { lastRepCreditTime = frame.timestamp }
             formReadings = analysis.formReadings
             // Keep the current ordering: reps are handled before form observations, so a cue from
             // the old set cannot arrive after a rep completed it.
             if isCounting {
-                events.append(.formObserved(FormObservation(epoch: analyzer.epoch,
+                events.append(.formObserved(FormObservation(epoch: analyzerEpoch,
                                                             repForms: analysis.repForms,
                                                             signals: analysis.formSignals)))
             }
@@ -177,7 +226,7 @@ struct WorkoutFramePipeline {
             let display = Self.displayPose(frame.pose)
             overlay = WorkoutOverlayState(
                 imageSize: frame.imageSize,
-                joints: smoother.update(pose: display, joints: exercise.focusJoints, at: frame.timestamp),
+                joints: updateSmoother(for: display, joints: exercise.focusJoints, at: frame.timestamp),
                 segments: exercise.focusSegments,
                 endPositionSides: endSides,
                 pose: display,
@@ -194,24 +243,50 @@ struct WorkoutFramePipeline {
         } else if !calibrated {
             ghostFitOverlay = nil
         }
+        if let stanceObservationChange {
+            events.append(.stanceObserved(stanceObservationChange))
+        }
         return output(events: events, diagnostics: collectsDiagnostics
-            ? FrameDiagnostics(analyzedFrame: counted, framing: framing, counting: analyzedCounting, analysis: analyzed)
+            ? FrameDiagnostics(analyzedFrame: counted, framing: framing, counting: analyzedCounting,
+                               analysis: analyzed, stance: stanceReading)
             : nil)
     }
 
     /// Rebuilds framing and counting state when a new exercise or camera view is selected.
     mutating func exerciseChanged(to exercise: ExerciseDefinition?, analyzerEpoch: Int) {
-        let trackingChanged = self.exercise?.id != exercise?.id
-            || self.exercise?.cameraView != exercise?.cameraView
+        let idChanged = self.exercise?.id != exercise?.id
+        let viewChanged = !idChanged && self.exercise?.cameraView != exercise?.cameraView
+        let trackingChanged = idChanged || viewChanged
         self.exercise = exercise
 
         if trackingChanged {
+            var loneCredits: Set<BodySide> = []
+            if idChanged {
+                viewChangeFrames.removeAll()
+                lastRepCreditTime = nil
+                creditedSideReps = [:]
+            } else if exercise?.perSide == false {
+                // The session evens the sides at a view change, dropping a one-sided credit.
+                let counted = countedReps
+                loneCredits = Set(BodySide.allCases.filter { (creditedSideReps[$0] ?? 0) > counted })
+                creditedSideReps = [.left: counted, .right: counted]
+            }
+            let previousFraming = framingEvaluator
             framingEvaluator = exercise.map(makeFramingEvaluator)
+            // The user is still in view after a camera-view change, so framing keeps its reliability and grace.
+            if viewChanged, let previousFraming {
+                framingEvaluator?.continueReliability(from: previousFraming)
+            }
+            viewRequirements = exercise.map { exercise in
+                guard exercise.hasViewChoice else { return [] }
+                return exercise.everyView.map {
+                    FramingRequirement(requiredJoints: $0.requiredJoints, anyOfRequiredJoints: $0.anyOfRequiredJoints)
+                }
+            } ?? []
             offscreenJointEstimator = exercise.map {
                 OffscreenJointEstimator(joints: $0.focusJoints, plantedJoints: $0.plantedJoints,
                                         configuration: offscreenConfiguration)
             }
-            lastFramingStatus = nil
             smoother.reset()
             readings = [:]
             thresholds = [:]
@@ -219,25 +294,37 @@ struct WorkoutFramePipeline {
             overlay = nil
             ghostCalibrationGate.reset()
             ghostFitOverlay = nil
-            lastStartPositionHeld = false
+            if idChanged {
+                lastFramingStatus = nil
+                lastStartPositionHeld = false
+                shouldReportStartPositionRelease = false
+                shouldPrimeFraming = false
+                stanceDetector.reset(seed: exercise?.cameraView.stance)
+            } else {
+                guideMetrics = nil
+                shouldReportStartPositionRelease = shouldReportStartPositionRelease || lastStartPositionHeld
+                lastStartPositionHeld = false
+                shouldPrimeFraming = exercise != nil
+            }
+            // A curl past its top in the old view counts when it's lowered in the new one. It resumes after the
+            // warm-up, so it credits on a live frame once the new view confirms the start, at most once. The new
+            // analyzer keeps its own attempt past the end, and one whose start it saw before that end.
+            var carried = viewChanged && exercise?.hasViewChoice == true ? analyzer?.attemptInProgress() : nil
+            carried?.pairCredits = loneCredits
             rebuildAnalyzer(epoch: analyzerEpoch)
+            if viewChanged {
+                warmAnalyzerFromViewChangeFrames()
+                if let carried { analyzer?.resume(carried) }
+            }
         } else if self.analyzerEpoch != analyzerEpoch || (exercise != nil && analyzer == nil) {
+            creditedSideReps = [:]
             rebuildAnalyzer(epoch: analyzerEpoch)
         }
-    }
-
-    /// A camera-view change also starts a fresh analyzer, even when the exercise id is unchanged.
-    mutating func viewChanged(to cameraView: ExerciseCameraView, analyzerEpoch: Int) {
-        guard var exercise, exercise.cameraView != cameraView else {
-            if self.analyzerEpoch != analyzerEpoch { rebuildAnalyzer(epoch: analyzerEpoch) }
-            return
-        }
-        exercise.cameraView = cameraView
-        exerciseChanged(to: exercise, analyzerEpoch: analyzerEpoch)
     }
 
     mutating func resetAnalyzer(epoch: Int) {
         guard analyzerEpoch != epoch || (exercise != nil && analyzer == nil) else { return }
+        creditedSideReps = [:]
         rebuildAnalyzer(epoch: epoch)
     }
 
@@ -277,6 +364,10 @@ struct WorkoutFramePipeline {
     /// Clears per-capture smoothing and framing state without replacing the exercise analyzer. Like the analyzer,
     /// framing keeps its supported-shoulder references; they expire on their own after a gap.
     mutating func resetTracking() -> [WorkoutEvent] {
+        let previousStance = stanceDetector.observation
+        viewChangeFrames.removeAll()
+        lastRepCreditTime = nil
+        stanceDetector.reset(seed: previousStance.settled)
         framingEvaluator?.reset()
         offscreenJointEstimator?.reset()
         lastFramingStatus = nil
@@ -293,6 +384,9 @@ struct WorkoutFramePipeline {
             lastStartPositionHeld = false
             events.append(.startPositionChanged(false))
         }
+        if stanceDetector.observation != previousStance {
+            events.append(.stanceObserved(stanceDetector.observation))
+        }
         return events
     }
 
@@ -302,6 +396,80 @@ struct WorkoutFramePipeline {
         analyzerEpoch = epoch
         analyzer = exercise?.makeAnalyzer(epoch)
         framingEvaluator?.resetSupportedShoulders()
+    }
+
+    private mutating func bufferForViewChange(_ frame: PoseFrame, exercise: ExerciseDefinition) {
+        guard exercise.hasViewChoice else {
+            viewChangeFrames.removeAll()
+            return
+        }
+
+        viewChangeFrames.append(BufferedViewChangeFrame(frame: frame, sessionPhase: sessionPhase,
+                                                        isCounting: isCounting))
+        let horizon = StanceDetector.Configuration.standard.holdSeconds + Self.viewChangeFrameBufferMargin
+        let cutoff = frame.timestamp - horizon
+        viewChangeFrames.removeAll { $0.frame.timestamp < cutoff }
+    }
+
+    /// Replays only the settled-stance window. Historical outputs are discarded; only stage state survives.
+    /// Frames up to the old view's last credited rep replay without counting: the views confirm the return to
+    /// the start at different points, so the new view could otherwise credit that rep a second time. Those
+    /// frames still teach the new view where the start is.
+    private mutating func warmAnalyzerFromViewChangeFrames() {
+        guard let exercise, exercise.hasViewChoice,
+              let latestTime = viewChangeFrames.last?.frame.timestamp else { return }
+        let cutoff = latestTime - StanceDetector.Configuration.standard.holdSeconds
+            - StanceDetector.timeTolerance
+        let framesToReplay = viewChangeFrames.filter { $0.frame.timestamp >= cutoff }
+        for buffered in framesToReplay {
+            let frame = buffered.frame
+            let completed = completeOffscreenJoints(in: frame)
+            let counted = buffered.sessionPhase == .exercising ? completed : frame
+            let afterLastCredit = lastRepCreditTime.map { frame.timestamp > $0 } ?? true
+            _ = feedAnalyzer(counted, counting: buffered.isCounting && afterLastCredit)
+            if !frame.pose.landmarks.isEmpty {
+                let display = Self.displayPose(frame.pose)
+                _ = updateSmoother(for: display, joints: exercise.focusJoints, at: frame.timestamp)
+            }
+        }
+    }
+
+    /// Records the analyzer's rep credits and whether the count rose with them. One arm's credit alone doesn't
+    /// raise a two-sided exercise's count, and the other arm's attempt may still finish after a view change.
+    private mutating func recordRepCredits(_ events: [RepEvent], exercise: ExerciseDefinition) -> Bool {
+        guard !events.isEmpty else { return false }
+        if exercise.perSide { return true }
+        let before = countedReps
+        for event in events {
+            for side in event.sides { creditedSideReps[side, default: 0] += 1 }
+        }
+        return countedReps > before
+    }
+
+    private var countedReps: Int { min(creditedSideReps[.left] ?? 0, creditedSideReps[.right] ?? 0) }
+
+    private mutating func recordFrameContext(_ frame: PoseFrame, counting: Bool) {
+        guard let lastIndex = viewChangeFrames.indices.last,
+              viewChangeFrames[lastIndex].frame.timestamp == frame.timestamp else { return }
+        viewChangeFrames[lastIndex].sessionPhase = sessionPhase
+        viewChangeFrames[lastIndex].isCounting = counting
+    }
+
+    private mutating func completeOffscreenJoints(in frame: PoseFrame) -> PoseFrame {
+        guard var estimator = offscreenJointEstimator else { return frame }
+        let completed = estimator.complete(frame)
+        offscreenJointEstimator = estimator
+        return completed
+    }
+
+    /// The same analyzer feed is used for live frames and silent view warm-up.
+    private func feedAnalyzer(_ frame: PoseFrame, counting: Bool) -> ExerciseAnalysis? {
+        analyzer?.process(frame, counting: counting)
+    }
+
+    private mutating func updateSmoother(for pose: BodyPose, joints: Set<LandmarkType>,
+                                         at time: TimeInterval) -> [LandmarkType: OverlayJoint] {
+        smoother.update(pose: pose, joints: joints, at: time)
     }
 
     private func makeFramingEvaluator(for exercise: ExerciseDefinition) -> FramingEvaluator {
@@ -341,6 +509,8 @@ struct WorkoutFramePipeline {
         guideMetrics = GuideMetrics(upperArm: previous.upperArm + (sample.upperArm - previous.upperArm) * k,
                                     forearm: previous.forearm + (sample.forearm - previous.forearm) * k)
     }
+
+    private static let viewChangeFrameBufferMargin: TimeInterval = 0.25
 
     /// Shoulder width is the frontal reference. Side-body motions use Ready's leg joints; other side views keep
     /// preferring torso length and fall back to a visible upper arm.

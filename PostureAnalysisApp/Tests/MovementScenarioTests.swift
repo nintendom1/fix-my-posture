@@ -273,6 +273,10 @@ final class MovementScenarioTests: XCTestCase {
             (.frameGap(at: -0.01, duration: 1), ".at"), (.frameGap(at: duration + 0.01, duration: 0.1), ".at"),
             (.frameGap(at: duration - 0.1, duration: 0.2), ".duration"),
             (.frameGap(at: 2, duration: -0.01), ".duration"), (.frameGap(at: 2, duration: 10.01), ".duration"),
+            (.turn(at: -0.01, duration: 1, toView: .side), ".at"),
+            (.turn(at: 2, duration: 0.099, toView: .side), ".duration"),
+            (.turn(at: 2, duration: 10.01, toView: .side), ".duration"),
+            (.turn(at: duration - 0.05, duration: 0.1, toView: .side), ".duration"),
             (.dropout(joints: ["leftKnee"], from: -0.01, to: 1), ".from"),
             (.dropout(joints: ["leftKnee"], from: duration - 1, to: duration + 0.01), ".to"),
             (.dropout(joints: ["leftKnee"], from: 0, to: 10.01), ".to"),
@@ -496,6 +500,243 @@ final class MovementScenarioTests: XCTestCase {
 
         XCTAssertNotEqual(MovementCanonicalRevision.value(for: exercise.id, motion: inheritedMotion),
                           MovementCanonicalRevision.value(for: exercise.id, motion: explicitMotion))
+    }
+
+    // MARK: - Camera views
+
+    func testScenarioCameraViewIsStoredOnlyOutsideTheUsualView() throws {
+        let side = try hammerCurlScenario(.side)
+        let front = try hammerCurlScenario(.front)
+        let plan = planWith([side, front])
+        XCTAssertTrue(plan.validate().isEmpty, "\(plan.validate())")
+        let data = try JSONEncoder().encode(plan)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(object["schemaVersion"] as? Int, 1)
+        let scenarios = try XCTUnwrap(object["scenarios"] as? [[String: Any]])
+        guard scenarios.count == 2 else { return XCTFail("Expected both scenarios in the plan.") }
+        XCTAssertEqual(scenarios.first?["cameraView"] as? String, "side")
+        XCTAssertNil(scenarios.last?["cameraView"], "The usual view is never written.")
+        XCTAssertEqual(try JSONDecoder().decode(MovementPlan.self, from: data), plan)
+
+        let presets = String(decoding: try JSONEncoder().encode(MovementPresets.airSquat(createdAt: createdAt)), as: UTF8.self)
+        XCTAssertFalse(presets.contains("cameraView"), "Plans without a second view encode exactly as before.")
+
+        // A plan may still name the usual view; it decodes to the same scenario.
+        var explicit = object
+        explicit["scenarios"] = scenarios.map { scenario in
+            var named = scenario
+            named["cameraView"] = named["cameraView"] ?? "front"
+            return named
+        }
+        let decoded = try JSONDecoder().decode(MovementPlan.self, from: JSONSerialization.data(withJSONObject: explicit))
+        XCTAssertEqual(decoded, plan)
+        XCTAssertEqual(decoded.scenarios.map(\.cameraView), [.side, .front])
+    }
+
+    func testScenarioCameraViewMustBeOneOfTheExercisesViews() throws {
+        var squat = try XCTUnwrap(MovementPresets.airSquat(createdAt: createdAt).scenarios.first { $0.id == "canonical" })
+        XCTAssertEqual(squat.cameraView, MovementScenario.usualView(of: .airSquat))
+        squat.cameraView = .lyingSide
+        XCTAssertTrue(squat.validate().contains { $0.path == "scenario.cameraView" }, "\(squat.validate())")
+        XCTAssertThrowsError(try JSONDecoder().decode(MovementPlan.self, from: JSONEncoder().encode(planWith([squat]))))
+
+        XCTAssertEqual(try hammerCurlScenario(.side).validate(), [])
+    }
+
+    func testTurnMutationRoundTripsAndValidatesViewsAndTimingOrder() throws {
+        var scenario = try hammerCurlScenario(.front)
+        scenario.mutations = [.turn(at: 2, duration: 1, toView: .side)]
+        let plan = planWith([scenario])
+        XCTAssertTrue(plan.validate().isEmpty, "\(plan.validate())")
+        XCTAssertEqual(try JSONDecoder().decode(MovementPlan.self, from: JSONEncoder().encode(plan)), plan)
+
+        var unsupportedView = scenario
+        unsupportedView.mutations = [.turn(at: 2, duration: 1, toView: .floor)]
+        let unsupportedIssues = unsupportedView.validate()
+        XCTAssertTrue(unsupportedIssues.contains { $0.path == "scenario.mutations[0].toView" },
+                      "\(unsupportedIssues)")
+        XCTAssertThrowsError(try JSONDecoder().decode(MovementPlan.self,
+                                                      from: JSONEncoder().encode(planWith([unsupportedView])))) { error in
+            guard let schemaError = error as? MovementScenarioSchemaError else {
+                return XCTFail("Expected a typed invalid-plan error, got \(error).")
+            }
+            guard case .invalidPlan(let issues) = schemaError else {
+                return XCTFail("Expected an invalid-plan error, got \(schemaError).")
+            }
+            XCTAssertTrue(issues.contains { $0.path == "scenarios[0].mutations[0].toView" }, "\(issues)")
+        }
+
+        var overlapping = scenario
+        overlapping.mutations = [
+            .turn(at: 2, duration: 1, toView: .side),
+            .turn(at: 2.5, duration: 1, toView: .front),
+        ]
+        XCTAssertTrue(overlapping.validate().contains {
+            $0.path == "scenario.mutations[1].at" && $0.message.contains("must not overlap")
+        }, "\(overlapping.validate())")
+
+        var outOfOrder = scenario
+        outOfOrder.mutations = [
+            .turn(at: 3, duration: 0.5, toView: .side),
+            .turn(at: 2, duration: 0.5, toView: .front),
+        ]
+        XCTAssertTrue(outOfOrder.validate().contains {
+            $0.path == "scenario.mutations[1].at" && $0.message.contains("time order")
+        }, "\(outOfOrder.validate())")
+
+        var repeatedView = scenario
+        repeatedView.mutations = [.turn(at: 2, duration: 1, toView: .front)]
+        XCTAssertTrue(repeatedView.validate().contains {
+            $0.path == "scenario.mutations[0].toView" && $0.message.contains("differ")
+        }, "\(repeatedView.validate())")
+    }
+
+    func testTurnInterpolatesStanceGeometryAndIsDeterministic() throws {
+        var scenario = try hammerCurlScenario(.front)
+        scenario.reps = 1
+        scenario.mutations = [.turn(at: 2, duration: 1, toView: .side)]
+        let plan = planWith([scenario])
+        let first = MovementGenerator.materialize(plan: plan, scenario: scenario)
+        let repeated = MovementGenerator.materialize(plan: plan, scenario: scenario)
+        XCTAssertTrue(first.isValid, first.invalidReasons.joined(separator: ", "))
+        XCTAssertEqual(first.recordingLines, repeated.recordingLines)
+
+        let before = try frame(at: 1.8, in: first)
+        let midpoint = try frame(at: 2.5, in: first)
+        let after = try frame(at: 3, in: first)
+        let beforeRatio = try stanceRatio(in: before.frame.pose)
+        let midpointRatio = try stanceRatio(in: midpoint.frame.pose)
+        XCTAssertGreaterThan(beforeRatio, StanceDetector.Configuration.standard.facingRatio)
+        XCTAssertLessThan(midpointRatio, beforeRatio)
+        XCTAssertEqual(midpointRatio, 0, accuracy: 1e-9, "The side view has one visible shoulder at the midpoint.")
+        XCTAssertNil(midpoint.frame.pose[.rightShoulder], "The source-only shoulder disappears at the midpoint.")
+        XCTAssertNil(after.frame.pose[.rightShoulder], "The side view removes the far shoulder after the midpoint.")
+        XCTAssertEqual(StanceDetector.reading(of: midpoint.frame, configuration: .standard), .sideOn)
+        XCTAssertEqual(StanceDetector.reading(of: after.frame, configuration: .standard), .sideOn)
+
+        let unclearBandSamples = first.frames.filter { $0.elapsed >= 2 && $0.elapsed <= 2.5 }
+            .compactMap { sample -> Double? in
+                guard let left = sample.frame.pose[.leftShoulder]?.imageLocation,
+                      let right = sample.frame.pose[.rightShoulder]?.imageLocation,
+                      let leftHip = sample.frame.pose[.leftHip]?.imageLocation,
+                      let rightHip = sample.frame.pose[.rightHip]?.imageLocation else { return nil }
+                let torso = ArmGeometry.distance(ArmGeometry.midpoint(left, right),
+                                                 ArmGeometry.midpoint(leftHip, rightHip))
+                guard torso > 0 else { return nil }
+                return Double(ArmGeometry.distance(left, right) / torso)
+            }
+        XCTAssertTrue(unclearBandSamples.contains { (0.3..<0.5).contains($0) },
+                      "The rotating shoulder ratio should cross the unclear band: \(unclearBandSamples)")
+    }
+
+    func testTurnRevealsTargetOnlyLandmarksAtItsMidpoint() throws {
+        var scenario = try hammerCurlScenario(.side)
+        scenario.reps = 1
+        scenario.mutations = [.turn(at: 2, duration: 1, toView: .front)]
+        let materialization = MovementGenerator.materialize(plan: planWith([scenario]), scenario: scenario)
+        XCTAssertTrue(materialization.isValid, materialization.invalidReasons.joined(separator: ", "))
+        XCTAssertNil(try frame(at: 74.0 / MovementGenerator.framesPerSecond,
+                               in: materialization).frame.pose[.rightElbow])
+        XCTAssertNotNil(try frame(at: 2.5, in: materialization).frame.pose[.rightElbow])
+        XCTAssertNotNil(try frame(at: 3, in: materialization).frame.pose[.rightElbow])
+    }
+
+    func testNoTurnGenerationKeepsTheLegacyFixedViewGuideBytes() throws {
+        var scenario = try hammerCurlScenario(.front)
+        scenario.reps = 1
+        let plan = planWith([scenario])
+        let materialization = MovementGenerator.materialize(plan: plan, scenario: scenario)
+        XCTAssertTrue(materialization.isValid, materialization.invalidReasons.joined(separator: ", "))
+        let exercise = try XCTUnwrap(scenario.definition)
+        let motion = exercise.guide.motion
+        for (index, sample) in materialization.frames.enumerated() {
+            let motionTime = sample.elapsed >= MovementGenerator.readyHold
+                && sample.elapsed < MovementGenerator.readyHold + motion.duration
+                ? sample.elapsed - MovementGenerator.readyHold : 0
+            let legacyGuide = ReadyPoseFixtures.demoFrame(exercise, motionTime: motionTime, at: sample.elapsed)
+            let legacyLine = WorkoutSessionLines.frame(legacyGuide, output: nil, pitchDegrees: nil,
+                                                       imageSizeChanged: index == 0, t: sample.elapsed).serialized
+            let referenceLine = WorkoutSessionLines.frame(sample.referenceFrame, output: nil, pitchDegrees: nil,
+                                                          imageSizeChanged: index == 0, t: sample.elapsed).serialized
+            let constraintLine = WorkoutSessionLines.frame(sample.constraintReferenceFrame, output: nil,
+                                                           pitchDegrees: nil, imageSizeChanged: index == 0,
+                                                           t: sample.elapsed).serialized
+            XCTAssertEqual(referenceLine, legacyLine, "Reference frame bytes at \(sample.elapsed)")
+            XCTAssertEqual(constraintLine, legacyLine, "Guide frame bytes at \(sample.elapsed)")
+            for joint in LandmarkType.allCases {
+                XCTAssertEqual(sample.referenceFrame.pose[joint]?.imageLocation, legacyGuide.pose[joint]?.imageLocation,
+                               "Reference \(joint.rawValue) at \(sample.elapsed)")
+                XCTAssertEqual(sample.constraintReferenceFrame.pose[joint]?.imageLocation,
+                               legacyGuide.pose[joint]?.imageLocation, "Guide \(joint.rawValue) at \(sample.elapsed)")
+            }
+        }
+    }
+
+    func testGeneratorRendersTheScenariosCameraView() throws {
+        let base = try XCTUnwrap(ExerciseCatalog.definition(for: .hammerCurl))
+        XCTAssertTrue(base.hasViewChoice)
+        for view in base.views {
+            let scenario = try hammerCurlScenario(view)
+            let materialized = MovementGenerator.materialize(plan: planWith([scenario]), scenario: scenario)
+            XCTAssertTrue(materialized.isValid, materialized.invalidReasons.joined(separator: ", "))
+            XCTAssertFalse(materialized.frames.isEmpty)
+            let drawn = Set(ReadyPoseFixtures.demoFrame(base.inView(view), motionTime: 0, at: 0).pose.landmarks.keys)
+            XCTAssertEqual(drawn.contains(.rightShoulder), view == .front, "Only the front figure shows both shoulders.")
+            for sample in materialized.frames {
+                XCTAssertEqual(Set(sample.frame.pose.landmarks.keys), drawn, "\(view.rawValue) at \(sample.elapsed)")
+            }
+
+            let text = "[\n" + materialized.recordingLines.joined(separator: ",\n") + "\n]"
+            let recording = try WorkoutSessionFile(text: text)
+            let control = try XCTUnwrap(recording.records.first { $0.record["control"] as? String == "exercise" }?.record)
+            XCTAssertEqual(control["cameraView"] as? String, view.rawValue, "The exercise control selects the view.")
+            let exercises = try XCTUnwrap(recording.header["exercises"] as? [String: Any])
+            XCTAssertEqual((exercises["hammer_curl"] as? [String: Any])?["cameraView"] as? String, base.usualView.rawValue,
+                           "The header describes the exercise as the coach would.")
+        }
+
+        // Each view has its own revision, so a side-on scenario never runs against the front guide's revision.
+        let stale = try hammerCurlScenario(.side, revisionFrom: .front)
+        let staleMaterialization = MovementGenerator.materialize(plan: planWith([stale]), scenario: stale)
+        XCTAssertFalse(staleMaterialization.isValid)
+        let expectedRevision = MovementCanonicalRevision.value(for: base.inView(.side))
+        XCTAssertTrue(staleMaterialization.invalidReasons.contains(
+            "The canonical exercise guide changed; refresh canonicalRevision to \(expectedRevision) before materializing."
+        ), "\(staleMaterialization.invalidReasons)")
+    }
+
+    func testCanonicalRevisionAddsTheCameraViewOnlyOutsideTheUsualView() throws {
+        for exercise in ExerciseCatalog.all {
+            XCTAssertEqual(MovementCanonicalRevision.value(for: exercise),
+                           MovementCanonicalRevision.value(for: exercise.id, motion: exercise.guide.motion),
+                           "\(exercise.id.rawValue): the usual view's revision leaves the view out")
+            for view in exercise.everyView where view.cameraView != exercise.usualView {
+                XCTAssertEqual(MovementCanonicalRevision.value(for: view),
+                               MovementCanonicalRevision.value(for: view.id, motion: view.guide.motion,
+                                                               cameraView: view.cameraView))
+            }
+        }
+        // The view alone changes the revision, even for a guide two views might share.
+        let squat = try XCTUnwrap(ExerciseCatalog.definition(for: .airSquat))
+        XCTAssertNotEqual(MovementCanonicalRevision.value(for: squat.id, motion: squat.guide.motion, cameraView: .side),
+                          MovementCanonicalRevision.value(for: squat))
+
+        // Every approved fixture keeps the revision it was approved with.
+        let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/MovementScenarios/approved", isDirectory: true)
+        let enumerator = try XCTUnwrap(FileManager.default.enumerator(at: fixtures, includingPropertiesForKeys: nil))
+        var checked = 0
+        while let url = enumerator.nextObject() as? URL {
+            guard url.pathExtension == "json" else { continue }
+            let fixture = try JSONDecoder().decode(ApprovedPlan.self, from: Data(contentsOf: url))
+            for scenario in fixture.plan.scenarios {
+                let definition = try XCTUnwrap(scenario.definition, url.lastPathComponent)
+                XCTAssertEqual(scenario.canonicalRevision, MovementCanonicalRevision.value(for: definition),
+                               url.lastPathComponent)
+                checked += 1
+            }
+        }
+        XCTAssertGreaterThan(checked, 0, "No approved fixtures were found.")
     }
 
     func testConstraintDiagnosticsUseStableLandmarkOrder() {
@@ -939,6 +1180,31 @@ final class MovementScenarioTests: XCTestCase {
         return maximum - minimum
     }
 
+    private func stanceRatio(in pose: BodyPose) throws -> Double {
+        let leftShoulder = pose[.leftShoulder]?.imageLocation
+        let rightShoulder = pose[.rightShoulder]?.imageLocation
+        let shoulderMidpoint: CGPoint
+        let shoulderWidth: CGFloat
+        if let leftShoulder, let rightShoulder {
+            shoulderMidpoint = ArmGeometry.midpoint(leftShoulder, rightShoulder)
+            shoulderWidth = ArmGeometry.distance(leftShoulder, rightShoulder)
+        } else {
+            shoulderMidpoint = try XCTUnwrap(leftShoulder ?? rightShoulder)
+            shoulderWidth = 0
+        }
+        let leftHip = pose[.leftHip]?.imageLocation
+        let rightHip = pose[.rightHip]?.imageLocation
+        let hipMidpoint: CGPoint
+        if let leftHip, let rightHip {
+            hipMidpoint = ArmGeometry.midpoint(leftHip, rightHip)
+        } else {
+            hipMidpoint = try XCTUnwrap(leftHip ?? rightHip)
+        }
+        let torso = ArmGeometry.distance(shoulderMidpoint, hipMidpoint)
+        XCTAssertGreaterThan(torso, 0)
+        return Double(shoulderWidth / max(torso, 1e-9))
+    }
+
     private func assertConstrainedGeometry(_ materialization: MovementMaterialization,
                                            file: StaticString = #filePath, line: UInt = #line) throws {
         let firstFrame = try XCTUnwrap(materialization.frames.first?.frame, file: file, line: line)
@@ -987,4 +1253,20 @@ final class MovementScenarioTests: XCTestCase {
         MovementPlan(id: "test-plan", title: "Test plan", purpose: "Validation test plan.",
                      author: .developer, createdAt: createdAt, scenarios: scenarios)
     }
+
+    /// Two plain hammer curls in `view`, carrying the canonical revision of `revisionFrom` (the same view by default).
+    private func hammerCurlScenario(_ view: ExerciseCameraView,
+                                    revisionFrom revisionView: ExerciseCameraView? = nil) throws -> MovementScenario {
+        let base = try XCTUnwrap(ExerciseCatalog.definition(for: .hammerCurl))
+        return MovementScenario(id: "curl-\(view.rawValue)", exercise: .hammerCurl, category: .canonical,
+                                purpose: "Plain hammer curls in one camera view.",
+                                canonicalRevision: MovementCanonicalRevision.value(for: base.inView(revisionView ?? view)),
+                                seed: 27, reps: 2, mode: .raw, mutations: [],
+                                assertions: [.repCount(equals: 2, min: nil, max: nil)], cameraView: view)
+    }
+}
+
+/// The plan inside an approved Movement Lab fixture; the rest of the fixture is ignored here.
+private struct ApprovedPlan: Decodable {
+    let plan: MovementPlan
 }

@@ -73,6 +73,28 @@ final class WorkoutRecordingReportTests: XCTestCase {
         XCTAssertTrue(report.contains("  tuning: downMaxRatio=0.5 upMinRatio=0.8"))
     }
 
+    func testReportPrintsAnEntryForEachCameraViewRan() throws {
+        var lines = Self.sampleLines
+        guard let headerLine = lines.first else { return XCTFail("Expected a header line.") }
+        var header = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(headerLine.utf8)) as? [String: Any])
+        var exercises = try XCTUnwrap(header["exercises"] as? [String: [String: Any]])
+        exercises["hammer_curl"] = ["cameraView": "front", "required": ["leftElbow"], "focus": ["leftElbow"]]
+        exercises["hammer_curl.side"] = ["cameraView": "side", "required": ["leftElbow", "leftWrist"],
+                                           "focus": ["leftElbow", "leftWrist"]]
+        header["exercises"] = exercises
+        lines[0] = String(decoding: try JSONSerialization.data(withJSONObject: header, options: [.sortedKeys]), as: UTF8.self)
+        lines.insert(#"{"k":"pipe","t":1.0,"control":"exercise","exercise":"hammer_curl","cameraView":"front","epoch":2}"#, at: 2)
+        lines.insert(#"{"k":"pipe","t":2.0,"control":"exercise","exercise":"hammer_curl","cameraView":"side","epoch":3}"#, at: 3)
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("report-views-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: file) }
+        try Self.fileText(lines).write(to: file, atomically: true, encoding: .utf8)
+
+        let report = WorkoutRecordingReport.make(fileURL: file, title: "Workout", timeZone: TimeZone(identifier: "UTC")!)
+
+        XCTAssertTrue(report.contains("Exercise hammer_curl (front): required LE"), report)
+        XCTAssertTrue(report.contains("Exercise hammer_curl (side): required LE LW"), report)
+    }
+
     func testHeaderAndExerciseSectionUseRecordedEffectiveFraming() throws {
         var lines = Self.sampleLines
         guard let headerLine = lines.first else { return XCTFail("Expected a header line.") }

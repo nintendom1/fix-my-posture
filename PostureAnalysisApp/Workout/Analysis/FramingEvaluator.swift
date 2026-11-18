@@ -20,6 +20,25 @@ enum FramingGuidance: String, Equatable {
     case stepBackLyingSide
     case movePhoneFartherFloor
 
+    static func needsFullBodySideView(requiredJoints: Set<LandmarkType>,
+                                      anyOfRequiredJoints: [Set<LandmarkType>]) -> Bool {
+        requiredJoints.contains(.leftAnkle) || requiredJoints.contains(.rightAnkle)
+            || anyOfRequiredJoints.contains { $0.contains(.leftAnkle) || $0.contains(.rightAnkle) }
+    }
+
+    /// The line used when an exercise needs the user to enter the active camera view.
+    static func stepIntoViewGuidance(cameraView: ExerciseCameraView, requiredJoints: Set<LandmarkType>,
+                                     anyOfRequiredJoints: [Set<LandmarkType>]) -> FramingGuidance {
+        let needsFullBody = needsFullBodySideView(requiredJoints: requiredJoints,
+                                                  anyOfRequiredJoints: anyOfRequiredJoints)
+        switch cameraView {
+        case .front: return .stepIntoView
+        case .side: return needsFullBody ? .stepIntoViewSideFullBody : .stepIntoViewSideOn
+        case .floor: return .stepIntoViewFloor
+        case .lyingSide: return .stepIntoViewLyingSide
+        }
+    }
+
     var spokenText: String {
         switch self {
         case .stepIntoView: return "Step into view, facing the phone."
@@ -89,6 +108,12 @@ struct FramingConfiguration: Codable {
     var shoulderSpanClearance: CGFloat = 0.02
 }
 
+/// The joints one camera view needs in sight: every required joint, plus one full alternative set when there are any.
+struct FramingRequirement: Equatable {
+    let requiredJoints: Set<LandmarkType>
+    let anyOfRequiredJoints: [Set<LandmarkType>]
+}
+
 /// Decides tracking reliability and framing guidance from an exercise's required joints.
 struct FramingEvaluator {
     let requiredJoints: Set<LandmarkType>
@@ -120,8 +145,8 @@ struct FramingEvaluator {
     private var isPhoneTooClose: Bool { isShoulderSpanTooWide || areWristsTooLow }
 
     private var needsFullBodySideView: Bool {
-        requiredJoints.contains(.leftAnkle) || requiredJoints.contains(.rightAnkle)
-            || anyOfRequiredJoints.contains { $0.contains(.leftAnkle) || $0.contains(.rightAnkle) }
+        FramingGuidance.needsFullBodySideView(requiredJoints: requiredJoints,
+                                              anyOfRequiredJoints: anyOfRequiredJoints)
     }
 
     init(requiredJoints: Set<LandmarkType>, anyOfRequiredJoints: [Set<LandmarkType>] = [], headroomArmLengths: CGFloat?,
@@ -142,7 +167,9 @@ struct FramingEvaluator {
         shoulderSupport = SupportedShoulders(rule: supportedShoulders, minimumConfidence: configuration.minimumConfidence)
     }
 
-    mutating func evaluate(_ frame: PoseFrame) -> FramingStatus {
+    /// `alsoAccepting` lists other views' requirements that count as present too, such as every view of the exercise
+    /// while the user turns between them.
+    mutating func evaluate(_ frame: PoseFrame, alsoAccepting alternatives: [FramingRequirement] = []) -> FramingStatus {
         let time = frame.timestamp
         let supported = shoulderSupport.update(frame)
         func visible(_ joints: Set<LandmarkType>) -> Bool {
@@ -150,8 +177,11 @@ struct FramingEvaluator {
                 supported.contains($0) || frame.point($0, minimumConfidence: configuration.minimumConfidence) != nil
             }
         }
-        let requiredPresent = visible(requiredJoints)
-            && (anyOfRequiredJoints.isEmpty || anyOfRequiredJoints.contains(where: visible))
+        func satisfied(_ required: Set<LandmarkType>, _ anyOf: [Set<LandmarkType>]) -> Bool {
+            visible(required) && (anyOf.isEmpty || anyOf.contains(where: visible))
+        }
+        let requiredPresent = satisfied(requiredJoints, anyOfRequiredJoints)
+            || alternatives.contains { satisfied($0.requiredJoints, $0.anyOfRequiredJoints) }
         updatePhoneDistance(frame)
         let present = requiredPresent && !lacksSideRoom(frame)
         if present {
@@ -164,6 +194,32 @@ struct FramingEvaluator {
             if isReliable, time - (lastPresent ?? time) >= configuration.unreliableAfter { isReliable = false }
         }
         return FramingStatus(isReliable: isReliable, guidance: guidance(for: frame, requiredPresent: requiredPresent))
+    }
+
+    /// Starts a freshly rebuilt view evaluator as reliable when its required joints, or one of `alternatives` as
+    /// `evaluate` accepts them, are already visible. Otherwise the regular `reliableAfter` delay remains in effect.
+    mutating func prime(with frame: PoseFrame, alsoAccepting alternatives: [FramingRequirement] = []) {
+        func visible(_ joints: Set<LandmarkType>) -> Bool {
+            joints.allSatisfy { frame.point($0, minimumConfidence: configuration.minimumConfidence) != nil }
+        }
+        func satisfied(_ required: Set<LandmarkType>, _ anyOf: [Set<LandmarkType>]) -> Bool {
+            visible(required) && (anyOf.isEmpty || anyOf.contains(where: visible))
+        }
+        let requiredPresent = satisfied(requiredJoints, anyOfRequiredJoints)
+            || alternatives.contains { satisfied($0.requiredJoints, $0.anyOfRequiredJoints) }
+        guard requiredPresent else { return }
+        presentSince = frame.timestamp
+        lastPresent = frame.timestamp
+        isReliable = true
+    }
+
+    /// Carries reliability over from the evaluator of the same exercise's previous camera view, so a view change
+    /// neither loses framing nor restarts its grace: reliable framing stays reliable until this view's requirements, or
+    /// the accepted alternatives, have been missing for `unreliableAfter`.
+    mutating func continueReliability(from previous: FramingEvaluator) {
+        presentSince = previous.presentSince
+        lastPresent = previous.lastPresent
+        isReliable = previous.isReliable
     }
 
     mutating func reset() {
@@ -212,9 +268,8 @@ struct FramingEvaluator {
         let sideOn = cameraView == .side
         let floor = cameraView == .floor
         guard visible.count >= configuration.minimumBodyJoints else {
-            if cameraView == .lyingSide { return .stepIntoViewLyingSide }
-            if sideOn { return needsFullBodySideView ? .stepIntoViewSideFullBody : .stepIntoViewSideOn }
-            return floor ? .stepIntoViewFloor : .stepIntoView
+            return FramingGuidance.stepIntoViewGuidance(cameraView: cameraView, requiredJoints: requiredJoints,
+                                                        anyOfRequiredJoints: anyOfRequiredJoints)
         }
         guard requiredPresent else {
             if cameraView == .lyingSide { return .stepBackLyingSide }

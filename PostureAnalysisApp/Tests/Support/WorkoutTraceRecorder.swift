@@ -229,13 +229,16 @@ final class WorkoutTraceRecorder: WorkoutSessionRecording {
     }
 
     static func describe(_ exercise: ExerciseDefinition) -> String {
-        exercise.isReducedRangeVariant ? "\(exercise.id.rawValue)(reduced)" : exercise.id.rawValue
+        let view = exercise.cameraView == exercise.usualView ? "" : "(\(exercise.cameraView.rawValue))"
+        let reducedRange = exercise.isReducedRangeVariant ? "(reduced)" : ""
+        return "\(exercise.id.rawValue)\(view)\(reducedRange)"
     }
 
     static func describe(_ command: WorkoutCommand) -> String {
         switch command {
         case .selectExercise(let id): return "selectExercise(\(id.rawValue))"
         case .setWeight(let weight): return "setWeight(\(weight))"
+        case .setCameraView(let preference): return "setCameraView \(preference.rawValue)"
         default: return String(describing: command)
         }
     }
@@ -256,6 +259,8 @@ final class WorkoutTraceRecorder: WorkoutSessionRecording {
         case .interruptionEnded: return "interruptionEnded"
         case .voiceControlChanged(let usable): return "voiceControl \(usable)"
         case .formObserved: return "formObserved"
+        case .stanceObserved(let observation):
+            return "stance settled=\(observation.settled?.rawValue ?? "none") turning=\(observation.turning)"
         case .coachSpeakingChanged(let speaking): return "coachSpeaking \(speaking)"
         case .poseObserved: return "poseObserved"
         case .startBonus(let request): return "startBonus amount=\(request.amount)"

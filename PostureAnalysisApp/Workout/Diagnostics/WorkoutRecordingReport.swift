@@ -80,7 +80,7 @@ enum WorkoutRecordingReport {
         var losses: [(start: TimeInterval, guidance: String?, end: TimeInterval?)] = []
         var markers: [(id: String, time: TimeInterval, source: String, text: String?)] = []
         var notes: [String: String] = [:]
-        var exerciseSegments: [(time: TimeInterval, id: String)] = []
+        var exerciseSegments: [(time: TimeInterval, id: String, key: String, view: String?)] = []
         var end: [String: Any]?
         var frameCount = 0
         var lastTime: TimeInterval = 0
@@ -115,7 +115,18 @@ enum WorkoutRecordingReport {
                 header = object
             case "pipe":
                 if object["control"] as? String == "exercise", let id = object["exercise"] as? String {
-                    if exerciseSegments.last?.id != id { exerciseSegments.append((time, id)) }
+                    let view = object["cameraView"] as? String
+                    let variant = object["variant"] as? String
+                    let usualView = (header["exercises"] as? [String: [String: Any]])?[id]?["cameraView"] as? String
+                    let nonUsualView = view.flatMap { $0 == usualView ? nil : $0 }
+                    let viewKey = nonUsualView.map { "\(id).\($0)" } ?? id
+                    let candidate = nonUsualView.flatMap { _ in variant.map { "\(viewKey).\($0)" } } ?? viewKey
+                    let entries = header["exercises"] as? [String: Any] ?? [:]
+                    let fallback = nonUsualView == nil ? id : viewKey
+                    let key = entries[candidate] != nil ? candidate : (entries[fallback] != nil ? fallback : id)
+                    if exerciseSegments.last?.key != key || exerciseSegments.last?.view != nonUsualView {
+                        exerciseSegments.append((time, id, key, nonUsualView))
+                    }
                 }
             case "state":
                 if let phase = object["phase"] as? String, phase != lastPhase {
@@ -186,7 +197,7 @@ enum WorkoutRecordingReport {
         let jointOrder = header["jointOrder"] as? [String] ?? []
         let exercises = header["exercises"] as? [String: [String: Any]] ?? [:]
         func exercise(at time: TimeInterval) -> String? {
-            exerciseSegments.last { $0.time <= time }?.id ?? exerciseSegments.first?.id
+            exerciseSegments.last { $0.time <= time }?.key ?? exerciseSegments.first?.key
         }
         func focus(for exerciseID: String?) -> [String] {
             let focus = Set((exerciseID.flatMap { exercises[$0]?["focus"] } as? [String]) ?? [])
@@ -225,7 +236,7 @@ enum WorkoutRecordingReport {
         lines.append("FMP workout report · " + facts.joined(separator: " · "))
         lines.append("Recording \(header["id"] as? String ?? "?"); the full file comes over with `make diagnostics`.")
         let sessionFraming = header["framing"] as? [String: Any] ?? [:]
-        let firstExercise = Self.unique(exerciseSegments.map(\.id)).first.flatMap { exercises[$0] }
+        let firstExercise = Self.unique(exerciseSegments.map(\.key)).first.flatMap { exercises[$0] }
         let framing = firstExercise?["framing"] as? [String: Any] ?? sessionFraming
         let size = ((header["camera"] as? [String: Any])?["analysisHz"] as? Int).map { "\($0) Hz" } ?? "10 Hz"
         lines.append("Joints: unmirrored image pixels, origin top-left, analyzed at \(size). Cells are confidence then x,y. "
@@ -233,11 +244,14 @@ enum WorkoutRecordingReport {
             + "\(number(framing["reliableAfter"] ?? 0.6)) s and drops after \(number(framing["unreliableAfter"] ?? 0.3)) s "
             + "missing; \"lo\" is a joint under the \(number(header["confidenceFloor"] ?? 0.3)) floor, \"--\" is not seen, "
             + "\"est\" is estimated past the frame edge.")
-        for id in Self.unique(exerciseSegments.map(\.id)) {
-            guard let definition = exercises[id] else { continue }
+        for key in Self.unique(exerciseSegments.map(\.key)) {
+            guard let definition = exercises[key] else { continue }
+            let segment = exerciseSegments.first { $0.key == key }
+            let id = segment?.id ?? key
+            let view = segment?.view ?? (definition["cameraView"] as? String ?? "?")
             let required = (definition["required"] as? [String] ?? []).map(Self.short).joined(separator: " ")
             let anyOf = (definition["anyOfRequired"] as? [[String]] ?? []).map { $0.map(Self.short).joined(separator: " ") }
-            var line = "Exercise \(id) (\(definition["cameraView"] as? String ?? "?")): required \(required.isEmpty ? "none" : required)"
+            var line = "Exercise \(id) (\(view)): required \(required.isEmpty ? "none" : required)"
             if !anyOf.isEmpty { line += "; or all of one of [\(anyOf.joined(separator: "] ["))]" }
             if let exerciseFraming = definition["framing"] as? [String: Any] {
                 line += "; framing drops after \(number(exerciseFraming["unreliableAfter"] ?? sessionFraming["unreliableAfter"] ?? 0.3)) s missing"

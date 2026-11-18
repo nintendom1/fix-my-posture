@@ -12,7 +12,7 @@ import { inspectRun } from "../lib/lab/inspect.mjs";
 import { MCP_FULL_TRACE_BYTE_CAP, MCP_MAX_PLAN_BYTES, MCP_PLAN_VALIDATION_BYTE_CAP, MCP_PLAN_VALIDATION_ISSUE_LIMIT,
   assertBoundedInspection, formatPlanValidationErrors, labOpenCommand,
   openLabDashboard, prepareAgentPlan, resolveLabOpenTarget } from "../lib/lab/agent.mjs";
-import { SCENARIO_CATEGORIES, MUTATION_BOUNDS } from "../lib/lab/plan.mjs";
+import { SCENARIO_CATEGORIES, MUTATION_BOUNDS, SWIFT_CAMERA_VIEWS } from "../lib/lab/plan.mjs";
 import { renderRunHeader } from "../public/lab/views.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -236,6 +236,28 @@ test("dashboard open launches the requested deep link and sends its keyframe ove
   assert.match(calls[1], /labScenario=canonical-fail/);
   assert.match(calls[1], /labTime=1.25/);
   assert.deepEqual(calls[2], { command: "lab-open", runID, scenarioID: "canonical-fail", timestamp: 1.25 });
+});
+
+test("Movement Lab MCP runs a scenario in a named camera view and rejects an unknown view", async () => {
+  const { request, call, stop } = await start();
+  try {
+    const listed = (await request("tools/list")).result.tools;
+    const scenarioSchema = listed.find((tool) => tool.name === "fmp_lab_run").inputSchema
+      .properties.plan.properties.scenarios.items;
+    assert.deepEqual(scenarioSchema.properties.cameraView.enum, SWIFT_CAMERA_VIEWS);
+    assert.equal(scenarioSchema.required.includes("cameraView"), false, "Leaving it out keeps the usual view.");
+    const sideOn = samplePlan();
+    sideOn.scenarios[0].cameraView = "side";
+    const accepted = await call("fmp_lab_run", { plan: sideOn, mode: "pipeline" });
+    assert.equal(accepted.protocolError, false, accepted.text);
+    assert.equal(accepted.isError, false, accepted.text);
+    assert.match(accepted.text, / · run \d{8}-\d{6}-[a-zA-Z0-9]{4,12}$/);
+    const unknown = samplePlan();
+    unknown.scenarios[0].cameraView = "back";
+    assert.equal((await call("fmp_lab_run", { plan: unknown, mode: "pipeline" })).protocolError, true);
+  } finally {
+    await stop();
+  }
 });
 
 test("Movement Lab MCP exposes strict schemas while preserving existing recording tools", async () => {

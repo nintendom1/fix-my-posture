@@ -35,6 +35,24 @@ final class WorkoutCoachModelTests: XCTestCase {
         XCTAssertEqual(harness.model.session.phase, .paused(.interruption))
     }
 
+    func testMidSetCameraViewSelectionDoesNotSpeakAConfirmation() {
+        let harness = WorkoutCoachHarness.make(
+            preferences: InMemoryPreferences(),
+            initialExercise: .hammerCurl,
+            settings: WorkoutSettings(viewPreferences: [.hammerCurl: .locked(.facing)])
+        )
+        harness.model.onAppear(isApplicationActive: true)
+        harness.camera.emit(.running)
+        harness.model.send(.start)
+        XCTAssertEqual(harness.model.session.phase, .exercising)
+        let utteranceCount = harness.speech.utterances.count
+
+        harness.model.send(.setCameraView(.locked(.sideOn)))
+
+        XCTAssertEqual(harness.speech.utterances.count, utteranceCount)
+        XCTAssertEqual(harness.model.session.viewPreference(for: .hammerCurl), .locked(.sideOn))
+    }
+
     func testSchedulerTickRefreshesNowEveryHalfSecond() {
         let harness = WorkoutCoachHarness.make()
         harness.model.onAppear(isApplicationActive: true)

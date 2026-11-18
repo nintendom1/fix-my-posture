@@ -89,6 +89,7 @@ enum WorkoutRecordingEvent: Equatable {
 struct WorkoutStateSnapshot: Equatable {
     var phase: String
     var exerciseID: String?
+    var view: String? = nil
     var planIndex: Int?
     var setNumber: Int
     var side: String?
@@ -139,6 +140,11 @@ extension WorkoutStateSnapshot {
          micStatus: VoiceStatus, isCoachMuted: Bool, isMicMuted: Bool, cameraStatus: WorkoutCameraStatus) {
         phase = Self.label(session.phase)
         exerciseID = session.exerciseID?.rawValue
+        if let exercise = session.exercise, exercise.hasViewChoice, exercise.cameraView != exercise.usualView {
+            view = exercise.cameraView.rawValue
+        } else {
+            view = nil
+        }
         planIndex = session.plan == nil ? nil : session.planIndex
         setNumber = session.currentSetNumber
         side = session.currentSide?.rawValue

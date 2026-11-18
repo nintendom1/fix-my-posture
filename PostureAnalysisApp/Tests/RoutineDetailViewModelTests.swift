@@ -74,6 +74,13 @@ final class RoutineDetailViewModelTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(viewModel.state.routine?.steps.first?.camera), "Floor-level side camera")
     }
 
+    func testRoutineShowsBothCameraOptionsForViewChoiceExercise() throws {
+        let savedSet = routine(name: "Upper Body", ids: [.hammerCurl])
+        let viewModel = makeViewModel(for: savedSet, repository: RoutinesTestRepository(sets: [savedSet]))
+
+        XCTAssertEqual(try XCTUnwrap(viewModel.state.routine?.steps.first?.camera), "Front or side camera")
+    }
+
     func testDuplicateUsesRoutineRepositoryAndTodayCopyName() {
         let savedSet = routine(name: "Upper Body", ids: [.shoulderPress])
         let repository = RoutinesTestRepository(sets: [savedSet])

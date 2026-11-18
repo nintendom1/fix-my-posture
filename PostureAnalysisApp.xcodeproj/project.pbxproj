@@ -504,6 +504,12 @@
 		A10000012B00000000000514 /* MarkerPhraseParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000514 /* MarkerPhraseParser.swift */; };
 		A10000012B00000000000515 /* MarkerPhraseParserTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000515 /* MarkerPhraseParserTests.swift */; };
 		A10000012B00000000000517 /* WorkoutVoiceControllerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000517 /* WorkoutVoiceControllerTests.swift */; };
+		A10000012B00000000000518 /* StanceDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000518 /* StanceDetector.swift */; };
+		A10000012B00000000000519 /* HammerCurlSideAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000519 /* HammerCurlSideAnalyzer.swift */; };
+		A10000012B00000000000520 /* StanceDetectorTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000520 /* StanceDetectorTests.swift */; };
+		A10000012B00000000000521 /* HammerCurlSideAnalyzerTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000521 /* HammerCurlSideAnalyzerTests.swift */; };
+		A10000012B00000000000522 /* CameraViewSessionTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000522 /* CameraViewSessionTests.swift */; };
+		A10000012B00000000000523 /* CameraViewTurnTests.swift in TestSources */ = {isa = PBXBuildFile; fileRef = B10000012B00000000000523 /* CameraViewTurnTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1016,6 +1022,12 @@
 		B10000012B00000000000514 /* MarkerPhraseParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkerPhraseParser.swift; sourceTree = "<group>"; };
 		B10000012B00000000000515 /* MarkerPhraseParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkerPhraseParserTests.swift; sourceTree = "<group>"; };
 		B10000012B00000000000517 /* WorkoutVoiceControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutVoiceControllerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000518 /* StanceDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StanceDetector.swift; sourceTree = "<group>"; };
+		B10000012B00000000000519 /* HammerCurlSideAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HammerCurlSideAnalyzer.swift; sourceTree = "<group>"; };
+		B10000012B00000000000520 /* StanceDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StanceDetectorTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000521 /* HammerCurlSideAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HammerCurlSideAnalyzerTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000522 /* CameraViewSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraViewSessionTests.swift; sourceTree = "<group>"; };
+		B10000012B00000000000523 /* CameraViewTurnTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraViewTurnTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1319,6 +1331,10 @@
 				B10000012B00000000000512 /* TrainTodayHeroTests.swift */,
 				B10000012B00000000000515 /* MarkerPhraseParserTests.swift */,
 				B10000012B00000000000517 /* WorkoutVoiceControllerTests.swift */,
+				B10000012B00000000000520 /* StanceDetectorTests.swift */,
+				B10000012B00000000000521 /* HammerCurlSideAnalyzerTests.swift */,
+				B10000012B00000000000522 /* CameraViewSessionTests.swift */,
+				B10000012B00000000000523 /* CameraViewTurnTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -1395,6 +1411,7 @@
 				B10000012B00000000000064 /* LandmarkSmoother.swift */,
 				B10000012B00000000000116 /* NearArmSelector.swift */,
 				B10000012B00000000000393 /* OffscreenJointEstimator.swift */,
+				B10000012B00000000000518 /* StanceDetector.swift */,
 			);
 			path = Analysis;
 			sourceTree = "<group>";
@@ -1477,6 +1494,7 @@
 				B10000012B00000000000100 /* HammerCurlExercise.swift */,
 				B10000012B00000000000101 /* HammerCurlAnalyzer.swift */,
 				B10000012B00000000000102 /* HammerCurlFormMonitor.swift */,
+				B10000012B00000000000519 /* HammerCurlSideAnalyzer.swift */,
 			);
 			path = HammerCurl;
 			sourceTree = "<group>";
@@ -2538,6 +2556,8 @@
 				A10000012B00000000000509 /* TodaySessionHeroProviding.swift in Sources */,
 				A10000012B00000000000510 /* AdaptiveInvitationSheet.swift in Sources */,
 				A10000012B00000000000514 /* MarkerPhraseParser.swift in Sources */,
+				A10000012B00000000000518 /* StanceDetector.swift in Sources */,
+				A10000012B00000000000519 /* HammerCurlSideAnalyzer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2722,6 +2742,10 @@
 				A10000012B00000000000513 /* PushUpMovement.swift in TestSources */,
 				A10000012B00000000000515 /* MarkerPhraseParserTests.swift in TestSources */,
 				A10000012B00000000000517 /* WorkoutVoiceControllerTests.swift in TestSources */,
+				A10000012B00000000000520 /* StanceDetectorTests.swift in TestSources */,
+				A10000012B00000000000521 /* HammerCurlSideAnalyzerTests.swift in TestSources */,
+				A10000012B00000000000522 /* CameraViewSessionTests.swift in TestSources */,
+				A10000012B00000000000523 /* CameraViewTurnTests.swift in TestSources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

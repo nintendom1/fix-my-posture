@@ -76,6 +76,15 @@ final class LibraryViewModelTests: XCTestCase {
         XCTAssertEqual(row.target, "2 × 8 each leg")
     }
 
+    func testCameraChipNamesBothViewsForSelectableCameraExercises() throws {
+        let viewModel = makeViewModel()
+        let curl = try XCTUnwrap(viewModel.state.groups.flatMap(\.exercises).first { $0.id == .hammerCurl })
+        let press = try XCTUnwrap(viewModel.state.groups.flatMap(\.exercises).first { $0.id == .shoulderPress })
+
+        XCTAssertEqual(LibraryScreen.cameraLabel(for: curl), "Front or side camera")
+        XCTAssertEqual(LibraryScreen.cameraLabel(for: press), "Front camera")
+    }
+
     func testTappingAnExerciseRoutesToItsDetail() {
         let router = AppRouter(selectedTab: .train)
         router.setPath([.library], for: .train)

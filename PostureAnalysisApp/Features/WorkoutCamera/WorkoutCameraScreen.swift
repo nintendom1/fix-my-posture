@@ -9,6 +9,7 @@ struct WorkoutCameraScreen: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var toolbarVisibility: EdgeToolbarVisibilityController
     @State private var confirmingEnd = false
+    @State private var showingCameraViewPicker = false
 
     init(state: WorkoutHUDViewState,
          scheduler: (any Scheduling)? = nil,
@@ -201,25 +202,7 @@ struct WorkoutCameraScreen: View {
                 confirmingEnd = true
             }
 
-            VStack(spacing: 1) {
-                Text(state.exercise?.displayName ?? "Workout Coach")
-                    .font(.system(size: 16, weight: .heavy, design: .rounded))
-                    .foregroundStyle(ColorTokens.palette().textPrimary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(width: 202)
-                    .designAnchor("camera.title")
-
-                if let subtitle = state.presentation.subtitle {
-                    Text(subtitle)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(ColorTokens.palette().textSecondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .frame(width: 202)
-                }
-            }
-            .frame(width: 202, height: 44)
+            titleArea
 
             HUDIconButton(icon: state.isCoachMuted ? "volume_off" : "volume_up",
                           label: state.isCoachMuted ? "Coach voice muted" : "Coach voice on",
@@ -257,6 +240,68 @@ struct WorkoutCameraScreen: View {
         .frame(height: 44)
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 16)
+    }
+
+    private var titleArea: some View {
+        Group {
+            if state.exercise?.hasViewChoice == true {
+                Button {
+                    toolbarVisibility.interact()
+                    showingCameraViewPicker = true
+                } label: {
+                    titleLabel
+                }
+                .buttonStyle(.plain)
+                .accessibilityAction(named: Text("Change camera view")) {
+                    showingCameraViewPicker = true
+                }
+            } else {
+                titleLabel
+            }
+        }
+        .confirmationDialog("Camera view", isPresented: $showingCameraViewPicker, titleVisibility: .visible) {
+            cameraViewChoice("Auto", preference: .auto)
+            cameraViewChoice("Front", preference: .locked(.facing))
+            cameraViewChoice("Side-on", preference: .locked(.sideOn))
+        } message: {
+            Text("Choose how the camera should track this exercise.")
+        }
+    }
+
+    private var titleLabel: some View {
+        VStack(spacing: 1) {
+            Text(state.exercise?.displayName ?? "Workout Coach")
+                .font(.system(size: 16, weight: .heavy, design: .rounded))
+                .foregroundStyle(ColorTokens.palette().textPrimary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(width: 202)
+                .designAnchor("camera.title")
+
+            if let subtitle = state.presentation.subtitle {
+                Text(subtitle)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(ColorTokens.palette().textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .frame(width: 202)
+            }
+        }
+        .frame(width: 202, height: 44)
+    }
+
+    private func cameraViewChoice(_ title: String, preference: ExerciseViewPreference) -> some View {
+        Button {
+            guard state.exercise?.hasViewChoice == true else { return }
+            toolbarVisibility.interact()
+            onIntent(.setCameraView(preference))
+        } label: {
+            if state.exercise?.viewPreference == preference {
+                Label(title, systemImage: "checkmark")
+            } else {
+                Text(title)
+            }
+        }
     }
 
     /// Large and labelled, for a user mid-set. Tapping it flags the item and opens the offer; the set keeps going.

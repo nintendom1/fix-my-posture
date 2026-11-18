@@ -19,7 +19,7 @@ import { inspectRun } from "./lib/lab/inspect.mjs";
 import { createLabStore } from "./lib/lab/store.mjs";
 import { MCP_FULL_TRACE_BYTE_CAP, MCP_MAX_PLAN_BYTES, assertBoundedInspection, formatAgentManifest,
   formatAgentRun, openLabDashboard, prepareAgentPlan } from "./lib/lab/agent.mjs";
-import { MUTATION_BOUNDS, SCENARIO_CATEGORIES, SWIFT_LANDMARK_NAMES } from "./lib/lab/plan.mjs";
+import { MUTATION_BOUNDS, SCENARIO_CATEGORIES, SWIFT_CAMERA_VIEWS, SWIFT_LANDMARK_NAMES } from "./lib/lab/plan.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = process.env.FMP_REPLAY_ROOT ?? path.resolve(here, "../..");
@@ -76,6 +76,7 @@ const scenarioInputSchema = {
     reps: { type: "integer", minimum: 1, maximum: 120 }, mode: { type: "string", enum: ["constrained", "raw"] },
     mutations: { type: "array", items: mutationInputSchema }, assertions: { type: "array", items: assertionInputSchema },
     revision: { type: "integer", minimum: 1 }, parentRevision: { type: "integer", minimum: 1 },
+    cameraView: { type: "string", enum: SWIFT_CAMERA_VIEWS, description: "Leave out for the exercise's usual view." },
     author: { type: "string", enum: ["agent", "developer"] }, intent: { type: "string", minLength: 1, maxLength: 1000 },
     editNote: { type: "string", maxLength: 300 }, assertionChangeReason: { type: "string", maxLength: 300 },
     editedBy: { type: "string", enum: ["agent", "developer"] },
@@ -129,7 +130,7 @@ const TOOLS = [
   },
   {
     name: "fmp_events",
-    description: "List timeline events (commands, phases, displayed reps, analyzer rep events, tracking, coach speech, tips, markers, notes), optionally in a window and of some kinds.",
+    description: "List timeline events (commands, phases, displayed reps, analyzer rep events, tracking, stance, coach speech, tips, markers, notes), optionally in a window and of some kinds.",
     inputSchema: {
       type: "object",
       properties: { session, from: time, to: time,
@@ -296,16 +297,23 @@ async function overview(id) {
   lines.push(`FMP recording ${s.id} · ${s.title} · ${header.startedAt ?? "?"} · ${durationLabel(s.duration)} · ${s.frames.length} frames`
     + `${s.end?.seqGaps ? ` (${s.end.seqGaps} more never reached the coach)` : ""} · ${s.isComplete ? `ended: ${s.end.reason}` : "incomplete"}`);
   lines.push(`Device: ${header.device?.model ?? "?"} iOS ${header.device?.os ?? "?"} · app ${header.app?.version ?? "?"} (${header.app?.build ?? "?"}, ${header.app?.configuration ?? "?"})`);
-  const firstExerciseID = s.exerciseIDAt(0);
+  const firstExerciseID = s.exerciseEntryKeyAt(0);
   const framing = s.framingFor(firstExerciseID);
   lines.push(`Framing needs required joints ≥${framing.minimumConfidence ?? 0.4} for ${framing.reliableAfter ?? 0.6} s; unreliable after ${framing.unreliableAfter ?? 0.3} s missing; joints under ${header.confidenceFloor ?? 0.3} are dropped.`);
   lines.push("", "Exercises");
-  for (const exerciseID of [...new Set(s.exerciseSpans.map((span) => span.label))]) {
-    const exercise = s.exercises[exerciseID] ?? {};
-    const spans = s.exerciseSpans.filter((span) => span.label === exerciseID).map((span) => `${clock(span.start)}–${clock(span.end)}`).join(", ");
+  const exerciseRows = [];
+  for (const span of s.exerciseSpans) {
+    if (!exerciseRows.some((row) => row.entryKey === span.entryKey && row.view === span.view)) exerciseRows.push(span);
+  }
+  for (const row of exerciseRows) {
+    const exerciseID = row.label;
+    const exercise = s.exercises[row.entryKey] ?? {};
+    const view = row.view ?? exercise.cameraView ?? "?";
+    const spans = s.exerciseSpans.filter((span) => span.entryKey === row.entryKey && span.view === row.view)
+      .map((span) => `${clock(span.start)}–${clock(span.end)}`).join(", ");
     const anyOf = (exercise.anyOfRequired ?? []).map((set) => set.map(shortJoint).join(" "));
-    const exerciseFraming = s.framingFor(exerciseID);
-    lines.push(`- ${exerciseID} (${exercise.cameraView ?? "?"}) ${spans}: required ${(exercise.required ?? []).map(shortJoint).join(" ") || "none"}`
+    const exerciseFraming = s.framingFor(row.entryKey);
+    lines.push(`- ${exerciseID} (${view}) ${spans}: required ${(exercise.required ?? []).map(shortJoint).join(" ") || "none"}`
       + `${anyOf.length ? ` or one of [${anyOf.join("] [")}]` : ""}; focus ${(exercise.focus ?? []).map(shortJoint).join(" ")}`
       + (exercise.framing ? `; framing drops after ${exerciseFraming.unreliableAfter ?? 0.3} s missing` : ""));
     if (exercise.configuration) {

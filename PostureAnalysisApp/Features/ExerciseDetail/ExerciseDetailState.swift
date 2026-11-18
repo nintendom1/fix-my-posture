@@ -7,9 +7,11 @@ struct ExerciseDetailState: Equatable {
     let gradient: ExerciseGradient
     let symbolName: String
     let equipmentText: String
-    let cameraSetupText: String
+    var cameraSetupText: String
+    let hasViewChoice: Bool
+    var viewPreference: ExerciseViewPreference
     let watchesFor: [String]
-    let steps: [GuideStep]
+    var steps: [GuideStep]
     var sets: Int
     var repMinimum: Int
     var repMaximum: Int
@@ -29,6 +31,8 @@ struct ExerciseDetailState: Equatable {
         symbolName: String,
         equipmentText: String,
         cameraSetupText: String,
+        hasViewChoice: Bool = false,
+        viewPreference: ExerciseViewPreference = .auto,
         watchesFor: [String],
         steps: [GuideStep],
         sets: Int,
@@ -45,6 +49,8 @@ struct ExerciseDetailState: Equatable {
         self.symbolName = symbolName
         self.equipmentText = equipmentText
         self.cameraSetupText = cameraSetupText
+        self.hasViewChoice = hasViewChoice
+        self.viewPreference = viewPreference
         self.watchesFor = watchesFor
         self.steps = steps
         self.sets = sets
@@ -79,6 +85,7 @@ enum ExerciseDetailIntent: Equatable {
     case back
     case decrementSets
     case incrementSets
+    case cameraViewSelected(ExerciseViewPreference)
     case editReps
     case targetEditorDismissed
     case watchGuide

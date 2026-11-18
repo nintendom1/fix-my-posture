@@ -14,6 +14,7 @@ export const MUTATION_BOUNDS = Object.freeze({
   tempo: Object.freeze({ scale: bounds(0.3, 2), reps: "optional one-based repetition numbers" }),
   pause: Object.freeze({ at: bounds(0, 120), duration: bounds(0, 10) }),
   frameGap: Object.freeze({ at: bounds(0, 120), duration: bounds(0, 10) }),
+  turn: Object.freeze({ at: bounds(0, 120), duration: bounds(0.1, 10), toView: "ExerciseCameraView" }),
   dropout: Object.freeze({ joints: "LandmarkType[]", from: bounds(0, 120), to: bounds(0, 120), intervalMaximum: 10 }),
   confidence: Object.freeze({ joints: "LandmarkType[]", from: bounds(0, 120), to: bounds(0, 120), value: bounds(0, 1), intervalMaximum: 10 }),
   framing: Object.freeze({ scale: bounds(0.3, 2), offsetX: bounds(-0.5, 0.5), offsetY: bounds(-0.5, 0.5) }),
@@ -30,6 +31,20 @@ export function landmarkNamesFromSwiftSource(source) {
 const LANDMARK_SOURCE_URL = new URL("../../../../PostureAnalysisApp/Models/LandmarkType.swift", import.meta.url);
 export const SWIFT_LANDMARK_NAMES = Object.freeze(landmarkNamesFromSwiftSource(readFileSync(LANDMARK_SOURCE_URL, "utf8")));
 const JOINTS = new Set(SWIFT_LANDMARK_NAMES);
+
+/** Raw values of Swift's `ExerciseCameraView`, the views a scenario may name. */
+export function cameraViewNamesFromSwiftSource(source) {
+  const body = /enum\s+ExerciseCameraView\b[^\{]*\{([\s\S]*?)^\}/m.exec(source)?.[1];
+  if (!body) throw new Error("ExerciseDefinition.swift does not contain a parseable ExerciseCameraView enum.");
+  const names = [...body.matchAll(/^\s*case\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s*=\s*"([^"]*)")?/gm)]
+    .map((match) => match[2] ?? match[1]);
+  if (!names.length) throw new Error("ExerciseCameraView has no case declarations.");
+  return names;
+}
+
+const CAMERA_VIEW_SOURCE_URL = new URL("../../../../PostureAnalysisApp/Workout/Exercises/ExerciseDefinition.swift", import.meta.url);
+export const SWIFT_CAMERA_VIEWS = Object.freeze(cameraViewNamesFromSwiftSource(readFileSync(CAMERA_VIEW_SOURCE_URL, "utf8")));
+const CAMERA_VIEWS = new Set(SWIFT_CAMERA_VIEWS);
 
 function issue(errors, path, message) { errors.push(`${path}: ${message}`); }
 function object(value) { return value !== null && typeof value === "object" && !Array.isArray(value); }
@@ -111,6 +126,17 @@ function mutation(errors, value, path, reps, sequenceDuration) {
       boundedNumber(errors, value.at, `${path}.at`, MUTATION_BOUNDS.frameGap.at);
       boundedNumber(errors, value.duration, `${path}.duration`, MUTATION_BOUNDS.frameGap.duration);
       if (finiteNumber(value.at) && finiteNumber(value.duration) && value.at + value.duration > sequenceDuration) issue(errors, `${path}.duration`, "frame-gap end must be at or before the output sequence end");
+      break;
+    case "turn":
+      boundedNumber(errors, value.at, `${path}.at`, MUTATION_BOUNDS.turn.at);
+      boundedNumber(errors, value.duration, `${path}.duration`, MUTATION_BOUNDS.turn.duration);
+      text(errors, value.toView, `${path}.toView`);
+      if (typeof value.toView === "string" && !CAMERA_VIEWS.has(value.toView)) {
+        issue(errors, `${path}.toView`, `must be one of ${SWIFT_CAMERA_VIEWS.join(", ")}`);
+      }
+      if (finiteNumber(value.at) && finiteNumber(value.duration) && value.at + value.duration > sequenceDuration) {
+        issue(errors, `${path}.duration`, "turn end must be at or before the output sequence end");
+      }
       break;
     case "dropout":
       joints(errors, value.joints, `${path}.joints`);
@@ -205,12 +231,27 @@ export function validatePlan(plan) {
     if (scenario.mode !== "constrained" && scenario.mode !== "raw") issue(errors, `${path}.mode`, "must be constrained or raw");
     if (!Number.isInteger(scenario.revision) || scenario.revision < 1) issue(errors, `${path}.revision`, "must be a positive integer");
     if (scenario.parentRevision !== undefined && (!Number.isInteger(scenario.parentRevision) || scenario.parentRevision < 1 || scenario.parentRevision >= scenario.revision)) issue(errors, `${path}.parentRevision`, "must be positive and earlier than revision");
+    // Optional: absent means the exercise's usual view. Swift checks that the exercise supports the view.
+    if (scenario.cameraView !== undefined && !CAMERA_VIEWS.has(scenario.cameraView)) issue(errors, `${path}.cameraView`, `must be one of ${SWIFT_CAMERA_VIEWS.join(", ")}`);
     if (!Array.isArray(scenario.mutations)) issue(errors, `${path}.mutations`, "must be an array");
     if (!Array.isArray(scenario.assertions)) issue(errors, `${path}.assertions`, "must be an array");
     const mutations = Array.isArray(scenario.mutations) ? scenario.mutations : [];
     // Bounds all output-clock inputs conservatively before Swift computes the guide-specific timeline.
     const duration = 120;
     mutations.forEach((item, mutationIndex) => mutation(errors, item, `${path}.mutations[${mutationIndex}]`, scenario.reps, duration));
+    let previousTurnAt;
+    let previousTurnEnd;
+    mutations.forEach((item, mutationIndex) => {
+      if (!object(item) || item.kind !== "turn") return;
+      const turnPath = `${path}.mutations[${mutationIndex}]`;
+      if (finiteNumber(item.at)) {
+        if (previousTurnAt !== undefined && item.at < previousTurnAt) issue(errors, `${turnPath}.at`, "turns must be in time order");
+        if (previousTurnEnd !== undefined && item.at < previousTurnEnd) issue(errors, `${turnPath}.at`, "turns must not overlap");
+        previousTurnAt = item.at;
+      }
+      const end = item.at + item.duration;
+      if (finiteNumber(item.at) && finiteNumber(item.duration) && Number.isFinite(end)) previousTurnEnd = end;
+    });
     compositeDepthScale(errors, mutations, path, scenario.reps);
     (Array.isArray(scenario.assertions) ? scenario.assertions : []).forEach((item, assertionIndex) => assertion(errors, item, `${path}.assertions[${assertionIndex}]`));
   });

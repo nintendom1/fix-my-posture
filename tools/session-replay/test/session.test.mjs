@@ -48,6 +48,31 @@ test("the session model finds frames, state, exercise, and tracking losses", () 
   assert.ok(titles.includes("16 Marker (voice)"));
 });
 
+test("view-specific exercise spans use their header entry and stance is informational", () => {
+  const items = records().map((record) => structuredClone(record));
+  items[0].exercises.hammer_curl = { name: "Hammer Curl", cameraView: "front", required: ["leftElbow"], focus: ["leftElbow"] };
+  items[0].exercises["hammer_curl.side"] = {
+    name: "Hammer Curl", cameraView: "side", required: ["leftElbow", "leftWrist"], focus: ["leftElbow", "leftWrist"],
+  };
+  items.push(
+    { k: "pipe", t: 17.5, control: "exercise", exercise: "hammer_curl", cameraView: "front", epoch: 2 },
+    { k: "pipe", t: 18.5, control: "exercise", exercise: "hammer_curl", cameraView: "side", epoch: 3 },
+    { k: "e", t: 18.75, type: "stance", settled: "side", turning: false },
+  );
+  items.sort((a, b) => (a.k === "header" ? -1 : b.k === "header" ? 1 : (a.t ?? 0) - (b.t ?? 0)));
+
+  const session = new Session(items);
+  const side = session.exerciseSpans.find((span) => span.view === "side");
+  assert.ok(side);
+  assert.equal(side.entryKey, "hammer_curl.side");
+  assert.equal(session.exerciseIDAt(19), "hammer_curl");
+  assert.equal(session.exerciseAt(19).cameraView, "side");
+  const stance = session.timeline.find((event) => event.t === 18.75 && event.title === "Stance");
+  assert.equal(stance.kind, "info");
+  assert.equal(stance.detail, "settled=side · turning=false");
+  assert.match(renderExcerpt(session, { from: 18.4, to: 19, options: PRESETS.flow }), /hammer_curl \(side\): required LE LW/);
+});
+
 test("joints are seen, below the floor, estimated, or missing", () => {
   const session = Session.fromText(arrayText());
   const at = (t) => session.frameAt(t);

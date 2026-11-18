@@ -1,19 +1,18 @@
 import CoreGraphics
 import Foundation
 
-/// Watches each arm's curl attempts for form cues. It only observes; counting never depends on it.
+/// Watches curl attempts for form cues. It only observes; counting never depends on it.
 ///
 /// An attempt begins once an arm has settled hanging straight and its wrist rises `attemptMinimumRise`
-/// above where it hung, and ends when the arm settles again. Each arm is judged on its own, so
-/// alternating curls produce one attempt per arm. Elbow flare and body sway are measured against the
-/// user's own stance at the start of the set.
+/// above where it hung, and ends when the arm settles again. The front view judges both arms; the side view judges
+/// the one arm it tracks. Elbow drift and body sway are measured against the user's own stance at the start of the set.
 struct HammerCurlFormMonitor {
     /// One arm on one frame.
     struct ArmSample {
         let ratio: Double
         let zone: MovementZone
         let confirmed: MovementZone?
-        /// Sideways elbow distance from its shoulder, in shoulder widths; nil without both shoulders.
+        /// Elbow distance from the shoulder axis, in shoulder widths from the front or arm lengths side-on.
         let flare: Double?
     }
 
@@ -32,6 +31,9 @@ struct HammerCurlFormMonitor {
     }
 
     private let configuration: HammerCurlConfiguration
+    private let sideOn: Bool
+    private let sideElbowDriftTolerance: Double?
+    private let sideSwayTolerance: Double?
     private var attempts: [BodySide: Attempt] = [:]
     private var settledSamples: [BodySide: Int] = [:]
     private var lastPeaks: [BodySide: Double] = [:]
@@ -41,17 +43,26 @@ struct HammerCurlFormMonitor {
     private var flareDeviation: Double?
     private var swayDeviation: Double?
 
-    init(configuration: HammerCurlConfiguration) {
+    init(configuration: HammerCurlConfiguration, sideOn: Bool = false,
+         sideElbowDriftTolerance: Double? = nil, sideSwayTolerance: Double? = nil) {
         self.configuration = configuration
+        self.sideOn = sideOn
+        self.sideElbowDriftTolerance = sideElbowDriftTolerance
+        self.sideSwayTolerance = sideSwayTolerance
     }
 
     mutating func update(at time: TimeInterval, arms: [BodySide: ArmSample], sway: CGVector?, counting: Bool) -> Output {
         var output = Output()
-        let bothHanging = BodySide.allCases.allSatisfy { arms[$0]?.zone == .bottom && arms[$0]?.confirmed == .bottom }
-        updateBaselines(arms, sway: sway, bothHanging: bothHanging)
+        let expectedArms = sideOn ? 1 : BodySide.allCases.count
+        let allHanging = arms.count == expectedArms
+            && arms.values.allSatisfy { $0.zone == .bottom && $0.confirmed == .bottom }
+        updateBaselines(arms, sway: sway, bothHanging: allHanging)
         if counting {
-            if let flareDeviation, flareDeviation > configuration.elbowFlareTolerance { output.signals.insert(.curlElbowsIn) }
-            if let swayDeviation, swayDeviation > configuration.swayTolerance { output.signals.insert(.curlBodyStill) }
+            let driftTolerance = sideOn ? (sideElbowDriftTolerance ?? configuration.elbowFlareTolerance)
+                : configuration.elbowFlareTolerance
+            let bodySwayTolerance = sideOn ? sideSwayTolerance ?? configuration.swayTolerance : configuration.swayTolerance
+            if let flareDeviation, flareDeviation > driftTolerance { output.signals.insert(.curlElbowsIn) }
+            if let swayDeviation, swayDeviation > bodySwayTolerance { output.signals.insert(.curlBodyStill) }
         }
         guard counting else {
             attempts = [:]
@@ -116,7 +127,7 @@ struct HammerCurlFormMonitor {
         return [
             FormReading(label: "↑", value: pair(lastPeaks)),
             FormReading(label: "↓", value: pair(lastBottoms)),
-            FormReading(label: "flare", value: format(flareDeviation)),
+            FormReading(label: sideOn ? "drift" : "flare", value: format(flareDeviation)),
             FormReading(label: "sway", value: format(swayDeviation))
         ]
     }
@@ -129,7 +140,7 @@ struct HammerCurlFormMonitor {
         return RepForm(timestamp: time, flags: attempt.reachedTop ? [] : [.curlFullRange])
     }
 
-    /// Baselines come from the first samples with both arms hanging; only drift from them is cued.
+    /// Baselines come from the first samples with every tracked arm hanging; only drift from them is cued.
     private mutating func updateBaselines(_ arms: [BodySide: ArmSample], sway: CGVector?, bothHanging: Bool) {
         let needed = configuration.baselineSamples
         var deviations: [Double] = []
@@ -141,7 +152,8 @@ struct HammerCurlFormMonitor {
                 flareBaseline[side] = samples
             }
             if samples.count >= needed, needed > 0 {
-                deviations.append(flare - samples.reduce(0, +) / Double(samples.count))
+                let baseline = samples.reduce(0, +) / Double(samples.count)
+                deviations.append(sideOn ? abs(flare - baseline) : flare - baseline)
             }
         }
         flareDeviation = deviations.max()

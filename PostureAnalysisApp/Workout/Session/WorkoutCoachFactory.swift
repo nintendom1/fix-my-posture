@@ -47,10 +47,15 @@ final class WorkoutCoachFactory {
         let audio = WorkoutAudioSession(timing: audioTiming)
         // Sets and reps the user adjusted on the list apply here; Saved Sets bring their own.
         let exercises = ExerciseTargetStore.applying(to: exerciseCatalog.all, preferences: preferences)
+        var viewPreferences: [ExerciseID: ExerciseViewPreference] = [:]
+        for exercise in exerciseCatalog.all where exercise.hasViewChoice {
+            viewPreferences[exercise.id] = preferences.viewPreference(for: exercise.id)
+        }
         let settings = WorkoutSettings(
             restPolicy: preferences.restPolicy,
             weightUnit: preferences.weightUnit,
-            startByHolding: preferences.startByHolding
+            startByHolding: preferences.startByHolding,
+            viewPreferences: viewPreferences
         )
         let voice = WorkoutVoiceController(recognizer: OnDeviceSpeechRecognizer(timing: audioTiming),
                                            parser: VoiceCommandParser(exercises: exercises,

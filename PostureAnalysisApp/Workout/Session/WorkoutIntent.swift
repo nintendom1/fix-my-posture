@@ -9,6 +9,7 @@ enum WorkoutIntent: Equatable {
     case nextSet
     case changeExercise
     case chooseExercise(ExerciseID)
+    case setCameraView(ExerciseViewPreference)
     case cancelExerciseChange
     case anotherRound
     case nextExercise
@@ -45,6 +46,7 @@ enum WorkoutIntent: Equatable {
         case .nextSet: return .nextSet
         case .changeExercise: return .changeExercise
         case .chooseExercise(let id): return .selectExercise(id)
+        case .setCameraView(let preference): return .setCameraView(preference)
         case .cancelExerciseChange: return .cancel
         case .anotherRound: return .anotherRound
         case .nextExercise: return .nextExercise

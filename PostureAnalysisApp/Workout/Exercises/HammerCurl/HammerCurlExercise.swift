@@ -56,8 +56,23 @@ struct HammerCurlConfiguration: Codable {
 }
 
 enum HammerCurlExercise {
-    static func definition(configuration: HammerCurlConfiguration = .standard) -> ExerciseDefinition {
-        ExerciseDefinition(
+    static func definition(configuration: HammerCurlConfiguration = .standard,
+                           view: ExerciseCameraView = .front,
+                           sideConfiguration: HammerCurlSideConfiguration = .standard) -> ExerciseDefinition {
+        let selectedView: ExerciseCameraView = view == .side ? .side : .front
+        let sideOn = selectedView == .side
+        let diagnostics: ExerciseDiagnostics
+        if sideOn {
+            diagnostics = ExerciseDiagnostics(sideConfiguration) { recorded in
+                definition(configuration: configuration, view: .side, sideConfiguration: recorded)
+            }
+        } else {
+            diagnostics = ExerciseDiagnostics(configuration) { recorded in
+                definition(configuration: recorded, view: .front, sideConfiguration: sideConfiguration)
+            }
+        }
+
+        return ExerciseDefinition(
             id: .hammerCurl,
             displayName: "Hammer Curl",
             presentation: ExercisePresentation(
@@ -67,7 +82,7 @@ enum HammerCurlExercise {
                 gradient: ExerciseGradient(token: .curl, stops: ["#b04bff", "#ff7fc8"], angle: 135),
                 symbolName: "dumbbell.fill",
                 equipmentLine: "Two dumbbells",
-                cameraSetupLine: "Front, full arms",
+                cameraSetupLine: "Front or side-on, full arms",
                 watchesFor: [
                     WatchItem(cueID: .curlFullRange, text: "Full range of motion"),
                     WatchItem(cueID: .curlElbowsIn, text: "Elbows staying by your sides")
@@ -79,31 +94,68 @@ enum HammerCurlExercise {
             autoCompleteReps: 10,
             targetRangeAnnouncementReps: nil,
             restSeconds: 60,
-            requiredJoints: [.leftShoulder, .rightShoulder, .leftElbow, .rightElbow, .leftWrist, .rightWrist],
-            focusSegments: [
-                FocusSegment(from: .leftShoulder, to: .leftElbow, style: .limb),
-                FocusSegment(from: .leftElbow, to: .leftWrist, style: .limb),
-                FocusSegment(from: .rightShoulder, to: .rightElbow, style: .limb),
-                FocusSegment(from: .rightElbow, to: .rightWrist, style: .limb),
-                FocusSegment(from: .leftShoulder, to: .rightShoulder, style: .reference),
-                FocusSegment(from: .leftHip, to: .rightHip, style: .reference)
-            ],
+            requiredJoints: sideOn ? [] : [.leftShoulder, .rightShoulder, .leftElbow, .rightElbow, .leftWrist, .rightWrist],
+            focusSegments: sideOn ? sideFocusSegments : frontFocusSegments,
             headroomArmLengths: nil,
-            countsArmsIndependently: true,
-            setupLine: "Face the phone and let the dumbbells hang at your sides with straight arms.",
+            countsArmsIndependently: !sideOn,
+            setupLine: sideOn
+                ? "Stand side-on to the phone with your arms hanging. The arm nearer the phone is counted."
+                : "Face the phone and let the dumbbells hang at your sides with straight arms.",
             voiceAliases: ["hammer curl", "hammer curls", "curl", "curls", "dumbbell curls"],
-            guide: guide,
+            guide: sideOn ? sideOnGuide : guide,
             coachingCues: coachingCues,
-            reminders: [
-                .reminder(CoachingCueID(rawValue: "curl.reminder.elbows"), "Elbows stay close."),
-                .reminder(CoachingCueID(rawValue: "curl.reminder.lower"), "Lower slowly."),
-                .reminder(CoachingCueID(rawValue: "curl.reminder.tall"), "Stand tall.")
-            ],
-            // From the shoulders down past the hanging dumbbells, and out past them to the sides.
-            motionEnvelope: MotionEnvelope(above: 0.15, below: 1.15, outward: 0.35),
-            makeAnalyzer: { epoch in HammerCurlAnalyzer(epoch: epoch, configuration: configuration) },
-            diagnostics: ExerciseDiagnostics(configuration, definition: definition(configuration:))
+            reminders: reminders,
+            motionEnvelope: MotionEnvelope(above: 0.15, below: 1.15, outward: sideOn ? 0.6 : 0.35),
+            cameraView: selectedView,
+            anyOfRequiredJoints: sideOn
+                ? [[.leftShoulder, .leftElbow, .leftWrist], [.rightShoulder, .rightElbow, .rightWrist]]
+                : [],
+            startsByHolding: true,
+            perSide: false,
+            equipment: .dumbbells,
+            plantedJoints: [],
+            tracking: .camera,
+            doseUnit: .reps,
+            makeAnalyzer: { epoch in
+                if sideOn {
+                    return HammerCurlSideAnalyzer(epoch: epoch, configuration: sideConfiguration)
+                }
+                return HammerCurlAnalyzer(epoch: epoch, configuration: configuration)
+            },
+            diagnostics: diagnostics,
+            views: [.front, .side],
+            buildView: { definition(configuration: configuration, view: $0, sideConfiguration: sideConfiguration) }
         )
+    }
+
+    private static var frontFocusSegments: [FocusSegment] {
+        [
+            FocusSegment(from: .leftShoulder, to: .leftElbow, style: .limb),
+            FocusSegment(from: .leftElbow, to: .leftWrist, style: .limb),
+            FocusSegment(from: .rightShoulder, to: .rightElbow, style: .limb),
+            FocusSegment(from: .rightElbow, to: .rightWrist, style: .limb),
+            FocusSegment(from: .leftShoulder, to: .rightShoulder, style: .reference),
+            FocusSegment(from: .leftHip, to: .rightHip, style: .reference)
+        ]
+    }
+
+    private static var sideFocusSegments: [FocusSegment] {
+        [
+            FocusSegment(from: .leftShoulder, to: .leftElbow, style: .limb),
+            FocusSegment(from: .leftElbow, to: .leftWrist, style: .limb),
+            FocusSegment(from: .rightShoulder, to: .rightElbow, style: .limb),
+            FocusSegment(from: .rightElbow, to: .rightWrist, style: .limb),
+            FocusSegment(from: .leftShoulder, to: .leftHip, style: .reference),
+            FocusSegment(from: .rightShoulder, to: .rightHip, style: .reference)
+        ]
+    }
+
+    private static var reminders: [CoachingCue] {
+        [
+            .reminder(CoachingCueID(rawValue: "curl.reminder.elbows"), "Elbows stay close."),
+            .reminder(CoachingCueID(rawValue: "curl.reminder.lower"), "Lower slowly."),
+            .reminder(CoachingCueID(rawValue: "curl.reminder.tall"), "Stand tall.")
+        ]
     }
 
     /// Missing the top or the bottom explains why a rep didn't count, so those come first.
@@ -141,6 +193,30 @@ enum HammerCurlExercise {
                 ArmKeyframe(angles: top, moveDuration: 1.0, holdDuration: 0.4, stepIndex: 1),
                 ArmKeyframe(angles: start, moveDuration: 1.5, holdDuration: 0, stepIndex: 2)
             ], forearmPlane: .sagittal)
+        )
+    }
+
+    private static var sideOnGuide: ExerciseGuide {
+        let start = ArmAngles(upperArmElevation: -90, forearmElevation: -90)
+        let top = ArmAngles(upperArmElevation: -90, forearmElevation: 50)
+        return ExerciseGuide(
+            summary: "2 sets × 10 reps · Two dumbbells · Palms facing in · Stand side-on",
+            steps: [
+                GuideStep(title: "Start", detail: "Stand tall, side-on to the phone. Let the dumbbells hang at your sides with straight arms, palms facing in."),
+                GuideStep(title: "Curl", detail: "Keeping your elbows by your sides and your body still, curl the dumbbells up toward your shoulders."),
+                GuideStep(title: "Lower", detail: "Lower them slowly until your arms are straight again. That's one rep.")
+            ],
+            tip: "Side-on, the coach sees whether your elbows swing forward or your body leans back. It counts the arm nearer the phone.",
+            walkthrough: "This is the hammer curl, side-on. Stand tall, side-on to the phone, with a dumbbell in each hand and your palms facing in. "
+                + "Let the dumbbells hang at your sides with straight arms. "
+                + "Keeping your elbows by your sides and your body still, curl the dumbbells up toward your shoulders. "
+                + "Then lower them slowly until your arms are straight. The coach counts the arm nearer the phone.",
+            startPositionInstruction: "Let the dumbbells hang with straight arms",
+            motion: ArmMotion(keyframes: [
+                ArmKeyframe(angles: start, moveDuration: 0, holdDuration: 1.0, stepIndex: 0),
+                ArmKeyframe(angles: top, moveDuration: 1.0, holdDuration: 0.4, stepIndex: 1),
+                ArmKeyframe(angles: start, moveDuration: 1.5, holdDuration: 0, stepIndex: 2)
+            ])
         )
     }
 }

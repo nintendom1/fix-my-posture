@@ -146,13 +146,15 @@ struct MovementScenario: Codable, Equatable, Identifiable {
     var assertions: [MovementAssertion]
     var revision: Int
     var parentRevision: Int?
+    /// The camera view the figure is rendered in. Plans store it only when it isn't the exercise's usual view.
+    var cameraView: ExerciseCameraView
 
     static let maximumReps = 120
 
     init(id: String, exercise: ExerciseID, category: MovementCategory, purpose: String,
          canonicalRevision: String, seed: UInt64, reps: Int, mode: MovementMode,
          mutations: [MovementMutation], assertions: [MovementAssertion], revision: Int = 1,
-         parentRevision: Int? = nil) {
+         parentRevision: Int? = nil, cameraView: ExerciseCameraView? = nil) {
         self.id = id
         self.exercise = exercise
         self.category = category
@@ -165,11 +167,22 @@ struct MovementScenario: Codable, Equatable, Identifiable {
         self.assertions = assertions
         self.revision = revision
         self.parentRevision = parentRevision
+        self.cameraView = cameraView ?? Self.usualView(of: exercise)
+    }
+
+    /// The catalog exercise in this scenario's camera view; nil for an unregistered exercise.
+    var definition: ExerciseDefinition? {
+        ExerciseCatalog.all.first { $0.id == exercise }.map { $0.inView(cameraView) }
+    }
+
+    /// The view a plan means when it names none: the exercise's usual view, or front for an unknown exercise.
+    static func usualView(of exercise: ExerciseID) -> ExerciseCameraView {
+        ExerciseCatalog.all.first { $0.id == exercise }?.usualView ?? .front
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, exercise, category, purpose, canonicalRevision, seed, reps, mode
-        case mutations, assertions, revision, parentRevision
+        case mutations, assertions, revision, parentRevision, cameraView
     }
 
     init(from decoder: Decoder) throws {
@@ -191,6 +204,8 @@ struct MovementScenario: Codable, Equatable, Identifiable {
         assertions = try container.decode([MovementAssertion].self, forKey: .assertions)
         revision = try container.decode(Int.self, forKey: .revision)
         parentRevision = try container.decodeIfPresent(Int.self, forKey: .parentRevision)
+        cameraView = try container.decodeIfPresent(ExerciseCameraView.self, forKey: .cameraView)
+            ?? Self.usualView(of: exercise)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -207,6 +222,9 @@ struct MovementScenario: Codable, Equatable, Identifiable {
         try container.encode(assertions, forKey: .assertions)
         try container.encode(revision, forKey: .revision)
         try container.encodeIfPresent(parentRevision, forKey: .parentRevision)
+        if cameraView != Self.usualView(of: exercise) {
+            try container.encode(cameraView, forKey: .cameraView)
+        }
     }
 
     func validate(path: String = "scenario") -> [MovementValidationIssue] {
@@ -214,7 +232,11 @@ struct MovementScenario: Codable, Equatable, Identifiable {
         if !MovementValidation.isValidID(id) {
             issues.append(.init("\(path).id", "must use 1–64 lowercase ASCII letters, digits, '_' or '-'"))
         }
-        if !ExerciseCatalog.all.contains(where: { $0.id == exercise }) {
+        if let base = ExerciseCatalog.all.first(where: { $0.id == exercise }) {
+            if !base.views.contains(cameraView) {
+                issues.append(.init("\(path).cameraView", "is not a camera view of \(exercise.rawValue)"))
+            }
+        } else {
             issues.append(.init("\(path).exercise", "is not a registered exercise id"))
         }
         if purpose.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -236,7 +258,7 @@ struct MovementScenario: Codable, Equatable, Identifiable {
         }
 
         let sequenceDurations = MovementScenario.timelineDurations(reps: reps, exercise: exercise,
-                                                                     mutations: mutations)
+                                                                     mutations: mutations, cameraView: cameraView)
         let sequenceDuration = sequenceDurations?.output
         if (1...Self.maximumReps).contains(reps),
            ExerciseCatalog.all.contains(where: { $0.id == exercise }), sequenceDurations == nil {
@@ -252,6 +274,32 @@ struct MovementScenario: Codable, Equatable, Identifiable {
                                         sequenceDuration: sequenceDuration,
                                         pauseClockDuration: sequenceDurations?.prePause)
         }
+        let baseExercise = ExerciseCatalog.all.first { $0.id == exercise }
+        var activeView = cameraView
+        var previousTurnAt: TimeInterval?
+        var previousTurnEnd: TimeInterval?
+        for (index, mutation) in mutations.enumerated() {
+            guard case .turn(let at, let duration, let toView) = mutation else { continue }
+            let turnPath = "\(path).mutations[\(index)]"
+            if at.isFinite {
+                if let previousTurnAt, at < previousTurnAt {
+                    issues.append(.init("\(turnPath).at", "turns must be in time order"))
+                }
+                if let previousTurnEnd, at < previousTurnEnd {
+                    issues.append(.init("\(turnPath).at", "turns must not overlap"))
+                }
+            }
+            if let baseExercise, !baseExercise.views.contains(toView) {
+                issues.append(.init("\(turnPath).toView", "is not a camera view of \(exercise.rawValue)"))
+            }
+            if toView == activeView {
+                issues.append(.init("\(turnPath).toView", "must differ from the view in effect at the turn's start"))
+            }
+            activeView = toView
+            if at.isFinite { previousTurnAt = at }
+            let end = at + duration
+            if at.isFinite && duration.isFinite && end.isFinite { previousTurnEnd = end }
+        }
         for (index, assertion) in assertions.enumerated() {
             issues += assertion.validate(path: "\(path).assertions[\(index)]")
         }
@@ -259,15 +307,17 @@ struct MovementScenario: Codable, Equatable, Identifiable {
     }
 
     /// Total output duration after per-rep tempo changes and pauses.
-    static func sequenceDuration(reps: Int, exercise: ExerciseID,
-                                 mutations: [MovementMutation]) -> TimeInterval? {
-        timelineDurations(reps: reps, exercise: exercise, mutations: mutations)?.output
+    static func sequenceDuration(reps: Int, exercise: ExerciseID, mutations: [MovementMutation],
+                                 cameraView: ExerciseCameraView? = nil) -> TimeInterval? {
+        timelineDurations(reps: reps, exercise: exercise, mutations: mutations, cameraView: cameraView)?.output
     }
 
-    static func timelineDurations(reps: Int, exercise: ExerciseID,
-                                  mutations: [MovementMutation]) -> MovementSequenceDurations? {
+    /// Timeline lengths for the guide in `cameraView`, or in the exercise's usual view when nil.
+    static func timelineDurations(reps: Int, exercise: ExerciseID, mutations: [MovementMutation],
+                                  cameraView: ExerciseCameraView? = nil) -> MovementSequenceDurations? {
         guard reps > 0, reps <= Self.maximumReps,
-              let definition = ExerciseCatalog.all.first(where: { $0.id == exercise }) else { return nil }
+              let base = ExerciseCatalog.all.first(where: { $0.id == exercise }) else { return nil }
+        let definition = cameraView.map { base.inView($0) } ?? base
         return MovementSequenceDurations.calculate(reps: reps, motionDuration: definition.guide.motion.duration,
                                                     mutations: mutations)
     }
@@ -360,6 +410,7 @@ enum MovementMutation: Codable, Equatable {
     case tempo(scale: Double, reps: [Int]?)
     case pause(at: TimeInterval, duration: TimeInterval)
     case frameGap(at: TimeInterval, duration: TimeInterval)
+    case turn(at: TimeInterval, duration: TimeInterval, toView: ExerciseCameraView)
     case dropout(joints: [String], from: TimeInterval, to: TimeInterval)
     case confidence(joints: [String], from: TimeInterval, to: TimeInterval, value: Double)
     case framing(scale: Double, offsetX: Double, offsetY: Double)
@@ -372,6 +423,7 @@ enum MovementMutation: Codable, Equatable {
         case .tempo: return "tempo"
         case .pause: return "pause"
         case .frameGap: return "frameGap"
+        case .turn: return "turn"
         case .dropout: return "dropout"
         case .confidence: return "confidence"
         case .framing: return "framing"
@@ -393,6 +445,8 @@ enum MovementMutation: Codable, Equatable {
         case let (.pause(leftAt, leftDuration), .pause(rightAt, rightDuration)),
              let (.frameGap(leftAt, leftDuration), .frameGap(rightAt, rightDuration)):
             return leftAt == rightAt && leftDuration == rightDuration && lhs.kind == rhs.kind
+        case let (.turn(leftAt, leftDuration, leftView), .turn(rightAt, rightDuration, rightView)):
+            return leftAt == rightAt && leftDuration == rightDuration && leftView == rightView
         case let (.dropout(leftJoints, leftFrom, leftTo), .dropout(rightJoints, rightFrom, rightTo)):
             return leftJoints.sorted() == rightJoints.sorted() && leftFrom == rightFrom && leftTo == rightTo
         case let (.confidence(leftJoints, leftFrom, leftTo, leftValue),
@@ -489,6 +543,12 @@ enum MovementMutation: Codable, Equatable {
             if at.isFinite && seconds.isFinite, let sequenceDuration, at + seconds > sequenceDuration {
                 issues.append(.init("\(path).duration", "frame-gap end must be at or before the output sequence end"))
             }
+        case .turn(let at, let seconds, _):
+            time(at, "at")
+            range(seconds, 0.1...10, "duration")
+            if at.isFinite && seconds.isFinite, let sequenceDuration, at + seconds > sequenceDuration {
+                issues.append(.init("\(path).duration", "turn end must be at or before the output sequence end"))
+            }
         case .dropout(let affected, let start, let end):
             joints(affected)
             interval(start, end, "from", "to")
@@ -506,7 +566,7 @@ enum MovementMutation: Codable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case kind, joints, dx, dy, peak, rise, fall, strength, scale, reps, side, amount
-        case at, duration, from, to, value, offsetX, offsetY
+        case at, duration, from, to, toView, value, offsetX, offsetY
     }
 
     init(from decoder: Decoder) throws {
@@ -540,6 +600,14 @@ enum MovementMutation: Codable, Equatable {
         case "frameGap":
             self = .frameGap(at: try container.decode(TimeInterval.self, forKey: .at),
                              duration: try container.decode(TimeInterval.self, forKey: .duration))
+        case "turn":
+            let viewName = try container.decode(String.self, forKey: .toView)
+            guard let view = ExerciseCameraView(rawValue: viewName) else {
+                throw DecodingError.dataCorruptedError(forKey: .toView, in: container,
+                                                       debugDescription: "Unknown exercise camera view '\(viewName)'.")
+            }
+            self = .turn(at: try container.decode(TimeInterval.self, forKey: .at),
+                         duration: try container.decode(TimeInterval.self, forKey: .duration), toView: view)
         case "dropout":
             self = .dropout(joints: try container.decode([String].self, forKey: .joints).sorted(),
                             from: try container.decode(TimeInterval.self, forKey: .from),
@@ -585,6 +653,10 @@ enum MovementMutation: Codable, Equatable {
         case .frameGap(let at, let duration):
             try container.encode(at, forKey: .at)
             try container.encode(duration, forKey: .duration)
+        case .turn(let at, let duration, let toView):
+            try container.encode(at, forKey: .at)
+            try container.encode(duration, forKey: .duration)
+            try container.encode(toView.rawValue, forKey: .toView)
         case .dropout(let joints, let from, let to):
             try container.encode(joints.sorted(), forKey: .joints)
             try container.encode(from, forKey: .from)

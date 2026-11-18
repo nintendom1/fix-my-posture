@@ -96,6 +96,7 @@ struct WorkoutCoachHarness {
                      plan: WorkoutPlan? = nil,
                      adaptive: (any AdaptiveEvidenceRecording)? = nil,
                      todayLaunch: TodaySessionLaunch? = nil,
+                     settings: WorkoutSettings = WorkoutSettings(),
                      trace: WorkoutTraceRecorder? = nil,
                      observer: (any WorkoutObserving)? = nil,
                      actionLog: WorkoutObservationActionLog? = nil) -> WorkoutCoachHarness {
@@ -138,6 +139,7 @@ struct WorkoutCoachHarness {
             exercises: exercises,
             initialExercise: initialExercise,
             plan: plan,
+            settings: settings,
             recorder: recorder ?? trace,
             audioTiming: audioTiming,
             adaptive: adaptive,
@@ -148,5 +150,18 @@ struct WorkoutCoachHarness {
         trace?.state = { [weak model] in model.map(WorkoutTraceRecorder.state(of:)) ?? [] }
         return WorkoutCoachHarness(model: model, camera: camera, permission: permission, speech: speech,
                                    audio: audio, tilt: tilt, voice: voice, clock: clock, scheduler: scheduler)
+    }
+
+    /// A coach on `definition`'s exercise and camera view, such as one from `ExerciseCatalog.everyView`. An exercise
+    /// with a view choice is locked to that view's stance, so the view never changes with the frames.
+    static func make(showing definition: ExerciseDefinition,
+                     preferences: any AppPreferencesStoring = InMemoryPreferences(),
+                     recorder: (any WorkoutSessionRecording)? = nil) -> WorkoutCoachHarness {
+        var viewPreferences: [ExerciseID: ExerciseViewPreference] = [:]
+        if definition.hasViewChoice, let stance = definition.cameraView.stance {
+            viewPreferences[definition.id] = .locked(stance)
+        }
+        return make(preferences: preferences, initialExercise: definition.id, recorder: recorder,
+                    settings: WorkoutSettings(viewPreferences: viewPreferences))
     }
 }

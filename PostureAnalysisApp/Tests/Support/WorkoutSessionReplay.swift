@@ -106,6 +106,8 @@ struct WorkoutSessionReplayer {
         var pipeline = WorkoutFramePipeline(framingConfiguration: try recorded(header["framing"], over: FramingConfiguration()),
                                             offscreenConfiguration: try recorded(header["offscreen"], over: OffscreenJointConfiguration()))
         pipeline.collectsDiagnostics = true
+        // A recording from before camera views ran no stance detection and no turning alternatives.
+        pipeline.detectsStance = currentBuild || recordsStance(file, catalog: catalog)
         var imageSize: CGSize?
         var frames: [Frame] = []
         for (line, record) in file.records {
@@ -142,6 +144,26 @@ struct WorkoutSessionReplayer {
         return frames
     }
 
+    /// Whether the build that made the recording detected stance. Such a build writes a header entry for each other
+    /// camera view, a stance event when the observation changes, and a stance reading (`st`) on each analyzed frame of
+    /// an exercise with a view choice.
+    static func recordsStance(_ file: WorkoutSessionFile, catalog: [ExerciseDefinition]) -> Bool {
+        let recorded = file.header["exercises"] as? [String: Any] ?? [:]
+        let hasAlternateViewEntry = catalog.contains { exercise in
+            exercise.hasViewChoice && exercise.views.contains { view in
+                view != exercise.usualView
+                    && recorded[definitionKey(exercise.id.rawValue, view: view, usualView: exercise.usualView)] != nil
+            }
+        }
+        return hasAlternateViewEntry || file.records.contains { _, record in
+            switch record["k"] as? String {
+            case "f": return record["st"] != nil
+            case "e": return record["type"] as? String == "stance"
+            default: return false
+            }
+        }
+    }
+
     /// Catalog exercises rebuilt from the configurations the recording carries. What framing and off-edge estimation
     /// read from the definition itself must match the recording, or replay can't reproduce its framing.
     static func definitions(_ header: [String: Any], catalog: [ExerciseDefinition],
@@ -149,44 +171,49 @@ struct WorkoutSessionReplayer {
         let recorded = header["exercises"] as? [String: Any] ?? [:]
         var definitions: [String: ExerciseDefinition] = [:]
         for exercise in catalog {
-            let id = exercise.id.rawValue
-            if currentBuild {
-                definitions[id] = exercise
-                continue
+            let views = exercise.hasViewChoice ? exercise.views : [exercise.usualView]
+            for view in views {
+                let viewed = exercise.inView(view)
+                let key = definitionKey(exercise.id.rawValue, view: view, usualView: exercise.usualView)
+                definitions[key] = try definition(viewed, key: key, recorded: recorded, currentBuild: currentBuild)
             }
-            guard let entry = recorded[id] as? [String: Any] else {
-                definitions[id] = exercise
-                continue
-            }
-            try checkDrift(entry, exercise)
-            var rebuilt = exercise
-            if let configuration = entry["configuration"] as? [String: Any], let diagnostics = exercise.diagnostics {
-                rebuilt = try diagnostics.rebuild(JSONSerialization.data(
-                    withJSONObject: withoutLaterRules(configuration, for: exercise)))
-            }
-            definitions[id] = recordedPhoneDistance(entry, over: rebuilt)
         }
         // A smaller-range variant keeps its own recorded configuration. A recording without one (every recording from
         // before variants were recorded) runs this build's variant, and a control that names none runs the full range.
         for exercise in catalog {
             guard let variant = exercise.reducedRange?() else { continue }
-            let key = "\(exercise.id.rawValue).\(WorkoutSessionLines.reducedRangeVariant)"
-            if currentBuild {
-                definitions[key] = variant
-                continue
+            let views = exercise.hasViewChoice ? exercise.views : [exercise.usualView]
+            for view in views {
+                let viewed = view == exercise.usualView
+                    ? variant
+                    : (exercise.inView(view).reducedRange?() ?? variant.inView(view))
+                guard viewed.cameraView == view else { continue }
+                let key = definitionKey(exercise.id.rawValue, view: view, usualView: exercise.usualView,
+                                        variant: WorkoutSessionLines.reducedRangeVariant)
+                definitions[key] = try definition(viewed, key: key, recorded: recorded, currentBuild: currentBuild)
             }
-            guard let entry = recorded[key] as? [String: Any] else {
-                definitions[key] = variant
-                continue
-            }
-            var rebuilt = variant
-            if let configuration = entry["configuration"] as? [String: Any], let diagnostics = variant.diagnostics {
-                rebuilt = try diagnostics.rebuild(JSONSerialization.data(
-                    withJSONObject: withoutLaterRules(configuration, for: variant)))
-            }
-            definitions[key] = recordedPhoneDistance(entry, over: rebuilt)
         }
         return definitions
+    }
+
+    private static func definition(_ current: ExerciseDefinition, key: String, recorded: [String: Any],
+                                   currentBuild: Bool) throws -> ExerciseDefinition {
+        guard !currentBuild, let entry = recorded[key] as? [String: Any] else { return current }
+        try checkDrift(entry, current)
+        var rebuilt = current
+        if let configuration = entry["configuration"] as? [String: Any], let diagnostics = current.diagnostics {
+            rebuilt = try diagnostics.rebuild(JSONSerialization.data(
+                withJSONObject: withoutLaterRules(configuration, for: current)))
+        }
+        return recordedPhoneDistance(entry, over: rebuilt)
+    }
+
+    private static func definitionKey(_ id: String, view: ExerciseCameraView, usualView: ExerciseCameraView,
+                                      variant: String? = nil) -> String {
+        var key = id
+        if view != usualView { key += ".\(view.rawValue)" }
+        if let variant { key += ".\(variant)" }
+        return key
     }
 
     /// Rules newer than the recording stay off. A push-up recording from before supported shoulders lacks
@@ -194,7 +221,8 @@ struct WorkoutSessionReplayer {
     /// support, which turns the rule off for counting and framing alike.
     private static func withoutLaterRules(_ configuration: [String: Any],
                                           for exercise: ExerciseDefinition) -> [String: Any] {
-        guard exercise.id == .pushUp, configuration["supportedShoulderConfidence"] == nil else { return configuration }
+        guard exercise.id == .pushUp, exercise.cameraView == .floor,
+              configuration["supportedShoulderConfidence"] == nil else { return configuration }
         var configuration = configuration
         configuration["supportedShoulderConfidence"] = configuration["minimumJointConfidence"]
             ?? PushUpConfiguration.standard.minimumJointConfidence
@@ -238,10 +266,23 @@ struct WorkoutSessionReplayer {
         case "exercise":
             guard let epoch = record["epoch"] as? Int else { throw ReplayError.missing("epoch", line: line) }
             guard let id = record["exercise"] as? String else { return .exercise(nil, analyzerEpoch: epoch) }
-            let key = (record["variant"] as? String).map { "\(id).\($0)" } ?? id
-            guard let exercise = exercises[key] else { throw ReplayError.unknownExercise(key, line: line) }
-            if let view = record["cameraView"] as? String, view != exercise.cameraView.rawValue {
-                throw ReplayError.unsupportedCameraView(view, exercise: id, line: line)
+            guard let usual = exercises[id] else { throw ReplayError.unknownExercise(id, line: line) }
+            let view: ExerciseCameraView
+            if let rawView = record["cameraView"] as? String {
+                guard let parsed = ExerciseCameraView(rawValue: rawView) else {
+                    throw ReplayError.unsupportedCameraView(rawView, exercise: id, line: line)
+                }
+                view = parsed
+            } else {
+                view = usual.usualView
+            }
+            guard view == usual.usualView || (usual.hasViewChoice && usual.views.contains(view)) else {
+                throw ReplayError.unsupportedCameraView(view.rawValue, exercise: id, line: line)
+            }
+            let variant = record["variant"] as? String
+            let key = definitionKey(id, view: view, usualView: usual.usualView, variant: variant)
+            guard let exercise = exercises[key], exercise.cameraView == view else {
+                throw ReplayError.unknownExercise(key, line: line)
             }
             return .exercise(exercise, analyzerEpoch: epoch)
         case "resetAnalyzer":

@@ -53,6 +53,36 @@ final class VoiceCommandParserTests: XCTestCase {
         }
     }
 
+    func testCameraViewPhrasesAreDestructiveAndDoNotCaptureExerciseNames() {
+        let exercises = [CameraViewTestFixture.hammerCurl()]
+        let parser = VoiceCommandParser(exercises: exercises)
+        let cases: [(String, WorkoutCommand)] = [
+            ("side view", .setCameraView(.locked(.sideOn))),
+            ("side-on view", .setCameraView(.locked(.sideOn))),
+            ("side on", .setCameraView(.locked(.sideOn))),
+            ("front view", .setCameraView(.locked(.facing))),
+            ("front on", .setCameraView(.locked(.facing))),
+            ("auto view", .setCameraView(.auto)),
+            ("automatic view", .setCameraView(.auto))
+        ]
+
+        for (phrase, command) in cases {
+            XCTAssertEqual(parser.parse(phrase)?.command, command, phrase)
+            XCTAssertTrue(parser.aliases.first(where: { $0.display == phrase })?.isDestructive == true, phrase)
+        }
+
+        XCTAssertNil(parser.parse("front"))
+        XCTAssertNil(parser.parse("side"))
+        XCTAssertEqual(parser.parse("hammer curl")?.command, .selectExercise(.hammerCurl))
+        XCTAssertNil(parser.parse("please side view during this set now"), "A camera preference must be said alone.")
+
+        let help = VoiceCommandHelp.sections(exercises: exercises)
+        XCTAssertTrue(help.contains { section in
+            section.title == "Camera view"
+                && section.entries.contains { $0.title == "Side view" && $0.isDestructive }
+        })
+    }
+
     func testSpokenWeights() {
         XCTAssertEqual(parser.parse("My weights are 17.5 pounds")?.command, .setWeight(.mass(17.5, .pounds)))
         XCTAssertEqual(parser.parse("my weights are seventeen point five pounds")?.command, .setWeight(.mass(17.5, .pounds)))
