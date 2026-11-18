@@ -260,6 +260,7 @@ struct WorkoutFramePipeline {
         self.exercise = exercise
 
         if trackingChanged {
+            var loneCredits: Set<BodySide> = []
             if idChanged {
                 viewChangeFrames.removeAll()
                 lastRepCreditTime = nil
@@ -267,6 +268,7 @@ struct WorkoutFramePipeline {
             } else if exercise?.perSide == false {
                 // The session evens the sides at a view change, dropping a one-sided credit.
                 let counted = countedReps
+                loneCredits = Set(BodySide.allCases.filter { (creditedSideReps[$0] ?? 0) > counted })
                 creditedSideReps = [.left: counted, .right: counted]
             }
             let previousFraming = framingEvaluator
@@ -307,7 +309,8 @@ struct WorkoutFramePipeline {
             // A curl past its top in the old view counts when it's lowered in the new one. It resumes after the
             // warm-up, so it credits on a live frame once the new view confirms the start, at most once. The new
             // analyzer keeps its own attempt past the end, and one whose start it saw before that end.
-            let carried = viewChanged && exercise?.hasViewChoice == true ? analyzer?.attemptInProgress() : nil
+            var carried = viewChanged && exercise?.hasViewChoice == true ? analyzer?.attemptInProgress() : nil
+            carried?.pairCredits = loneCredits
             rebuildAnalyzer(epoch: analyzerEpoch)
             if viewChanged {
                 warmAnalyzerFromViewChangeFrames()

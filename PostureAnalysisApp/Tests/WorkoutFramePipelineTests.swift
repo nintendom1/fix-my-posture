@@ -399,6 +399,69 @@ final class WorkoutFramePipelineTests: XCTestCase {
         XCTAssertTrue(events.isEmpty, "Without a view choice, the rep in progress is still lost: \(events)")
     }
 
+    func testAFarArmCurlCarriedToSideOnCountsOnlyWhenItCompletesAPair() {
+        let front = HammerCurlExercise.definition()
+        let side = front.inView(.side)
+        var pipeline = WorkoutFramePipeline(exercise: front, analyzerEpoch: 1, isCounting: true)
+        pipeline.setSessionPhase(.exercising)
+        func repEvents(_ output: WorkoutFramePipeline.FrameOutput) -> [RepEvent] {
+            output.events.compactMap { if case .repCompleted(let rep) = $0 { rep } else { nil } }
+        }
+        let curl: [Double] = [-20, 30, 50, 50, 50, 0, -90, -90]
+
+        // Alternating front curls complete one pair, then the left arm curls to the top and holds there through the
+        // turn and the stance hold, so the right arm's start is confirmed after the left arm's top.
+        let poses: [(left: Double, right: Double)] = Array(repeating: (-90, -90), count: 6)
+            + curl.map { ($0, -90) } + curl.map { (-90, $0) } + [(-20, -90), (30, -90)]
+            + Array(repeating: (50, -90), count: 13)
+        var time: TimeInterval = 0
+        var frontRepEvents: [RepEvent] = []
+        for pose in poses {
+            frontRepEvents += repEvents(pipeline.process(frame: curlFrame(left: pose.left, right: pose.right, at: time),
+                                                         at: time))
+            time += 0.1
+        }
+        XCTAssertEqual(frontRepEvents.map(\.sides), [[.left], [.right]], "One pair is credited before the turn.")
+
+        // Turning side-on puts the left arm behind the body; the tracked right arm hangs, then curls once.
+        pipeline.exerciseChanged(to: side, analyzerEpoch: 2)
+        let switchedAt = time
+        var sideRepEvents: [RepEvent] = []
+        let slowCurl: [Double] = [-20, 30, 50, 50, 50, 50, 50, 0, -90, -90]
+        for right in Array(repeating: -90.0, count: 3) + slowCurl + Array(repeating: -90.0, count: 3) {
+            sideRepEvents += repEvents(pipeline.process(frame: curlFrame(left: -90, right: right, at: time), at: time))
+            time += 0.1
+        }
+
+        XCTAssertEqual(sideRepEvents.map(\.sides), [[.left, .right]],
+                       "The left curl and the right curl make one pair, so the count rises by one, not two.")
+        XCTAssertGreaterThan(sideRepEvents.first?.timestamp ?? 0, switchedAt + 1,
+                             "The pair completes on the right arm's return, not on the switch.")
+    }
+
+    func testAResumedCurlOnAnArmThisViewNeverSampledDoesNotCount() {
+        let analyzer = HammerCurlExercise.definition().makeAnalyzer(1)
+        var time: TimeInterval = 0
+        // The left arm stays behind the body until counting has stopped and resumed.
+        for _ in 0..<6 {
+            _ = analyzer.process(withoutLeftArm(curlFrame(left: -90, right: -90, at: time)), counting: true)
+            time += 0.1
+        }
+        analyzer.resume(RepAttemptInProgress(movementStart: 0, reachedEnd: 0.2, sides: [.left]))
+        for _ in 0..<5 {
+            _ = analyzer.process(withoutLeftArm(curlFrame(left: -90, right: -90, at: time)), counting: false)
+            time += 0.1
+        }
+        var leftRepEvents = 0
+        for _ in 0..<6 {
+            leftRepEvents += analyzer.process(curlFrame(left: -90, right: -90, at: time), counting: true)
+                .repEvents.filter { $0.sides.contains(.left) }.count
+            time += 0.1
+        }
+
+        XCTAssertEqual(leftRepEvents, 0, "A carried curl on an arm this view never saw can't outlive a counting stop.")
+    }
+
     func testTurningFrontToSideOnMidSetNeverLosesFraming() {
         let turn = TurnPlayer(exercise: HammerCurlExercise.definition())
         turn.play(seconds: 1) { turn.front(at: $0) }
@@ -1291,6 +1354,14 @@ final class WorkoutFramePipelineTests: XCTestCase {
                         moveDuration: 0, holdDuration: 1, stepIndex: 0)
         ], forearmPlane: .sagittal)
         return frame(motion: motion, sampledAt: 0, at: time)
+    }
+
+    private func withoutLeftArm(_ frame: PoseFrame) -> PoseFrame {
+        var landmarks = frame.pose.landmarks
+        landmarks[.leftElbow] = nil
+        landmarks[.leftWrist] = nil
+        return PoseFrame(pose: BodyPose(landmarks: landmarks, imageWidth: frame.pose.imageWidth,
+                                        imageHeight: frame.pose.imageHeight), timestamp: frame.timestamp)
     }
 
     /// A front-view hammer-curl pose with each forearm's elevation; the right arm is the more confident, so a

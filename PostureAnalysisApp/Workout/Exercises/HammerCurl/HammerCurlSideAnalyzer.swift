@@ -195,7 +195,11 @@ final class HammerCurlSideAnalyzer: ExerciseAnalyzing {
 
     /// Any carried side continues on the tracked arm, which counts it once its own tracker confirms the start.
     func resume(_ attempt: RepAttemptInProgress) {
-        guard !attempt.sides.isEmpty else { return }
+        guard !attempt.sides.isEmpty, let trackingSide, lastSample != nil else { return }
+        // Side-on credits both arms for each near-arm curl, so the far arm's curl counts here only when it completes
+        // a pair; otherwise the near arm's next curl completes it.
+        let pairSides = attempt.sides.union(attempt.pairCredits)
+        guard attempt.sides.contains(trackingSide) || pairSides.isSuperset(of: BodySide.allCases) else { return }
         if case .active(_, .some) = cycle { return }
         if tracker.confirmed == .bottom, (startConfirmedAt ?? -.infinity) <= attempt.reachedEnd { return }
         cycle = .active(movementStart: attempt.movementStart, topReachedAt: attempt.reachedEnd)

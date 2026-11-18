@@ -137,6 +137,8 @@ struct RepAttemptInProgress: Equatable {
     let reachedEnd: TimeInterval
     /// The sides past the end and not yet credited.
     let sides: Set<BodySide>
+    /// Sides already credited in the same pair before a view change evened them away.
+    var pairCredits: Set<BodySide> = []
 }
 
 /// Exercise-specific rep counting over reliable, unmirrored pixel geometry.
@@ -153,8 +155,9 @@ protocol ExerciseAnalyzing: AnyObject {
     /// none, including after its return was credited or counting stopped.
     func attemptInProgress() -> RepAttemptInProgress?
 
-    /// Continues an attempt carried from the previous camera view, so the next confirmed start credits it once. A side
-    /// whose own attempt already reached the end, or that this view saw at the start before that end, keeps its own.
+    /// Continues an attempt carried from the previous camera view, so it credits once when this view sees the start
+    /// after the carried end (on the first counting frame if that start is already confirmed). A side whose own attempt
+    /// already reached the end, that this view saw at the start before that end, or that it never sampled, keeps its own.
     func resume(_ attempt: RepAttemptInProgress)
 }
 

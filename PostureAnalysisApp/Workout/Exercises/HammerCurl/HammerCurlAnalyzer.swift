@@ -175,7 +175,8 @@ final class HammerCurlAnalyzer: ExerciseAnalyzing {
     /// Each carried arm continues past the Top line, so it counts once its own tracker confirms the start.
     func resume(_ attempt: RepAttemptInProgress) {
         for side in attempt.sides {
-            var state = arms[side] ?? ArmState(tracker: HysteresisPhaseTracker(requiredSamples: configuration.confirmationSamples))
+            // An arm this view never sampled can't bound the attempt by its gap or counting checks, so it doesn't resume.
+            guard var state = arms[side], state.lastSample != nil else { continue }
             if case .active(_, .some) = state.cycle { continue }
             if state.tracker.confirmed == .bottom, (state.startConfirmedAt ?? -.infinity) <= attempt.reachedEnd { continue }
             state.cycle = .active(movementStart: attempt.movementStart, topReachedAt: attempt.reachedEnd)

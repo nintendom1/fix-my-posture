@@ -408,8 +408,8 @@ final class HammerCurlSideAnalyzerTests: XCTestCase {
         }
         XCTAssertNil(analyzer.attemptInProgress())
 
-        // The front view carries one arm; the tracked arm continues it.
-        analyzer.resume(RepAttemptInProgress(movementStart: -1, reachedEnd: -0.5, sides: [.right]))
+        // The front view carries the tracked arm's curl, which side-on credits for both arms.
+        analyzer.resume(RepAttemptInProgress(movementStart: -1, reachedEnd: -0.5, sides: [.left]))
         XCTAssertEqual(analyzer.attemptInProgress(),
                        RepAttemptInProgress(movementStart: -1, reachedEnd: -0.5, sides: Set(BodySide.allCases)))
 
@@ -420,6 +420,24 @@ final class HammerCurlSideAnalyzerTests: XCTestCase {
         }
 
         XCTAssertEqual(reps, [RepEvent(epoch: 13, timestamp: 0.5, sides: Set(BodySide.allCases))])
+    }
+
+    @MainActor
+    func testAFarArmCurlResumesOnlyWhenItCompletesAPair() {
+        func warmed() -> HammerCurlSideAnalyzer {
+            let analyzer = HammerCurlSideAnalyzer(epoch: 13)
+            for index in 0..<3 {
+                _ = analyzer.process(sideFrame(angles: sideMotion.topAngles, at: Double(index) / 10), counting: true)
+            }
+            return analyzer
+        }
+        let alone = warmed()
+        alone.resume(RepAttemptInProgress(movementStart: -1, reachedEnd: -0.5, sides: [.right]))
+        XCTAssertNil(alone.attemptInProgress(), "The far arm alone isn't a pair; the tracked arm's next curl completes it.")
+
+        let completing = warmed()
+        completing.resume(RepAttemptInProgress(movementStart: -1, reachedEnd: -0.5, sides: [.right], pairCredits: [.left]))
+        XCTAssertNotNil(completing.attemptInProgress(), "With the tracked arm already credited, the far arm completes the pair.")
     }
 
     @MainActor
