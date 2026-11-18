@@ -10,6 +10,7 @@ export function sectionHref(href, section) {
   const url = new URL(href);
   if (section === "recordings") {
     url.searchParams.set("view", "recordings");
+    for (const key of ["labRun", "labScenario", "labTime"]) url.searchParams.delete(key);
   } else {
     url.searchParams.set("view", "runs");
     for (const key of ["session", "t", "from", "to", "export"]) url.searchParams.delete(key);
@@ -47,12 +48,14 @@ export function labOpenRequestFromCommand(event) {
 
 /** Connect the viewer's SSE command stream to the shared lab-open request handler. */
 export function installLabOpenCommandReceiver(eventSource, handleRequest) {
-  eventSource.onmessage = (message) => {
+  const receive = (message) => {
     let event;
     try { event = JSON.parse(message.data); } catch { return; }
     const target = labOpenRequestFromCommand(event);
     if (target) return handleRequest(target);
   };
+  if (typeof eventSource.addEventListener === "function") eventSource.addEventListener("message", receive);
+  else eventSource.onmessage = receive;
 }
 
 /** Dispatch a normalized URL or viewer command through the dashboard's existing navigation callbacks. */

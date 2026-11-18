@@ -235,6 +235,8 @@ test("section URLs retain recording deep links and clear them when returning to 
   const deepLink = "http://127.0.0.1:4317/?session=synthetic-id&t=4.9&from=4&to=6&export=1";
   assert.equal(sectionHref(deepLink, "recordings"), "/?session=synthetic-id&t=4.9&from=4&to=6&export=1&view=recordings");
   assert.equal(sectionHref(deepLink, "runs"), "/?view=runs");
+  assert.equal(sectionHref("http://127.0.0.1:4317/?labRun=20261108-100000-a1b2&labScenario=failed&labTime=4.75", "recordings"),
+    "/?view=recordings");
 });
 
 test("shared section tabs remain visible outside both views and keep the active tab across sections", async () => {

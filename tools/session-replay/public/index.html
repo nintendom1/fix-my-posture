@@ -15,6 +15,7 @@
   </nav>
   <div class="spacer"></div>
   <span id="labNote" class="muted small">Synthetic Movement Lab artifacts · local only</span>
+  <button type="button" id="followNewToggle" class="chip" data-global-player-toggle="follow" aria-pressed="true">Follow new</button>
   <button type="button" id="labRefresh" class="button">Refresh</button>
 </header>
 
@@ -115,6 +116,10 @@
       <button class="icon" id="nextEvent" title="Next event ( ] )">⏭</button>
       <span class="mono clock"><span id="timeSmall">0:00.00</span><span class="muted"> / <span id="duration">0:00.00</span></span></span>
       <div id="speeds" class="segmented"></div>
+      <div class="player-options" aria-label="Playback options">
+        <button type="button" id="autoplayToggle" class="chip" data-player-toggle="autoplay" aria-pressed="true">Autoplay</button>
+        <button type="button" id="loopToggle" class="chip" data-player-toggle="loop" aria-pressed="true">Loop</button>
+      </div>
       <span id="selectionLabel" class="muted small mono"></span>
       <div class="spacer"></div>
       <span class="muted small">Space play · ←/→ frame · Shift+←/→ 1 s · [ ] events · Shift-drag select · N note · E export</span>

@@ -10,7 +10,7 @@
 import { createServer as createHTTPServer } from "node:http";
 import { spawn } from "node:child_process";
 import { randomBytes, randomInt, randomUUID } from "node:crypto";
-import { promises as fs, constants as fsConstants } from "node:fs";
+import { promises as fs, constants as fsConstants, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createStore, StoreError } from "./lib/store.mjs";
@@ -29,6 +29,8 @@ const MAX_JSON_BYTES = 8 * 1024 * 1024;
 const STATIC = {
   "/": ["public/index.html", "text/html; charset=utf-8"],
   "/app.js": ["public/app.js", "text/javascript; charset=utf-8"],
+  "/events.mjs": ["public/events.mjs", "text/javascript; charset=utf-8"],
+  "/player-controls.mjs": ["public/player-controls.mjs", "text/javascript; charset=utf-8"],
   "/views.mjs": ["public/views.mjs", "text/javascript; charset=utf-8"],
   "/style.css": ["public/style.css", "text/css; charset=utf-8"],
   "/lib/session.mjs": ["lib/session.mjs", "text/javascript; charset=utf-8"],
@@ -46,6 +48,7 @@ const PAGE_NONCE_LIFETIME_MS = 60 * 60 * 1000;
 const CONFIRMATION_TOKEN_LIFETIME_MS = 60 * 1000;
 const PROMOTION_CODE_MAX_ATTEMPTS = 5;
 const SAFE_LAB_ID = /^[a-z0-9_-]{1,64}$/;
+const RECORDING_ID = /^[0-9A-Fa-f-]{36}$/;
 
 function within(root, candidate) {
   const relative = path.relative(root, candidate);
@@ -221,7 +224,7 @@ function serialQueue() {
 
 /** The viewer's server. `root` is the repository; recordings live in `root/diagnostics/sessions`. */
 export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT, executePlan = runMovementPlan,
-  maxJSONBytes = MAX_JSON_BYTES, now = () => Date.now(),
+  maxJSONBytes = MAX_JSON_BYTES, now = () => Date.now(), followPollMs = 1000,
   writePromotionCode = (line) => process.stdout.write(line) } = {}) {
   const store = createStore(root);
   const labStore = createLabStore(root);
@@ -232,6 +235,65 @@ export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT, exec
   const enqueueRerun = serialQueue();
   let viewerState = null;
   let lastSent = null;
+
+  const sessionsDirectory = path.join(root, "diagnostics", "sessions");
+  const runsDirectory = path.join(root, "diagnostics", "movement-lab", "runs");
+  const initialRecordingIDs = new Set(directoryNames(sessionsDirectory)
+    .filter((name) => name.endsWith(".json") && !name.endsWith(".summary.json") && !name.endsWith(".notes.json"))
+    .map((name) => name.slice(0, -5)).filter((id) => RECORDING_ID.test(id)));
+  const initialLabRunIDs = new Set(directoryNames(runsDirectory, true).filter((id) => isSafeRunID(id)));
+  const publishedRecordingIDs = new Set(initialRecordingIDs);
+  const publishedLabRunIDs = new Set(initialLabRunIDs);
+  const pendingRecordings = new Map();
+  let followWatcherStopped = false;
+  let followPollRunning = false;
+
+  async function pollForAddedWork() {
+    if (followWatcherStopped || followPollRunning) return;
+    followPollRunning = true;
+    try {
+      const sessionEntries = await fs.readdir(sessionsDirectory, { withFileTypes: true }).catch(() => []);
+      for (const entry of sessionEntries) {
+        if (followWatcherStopped) return;
+        if (!entry.isFile() || !entry.name.endsWith(".json") || entry.name.endsWith(".summary.json")
+          || entry.name.endsWith(".notes.json")) continue;
+        const id = entry.name.slice(0, -5);
+        if (!RECORDING_ID.test(id) || publishedRecordingIDs.has(id)) continue;
+        const stat = await fs.stat(path.join(sessionsDirectory, entry.name)).catch(() => null);
+        if (followWatcherStopped) return;
+        if (!stat?.isFile() || stat.size === 0) continue;
+        const signature = `${stat.size}:${stat.mtimeMs}`;
+        if (pendingRecordings.get(id) === signature) {
+          publishedRecordingIDs.add(id);
+          pendingRecordings.delete(id);
+          broadcast({ type: "added", kind: "recording", id });
+        } else pendingRecordings.set(id, signature);
+      }
+
+      const runEntries = await fs.readdir(runsDirectory, { withFileTypes: true }).catch(() => []);
+      for (const entry of runEntries) {
+        if (followWatcherStopped) return;
+        if (!entry.isDirectory() || !isSafeRunID(entry.name) || publishedLabRunIDs.has(entry.name)) continue;
+        const files = await fs.readdir(path.join(runsDirectory, entry.name), { withFileTypes: true }).catch(() => []);
+        if (followWatcherStopped) return;
+        const completed = ["results.json", "summary.json"].every((filename) =>
+          files.some((file) => file.name === filename && file.isFile()));
+        if (!completed) continue;
+        publishedLabRunIDs.add(entry.name);
+        broadcast({ type: "added", kind: "labRun", id: entry.name });
+      }
+    } finally {
+      followPollRunning = false;
+    }
+  }
+
+  const followTimer = setInterval(() => { void pollForAddedWork().catch(() => {}); }, Math.max(10, Number(followPollMs) || 1000));
+  followTimer.unref?.();
+
+  function stopFollowWatcher() {
+    followWatcherStopped = true;
+    clearInterval(followTimer);
+  }
 
   function issuePageNonce() {
     const currentTime = now();
@@ -534,9 +596,21 @@ export function createServer({ root = REPOSITORY_ROOT, port = DEFAULT_PORT, exec
       sendJSON(response, { error: error?.message ?? String(error) }, status);
     });
   });
+  server.on("close", stopFollowWatcher);
   server.urlFor = (actualPort = server.address()?.port ?? port) => `http://127.0.0.1:${actualPort}/`;
   server.closeClients = () => { for (const client of clients) client.end(); clients.clear(); };
+  Object.defineProperty(server, "followWatcherActive", { get: () => !followWatcherStopped });
   return server;
+}
+
+function directoryNames(directory, directoriesOnly = false) {
+  try {
+    return readdirSync(directory, { withFileTypes: true })
+      .filter((entry) => directoriesOnly ? entry.isDirectory() : entry.isFile())
+      .map((entry) => entry.name);
+  } catch {
+    return [];
+  }
 }
 
 function send(response, status, data, type) {

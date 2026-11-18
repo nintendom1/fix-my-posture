@@ -260,6 +260,29 @@ test("Movement Lab MCP runs a scenario in a named camera view and rejects an unk
   }
 });
 
+test("dashboard open navigates connected viewers in place without launching a browser", async () => {
+  const runID = "20261108-120000-ab12";
+  const scenario = samplePlan().scenarios[0];
+  const records = [
+    { k: "header", jointOrder: ["leftHip", "rightHip"] },
+    { k: "f", t: 0, j: [[0, 100, 1], [0, 100, 1]] },
+    { k: "f", t: 1.25, j: [[0, 130, 1], [0, 130, 1]] },
+  ];
+  const store = {
+    async readRun() { return { plan: { scenarios: [scenario] } }; },
+    async readScenarioArtifact() { return records; },
+  };
+  const calls = [];
+  const result = await openLabDashboard({ store, runID, scenarioID: scenario.id, baseURL: "http://127.0.0.1:4317/",
+    ensureViewer: async () => calls.push("ensure"), getViewerState: async () => ({ viewers: 2 }),
+    openURL: async () => assert.fail("a connected viewer should not create another tab"),
+    sendCommand: async (command) => { calls.push(command); return { delivered: 2 }; },
+  });
+  assert.equal(result.openedInPlace, true);
+  assert.equal(result.delivered, 2);
+  assert.deepEqual(calls, ["ensure", { command: "lab-open", runID, scenarioID: "canonical-fail", timestamp: 1.25 }]);
+});
+
 test("Movement Lab MCP exposes strict schemas while preserving existing recording tools", async () => {
   const { request, call, stop } = await start();
   try {

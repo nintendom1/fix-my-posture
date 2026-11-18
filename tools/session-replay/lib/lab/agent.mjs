@@ -124,18 +124,19 @@ export async function resolveLabOpenTarget(store, runID, scenarioID) {
   return { run, scenario, timestamp };
 }
 
-export async function openLabDashboard({ store, runID, scenarioID, baseURL, ensureViewer, openURL, sendCommand }) {
+export async function openLabDashboard({ store, runID, scenarioID, baseURL, ensureViewer, getViewerState, openURL, sendCommand }) {
   const target = await resolveLabOpenTarget(store, runID, scenarioID);
   await ensureViewer();
   const params = new URLSearchParams({ labRun: runID });
   if (scenarioID) params.set("labScenario", scenarioID);
   if (Number.isFinite(target.timestamp)) params.set("labTime", String(target.timestamp));
   const url = `${baseURL}?${params}`;
-  await openURL(url);
+  const connected = Number((await getViewerState?.())?.viewers ?? 0) > 0;
+  if (!connected) await openURL(url);
   const command = labOpenCommand(runID, scenarioID, target.timestamp);
   const response = await sendCommand(command);
   if (response === undefined || response === null) throw new Error("The local viewer server did not accept the run-selection command.");
-  return { ...target, command, url, delivered: response.delivered ?? 0 };
+  return { ...target, command, url, delivered: response.delivered ?? 0, openedInPlace: connected };
 }
 
 export function assertBoundedInspection(text, { full = false, byteCap = MCP_FULL_TRACE_BYTE_CAP } = {}) {

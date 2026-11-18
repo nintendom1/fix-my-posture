@@ -20,6 +20,8 @@ import { createLabStore } from "./lib/lab/store.mjs";
 import { MCP_FULL_TRACE_BYTE_CAP, MCP_MAX_PLAN_BYTES, assertBoundedInspection, formatAgentManifest,
   formatAgentRun, openLabDashboard, prepareAgentPlan } from "./lib/lab/agent.mjs";
 import { MUTATION_BOUNDS, SCENARIO_CATEGORIES, SWIFT_CAMERA_VIEWS, SWIFT_LANDMARK_NAMES } from "./lib/lab/plan.mjs";
+import { openReplayViewer } from "./lib/viewer.mjs";
+import { followScenarioForRun } from "./public/player-controls.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = process.env.FMP_REPLAY_ROOT ?? path.resolve(here, "../..");
@@ -139,13 +141,26 @@ const TOOLS = [
   },
   {
     name: "fmp_viewer_selection",
-    description: "What the user sent from the replay viewer with \"Send to Claude\" (the excerpt they chose), and where the open viewer is now: recording, playhead, and selection.",
+    description: "What the user sent with \"Send to Claude\" and the current recording or Movement Lab item, playhead, selection, and playback settings.",
     inputSchema: { type: "object", properties: {} },
   },
   {
     name: "fmp_viewer_seek",
-    description: "Move the user's open replay viewer to a time, optionally selecting a range and showing a short message, so they can see the frame you're describing.",
-    inputSchema: { type: "object", required: ["t"], properties: { session, t: time, from: time, to: time, note: { type: "string", maxLength: 300 } } },
+    description: "Move the user's open replay viewer to a time, optionally selecting a range, showing a short message, and starting playback. With play=true and from/to, the range loops.",
+    inputSchema: { type: "object", required: ["t"], properties: { session, t: time, from: time, to: time,
+      play: { type: "boolean", description: "Start playback after seeking; with from/to, loop that range." },
+      note: { type: "string", maxLength: 300 } } },
+  },
+  {
+    name: "fmp_viewer_control",
+    description: "Control playback and viewer preferences in open replay viewer pages, or open the newest recording or Movement Lab run.",
+    inputSchema: { type: "object", required: ["action"], additionalProperties: false,
+      properties: {
+        action: { type: "string", enum: ["play", "pause", "toggle", "loop", "autoplay", "follow", "speed", "reload", "latest"] },
+        value: { type: "string", enum: ["on", "off"], description: "Required for loop, autoplay, and follow." },
+        speed: { type: "number", enum: [0.25, 0.5, 1, 2, 4], description: "Required for speed." },
+        kind: { type: "string", enum: ["recording", "labRun"], description: "Required for latest." },
+      } },
   },
   {
     name: "fmp_add_note",
@@ -201,7 +216,7 @@ const TOOLS = [
   },
   {
     name: "fmp_lab_open",
-    description: "Open the local Movement Lab dashboard at a run or a scenario's stored keyframe using the viewer command channel.",
+    description: "Open the local Movement Lab dashboard at a run or a scenario's stored keyframe in connected viewer pages, or open a browser when none is connected.",
     inputSchema: {
       type: "object", required: ["runID"], additionalProperties: false,
       properties: {
@@ -413,10 +428,14 @@ async function selection() {
   const sent = (await viewer("api/viewer/sent")) ?? await store.readOutbox();
   const lines = [];
   if (state === undefined) lines.push("The viewer's server isn't running (fmp_open_viewer starts it).");
-  else if (!state?.sessionId) lines.push(`The viewer's server is running with ${state?.viewers ?? 0} open viewer(s), and no recording reported yet.`);
-  else {
+  else if (state?.sessionId) {
     lines.push(`Open viewer: ${state.title ?? state.sessionId} (${state.sessionId}) at ${clock(Number(state.t ?? 0))}`
-      + `${state.selection ? `, selected ${clock(state.selection.from)}–${clock(state.selection.to)}` : ", nothing selected"}; ${state.viewers ?? 0} viewer(s) open.`);
+      + `${state.selection ? `, selected ${clock(state.selection.from)}–${clock(state.selection.to)}` : ", nothing selected"}; ${viewerPlaybackStatus(state)}; ${state.viewers ?? 0} viewer(s) open.`);
+  } else if (state?.runID) {
+    lines.push(`Open Movement Lab run ${state.runID}${state.scenarioID ? `, scenario ${state.scenarioID}` : ""} at ${clock(Number(state.t ?? 0))};`
+      + ` ${viewerPlaybackStatus(state)}; ${state.viewers ?? 0} viewer(s) open.`);
+  } else {
+    lines.push(`The viewer's server is running with ${state?.viewers ?? 0} open viewer(s), and no item reported yet; ${viewerPlaybackStatus(state)}.`);
   }
   if (sent?.markdown) {
     const markdown = sent.markdown.length > MAX_CHARS
@@ -428,9 +447,17 @@ async function selection() {
   return lines.join("\n");
 }
 
+function viewerPlaybackStatus(state) {
+  const speed = Number(state?.speed);
+  return `${state?.playing ? "playing" : "paused"}; loop ${state?.loop === false ? "off" : "on"};`
+    + ` autoplay ${state?.autoplay === false ? "off" : "on"}; follow ${state?.follow === false ? "off" : "on"};`
+    + ` speed ${Number.isFinite(speed) && speed > 0 ? speed : 1}×`;
+}
+
 async function seek(args) {
   const summary = await resolveSession(args.session);
-  const command = { command: "seek", sessionId: summary.id, t: seconds(args.t, "t"), from: seconds(args.from, "from"), to: seconds(args.to, "to"), note: args.note ?? null };
+  const command = { command: "seek", sessionId: summary.id, t: seconds(args.t, "t"), from: seconds(args.from, "from"),
+    to: seconds(args.to, "to"), note: args.note ?? null, ...(args.play === true ? { play: true } : {}) };
   const result = await viewer("api/viewer/command", { method: "POST", body: JSON.stringify(command) });
   if (result === undefined) throw new ToolError("The replay viewer isn't open. Call fmp_open_viewer first.");
   if (!result.delivered) return `The viewer's server is running but no viewer is open; call fmp_open_viewer with t=${command.t}.`;
@@ -449,14 +476,50 @@ async function addNote(args) {
 }
 
 async function openViewer(args) {
-  const started = await ensureViewerServer();
-  const params = new URLSearchParams();
-  if (args.session) params.set("session", (await resolveSession(args.session)).id);
-  for (const key of ["t", "from", "to"]) if (args[key] != null) params.set(key, String(seconds(args[key], key)));
-  if (args.export) params.set("export", "1");
-  const url = `${BASE}${params.size ? `?${params}` : ""}`;
-  spawn("open", [url], { detached: true, stdio: "ignore" }).unref();
-  return `${started ? "Started the viewer's server and opened" : "Opened"} ${url}`;
+  const sessionID = args.session ? (await resolveSession(args.session)).id : null;
+  const converted = { ...args };
+  for (const key of ["t", "from", "to"]) if (args[key] != null) converted[key] = seconds(args[key], key);
+  let result;
+  try {
+    result = await openReplayViewer({ args: converted, sessionID, baseURL: BASE,
+      ensureViewer: ensureViewerServer,
+      getViewerState: () => viewer("api/viewer/state"),
+      openURL,
+      sendCommand: (command) => viewer("api/viewer/command", { method: "POST", body: JSON.stringify(command) }) });
+  } catch (error) { throw new ToolError(error.message); }
+  if (result.connected) return `Navigated ${result.delivered} connected viewer(s) to ${result.url} in place.`;
+  return `${result.started ? "Started the viewer's server and opened" : "Opened"} ${result.url}`;
+}
+
+async function viewerControl(args) {
+  if (["loop", "autoplay", "follow"].includes(args.action)
+    && !["on", "off"].includes(args.value)) {
+    throw new ToolError(`${args.action} requires value "on" or "off".`);
+  }
+  if (args.action === "speed" && ![0.25, 0.5, 1, 2, 4].includes(args.speed)) {
+    throw new ToolError("speed requires one of 0.25, 0.5, 1, 2, or 4.");
+  }
+  if (args.action === "latest" && !["recording", "labRun"].includes(args.kind)) {
+    throw new ToolError('latest requires kind "recording" or "labRun".');
+  }
+  if (args.action === "latest" && args.kind === "recording") {
+    const latest = (await store.listSessions())[0];
+    if (!latest) throw new ToolError("No recordings are available to open.");
+    return openViewer({ session: latest.id, t: 0 });
+  }
+  if (args.action === "latest" && args.kind === "labRun") {
+    const latest = (await labStore.listRuns())[0];
+    if (!latest) throw new ToolError("No Movement Lab runs are available to open.");
+    const run = await labStore.readRun(latest.id);
+    const scenarioID = followScenarioForRun(run);
+    return labOpen({ runID: latest.id, ...(scenarioID ? { scenarioID } : {}) });
+  }
+  const command = { command: "control", action: args.action };
+  if (["loop", "autoplay", "follow"].includes(args.action)) command.enabled = args.value === "on";
+  if (args.action === "speed") command.speed = args.speed;
+  const result = await viewer("api/viewer/command", { method: "POST", body: JSON.stringify(command) });
+  if (result === undefined) throw new ToolError("The replay viewer isn't open. Call fmp_open_viewer first.");
+  return `Sent ${args.action} to ${result.delivered} viewer(s).`;
 }
 
 let presetManifestPromise = null;
@@ -530,11 +593,13 @@ async function labOpen(args) {
   let result;
   try {
     result = await openLabDashboard({ store: labStore, runID: args.runID, scenarioID: args.scenarioID,
-      baseURL: BASE, ensureViewer: ensureViewerServer, openURL,
+      baseURL: BASE, ensureViewer: ensureViewerServer, getViewerState: () => viewer("api/viewer/state"), openURL,
       sendCommand: (command) => viewer("api/viewer/command", { method: "POST", body: JSON.stringify(command) }) });
   } catch (error) { throw new ToolError(error.message); }
   const target = args.scenarioID ? `scenario ${args.scenarioID} at ${clock(result.timestamp)}` : `run ${args.runID}`;
-  return `Opened the Movement Lab dashboard for ${target}; sent the viewer command to ${result.delivered} connected viewer(s).`;
+  return result.openedInPlace
+    ? `Navigated ${result.delivered} connected viewer(s) to the Movement Lab dashboard for ${target} in place.`
+    : `Opened the Movement Lab dashboard for ${target} in a browser.`;
 }
 
 // Calls while a pull runs share it; separate pulls (another session, or `make diagnostics`) are refused by the script.
@@ -567,6 +632,7 @@ const HANDLERS = {
   fmp_events: events,
   fmp_viewer_selection: selection,
   fmp_viewer_seek: seek,
+  fmp_viewer_control: viewerControl,
   fmp_add_note: addNote,
   fmp_open_viewer: openViewer,
   fmp_lab_manifest: labManifest,

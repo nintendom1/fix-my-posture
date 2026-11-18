@@ -7,17 +7,50 @@ import http from "node:http";
 import { createServer } from "../server.mjs";
 import { ID, arrayText, linesText } from "./fixtures.mjs";
 
-async function start() {
+async function start({ followPollMs = 1000 } = {}) {
   const root = await mkdtemp(path.join(tmpdir(), "fmp-replay-"));
   await mkdir(path.join(root, "diagnostics", "sessions"), { recursive: true });
   await writeFile(path.join(root, "diagnostics", "sessions", `${ID}.json`), arrayText());
-  const server = createServer({ root });
+  const server = createServer({ root, followPollMs });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const base = server.urlFor();
   const post = (route, body, headers = {}) => fetch(base + route.slice(1), { method: "POST",
     headers: { "Content-Type": "application/json", "X-FMP-Replay": "1", ...headers }, body: typeof body === "string" ? body : JSON.stringify(body) });
   const stop = async () => { server.closeClients(); await new Promise((resolve) => server.close(resolve)); await rm(root, { recursive: true, force: true }); };
-  return { root, base, post, stop };
+  return { root, base, post, server, stop };
+}
+
+function collectEvents(base) {
+  const events = [];
+  let buffer = "";
+  let response;
+  const ready = new Promise((resolve, reject) => {
+    const request = http.get(base + "api/events", (stream) => {
+      response = stream;
+      stream.setEncoding("utf8");
+      stream.on("data", (chunk) => {
+        buffer += chunk;
+        const frames = buffer.split("\n\n");
+        buffer = frames.pop() ?? "";
+        for (const frame of frames) {
+          const line = frame.split("\n").find((value) => value.startsWith("data: "));
+          if (line) events.push(JSON.parse(line.slice(6)));
+        }
+      });
+      resolve();
+    });
+    request.on("error", reject);
+  });
+  return { events, ready, close: () => response?.destroy() };
+}
+
+async function waitFor(predicate, message) {
+  const deadline = Date.now() + 3000;
+  while (Date.now() < deadline) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.fail(message);
 }
 
 test("lists recordings and serves files, building a summary for one without", async () => {
@@ -36,6 +69,8 @@ test("lists recordings and serves files, building a summary for one without", as
     assert.equal(JSON.parse(await file.text()).length > 200, true);
     assert.equal((await fetch(base)).status, 200);
     assert.equal((await fetch(base + "lib/session.mjs")).status, 200);
+    assert.equal((await fetch(base + "events.mjs")).status, 200);
+    assert.equal((await fetch(base + "player-controls.mjs")).status, 200);
   } finally {
     await stop();
   }
@@ -128,4 +163,50 @@ test("concurrent note saves all survive", async () => {
   } finally {
     await stop();
   }
+});
+
+test("follow events report one new recording and one completed run, after both run files exist", async () => {
+  const { root, base, stop } = await start({ followPollMs: 20 });
+  const stream = collectEvents(base);
+  try {
+    await stream.ready;
+    const newID = "11111111-1111-4111-8111-111111111111";
+    await writeFile(path.join(root, "diagnostics", "sessions", `${newID}.json`), arrayText());
+    await waitFor(() => stream.events.filter((event) => event.type === "added" && event.id === newID).length === 1,
+      "the new recording should produce one follow event");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(stream.events.filter((event) => event.type === "added" && event.id === newID).length, 1);
+
+    const runID = "20261117-120000-f00d";
+    const runDirectory = path.join(root, "diagnostics", "movement-lab", "runs", runID);
+    await mkdir(runDirectory, { recursive: true });
+    await writeFile(path.join(runDirectory, "summary.json"), "{}\n");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(stream.events.some((event) => event.type === "added" && event.id === runID), false,
+      "a run with only summary.json is still partial");
+    await writeFile(path.join(runDirectory, "results.json"), "[]\n");
+    await waitFor(() => stream.events.filter((event) => event.type === "added" && event.id === runID).length === 1,
+      "a run with results and summary should produce one follow event");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(stream.events.filter((event) => event.type === "added" && event.id === runID).length, 1);
+    assert.deepEqual(stream.events.find((event) => event.id === newID), { type: "added", kind: "recording", id: newID });
+    assert.deepEqual(stream.events.find((event) => event.id === runID), { type: "added", kind: "labRun", id: runID });
+  } finally {
+    stream.close();
+    await stop();
+  }
+});
+
+test("the follow poller stops when the viewer server closes", async () => {
+  const { root, server } = await start({ followPollMs: 20 });
+  try {
+    assert.equal(server.followWatcherActive, true);
+    server.closeClients();
+    await new Promise((resolve) => server.close(resolve));
+    assert.equal(server.followWatcherActive, false);
+    const newID = "22222222-2222-4222-8222-222222222222";
+    await writeFile(path.join(root, "diagnostics", "sessions", `${newID}.json`), arrayText());
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    assert.equal(server.followWatcherActive, false);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
